@@ -1,0 +1,38 @@
+import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+const PUBLIC_ROUTES = ["/login", "/register", "/api/auth", "/", "/_next"];
+const API_ROUTES = ["/api"];
+
+export default auth(async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const session = (req as unknown as { auth: { user?: { id: string } } }).auth;
+
+  // Laisser passer les routes publiques
+  const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  if (isPublic) return NextResponse.next();
+
+  // Protéger les routes API (sauf auth)
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
+  // Rediriger vers login si non authentifié
+  if (!session?.user) {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+});
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};
