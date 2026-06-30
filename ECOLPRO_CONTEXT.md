@@ -2,7 +2,7 @@
 
 > **Objectif :** SaaS multi-tenant de gestion scolaire, marché africain francophone.  
 > **Stack :** Next.js 15 (App Router) · Prisma 6 · PostgreSQL · NextAuth v5 · Tailwind CSS · shadcn/ui · TypeScript strict  
-> **Dossier projet :** `/Users/awalehosman/Claude/Projects/logiciel EcolPro`  
+> **Dossier projet :** `/Users/awalehosman/Documents/logiciel EcolPro`  
 > **URL démo :** `lycee-demo.ecolpro.app` — slug `lycee-demo`, pays `SN`, devise `XOF`
 
 ---
@@ -97,48 +97,48 @@ GET /api/analytics
 
 ---
 
-## Modules RESTANTS à construire 🔲
+## Modules construits depuis (désormais TERMINÉS ✅)
 
-> Continuer dans cet ordre de priorité :
+> ⚠️ Les 8 modules listés autrefois comme « à construire » sont **tous réalisés**.
 
-### 1. M25 — Communication & Marketing école
-- Route : `/communication`
-- Envoi de notifications groupées (tous parents, toutes classes, niveau)
-- Modèle Prisma : `Notification` (titre, contenu, cible, canal: email/sms/push, statut)
+| Module | Route | État |
+|--------|-------|------|
+| M25 Communication | `/communication` | ✅ + **envoi réel** email/SMS/push (voir Infra) |
+| M26 Rapports & stats | `/rapports` | ✅ |
+| M16 LMS e-Learning | `/cours` | ✅ (`Cours`, `ContenuCours`, `ProgressionEleve`) |
+| M27 Orientation & parcours | `/orientation` | ✅ (`ParcoursScolaire`) |
+| M29/M30 Offline & SMS/WhatsApp | PWA + webhooks | ✅ (SW + `/api/webhooks/sms` `/whatsapp` signés) |
+| M32/M33 Alumni & Inventaire | `/alumni` `/inventaire` | ✅ |
+| M35 Super Admin | `/super-admin` | ✅ (RBAC SUPER_ADMIN) |
+| M36 App mobile | Capacitor | ✅ coque native iOS/Android (voir `MOBILE_DEPLOIEMENT.md`) |
 
-### 2. M26 — Reporting officiel & Statistiques
-- Route : `/rapports`
-- Génération de rapports PDF officiels : palmarès, statistiques annuelles, rapport d'inspection
-- Utilise le skill `pdf` pour les exports
+---
 
-### 3. M16 — LMS intégré e-Learning
-- Route : `/cours`
-- Création de cours par les enseignants (titre, description, fichiers, liens vidéo)
-- Accès élèves/parents
-- Nouveau modèle Prisma : `Cours`, `ContenuCours`, `ProgressionEleve`
+## Infrastructure pro (sécurité & ops)
 
-### 4. M27 — Orientation & Parcours élève
-- Route : `/orientation`
-- Suivi du parcours scolaire pluriannuel d'un élève
-- Recommandations d'orientation par filière selon moyennes
+- **RBAC** — `src/lib/rbac.ts` : matrice permissions par rôle (`<module>:<action>`),
+  helper `checkPermission(role, perm)` appliqué sur les routes API mutantes.
+  `authorize()` / `authorizeSuperAdmin()` disponibles.
+- **Notifications réelles** — `src/lib/notifications/` : `dispatch.ts` (résolution
+  destinataires par cible + envoi), `email.ts` (Resend), `push.ts` (FCM HTTP v1
+  signé avec `jose`, Android+iOS). Repli « simulation » si creds absents.
+- **Cron** — `/api/cron/dispatch-scheduled` (protégé `CRON_SECRET`) + `vercel.json`
+  (toutes les 5 min) pour les notifications `PLANIFIEE`.
+- **Webhooks signés** — `src/lib/webhooks.ts` : HMAC Meta (WhatsApp) + secret
+  partagé (SMS). Exemptés d'auth de session dans `src/middleware.ts`.
+- **Fiche élève** — `/eleves/[id]` + `EleveDetailView` (onglets infos/notes/
+  absences/discipline/finances/parcours).
+- **Build prod** — `next build` vert (Next.js 15 : `params`/`searchParams` async).
 
-### 5. M29+M30 — Mode hors-ligne & SMS/WhatsApp
-- Service worker pour PWA offline
-- Intégration Twilio/Africa's Talking pour SMS
-- Intégration WhatsApp Business API
+## Modules RESTANTS / pistes 🔲
 
-### 6. M32+M33 — Alumni & Inventaire
-- Alumni : annuaire anciens élèves, suivi post-diplôme
-- Inventaire : gestion matériel scolaire, bibliothèque
-
-### 7. M35 — Super Admin & Onboarding SaaS
-- Route : `/super-admin` (SUPER_ADMIN uniquement)
-- Tableau de bord de tous les tenants, création école, gestion plans
-- Onboarding guidé pour nouveaux établissements
-
-### 8. M36+M37 — App mobile & Intégrations
-- React Native / Expo
-- Intégrations : Wave Money, Orange Money, Google Classroom
+- **Notifications planifiées** : le cron existe mais dépend d'un ordonnanceur
+  externe configuré (Vercel Cron ou autre) + `CRON_SECRET` en prod.
+- **Intégrations paiement** : Wave Money / Orange Money (modèle `Paiement` prêt,
+  pas d'appel API réel) ; Stripe (champs tenant présents, pas branché).
+- **Déploiement & stores** : build web → Vercel ; mobile → comptes Apple (99 $/an)
+  et Google Play (25 $) requis, + Xcode/Android Studio. Voir `MOBILE_DEPLOIEMENT.md`.
+- **Tests automatisés** : aucun pour l'instant (pas de Jest/Playwright).
 
 ---
 
@@ -181,7 +181,7 @@ Les routes sont **sans** préfixe `/dashboard` :
 
 ```bash
 # Installer les dépendances
-cd "/Users/awalehosman/Claude/Projects/logiciel EcolPro"
+cd "/Users/awalehosman/Documents/logiciel EcolPro"
 npm install
 
 # Générer le client Prisma + migrer
@@ -202,7 +202,16 @@ node_modules/.bin/tsc --noEmit
 
 ## Prochaine instruction pour Claude
 
-**Commencer par :** M25 Communication (notifications groupées), puis M26 Rapports PDF, puis M16 LMS.
+Tous les modules fonctionnels sont construits. Priorités restantes (ordre conseillé) :
+1. **Déploiement web** (Vercel) + configuration des secrets prod (`CRON_SECRET`,
+   `RESEND_API_KEY`, `FCM_SERVICE_ACCOUNT`, `WHATSAPP_APP_SECRET`, `AT_*`).
+2. **Publication stores** via Capacitor — voir `MOBILE_DEPLOIEMENT.md` (nécessite
+   comptes Apple/Google + Xcode/Android Studio sur la machine).
+3. **Intégrations paiement** Wave / Orange Money (réel) et Stripe.
+4. **Tests automatisés** (Jest/Playwright) — actuellement absents.
 
-Le projet est dans `/Users/awalehosman/Claude/Projects/logiciel EcolPro`.  
-Utiliser le dossier workspace connecté pour lire/écrire les fichiers directement.
+Le projet est dans `/Users/awalehosman/Documents/logiciel EcolPro`.
+Vérifier après toute modif : `node_modules/.bin/tsc --noEmit` puis `npm run build`.
+
+> ⚠️ Vérifier `npx prisma migrate status` : le schéma contient `DeviceToken`
+> (mobile push) et plusieurs modèles récents — appliquer les migrations en attente.
