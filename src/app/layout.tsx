@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { PWAProvider } from "@/components/providers/PWAProvider";
+import { NativeProvider } from "@/components/providers/NativeProvider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -51,6 +52,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <PWAProvider />
+          <NativeProvider />
           {children}
           <Toaster position="top-right" richColors closeButton />
         </ThemeProvider>

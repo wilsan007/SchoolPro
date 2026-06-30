@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>EcolPro</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(160deg, #4f46e5 0%, #7c3aed 100%);
+      color: #fff; text-align: center; padding: 2rem;
+    }
+    .card { max-width: 420px; }
+    .logo {
+      width: 88px; height: 88px; margin: 0 auto 1.5rem;
+      background: rgba(255,255,255,.15); border-radius: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; font-weight: 700; backdrop-filter: blur(8px);
+    }
+    h1 { font-size: 1.5rem; margin-bottom: .75rem; }
+    p { opacity: .9; line-height: 1.6; margin-bottom: 1.5rem; }
+    button {
+      background: #fff; color: #4f46e5; border: none;
+      padding: .85rem 1.75rem; border-radius: 12px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    .spinner {
+      width: 22px; height: 22px; border: 3px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .8s linear infinite; margin: 1rem auto 0; display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">E</div>
+    <h1>EcolPro</h1>
+    <p id="msg">Connexion à votre établissement…<br />Vérifiez votre connexion internet si l'écran ne se charge pas.</p>
+    <button onclick="retry()">Réessayer</button>
+    <div class="spinner" id="spin"></div>
+  </div>
+  <script>
+    function retry() {
+      document.getElementById('spin').style.display = 'block';
+      document.getElementById('msg').textContent = 'Reconnexion en cours…';
+      location.reload();
+    }
+    // Recharge automatiquement dès que le réseau revient.
+    window.addEventListener('online', retry);
+  </script>
+</body>
+</html>
