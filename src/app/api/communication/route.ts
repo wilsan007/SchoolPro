@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { dispatchNotification } from "@/lib/notifications/dispatch";
 
 const NotifSchema = z.object({
   titre: z.string().min(1).max(200),
@@ -76,7 +77,8 @@ export async function POST(req: NextRequest) {
       break;
   }
 
-  const statut = data.envoyer ? "ENVOYEE" : data.planifieeAt ? "PLANIFIEE" : "BROUILLON";
+  // Statut initial : EN_ENVOI si envoi immédiat (le dispatcher le finalisera).
+  const statut = data.envoyer ? "EN_ENVOI" : data.planifieeAt ? "PLANIFIEE" : "BROUILLON";
 
   const notification = await prisma.notification.create({
     data: {
@@ -91,11 +93,27 @@ export async function POST(req: NextRequest) {
       nbDestinataires,
       statut,
       planifieeAt: data.planifieeAt ? new Date(data.planifieeAt) : null,
-      envoyeeAt: data.envoyer ? new Date() : null,
-      // En production : déclencher l'envoi réel ici via Africa's Talking / Twilio / SMTP
     },
     include: { envoyePar: { select: { name: true, avatarUrl: true } } },
   });
+
+  // Envoi réel immédiat (EMAIL / SMS / PUSH / IN_APP) via le dispatcher.
+  if (data.envoyer) {
+    try {
+      const result = await dispatchNotification(notification.id);
+      return NextResponse.json({ notification, envoi: result }, { status: 201 });
+    } catch (e) {
+      console.error("[Communication] Échec dispatch:", e);
+      await prisma.notification.update({
+        where: { id: notification.id },
+        data: { statut: "ECHEC" },
+      });
+      return NextResponse.json(
+        { notification, error: "Notification créée mais l'envoi a échoué" },
+        { status: 207 }
+      );
+    }
+  }
 
   return NextResponse.json({ notification }, { status: 201 });
 }
