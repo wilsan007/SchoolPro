@@ -9,12 +9,12 @@ import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
 export default async function SaisieNotesPage({
   params
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
-  const evaluationId = params.id;
+  const { id: evaluationId } = await params;
   const evaluation = await prisma.evaluation.findUnique({
     where: { id: evaluationId, tenantId: session.user.tenantId },
     include: {

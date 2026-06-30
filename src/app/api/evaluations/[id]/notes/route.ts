@@ -7,7 +7,7 @@ import { checkPermission } from "@/lib/rbac";
 // GET : Récupérer la grille de notes (élèves de la classe + leurs notes actuelles pour cette évaluation)
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -17,7 +17,7 @@ export async function GET(
     const denied = checkPermission(session.user.role, "evaluations:read");
     if (denied) return denied;
 
-    const evaluationId = params.id;
+    const evaluationId = (await params).id;
     const evaluation = await prisma.evaluation.findUnique({
       where: { id: evaluationId, tenantId: session.user.tenantId },
       include: {
@@ -64,7 +64,7 @@ const UpdateNotesSchema = z.object({
 // PUT : Sauvegarder massivement les notes
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -74,7 +74,7 @@ export async function PUT(
     const denied = checkPermission(session.user.role, "evaluations:write");
     if (denied) return denied;
 
-    const evaluationId = params.id;
+    const evaluationId = (await params).id;
     const evaluation = await prisma.evaluation.findUnique({
       where: { id: evaluationId, tenantId: session.user.tenantId }
     });

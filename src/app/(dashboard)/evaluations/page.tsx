@@ -16,13 +16,13 @@ export const metadata = {
 export default async function EvaluationsPage({
   searchParams,
 }: {
-  searchParams: { matiereId?: string };
+  searchParams: Promise<{ matiereId?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
-  const { matiereId } = searchParams;
+  const { matiereId } = await searchParams;
 
   // Récupérer les évaluations
   const evaluations = await prisma.evaluation.findMany({

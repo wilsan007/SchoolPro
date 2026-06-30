@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
@@ -12,7 +12,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const denied = checkPermission(session.user.role, "bulletins:write");
     if (denied) return denied;
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { appreciation, decision, moyenneGenerale, rang } = body;
 
@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
@@ -45,7 +45,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const denied = checkPermission(session.user.role, "bulletins:delete");
     if (denied) return denied;
 
-    const { id } = params;
+    const { id } = await params;
 
     await prisma.bulletin.delete({
       where: {

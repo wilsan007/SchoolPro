@@ -35,13 +35,13 @@ async function getNotesData(tenantId: string) {
 export default async function NotesPage({
   searchParams,
 }: {
-  searchParams: { classeId?: string; matiereId?: string; evaluationId?: string };
+  searchParams: Promise<{ classeId?: string; matiereId?: string; evaluationId?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
-  const { classeId, matiereId, evaluationId } = searchParams;
+  const { classeId, matiereId, evaluationId } = await searchParams;
 
   // Récupérer les classes et matières
   const { classes, matieres, statsNotes } = await getNotesData(tenantId);

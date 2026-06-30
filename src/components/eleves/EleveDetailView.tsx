@@ -1,0 +1,625 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getInitials, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import {
+  ArrowLeft, Edit, User, Phone, MapPin, BookOpen,
+  CalendarX, AlertTriangle, CreditCard, TrendingUp,
+  Clock, CheckCircle2, XCircle, AlertCircle,
+} from "lucide-react";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Note {
+  id: string;
+  valeur: number;
+  noteMax: number;
+  coefficient: number;
+  intitule: string | null;
+  type: string;
+  date: Date;
+  matiere: { nom: string; code: string; couleur: string | null; coefficient: number };
+  periode: { nom: string; numero: number } | null;
+}
+
+interface Absence {
+  id: string;
+  date: Date;
+  heureDebut: string | null;
+  heureFin: string | null;
+  isRetard: boolean;
+  motif: string;
+  statut: string;
+  commentaire: string | null;
+}
+
+interface Incident {
+  id: string;
+  type: string;
+  statut: string;
+  gravite: number;
+  description: string;
+  lieu: string | null;
+  date: Date;
+  sanctions: Array<{ id: string; type: string; description: string | null; dateDebut: Date }>;
+}
+
+interface Facture {
+  id: string;
+  numero: string;
+  libelle: string;
+  montant: number;
+  devise: string;
+  statut: string;
+  echeance: Date | null;
+  paiements: Array<{ id: string; montant: number; methode: string; date: Date }>;
+}
+
+interface ParcoursScolaire {
+  id: string;
+  annee: string;
+  classe: string;
+  niveau: string;
+  moyenneAnnuelle: number | null;
+  rang: number | null;
+  effectif: number | null;
+  decision: string | null;
+  mention: string | null;
+  recommandation: string | null;
+}
+
+interface Eleve {
+  id: string;
+  matricule: string;
+  nom: string;
+  prenom: string;
+  dateNaissance: Date;
+  lieuNaissance: string | null;
+  nationalite: string | null;
+  sexe: string;
+  photoUrl: string | null;
+  statut: string;
+  regime: string | null;
+  transport: string | null;
+  groupeSanguin: string | null;
+  allergies: string | null;
+  besoinsSpeciaux: string | null;
+  contactUrgenceNom: string | null;
+  contactUrgencePhone: string | null;
+  anneeInscription: string;
+  classe: { id: string; nom: string; niveau: string } | null;
+  parents: Array<{
+    lien: string;
+    isGardien: boolean;
+    parent: {
+      id: string;
+      nom: string;
+      prenom: string;
+      phone: string;
+      phone2: string | null;
+      email: string | null;
+      profession: string | null;
+      adresse: string | null;
+    };
+  }>;
+  notes: Note[];
+  absences: Absence[];
+  incidents: Incident[];
+  factures: Facture[];
+  parcours: ParcoursScolaire[];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const statutColors: Record<string, string> = {
+  ACTIF: "bg-green-100 text-green-800",
+  TRANSFERE: "bg-blue-100 text-blue-800",
+  DIPLOME: "bg-purple-100 text-purple-800",
+  EXCLU: "bg-red-100 text-red-800",
+  ABANDONNE: "bg-yellow-100 text-yellow-800",
+};
+
+const statutLabels: Record<string, string> = {
+  ACTIF: "Actif",
+  TRANSFERE: "Transféré",
+  DIPLOME: "Diplômé",
+  EXCLU: "Exclu",
+  ABANDONNE: "Abandonné",
+};
+
+const absenceStatutIcon: Record<string, React.ReactNode> = {
+  JUSTIFIEE: <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />,
+  INJUSTIFIEE: <XCircle className="h-3.5 w-3.5 text-red-500" />,
+  EN_ATTENTE: <Clock className="h-3.5 w-3.5 text-yellow-500" />,
+};
+
+const factureStatutColors: Record<string, string> = {
+  PAYEE: "bg-green-100 text-green-800",
+  EN_ATTENTE: "bg-yellow-100 text-yellow-800",
+  EN_RETARD: "bg-red-100 text-red-800",
+  ANNULEE: "bg-gray-100 text-gray-500",
+};
+
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium">{value}</span>
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
+  return (
+    <div className="bg-white dark:bg-muted/20 border rounded-xl p-4 flex flex-col gap-1">
+      <p className={cn("text-2xl font-bold", color ?? "text-foreground")}>{value}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
+export function EleveDetailView({ eleve }: { eleve: Eleve }) {
+  const [tab, setTab] = useState("notes");
+
+  const tuteur = eleve.parents.find((p) => p.isGardien) ?? eleve.parents[0];
+
+  // Compute average per subject from notes
+  const notesByMatiere = eleve.notes.reduce<Record<string, { notes: Note[]; nom: string; code: string; couleur: string | null; coeff: number }>>((acc, n) => {
+    const key = n.matiere.code;
+    if (!acc[key]) acc[key] = { notes: [], nom: n.matiere.nom, code: n.matiere.code, couleur: n.matiere.couleur, coeff: n.matiere.coefficient };
+    acc[key].notes.push(n);
+    return acc;
+  }, {});
+
+  const moyenneGenerale =
+    eleve.notes.length > 0
+      ? (
+          eleve.notes.reduce((sum, n) => sum + (n.valeur / n.noteMax) * 20 * n.coefficient, 0) /
+          eleve.notes.reduce((sum, n) => sum + n.coefficient, 0)
+        ).toFixed(2)
+      : null;
+
+  const totalAbsences = eleve.absences.filter((a) => !a.isRetard).length;
+  const totalRetards = eleve.absences.filter((a) => a.isRetard).length;
+  const totalDu = eleve.factures.reduce((s, f) => s + f.montant, 0);
+  const totalPaye = eleve.factures.reduce(
+    (s, f) => s + f.paiements.reduce((ps, p) => ps + p.montant, 0),
+    0
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Back + Edit */}
+      <div className="flex items-center justify-between">
+        <Button asChild variant="outline" size="sm" className="gap-2">
+          <Link href="/eleves">
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux élèves
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" className="gap-2">
+          <Edit className="h-4 w-4" />
+          Modifier le profil
+        </Button>
+      </div>
+
+      {/* Profile card */}
+      <Card className="p-6">
+        <div className="flex flex-col sm:flex-row gap-6">
+          <Avatar className="h-20 w-20 flex-shrink-0">
+            {eleve.photoUrl && <AvatarImage src={eleve.photoUrl} />}
+            <AvatarFallback
+              className={cn(
+                "text-xl font-bold",
+                eleve.sexe === "F"
+                  ? "bg-pink-100 text-pink-700"
+                  : "bg-blue-100 text-blue-700"
+              )}
+            >
+              {getInitials(`${eleve.prenom} ${eleve.nom}`)}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-xl font-bold">
+                {eleve.prenom} {eleve.nom}
+              </h2>
+              <span
+                className={cn(
+                  "text-xs font-semibold px-2.5 py-1 rounded-full",
+                  statutColors[eleve.statut] ?? "bg-gray-100 text-gray-600"
+                )}
+              >
+                {statutLabels[eleve.statut] ?? eleve.statut}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+              <InfoRow label="Matricule" value={eleve.matricule} />
+              <InfoRow label="Classe" value={eleve.classe?.nom ?? "Non affectée"} />
+              <InfoRow label="Niveau" value={eleve.classe?.niveau} />
+              <InfoRow label="Régime" value={eleve.regime ?? "Externe"} />
+              <InfoRow label="Date de naissance" value={formatDate(eleve.dateNaissance)} />
+              <InfoRow label="Lieu de naissance" value={eleve.lieuNaissance} />
+              <InfoRow label="Nationalité" value={eleve.nationalite} />
+              <InfoRow label="Sexe" value={eleve.sexe === "F" ? "Féminin" : "Masculin"} />
+              <InfoRow label="Année d'inscription" value={eleve.anneeInscription} />
+              <InfoRow label="Transport" value={eleve.transport} />
+              <InfoRow label="Groupe sanguin" value={eleve.groupeSanguin} />
+              {eleve.allergies && <InfoRow label="Allergies" value={eleve.allergies} />}
+              {eleve.besoinsSpeciaux && <InfoRow label="Besoins spéciaux" value={eleve.besoinsSpeciaux} />}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard
+          label="Moyenne générale"
+          value={moyenneGenerale ? `${moyenneGenerale}/20` : "—"}
+          sub={`${eleve.notes.length} note(s)`}
+          color={
+            moyenneGenerale
+              ? parseFloat(moyenneGenerale) >= 14
+                ? "text-green-600"
+                : parseFloat(moyenneGenerale) >= 10
+                ? "text-blue-600"
+                : "text-red-600"
+              : undefined
+          }
+        />
+        <StatCard label="Absences" value={totalAbsences} sub={`${totalRetards} retard(s)`} color="text-orange-600" />
+        <StatCard label="Incidents" value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
+        <StatCard
+          label="Solde dû"
+          value={`${(totalDu - totalPaye).toLocaleString()} XOF`}
+          sub={`Payé: ${totalPaye.toLocaleString()} XOF`}
+          color={totalDu - totalPaye > 0 ? "text-red-600" : "text-green-600"}
+        />
+      </div>
+
+      {/* Parent / tuteur */}
+      {tuteur && (
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" />
+            Parent / Tuteur légal
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+            <InfoRow
+              label="Nom complet"
+              value={`${tuteur.parent.prenom} ${tuteur.parent.nom}`}
+            />
+            <InfoRow label="Lien" value={tuteur.lien} />
+            <InfoRow label="Téléphone" value={tuteur.parent.phone} />
+            {tuteur.parent.phone2 && <InfoRow label="Tél. secondaire" value={tuteur.parent.phone2} />}
+            <InfoRow label="Email" value={tuteur.parent.email} />
+            <InfoRow label="Profession" value={tuteur.parent.profession} />
+            <InfoRow label="Adresse" value={tuteur.parent.adresse} />
+          </div>
+          {(eleve.contactUrgenceNom || eleve.contactUrgencePhone) && (
+            <div className="mt-4 pt-4 border-t flex gap-6">
+              <InfoRow label="Contact urgence" value={eleve.contactUrgenceNom} />
+              <InfoRow label="Téléphone urgence" value={eleve.contactUrgencePhone} />
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Tabs */}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="notes" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" />
+            Notes
+          </TabsTrigger>
+          <TabsTrigger value="absences" className="gap-1.5">
+            <CalendarX className="h-3.5 w-3.5" />
+            Absences
+          </TabsTrigger>
+          <TabsTrigger value="discipline" className="gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Discipline
+          </TabsTrigger>
+          <TabsTrigger value="facturation" className="gap-1.5">
+            <CreditCard className="h-3.5 w-3.5" />
+            Facturation
+          </TabsTrigger>
+          <TabsTrigger value="parcours" className="gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Parcours
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ─ Notes ─ */}
+        <TabsContent value="notes" className="mt-4">
+          {Object.keys(notesByMatiere).length === 0 ? (
+            <EmptyState message="Aucune note enregistrée." />
+          ) : (
+            <div className="space-y-4">
+              {Object.values(notesByMatiere).map((m) => {
+                const avg = (
+                  m.notes.reduce((s, n) => s + (n.valeur / n.noteMax) * 20 * n.coefficient, 0) /
+                  m.notes.reduce((s, n) => s + n.coefficient, 0)
+                ).toFixed(2);
+                return (
+                  <Card key={m.code} className="overflow-hidden">
+                    <div
+                      className="flex items-center justify-between px-4 py-3 border-b"
+                      style={{ borderLeftColor: m.couleur ?? "#6366f1", borderLeftWidth: 4 }}
+                    >
+                      <div>
+                        <span className="font-semibold">{m.nom}</span>
+                        <span className="ml-2 text-xs text-muted-foreground font-mono">{m.code}</span>
+                      </div>
+                      <span
+                        className={cn(
+                          "text-sm font-bold",
+                          parseFloat(avg) >= 14
+                            ? "text-green-600"
+                            : parseFloat(avg) >= 10
+                            ? "text-blue-600"
+                            : "text-red-600"
+                        )}
+                      >
+                        Moy. {avg}/20
+                      </span>
+                    </div>
+                    <div className="divide-y">
+                      {m.notes.map((n) => (
+                        <div key={n.id} className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-muted/30">
+                          <div>
+                            <span className="font-medium">{n.intitule ?? n.type}</span>
+                            {n.periode && (
+                              <span className="ml-2 text-xs text-muted-foreground">{n.periode.nom}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">{formatDate(n.date)}</span>
+                            <span
+                              className={cn(
+                                "font-bold text-sm",
+                                (n.valeur / n.noteMax) * 20 >= 14
+                                  ? "text-green-600"
+                                  : (n.valeur / n.noteMax) * 20 >= 10
+                                  ? "text-blue-600"
+                                  : "text-red-600"
+                              )}
+                            >
+                              {n.valeur}/{n.noteMax}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─ Absences ─ */}
+        <TabsContent value="absences" className="mt-4">
+          {eleve.absences.length === 0 ? (
+            <EmptyState message="Aucune absence enregistrée." />
+          ) : (
+            <Card className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Horaire</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Motif</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Statut</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eleve.absences.map((a, i) => (
+                    <tr key={a.id} className={cn("border-b last:border-0", i % 2 === 0 ? "bg-background" : "bg-muted/10")}>
+                      <td className="px-4 py-3">{formatDate(a.date)}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        {a.heureDebut && a.heureFin ? `${a.heureDebut} – ${a.heureFin}` : "Journée"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", a.isRetard ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-700")}>
+                          {a.isRetard ? "Retard" : "Absence"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{a.motif}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          {absenceStatutIcon[a.statut]}
+                          <span className="text-xs">{a.statut.replace("_", " ")}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{a.commentaire ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ─ Discipline ─ */}
+        <TabsContent value="discipline" className="mt-4">
+          {eleve.incidents.length === 0 ? (
+            <EmptyState message="Aucun incident enregistré." good />
+          ) : (
+            <div className="space-y-3">
+              {eleve.incidents.map((inc) => (
+                <Card key={inc.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle
+                        className={cn(
+                          "h-4 w-4",
+                          inc.gravite === 3 ? "text-red-500" : inc.gravite === 2 ? "text-orange-500" : "text-yellow-500"
+                        )}
+                      />
+                      <span className="font-semibold text-sm">{inc.type}</span>
+                      {inc.lieu && <span className="text-xs text-muted-foreground">· {inc.lieu}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{formatDate(inc.date)}</span>
+                      <span
+                        className={cn(
+                          "text-xs font-semibold px-2 py-0.5 rounded-full",
+                          inc.statut === "RESOLU" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                        )}
+                      >
+                        {inc.statut}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{inc.description}</p>
+                  {inc.sanctions.length > 0 && (
+                    <div className="pt-2 border-t flex flex-wrap gap-2">
+                      {inc.sanctions.map((s) => (
+                        <span key={s.id} className="text-xs bg-red-50 text-red-700 border border-red-200 rounded px-2 py-0.5">
+                          {s.type}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─ Facturation ─ */}
+        <TabsContent value="facturation" className="mt-4">
+          {eleve.factures.length === 0 ? (
+            <EmptyState message="Aucune facture enregistrée." />
+          ) : (
+            <div className="space-y-3">
+              {eleve.factures.map((f) => {
+                const paye = f.paiements.reduce((s, p) => s + p.montant, 0);
+                const restant = f.montant - paye;
+                return (
+                  <Card key={f.id} className="p-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <p className="font-semibold text-sm">{f.libelle}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{f.numero}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {f.echeance && (
+                          <span className="text-xs text-muted-foreground">Éch. {formatDate(f.echeance)}</span>
+                        )}
+                        <span
+                          className={cn(
+                            "text-xs font-semibold px-2.5 py-0.5 rounded-full",
+                            factureStatutColors[f.statut] ?? "bg-gray-100 text-gray-600"
+                          )}
+                        >
+                          {f.statut.replace("_", " ")}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex gap-6 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Montant</p>
+                        <p className="font-semibold">{f.montant.toLocaleString()} {f.devise}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Payé</p>
+                        <p className="font-semibold text-green-600">{paye.toLocaleString()} {f.devise}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Restant</p>
+                        <p className={cn("font-semibold", restant > 0 ? "text-red-600" : "text-green-600")}>
+                          {restant.toLocaleString()} {f.devise}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─ Parcours ─ */}
+        <TabsContent value="parcours" className="mt-4">
+          {eleve.parcours.length === 0 ? (
+            <EmptyState message="Aucun parcours scolaire enregistré." />
+          ) : (
+            <div className="space-y-3">
+              {eleve.parcours.map((p) => (
+                <Card key={p.id} className="p-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <p className="font-semibold">{p.annee}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {p.classe} · {p.niveau}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {p.moyenneAnnuelle !== null && (
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Moyenne</p>
+                          <p
+                            className={cn(
+                              "font-bold",
+                              p.moyenneAnnuelle >= 14
+                                ? "text-green-600"
+                                : p.moyenneAnnuelle >= 10
+                                ? "text-blue-600"
+                                : "text-red-600"
+                            )}
+                          >
+                            {p.moyenneAnnuelle.toFixed(2)}/20
+                          </p>
+                        </div>
+                      )}
+                      {p.rang && p.effectif && (
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Rang</p>
+                          <p className="font-bold">{p.rang}/{p.effectif}</p>
+                        </div>
+                      )}
+                      {p.decision && (
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
+                          {p.decision}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {(p.mention || p.recommandation) && (
+                    <p className="text-xs text-muted-foreground mt-2">{p.mention}</p>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function EmptyState({ message, good }: { message: string; good?: boolean }) {
+  return (
+    <Card className="p-12 text-center">
+      <p className={cn("text-muted-foreground", good && "text-green-600")}>{message}</p>
+    </Card>
+  );
+}

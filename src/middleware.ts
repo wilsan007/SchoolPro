@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const PUBLIC_ROUTES = ["/login", "/register", "/api/auth", "/", "/_next"];
-const API_ROUTES = ["/api"];
+
+// Routes API à authentification propre (secret cron / signature webhook) :
+// elles n'ont pas de session utilisateur et ne doivent pas être bloquées ici.
+const SELF_AUTH_API = ["/api/auth", "/api/cron", "/api/webhooks"];
 
 export default auth(async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -13,8 +16,12 @@ export default auth(async function middleware(req: NextRequest) {
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   if (isPublic) return NextResponse.next();
 
-  // Protéger les routes API (sauf auth)
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
+  // Routes API
+  if (pathname.startsWith("/api/")) {
+    // Endpoints à auth propre (cron, webhooks) : la vérification se fait dans le handler.
+    if (SELF_AUTH_API.some((r) => pathname.startsWith(r))) {
+      return NextResponse.next();
+    }
     if (!session?.user) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
