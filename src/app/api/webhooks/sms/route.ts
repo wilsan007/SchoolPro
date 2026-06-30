@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyWebhookSecret } from "@/lib/webhooks";
 
 /**
  * POST /api/webhooks/sms
- * Reçoit les delivery receipts et messages entrants d'Africa's Talking
+ * Reçoit les delivery receipts et messages entrants d'Africa's Talking.
+ * Sécuriser en configurant l'URL de callback avec ?secret=<WEBHOOK_SMS_SECRET>.
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!verifyWebhookSecret(request, "WEBHOOK_SMS_SECRET")) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
     const contentType = request.headers.get("content-type") ?? "";
     let body: Record<string, string> = {};
 

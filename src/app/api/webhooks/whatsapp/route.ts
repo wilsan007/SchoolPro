@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyMetaSignature } from "@/lib/webhooks";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN ?? "ecolpro_whatsapp_token";
 
@@ -27,11 +28,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Lecture du corps brut pour vérifier la signature HMAC de Meta.
+    const raw = await request.text();
+    const signature = request.headers.get("x-hub-signature-256");
+    if (!verifyMetaSignature(raw, signature, process.env.WHATSAPP_APP_SECRET)) {
+      return NextResponse.json({ error: "Signature invalide" }, { status: 401 });
+    }
 
-    // Vérification signature (production)
-    // const sig = request.headers.get("x-hub-signature-256");
-    // → à implémenter avec WHATSAPP_APP_SECRET pour sécuriser
+    const body = JSON.parse(raw);
 
     if (body.object !== "whatsapp_business_account") {
       return NextResponse.json({ ok: true });
