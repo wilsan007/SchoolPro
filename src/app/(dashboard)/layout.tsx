@@ -45,6 +45,7 @@ export default async function DashboardLayout({
         userRole={roleLabels[session.user.role] ?? session.user.role}
         userAvatar={session.user.image ?? undefined}
         tenantName={tenantName}
+        isSuperAdmin={session.user.role === "SUPER_ADMIN"}
       />
       <main className="flex-1 flex flex-col overflow-hidden">
         {children}

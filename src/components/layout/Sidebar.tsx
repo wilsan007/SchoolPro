@@ -162,9 +162,10 @@ interface SidebarProps {
   userRole?: string;
   userAvatar?: string;
   tenantName?: string;
+  isSuperAdmin?: boolean;
 }
 
-export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École" }: SidebarProps) {
+export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École", isSuperAdmin = false }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -192,7 +193,9 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-        {navItems.map((item) => {
+        {navItems
+          .filter((item) => item.href !== "/super-admin" || isSuperAdmin)
+          .map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
