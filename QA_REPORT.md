@@ -88,12 +88,28 @@ bcbcc9c wip: mobile app integration, supabase seeds and config updates
 
 ## Points restants à implémenter (hors scope QA)
 
-- Page de facturation (retirée temporairement de la sidebar)
 - Vues Super Admin pour les utilisateurs avec le rôle `SUPER_ADMIN`
-- Formulaire d'inscription en ligne complète (`/register` — placeholder actuel)
 - Actions sur les pages placeholder (`/cours`, `/communication`, `/rapports`, etc.)
 - Upload de photo d'élève dans le formulaire
+- Génération de reçus PDF pour les paiements
+- Intégration Stripe pour les paiements en ligne
+
+## Modules ajoutés (Sprint 2)
+
+### Facturation
+- **Liste des factures** (`/facturation`) : recherche, filtres par statut, export CSV, récapitulatif financier (facturé / encaissé / restant)
+- **Création de facture** (`/facturation/nouvelle`) : sélection d'élève, libellé, montant, échéance
+- **Détail facture** (`/facturation/:id`) : informations élève + tuteur, historique des paiements, encaissement de paiements (espèces, wave, orange money, carte, virement), annulation de facture
+- **Lien sidebar** : Facturation restauré avec icône Receipt
+
+### Inscription en ligne (`/register`)
+- Formulaire complet de création d'établissement (nom, type, ville, contact)
+- Création du compte administrateur (nom, email, mot de passe)
+- Sélection du plan (Starter, Pro, Business, Enterprise)
+- Essai gratuit de 30 jours automatique
+- Validation Zod, vérification d'unicité (slug + email)
+- Page de succès avec lien vers la connexion
 
 ## Recommandation
 
-L'application est désormais fonctionnelle pour le parcours principal incluant la gestion des élèves (liste, filtre, export, inscription, édition et fiche détaillée). Les liens cassés et boutons inertes identifiés ont été corrigés. Il est recommandé de continuer par la facturation et les formulaires d'inscription en ligne si ces modules sont prioritaires pour le prochain sprint.
+L'application couvre désormais les parcours principaux : gestion des élèves (liste, filtre, export, inscription, édition, fiche détaillée), facturation (création, paiement, suivi), et inscription en ligne des établissements. Les pages placeholders restantes (`/cours`, `/communication`, `/rapports`, etc.) peuvent être implémentées selon les priorités du prochain sprint.
