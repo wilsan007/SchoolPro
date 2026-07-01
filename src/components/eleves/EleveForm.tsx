@@ -26,7 +26,7 @@ interface EleveFormData {
   nationalite?: string;
   sexe: "M" | "F";
   classeId?: string;
-  statut: "ACTIF" | "TRANSFERE" | "DIPLOME" | "EXCLU" | "ABANDONNE";
+  statut?: "ACTIF" | "TRANSFERE" | "DIPLOME" | "EXCLU" | "ABANDONNE";
   groupeSanguin?: string;
   allergies?: string;
   besoinsSpeciaux?: string;
@@ -49,7 +49,7 @@ interface EleveFormData {
 interface EleveFormProps {
   classes: Classe[];
   initialData?: Partial<EleveFormData> & { id?: string };
-  submitAction: (data: EleveFormData) => Promise<{ success: true; id: string }>;
+  submitAction: (data: EleveFormData) => Promise<{ success: boolean; id: string }>;
   submitLabel: string;
   title: string;
   backHref: string;
@@ -61,7 +61,7 @@ const FormSchema = z.object({
   dateNaissance: z.string().min(1, "La date de naissance est requise"),
   sexe: z.enum(["M", "F"]),
   classeId: z.string().optional(),
-  statut: z.enum(["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]),
+  statut: z.enum(["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
   regime: z.enum(["interne", "demi-pensionnaire", "externe"]).optional(),
   parentEmail: z.string().email().optional().or(z.literal("")),
 });

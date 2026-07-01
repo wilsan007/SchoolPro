@@ -166,7 +166,7 @@ export async function createEleve(data: EleveFormData) {
   }
 
   revalidatePath("/eleves");
-  return { success: true, id: eleve.id };
+  return { success: true as boolean, id: eleve.id };
 }
 
 export async function updateEleve(id: string, data: EleveFormData) {
@@ -252,5 +252,5 @@ export async function updateEleve(id: string, data: EleveFormData) {
 
   revalidatePath("/eleves");
   revalidatePath(`/eleves/${id}`);
-  return { success: true, id };
+  return { success: true as boolean, id };
 }

@@ -31,7 +31,33 @@ export default async function ModifierElevePage({
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
         <EleveForm
           classes={classes}
-          initialData={eleve}
+          initialData={{
+            nom: eleve.nom,
+            prenom: eleve.prenom,
+            dateNaissance: eleve.dateNaissance,
+            lieuNaissance: eleve.lieuNaissance,
+            nationalite: eleve.nationalite,
+            sexe: eleve.sexe,
+            classeId: eleve.classeId ?? undefined,
+            statut: eleve.statut,
+            groupeSanguin: eleve.groupeSanguin,
+            allergies: eleve.allergies,
+            besoinsSpeciaux: eleve.besoinsSpeciaux,
+            regime: eleve.regime as "interne" | "demi-pensionnaire" | "externe" | undefined,
+            transport: eleve.transport,
+            contactUrgenceNom: eleve.contactUrgenceNom,
+            contactUrgencePhone: eleve.contactUrgencePhone,
+            numeroBoursier: eleve.numeroBoursier,
+            matricule: eleve.matricule,
+            parentNom: eleve.parentNom,
+            parentPrenom: eleve.parentPrenom,
+            parentPhone: eleve.parentPhone,
+            parentEmail: eleve.parentEmail,
+            parentProfession: eleve.parentProfession,
+            parentAdresse: eleve.parentAdresse,
+            parentLien: eleve.parentLien,
+            parentIsGardien: eleve.parentIsGardien,
+          }}
           submitAction={updateEleve.bind(null, id)}
           submitLabel="Enregistrer"
           title="Modifier un élève"
