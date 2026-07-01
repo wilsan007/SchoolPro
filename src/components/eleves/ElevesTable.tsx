@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { getInitials, formatDate } from "@/lib/utils";
 import {
   Search, Filter, Eye, Edit, MoreHorizontal,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,16 +50,30 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<"nom" | "classe" | "statut">("nom");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showFilters, setShowFilters] = useState(false);
+  const [classeFilter, setClasseFilter] = useState<string>("");
+  const [statutFilter, setStatutFilter] = useState<string>("");
+
+  const classes = useMemo(
+    () => Array.from(new Set(eleves.map((e) => e.classe?.nom).filter(Boolean))).sort(),
+    [eleves]
+  );
+  const statuts = useMemo(
+    () => Array.from(new Set(eleves.map((e) => e.statut))).sort(),
+    [eleves]
+  );
 
   const filtered = eleves
     .filter((e) => {
       const q = search.toLowerCase();
-      return (
+      const matchesSearch =
         e.nom.toLowerCase().includes(q) ||
         e.prenom.toLowerCase().includes(q) ||
         e.matricule.toLowerCase().includes(q) ||
-        e.classe?.nom.toLowerCase().includes(q)
-      );
+        e.classe?.nom.toLowerCase().includes(q);
+      const matchesClasse = !classeFilter || e.classe?.nom === classeFilter;
+      const matchesStatut = !statutFilter || e.statut === statutFilter;
+      return matchesSearch && matchesClasse && matchesStatut;
     })
     .sort((a, b) => {
       let va = "", vb = "";
@@ -94,14 +108,67 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowFilters((s) => !s)}
+          aria-expanded={showFilters}
+        >
           <Filter className="h-4 w-4" />
           Filtres
+          {(classeFilter || statutFilter) && (
+            <span className="ml-1 flex h-2 w-2 rounded-full bg-primary" />
+          )}
         </Button>
         <p className="text-sm text-muted-foreground ml-auto">
           {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
         </p>
       </div>
+
+      {showFilters && (
+        <div className="flex flex-wrap items-center gap-3 px-4 pb-4 border-b">
+          <div className="flex items-center gap-2">
+            <label htmlFor="classe-filter" className="text-sm text-muted-foreground">Classe</label>
+            <select
+              id="classe-filter"
+              value={classeFilter}
+              onChange={(e) => setClasseFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Toutes</option>
+              {classes.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="statut-filter" className="text-sm text-muted-foreground">Statut</label>
+            <select
+              id="statut-filter"
+              value={statutFilter}
+              onChange={(e) => setStatutFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Tous</option>
+              {statuts.map((s) => (
+                <option key={s} value={s}>{statutLabels[s as keyof typeof statutLabels] ?? s}</option>
+              ))}
+            </select>
+          </div>
+          {(classeFilter || statutFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+              onClick={() => { setClasseFilter(""); setStatutFilter(""); }}
+            >
+              <X className="h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Tableau */}
       <div className="overflow-x-auto">
