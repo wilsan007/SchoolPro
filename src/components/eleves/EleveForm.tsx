@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ interface EleveFormData {
 interface EleveFormProps {
   classes: Classe[];
   initialData?: Partial<EleveFormData> & { id?: string };
-  submitAction: (data: EleveFormData) => Promise<void>;
+  submitAction: (data: EleveFormData) => Promise<{ success: true; id: string }>;
   submitLabel: string;
   title: string;
   backHref: string;
@@ -66,6 +67,7 @@ const FormSchema = z.object({
 });
 
 export function EleveForm({ classes, initialData, submitAction, submitLabel, title, backHref }: EleveFormProps) {
+  const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [form, setForm] = useState<EleveFormData>({
     nom: initialData?.nom ?? "",
@@ -120,12 +122,11 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
 
     setIsPending(true);
     try {
-      await submitAction(form);
+      const result = await submitAction(form);
       toast.success(submitLabel === "Créer" ? "Élève inscrit avec succès" : "Élève mis à jour");
+      router.push(`/eleves/${result.id}`);
+      router.refresh();
     } catch (err) {
-      if (err instanceof Error && err.message === "NEXT_REDIRECT") {
-        throw err;
-      }
       toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     } finally {
       setIsPending(false);

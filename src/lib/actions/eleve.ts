@@ -3,7 +3,6 @@
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 const LienParente = z.enum(["PERE", "MERE", "TUTEUR", "AUTRE"]);
@@ -167,7 +166,7 @@ export async function createEleve(data: EleveFormData) {
   }
 
   revalidatePath("/eleves");
-  redirect(`/eleves/${eleve.id}`);
+  return { success: true, id: eleve.id };
 }
 
 export async function updateEleve(id: string, data: EleveFormData) {
@@ -253,5 +252,5 @@ export async function updateEleve(id: string, data: EleveFormData) {
 
   revalidatePath("/eleves");
   revalidatePath(`/eleves/${id}`);
-  redirect(`/eleves/${id}`);
+  return { success: true, id };
 }
