@@ -208,9 +208,11 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
             Retour aux élèves
           </Link>
         </Button>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Edit className="h-4 w-4" />
-          Modifier le profil
+        <Button asChild variant="outline" size="sm" className="gap-2">
+          <Link href={`/eleves/${eleve.id}/modifier`}>
+            <Edit className="h-4 w-4" />
+            Modifier le profil
+          </Link>
         </Button>
       </div>
 
