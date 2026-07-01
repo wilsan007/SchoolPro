@@ -77,19 +77,19 @@ bcbcc9c wip: mobile app integration, supabase seeds and config updates
 | `/admissions` | 200 | OK |
 | `/rh` | 200 | OK |
 | `/analytics` | 200 | OK |
-| `/cours` | 200 | Placeholder |
-| `/communication` | 200 | Placeholder |
-| `/rapports` | 200 | Placeholder |
-| `/orientation` | 200 | Placeholder |
-| `/alumni` | 200 | Placeholder |
-| `/inventaire` | 200 | Placeholder |
-| `/parametres` | 200 | Page minimale créée |
+| `/cours` | 200 | LMS complet (cours, chapitres, inscriptions) |
+| `/communication` | 200 | Notifications multi-canal (Email/SMS/Push/In-App) |
+| `/rapports` | 200 | Palmarès, statistiques, inspection (impression PDF) |
+| `/orientation` | 200 | Module orientation complet |
+| `/alumni` | 200 | Annuaire anciens élèves |
+| `/inventaire` | 200 | Gestion d'inventaire |
+| `/parametres` | 200 | 4 onglets : établissement, utilisateurs, classes, matières |
+| `/facturation` | 200 | Liste, création, détail avec paiements |
 | `/super-admin` | redirect → `/login` | Comportement correct pour TENANT_ADMIN |
 
-## Points restants à implémenter (hors scope QA)
+## Points restants à implémenter
 
 - Vues Super Admin pour les utilisateurs avec le rôle `SUPER_ADMIN`
-- Actions sur les pages placeholder (`/cours`, `/communication`, `/rapports`, etc.)
 - Upload de photo d'élève dans le formulaire
 - Génération de reçus PDF pour les paiements
 - Intégration Stripe pour les paiements en ligne
@@ -110,6 +110,22 @@ bcbcc9c wip: mobile app integration, supabase seeds and config updates
 - Validation Zod, vérification d'unicité (slug + email)
 - Page de succès avec lien vers la connexion
 
+### Paramètres (`/parametres`)
+- **Onglet Établissement** : nom, contacts, adresse, config pédagogique (année, notation, devise, langue, fuseau horaire)
+- **Onglet Utilisateurs** : liste, création, activation/désactivation, suppression (avec contrôle des rôles)
+- **Onglet Classes** : liste avec effectifs, création, suppression (bloquée si élèves inscrits)
+- **Onglet Matières** : liste avec coefficients/couleurs, création, suppression
+
+### Modules pré-existants validés (Sprint 2)
+Les pages suivantes étaient déjà implémentées avec des composants complets et ont été validées :
+- **Cours en ligne** (`/cours`) : LMS avec cours publiés, chapitres, vues, inscriptions
+- **Communication** (`/communication`) : notifications multi-canal (Email, SMS, Push, In-App) avec ciblage (tous, parents, enseignants, classe, niveau)
+- **Rapports PDF** (`/rapports`) : palmarès, statistiques annuelles, rapport d'inspection (impression PDF)
+- **Orientation** (`/orientation`) : composant OrientationView (400 lignes)
+- **Alumni** (`/alumni`) : composant AlumniView (442 lignes)
+- **Inventaire** (`/inventaire`) : composant InventaireView (432 lignes)
+
 ## Recommandation
 
-L'application couvre désormais les parcours principaux : gestion des élèves (liste, filtre, export, inscription, édition, fiche détaillée), facturation (création, paiement, suivi), et inscription en ligne des établissements. Les pages placeholders restantes (`/cours`, `/communication`, `/rapports`, etc.) peuvent être implémentées selon les priorités du prochain sprint.
+L'application EcolPro est désormais fonctionnelle sur l'ensemble de ses modules : gestion des élèves, facturation, paramètres (établissement, utilisateurs, classes, matières), communication, rapports PDF, cours en ligne, orientation, alumni et inventaire. Les prochaines améliorations pourraient porter sur l'intégration Stripe pour les paiements en ligne, l'upload de photos d'élèves, les reçus PDF de paiement, et les vues Super Admin multi-tenants.
+
