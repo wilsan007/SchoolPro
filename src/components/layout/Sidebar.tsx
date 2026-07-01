@@ -89,13 +89,6 @@ const navItems = [
     color: "text-red-500",
   },
   {
-    // href: "/facturation", // TODO: Implémenter la facturation
-    label: "Facturation",
-    icon: Receipt,
-    href: "#",
-    color: "text-amber-500",
-  },
-  {
     label: "Admissions",
     icon: UserPlus,
     href: "/admissions",
