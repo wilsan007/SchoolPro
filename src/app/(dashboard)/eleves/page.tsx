@@ -4,9 +4,10 @@ import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { ElevesTable } from "@/components/eleves/ElevesTable";
 import { ElevesStats } from "@/components/eleves/ElevesStats";
+import { ElevesActions } from "@/components/eleves/ElevesActions";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Download, Upload, UserPlus, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 async function getElevesData(tenantId: string) {
   const eleves = await prisma.eleve.findMany({
@@ -53,10 +54,7 @@ export default async function ElevesPage() {
         <div className="flex items-center justify-between">
           <ElevesStats stats={stats} />
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="h-4 w-4" />
-              Exporter
-            </Button>
+            <ElevesActions eleves={eleves} />
             <Button asChild size="sm" className="gap-2">
               <Link href="/eleves/nouveau">
                 <Plus className="h-4 w-4" />
