@@ -89,6 +89,12 @@ const navItems = [
     color: "text-red-500",
   },
   {
+    label: "Facturation",
+    icon: Receipt,
+    href: "/facturation",
+    color: "text-emerald-500",
+  },
+  {
     label: "Admissions",
     icon: UserPlus,
     href: "/admissions",
