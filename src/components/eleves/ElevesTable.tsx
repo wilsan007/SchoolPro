@@ -276,7 +276,7 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
                           </Link>
                         </Button>
                         <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-                          <Link href={`/eleves/${eleve.id}/modifier`}>
+                          <Link href={`/eleves/${eleve.id}`}>
                             <Edit className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
