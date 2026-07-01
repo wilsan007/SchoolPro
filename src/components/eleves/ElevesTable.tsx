@@ -204,12 +204,12 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-                          <Link href={`/dashboard/eleves/${eleve.id}`}>
+                          <Link href={`/eleves/${eleve.id}`}>
                             <Eye className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
                         <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-                          <Link href={`/dashboard/eleves/${eleve.id}/modifier`}>
+                          <Link href={`/eleves/${eleve.id}/modifier`}>
                             <Edit className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
