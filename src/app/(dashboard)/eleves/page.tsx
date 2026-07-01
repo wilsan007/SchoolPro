@@ -58,7 +58,7 @@ export default async function ElevesPage() {
               Exporter
             </Button>
             <Button asChild size="sm" className="gap-2">
-              <Link href="/eleves">
+              <Link href="/eleves/nouveau">
                 <Plus className="h-4 w-4" />
                 Inscrire un élève
               </Link>
