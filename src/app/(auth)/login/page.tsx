@@ -145,13 +145,13 @@ function LoginForm() {
         <p className="text-xs font-semibold text-foreground mb-2">🎓 Comptes de test disponibles</p>
         <div className="space-y-2 text-xs text-muted-foreground">
           <div className="font-mono space-y-0.5">
-            <p className="font-semibold text-foreground">Super Admin :</p>
-            <p>super.admin@test.com</p>
-            <p>super.admin</p>
+            <p className="font-semibold text-foreground">Directeur (Lycée Mohamed Hashim Ledi) :</p>
+            <p>admin@lycee-djibouti.ecolpro.app</p>
+            <p>Demo@2026!</p>
           </div>
           <div className="font-mono space-y-0.5 border-t pt-2">
-            <p className="font-semibold text-foreground">Directeur :</p>
-            <p>admin@lycee-dakar.sn</p>
+            <p className="font-semibold text-foreground">Super Admin :</p>
+            <p>super.admin@test.com</p>
             <p>super.admin</p>
           </div>
         </div>
@@ -160,17 +160,17 @@ function LoginForm() {
             variant="outline"
             size="sm"
             className="flex-1 h-8 text-xs"
-            onClick={() => setForm({ email: "super.admin@test.com", password: "super.admin" })}
+            onClick={() => setForm({ email: "admin@lycee-djibouti.ecolpro.app", password: "Demo@2026!" })}
           >
-            Super Admin
+            Directeur
           </Button>
           <Button
             variant="outline"
             size="sm"
             className="flex-1 h-8 text-xs"
-            onClick={() => setForm({ email: "admin@lycee-dakar.sn", password: "super.admin" })}
+            onClick={() => setForm({ email: "super.admin@test.com", password: "super.admin" })}
           >
-            Directeur
+            Super Admin
           </Button>
         </div>
       </div>
@@ -209,9 +209,9 @@ export default function LoginPage() {
         </div>
         <div className="grid grid-cols-3 gap-6 text-center">
           {[
-            { label: "Élèves gérés", value: "120k+" },
-            { label: "Établissements", value: "500+" },
-            { label: "Pays", value: "12" },
+            { label: "Élèves gérés", value: "150+" },
+            { label: "Établissements", value: "3" },
+            { label: "Pays", value: "2" },
           ].map((stat) => (
             <div key={stat.label}>
               <p className="text-2xl font-bold text-indigo-400">{stat.value}</p>
