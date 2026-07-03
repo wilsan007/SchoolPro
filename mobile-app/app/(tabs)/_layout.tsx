@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
+  ClipboardCheck,
   BookOpen,
   User,
 } from "lucide-react-native";
@@ -53,6 +54,13 @@ export default function TabLayout() {
         options={{
           title: "Absences",
           tabBarIcon: ({ color }) => <ClipboardList size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="appel"
+        options={{
+          title: "Appel",
+          tabBarIcon: ({ color }) => <ClipboardCheck size={22} color={color} />,
         }}
       />
       <Tabs.Screen

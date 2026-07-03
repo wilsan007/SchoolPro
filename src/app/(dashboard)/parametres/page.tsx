@@ -7,6 +7,8 @@ import {
   getUsersForTenant,
   getClassesForSettings,
   getMatieresForSettings,
+  getParentsForSettings,
+  getElevesForLinking,
 } from "@/lib/actions/parametres";
 
 export default async function ParametresPage() {
@@ -15,9 +17,11 @@ export default async function ParametresPage() {
 
   const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
 
-  const [etablissement, users, classes, matieres] = await Promise.all([
+  const [etablissement, users, parents, eleves, classes, matieres] = await Promise.all([
     getEtablissementData(),
     getUsersForTenant(),
+    getParentsForSettings(),
+    getElevesForLinking(),
     getClassesForSettings(),
     getMatieresForSettings(),
   ]);
@@ -36,6 +40,8 @@ export default async function ParametresPage() {
         <ParametresTabs
           etablissement={etablissement}
           users={users}
+          parents={parents}
+          eleves={eleves}
           classes={classes}
           matieres={matieres}
           canManage={canManage}

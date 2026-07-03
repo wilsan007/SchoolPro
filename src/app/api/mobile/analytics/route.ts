@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-server";
+import prisma from "@/lib/prisma";
 import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
@@ -11,74 +11,63 @@ export async function GET(req: NextRequest) {
 
   const tenantId = user.tenantId;
 
-  // Counts
   const [
-    { count: totalEleves },
-    { count: totalClasses },
-    { count: totalEnseignants },
-    { count: totalNotes },
-    { count: totalAbsences },
-    { count: totalIncidents },
+    totalEleves,
+    totalClasses,
+    totalEnseignants,
+    totalNotes,
+    totalAbsences,
+    totalIncidents,
   ] = await Promise.all([
-    supabase.from("eleves").select("*", { count: "exact", head: true }).eq("tenantId", tenantId).eq("statut", "ACTIF"),
-    supabase.from("classes").select("*", { count: "exact", head: true }).eq("tenantId", tenantId),
-    supabase.from("enseignants").select("*", { count: "exact", head: true }).eq("tenantId", tenantId),
-    supabase.from("notes").select("*", { count: "exact", head: true }).eq("tenantId", tenantId),
-    supabase.from("absences").select("*", { count: "exact", head: true }).eq("tenantId", tenantId),
-    supabase.from("incidents").select("*", { count: "exact", head: true }).eq("tenantId", tenantId),
+    prisma.eleve.count({ where: { tenantId, statut: "ACTIF" } }),
+    prisma.classe.count({ where: { tenantId } }),
+    prisma.enseignant.count({ where: { tenantId } }),
+    prisma.note.count({ where: { tenantId } }),
+    prisma.absence.count({ where: { tenantId } }),
+    prisma.incident.count({ where: { tenantId } }),
   ]);
 
-  // Eleves par classe
-  const { data: elevesParClasseRaw } = await supabase
-    .from("classes")
-    .select("id, nom, niveau")
-    .eq("tenantId", tenantId)
-    .order("nom", { ascending: true });
+  const classes = await prisma.classe.findMany({
+    where: { tenantId },
+    select: { id: true, nom: true, niveau: true },
+    orderBy: { nom: "asc" },
+  });
 
   const elevesParClasse = await Promise.all(
-    (elevesParClasseRaw ?? []).map(async (c) => {
-      const { count } = await supabase
-        .from("eleves")
-        .select("*", { count: "exact", head: true })
-        .eq("tenantId", tenantId)
-        .eq("classeId", c.id)
-        .eq("statut", "ACTIF");
-      return { id: c.id, nom: c.nom, niveau: c.niveau, effectif: count ?? 0 };
+    classes.map(async (c) => {
+      const effectif = await prisma.eleve.count({
+        where: { tenantId, classeId: c.id, statut: "ACTIF" },
+      });
+      return { id: c.id, nom: c.nom, niveau: c.niveau, effectif };
     })
   );
 
-  // Notes par matière
-  const { data: matieresRaw } = await supabase
-    .from("matieres")
-    .select("id, nom, code, couleur")
-    .eq("tenantId", tenantId)
-    .order("nom", { ascending: true });
+  const matieres = await prisma.matiere.findMany({
+    where: { tenantId },
+    select: { id: true, nom: true, code: true, couleur: true },
+    orderBy: { nom: "asc" },
+  });
 
   const notesParMatiere = await Promise.all(
-    (matieresRaw ?? []).map(async (m) => {
-      const { count } = await supabase
-        .from("notes")
-        .select("*", { count: "exact", head: true })
-        .eq("tenantId", tenantId)
-        .eq("matiereId", m.id);
-      return { id: m.id, nom: m.nom, code: m.code, couleur: m.couleur, count: count ?? 0 };
+    matieres.map(async (m) => {
+      const count = await prisma.note.count({
+        where: { tenantId, matiereId: m.id },
+      });
+      return { id: m.id, nom: m.nom, code: m.code, couleur: m.couleur, count };
     })
   );
 
-  // Moyennes par classe
   const moyennesParClasse = await Promise.all(
-    (elevesParClasse ?? []).map(async (c) => {
-      const { data: notes } = await supabase
-        .from("notes")
-        .select("valeur, noteMax, coefficient")
-        .eq("tenantId", tenantId)
-        .eq("classeId", c.id);
+    classes.map(async (c) => {
+      const notes = await prisma.note.findMany({
+        where: { tenantId, classeId: c.id },
+        select: { valeur: true, noteMax: true, coefficient: true },
+      });
 
-      const list = notes ?? [];
       const moyenne =
-        list.length > 0
-          ? list.reduce((acc: number, n: any) => acc + (n.valeur / n.noteMax) * 20 * n.coefficient, 0) /
-            list.reduce((acc: number, n: any) => acc + n.coefficient, 0)
+        notes.length > 0
+          ? notes.reduce((acc, n) => acc + (n.valeur / n.noteMax) * 20 * n.coefficient, 0) /
+            notes.reduce((acc, n) => acc + n.coefficient, 0)
           : null;
       return { classeId: c.id, classeNom: c.nom, moyenne };
     })
@@ -86,16 +75,16 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     stats: {
-      totalEleves: totalEleves ?? 0,
-      totalClasses: totalClasses ?? 0,
-      totalEnseignants: totalEnseignants ?? 0,
-      totalNotes: totalNotes ?? 0,
-      totalAbsences: totalAbsences ?? 0,
-      totalIncidents: totalIncidents ?? 0,
+      totalEleves,
+      totalClasses,
+      totalEnseignants,
+      totalNotes,
+      totalAbsences,
+      totalIncidents,
     },
     elevesParClasse,
     notesParMatiere,
     moyennesParClasse,
-    absencesParMois: totalAbsences ?? 0,
+    absencesParMois: totalAbsences,
   });
 }

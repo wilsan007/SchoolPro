@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 
@@ -20,8 +20,9 @@ const PLATFORM_MAP = {
  * Appelé automatiquement par la coque native après acceptation des notifications.
  */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await verifyMobileToken(req);
+  if (!user) return mobileUnauthorized();
+  if (!user.id) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
@@ -37,13 +38,13 @@ export async function POST(req: NextRequest) {
     create: {
       token,
       platform: PLATFORM_MAP[platform],
-      userId: session.user.id,
-      tenantId: session.user.tenantId,
+      userId: user.id,
+      tenantId: user.tenantId ?? null,
       isActive: true,
     },
     update: {
-      userId: session.user.id,
-      tenantId: session.user.tenantId,
+      userId: user.id,
+      tenantId: user.tenantId ?? null,
       isActive: true,
     },
   });

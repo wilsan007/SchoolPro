@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-server";
+import prisma from "@/lib/prisma";
 import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
@@ -12,60 +12,64 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const limit = parseInt(searchParams.get("limit") ?? "50");
 
-  // Get conversations where user is a participant
-  const { data: participantRows, error: partError } = await supabase
-    .from("conversation_participants")
-    .select("conversationId")
-    .eq("userId", user.id);
+  const participantRows = await prisma.conversationParticipant.findMany({
+    where: { userId: user.id },
+    select: { conversationId: true },
+  });
 
-  if (partError) {
-    return NextResponse.json({ error: partError.message }, { status: 500 });
-  }
-
-  const conversationIds = (participantRows ?? []).map((p) => p.conversationId);
+  const conversationIds = participantRows.map((p) => p.conversationId);
   if (conversationIds.length === 0) {
     return NextResponse.json({ conversations: [], nonLus: 0 });
   }
 
-  const { data: conversations, error } = await supabase
-    .from("conversations")
-    .select(`
-      id,
-      titre,
-      updatedAt,
-      participants:conversation_participants (
-        userId,
-        user:userId ( id, name, email )
-      )
-    `)
-    .in("id", conversationIds)
-    .eq("tenantId", user.tenantId)
-    .order("updatedAt", { ascending: false })
-    .limit(limit);
+  const conversations = await prisma.conversation.findMany({
+    where: {
+      id: { in: conversationIds },
+      tenantId: user.tenantId,
+    },
+    select: {
+      id: true,
+      subject: true,
+      isGroup: true,
+      updatedAt: true,
+      participants: {
+        select: {
+          userId: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+  });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // Fetch last message and count for each conversation
   const conversationsWithMessages = await Promise.all(
-    (conversations ?? []).map(async (c) => {
-      const { data: messages } = await supabase
-        .from("messages")
-        .select("id, senderId, content, readBy, createdAt, sender:senderId ( id, name )")
-        .eq("conversationId", c.id)
-        .order("createdAt", { ascending: false })
-        .limit(1);
-
-      const { count } = await supabase
-        .from("messages")
-        .select("*", { count: "exact", head: true })
-        .eq("conversationId", c.id);
+    conversations.map(async (c) => {
+      const [messages, messageCount] = await Promise.all([
+        prisma.message.findMany({
+          where: { conversationId: c.id },
+          select: {
+            id: true,
+            senderId: true,
+            content: true,
+            readBy: true,
+            createdAt: true,
+            sender: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        }),
+        prisma.message.count({ where: { conversationId: c.id } }),
+      ]);
 
       return {
-        ...c,
+        id: c.id,
+        titre: c.subject,
+        type: c.isGroup ? "group" : "direct",
+        updatedAt: c.updatedAt,
+        participants: c.participants ?? [],
         messages: messages ?? [],
-        _count: { messages: count ?? 0 },
+        _count: { messages: messageCount },
       };
     })
   );

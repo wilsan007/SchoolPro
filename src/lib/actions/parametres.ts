@@ -141,7 +141,10 @@ export async function createUser(data: UserFormData) {
   const password = v.password || "EcolPro2026!";
   const hashed = await bcrypt.hash(password, 10);
 
-  await prisma.user.create({
+  const [firstName, ...restName] = v.name.split(" ");
+  const lastName = restName.join(" ") || firstName;
+
+  const newUser = await prisma.user.create({
     data: {
       tenantId: session.user.tenantId,
       name: v.name,
@@ -152,6 +155,31 @@ export async function createUser(data: UserFormData) {
       isActive: v.isActive,
     },
   });
+
+  // Auto-create Enseignant record for teacher roles
+  if (v.role === "TEACHER" || v.role === "CLASS_TEACHER") {
+    await prisma.enseignant.create({
+      data: {
+        tenantId: session.user.tenantId,
+        userId: newUser.id,
+        dateEntree: new Date(),
+      },
+    });
+  }
+
+  // Auto-create Parent record for parent role
+  if (v.role === "PARENT") {
+    await prisma.parent.create({
+      data: {
+        tenantId: session.user.tenantId,
+        userId: newUser.id,
+        nom: lastName,
+        prenom: firstName,
+        email: v.email,
+        phone: v.phone || "",
+      },
+    });
+  }
 
   revalidatePath("/parametres");
   return { success: true };
@@ -327,6 +355,218 @@ export async function deleteMatiere(matiereId: string) {
   if (!matiere) throw new Error("Matière non trouvée");
 
   await prisma.matiere.delete({ where: { id: matiereId } });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+// ============================================================
+// PARENTS & CONTACTS
+// ============================================================
+
+const ParentSchema = z.object({
+  nom: z.string().min(1, "Le nom est requis"),
+  prenom: z.string().min(1, "Le prénom est requis"),
+  phone: z.string().min(1, "Le téléphone est requis"),
+  phone2: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  telegramChatId: z.string().optional(),
+  profession: z.string().optional(),
+  adresse: z.string().optional(),
+});
+
+export type ParentFormData = z.infer<typeof ParentSchema>;
+
+export async function getParentsForSettings() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  return prisma.parent.findMany({
+    where: { tenantId: session.user.tenantId },
+    include: {
+      enfants: {
+        include: {
+          eleve: {
+            select: { id: true, nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } },
+          },
+        },
+      },
+      user: { select: { id: true, email: true, isActive: true } },
+    },
+    orderBy: { nom: "asc" },
+  });
+}
+
+export async function getElevesForLinking() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  return prisma.eleve.findMany({
+    where: { tenantId: session.user.tenantId, statut: "ACTIF" },
+    select: {
+      id: true,
+      nom: true,
+      prenom: true,
+      matricule: true,
+      classe: { select: { nom: true } },
+    },
+    orderBy: [{ nom: "asc" }, { prenom: "asc" }],
+  });
+}
+
+export async function createParent(data: ParentFormData & { eleveIds?: string[] }) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const parsed = ParentSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const v = parsed.data;
+  const parent = await prisma.parent.create({
+    data: {
+      tenantId: session.user.tenantId,
+      nom: v.nom,
+      prenom: v.prenom,
+      phone: v.phone,
+      phone2: v.phone2 || null,
+      email: v.email || null,
+      telegramChatId: v.telegramChatId || null,
+      profession: v.profession || null,
+      adresse: v.adresse || null,
+    },
+  });
+
+  // Link to students if provided
+  if (data.eleveIds && data.eleveIds.length > 0) {
+    for (const eleveId of data.eleveIds) {
+      const existing = await prisma.eleveParent.findUnique({
+        where: { eleveId_parentId: { eleveId, parentId: parent.id } },
+      });
+      if (!existing) {
+        await prisma.eleveParent.create({
+          data: { eleveId, parentId: parent.id, lien: "TUTEUR", isGardien: true },
+        });
+      }
+    }
+  }
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function linkParentToEleves(parentId: string, eleveIds: string[], lien: string = "TUTEUR") {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const parent = await prisma.parent.findFirst({
+    where: { id: parentId, tenantId: session.user.tenantId },
+  });
+  if (!parent) throw new Error("Parent non trouvé");
+
+  for (const eleveId of eleveIds) {
+    const existing = await prisma.eleveParent.findUnique({
+      where: { eleveId_parentId: { eleveId, parentId } },
+    });
+    if (!existing) {
+      await prisma.eleveParent.create({
+        data: { eleveId, parentId, lien: lien as any, isGardien: true },
+      });
+    }
+  }
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function unlinkParentFromEleve(parentId: string, eleveId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  await prisma.eleveParent.delete({
+    where: { eleveId_parentId: { eleveId, parentId } },
+  });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function updateParentPhone(parentId: string, phone: string, telegramChatId?: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const parent = await prisma.parent.findFirst({
+    where: { id: parentId, tenantId: session.user.tenantId },
+  });
+  if (!parent) throw new Error("Parent non trouvé");
+
+  await prisma.parent.update({
+    where: { id: parentId },
+    data: {
+      phone,
+      telegramChatId: telegramChatId || null,
+    },
+  });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function deleteParent(parentId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const parent = await prisma.parent.findFirst({
+    where: { id: parentId, tenantId: session.user.tenantId },
+  });
+  if (!parent) throw new Error("Parent non trouvé");
+
+  await prisma.parent.delete({ where: { id: parentId } });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function updateUserPhone(userId: string, phone: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, tenantId: session.user.tenantId },
+  });
+  if (!user) throw new Error("Utilisateur non trouvé");
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { phone: phone || null },
+  });
+
+  // Also update parent phone if user is linked to a parent
+  if (phone) {
+    await prisma.parent.updateMany({
+      where: { userId: userId },
+      data: { phone },
+    });
+  }
 
   revalidatePath("/parametres");
   return { success: true };

@@ -33,6 +33,7 @@ const EleveFormSchema = z.object({
   parentAdresse: z.string().optional(),
   parentLien: LienParente.optional(),
   parentIsGardien: z.boolean().optional(),
+  photoUrl: z.string().optional().nullable(),
 });
 
 export type EleveFormData = z.infer<typeof EleveFormSchema>;
@@ -87,6 +88,7 @@ export async function getEleveForEdit(id: string) {
     parentAdresse: tuteur?.adresse ?? "",
     parentLien: eleve.parents[0]?.lien ?? "PERE",
     parentIsGardien: eleve.parents[0]?.isGardien ?? true,
+    photoUrl: eleve.photoUrl ?? undefined,
   };
 }
 
@@ -139,6 +141,7 @@ export async function createEleve(data: EleveFormData) {
       contactUrgencePhone: values.contactUrgencePhone || null,
       numeroBoursier: values.numeroBoursier || null,
       anneeInscription,
+      photoUrl: values.photoUrl || null,
     },
   });
 
@@ -206,6 +209,7 @@ export async function updateEleve(id: string, data: EleveFormData) {
       contactUrgenceNom: values.contactUrgenceNom || null,
       contactUrgencePhone: values.contactUrgencePhone || null,
       numeroBoursier: values.numeroBoursier || null,
+      photoUrl: values.photoUrl || null,
     },
   });
 

@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 
 const CreateSchema = z.object({
-  participantIds: z.array(z.string().cuid()).min(1).max(20),
+  participantIds: z.array(z.string().min(1)).min(1).max(20),
   subject: z.string().max(200).optional(),
   firstMessage: z.string().min(1).max(5000),
 });

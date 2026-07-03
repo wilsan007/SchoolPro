@@ -5,10 +5,10 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 
 const NoteSchema = z.object({
-  eleveId: z.string().cuid(),
-  classeId: z.string().cuid(),
-  matiereId: z.string().cuid(),
-  periodeId: z.string().cuid().optional(),
+  eleveId: z.string().min(1),
+  classeId: z.string().min(1),
+  matiereId: z.string().min(1),
+  periodeId: z.string().min(1).optional(),
   type: z.enum(["CONTROLE", "DEVOIR", "EXAMEN", "INTERROGATION", "PROJET", "ORAL", "TP"]),
   intitule: z.string().optional(),
   valeur: z.number().min(0).max(100),

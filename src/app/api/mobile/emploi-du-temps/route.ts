@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-server";
+import prisma from "@/lib/prisma";
 import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
@@ -9,25 +9,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
   }
 
-  const { data, error } = await supabase
-    .from("emplois_temps")
-    .select(`
-      id,
-      jour,
-      heureDebut,
-      heureFin,
-      salle,
-      classe:classeId ( id, nom ),
-      matiere:matiereId ( id, nom, code, couleur ),
-      enseignant:enseignantId ( id, user:userId ( name ) )
-    `)
-    .eq("tenantId", user.tenantId)
-    .order("jour", { ascending: true })
-    .order("heureDebut", { ascending: true });
+  const emploi = await prisma.emploiTemps.findMany({
+    where: { tenantId: user.tenantId },
+    select: {
+      id: true,
+      jour: true,
+      heureDebut: true,
+      heureFin: true,
+      salle: true,
+      classe: { select: { id: true, nom: true } },
+      matiere: { select: { id: true, nom: true, code: true, couleur: true } },
+      enseignant: {
+        select: {
+          id: true,
+          user: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: [{ jour: "asc" }, { heureDebut: "asc" }],
+  });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ emploi: data ?? [] });
+  return NextResponse.json({ emploi });
 }

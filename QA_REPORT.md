@@ -129,3 +129,61 @@ Les pages suivantes étaient déjà implémentées avec des composants complets 
 
 L'application EcolPro est désormais fonctionnelle sur l'ensemble de ses modules : gestion des élèves, facturation, paramètres (établissement, utilisateurs, classes, matières), communication, rapports PDF, cours en ligne, orientation, alumni et inventaire. Les prochaines améliorations pourraient porter sur l'intégration Stripe pour les paiements en ligne, l'upload de photos d'élèves, les reçus PDF de paiement, et les vues Super Admin multi-tenants.
 
+---
+
+## Sprint 3 — Optimisation de l'Emploi du Temps
+
+**Date :** 2026-07-03
+
+### Problèmes corrigés
+
+| # | Problème | Localisation | Correction |
+|---|---|---|---|
+| 1 | Drag-and-drop non fonctionnel (overlay bloquait les drop zones) | `EmploiDuTempsView.tsx` | Container overlay en `pointer-events-none`, créneaux en `pointer-events-auto` |
+| 2 | Jours VENDREDI et SAMEDI manquants | `EmploiDuTempsView.tsx` | Ajout des 7 jours dans `JOURS` et `JOURS_LABELS`, grille 7 colonnes |
+| 3 | Grille horaire limitée (07:30–12:30 + après-midi conditionnel) | `EmploiDuTempsView.tsx` | Grille continue 07:00–18:00, 22 slots de 30 min |
+| 4 | Pas de détection de conflits enseignant/salle sur PATCH | `api/emploi-du-temps/[id]/route.ts` | 3 checks : classe + enseignant + salle (excluant l'entry courant) |
+| 5 | Pas de détection de conflits enseignant/salle sur POST | `api/emploi-du-temps/route.ts` | Ajout des checks enseignant + salle en plus du check classe existant |
+
+### Fonctionnalités ajoutées
+
+| Fonctionnalité | Fichiers | Description |
+|---|---|---|
+| **Modèles Prisma** | `prisma/schema.prisma`, `migration_disponibilites_salles.sql` | `DisponibiliteEnseignant` (disponibilités profs) + `Salle` (salles avec capacité/type/bâtiment) |
+| **API Suggestions** | `src/app/api/emploi-du-temps/suggest/route.ts` | GET : suggère les 10 meilleurs créneaux pour une matière/classe, scoring basé sur dispo profs, salles libres, préférence matinée |
+| **API Auto-génération** | `src/app/api/emploi-du-temps/auto-generate/route.ts` | POST : génère un emploi du temps complet pour une classe, algorithme glouton avec scoring, respect des conflits, répartition par coefficient |
+| **API Salles CRUD** | `src/app/api/salles/route.ts`, `src/app/api/salles/[id]/route.ts` | GET/POST/DELETE pour gestion des salles |
+| **API Disponibilités CRUD** | `src/app/api/disponibilites/route.ts`, `src/app/api/disponibilites/[id]/route.ts` | GET/POST/DELETE pour gestion des disponibilités enseignants |
+| **Panneau Optimisation UI** | `src/components/emploi-du-temps/SmartSuggestPanel.tsx` | Modal avec : génération automatique, suggestions ciblées (matière/enseignant/durée), affichage score + conflits, ajout en 1 clic |
+| **Bouton Optimiser** | `EmploiDuTempsView.tsx` | Bouton "Optimiser" (icône Sparkles) ouvrant le SmartSuggestPanel |
+
+### Algorithme d'optimisation
+
+**Suggest (GET /api/emploi-du-temps/suggest) :**
+1. Récupère tous les créneaux existants (classe, enseignants, salles)
+2. Pour chaque combinaison jour × slot, vérifie : pas de conflit classe, enseignant dispo, salle libre
+3. Scoring : +20 si prof dispo, +15 si salle dispo, +10 matinée, -15 pause déjeuner, +5 jour début semaine
+4. Retourne top 10 suggestions triées par score
+
+**Auto-generate (POST /api/emploi-du-temps/auto-generate) :**
+1. Récupère matières triées par coefficient décroissant
+2. Alloue 2–4 slots/semaine par matière (selon coefficient)
+3. Pour chaque matière, calcule tous les candidats possibles avec scoring
+4. Privilégie les enseignants déjà associés à la matière (+20) ou dont la spécialité correspond (+15)
+5. Évite d'avoir la même matière le même jour
+6. Met à jour les maps de disponibilité après chaque création (greedy)
+7. Retourne les créneaux créés + statistiques
+
+### Action requise
+
+**Avant de tester, exécuter :**
+```bash
+npx prisma generate
+```
+Cela régénère le client Prisma avec les nouveaux modèles `Salle` et `DisponibiliteEnseignant`.
+
+**Pour appliquer la migration SQL :**
+```bash
+psql -U postgres -d ecolpro -f migration_disponibilites_salles.sql
+```
+

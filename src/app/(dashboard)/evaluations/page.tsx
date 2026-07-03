@@ -24,25 +24,24 @@ export default async function EvaluationsPage({
   const tenantId = session.user.tenantId;
   const { matiereId } = await searchParams;
 
-  // Récupérer les évaluations
-  const evaluations = await prisma.evaluation.findMany({
-    where: {
-      tenantId,
-      ...(matiereId ? { matiereId } : {}),
-    },
-    include: {
-      classe: { select: { nom: true, niveau: true } },
-      matiere: { select: { nom: true, coefficient: true } },
-      periode: { select: { nom: true } },
-      _count: { select: { notes: true } }
-    },
-    orderBy: { date: "desc" }
-  });
-
-  // Récupérer les données pour le formulaire
-  const classes = await prisma.classe.findMany({ where: { tenantId }, select: { id: true, nom: true } });
-  const matieres = await prisma.matiere.findMany({ where: { tenantId }, select: { id: true, nom: true } });
-  const periodes = await prisma.periode.findMany({ where: { annee: { tenantId } }, select: { id: true, nom: true } });
+  const [evaluations, classes, matieres, periodes] = await Promise.all([
+    prisma.evaluation.findMany({
+      where: {
+        tenantId,
+        ...(matiereId ? { matiereId } : {}),
+      },
+      include: {
+        classe: { select: { nom: true, niveau: true } },
+        matiere: { select: { nom: true, coefficient: true } },
+        periode: { select: { nom: true } },
+        _count: { select: { notes: true } }
+      },
+      orderBy: { date: "desc" }
+    }),
+    prisma.classe.findMany({ where: { tenantId }, select: { id: true, nom: true } }),
+    prisma.matiere.findMany({ where: { tenantId }, select: { id: true, nom: true } }),
+    prisma.periode.findMany({ where: { annee: { tenantId } }, select: { id: true, nom: true } }),
+  ]);
 
   function getTypeColor(type: string) {
     switch (type) {

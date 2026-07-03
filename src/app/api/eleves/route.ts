@@ -12,7 +12,7 @@ const EleveSchema = z.object({
   lieuNaissance: z.string().optional(),
   nationalite: z.string().default("SN"),
   sexe: z.enum(["M", "F"]),
-  classeId: z.string().cuid().optional(),
+  classeId: z.string().min(1).optional(),
   regime: z.enum(["externe", "demi-pensionnaire", "interne"]).default("externe"),
   groupeSanguin: z.string().optional(),
   allergies: z.string().optional(),

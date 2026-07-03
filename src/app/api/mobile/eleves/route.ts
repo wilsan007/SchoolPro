@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-server";
+import prisma from "@/lib/prisma";
 import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
@@ -14,33 +14,34 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get("q");
   const classeId = searchParams.get("classeId");
 
-  let query = supabase
-    .from("eleves")
-    .select(`
-      id,
-      matricule,
-      nom,
-      prenom,
-      dateNaissance,
-      sexe,
-      statut,
-      photoUrl,
-      classe:classeId ( id, nom, niveau )
-    `)
-    .eq("tenantId", tenantId)
-    .order("nom", { ascending: true })
-    .limit(100);
+  const eleves = await prisma.eleve.findMany({
+    where: {
+      tenantId,
+      ...(classeId ? { classeId } : {}),
+      ...(q
+        ? {
+            OR: [
+              { nom: { contains: q, mode: "insensitive" } },
+              { prenom: { contains: q, mode: "insensitive" } },
+              { matricule: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      matricule: true,
+      nom: true,
+      prenom: true,
+      dateNaissance: true,
+      sexe: true,
+      statut: true,
+      photoUrl: true,
+      classe: { select: { id: true, nom: true, niveau: true } },
+    },
+    orderBy: { nom: "asc" },
+    take: 100,
+  });
 
-  if (classeId) query = query.eq("classeId", classeId);
-  if (q) {
-    query = query.or(`nom.ilike.%${q}%,prenom.ilike.%${q}%,matricule.ilike.%${q}%`);
-  }
-
-  const { data: eleves, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ eleves: eleves ?? [] });
+  return NextResponse.json({ eleves });
 }

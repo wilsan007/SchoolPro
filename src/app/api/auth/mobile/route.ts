@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-server";
+import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
 import { z } from "zod";
@@ -34,23 +34,24 @@ export async function POST(req: Request) {
 
     const { email, password, tenantSlug } = parsed.data;
 
-    const { data: user, error } = await supabase
-      .from("users")
-      .select(`
-        id,
-        email,
-        name,
-        password,
-        role,
-        tenantId,
-        avatarUrl,
-        isActive,
-        tenant:tenantId ( id, name, slug, currentYear, notationMax )
-      `)
-      .eq("email", email)
-      .single();
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        password: true,
+        role: true,
+        tenantId: true,
+        avatarUrl: true,
+        isActive: true,
+        tenant: {
+          select: { id: true, name: true, slug: true, currentYear: true, notationMax: true },
+        },
+      },
+    });
 
-    if (error || !user || !user.password || !user.isActive) {
+    if (!user || !user.password || !user.isActive) {
       return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
     }
 
@@ -59,13 +60,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
     }
 
-    const tenant = user.tenant as any;
+    const tenant = user.tenant;
     if (tenantSlug && tenant?.slug !== tenantSlug) {
       return NextResponse.json({ error: "Cet compte n'appartient pas à cet établissement" }, { status: 403 });
     }
 
-    // Update last login
-    await supabase.from("users").update({ lastLoginAt: new Date().toISOString() }).eq("id", user.id);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
     const token = await signToken({
       sub: user.id,

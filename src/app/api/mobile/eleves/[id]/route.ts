@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-server";
+import prisma from "@/lib/prisma";
 import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
 
 export async function GET(
@@ -14,87 +14,78 @@ export async function GET(
 
   const { id } = await params;
 
-  // Fetch eleve with relations
-  const { data: eleve, error } = await supabase
-    .from("eleves")
-    .select(`
-      id,
-      matricule,
-      nom,
-      prenom,
-      dateNaissance,
-      lieuNaissance,
-      nationalite,
-      sexe,
-      photoUrl,
-      statut,
-      regime,
-      groupeSanguin,
-      allergies,
-      contactUrgenceNom,
-      contactUrgencePhone,
-      classe:classeId ( id, nom, niveau )
-    `)
-    .eq("id", id)
-    .eq("tenantId", user.tenantId)
-    .single();
+  const eleve = await prisma.eleve.findFirst({
+    where: { id, tenantId: user.tenantId },
+    select: {
+      id: true,
+      matricule: true,
+      nom: true,
+      prenom: true,
+      dateNaissance: true,
+      lieuNaissance: true,
+      nationalite: true,
+      sexe: true,
+      photoUrl: true,
+      statut: true,
+      regime: true,
+      groupeSanguin: true,
+      allergies: true,
+      contactUrgenceNom: true,
+      contactUrgencePhone: true,
+      classe: { select: { id: true, nom: true, niveau: true } },
+    },
+  });
 
-  if (error || !eleve) {
+  if (!eleve) {
     return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
   }
 
-  // Fetch parents
-  const { data: parents } = await supabase
-    .from("eleve_parents")
-    .select(`
-      lien,
-      isGardien,
-      parent:parentId ( id, nom, prenom, phone, phone2, email, profession )
-    `)
-    .eq("eleveId", id);
-
-  // Fetch recent notes
-  const { data: notes } = await supabase
-    .from("notes")
-    .select(`
-      id,
-      valeur,
-      noteMax,
-      coefficient,
-      date,
-      intitule,
-      matiere:matiereId ( nom, code, couleur, coefficient )
-    `)
-    .eq("eleveId", id)
-    .eq("tenantId", user.tenantId)
-    .order("date", { ascending: false })
-    .limit(20);
-
-  // Fetch recent absences
-  const { data: absences } = await supabase
-    .from("absences")
-    .select("id, date, isRetard, statut, motif")
-    .eq("eleveId", id)
-    .eq("tenantId", user.tenantId)
-    .order("date", { ascending: false })
-    .limit(10);
-
-  // Fetch recent incidents
-  const { data: incidents } = await supabase
-    .from("incidents")
-    .select("id, type, statut, gravite, description, date")
-    .eq("eleveId", id)
-    .eq("tenantId", user.tenantId)
-    .order("date", { ascending: false })
-    .limit(5);
+  const [parents, notes, absences, incidents] = await Promise.all([
+    prisma.eleveParent.findMany({
+      where: { eleveId: id },
+      select: {
+        lien: true,
+        isGardien: true,
+        parent: {
+          select: { id: true, nom: true, prenom: true, phone: true, phone2: true, email: true, profession: true },
+        },
+      },
+    }),
+    prisma.note.findMany({
+      where: { eleveId: id, tenantId: user.tenantId },
+      select: {
+        id: true,
+        valeur: true,
+        noteMax: true,
+        coefficient: true,
+        date: true,
+        intitule: true,
+        matiere: { select: { nom: true, code: true, couleur: true, coefficient: true } },
+      },
+      orderBy: { date: "desc" },
+      take: 20,
+    }),
+    prisma.absence.findMany({
+      where: { eleveId: id, tenantId: user.tenantId },
+      select: { id: true, date: true, isRetard: true, statut: true, motif: true },
+      orderBy: { date: "desc" },
+      take: 10,
+    }),
+    prisma.incident.findMany({
+      where: { eleveId: id, tenantId: user.tenantId },
+      select: { id: true, type: true, statut: true, gravite: true, description: true, date: true },
+      orderBy: { date: "desc" },
+      take: 5,
+    }),
+  ]);
 
   return NextResponse.json({
     eleve: {
       ...eleve,
-      parents: parents ?? [],
-      notes: notes ?? [],
-      absences: absences ?? [],
-      incidents: incidents ?? [],
+      parents,
+      notes,
+      absences,
+      incidents,
     },
   });
 }

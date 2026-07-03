@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Users, GraduationCap, BookOpen } from "lucide-react";
+import { Settings, Users, GraduationCap, BookOpen, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EtablissementTab } from "./EtablissementTab";
 import { UsersTab } from "./UsersTab";
 import { ClassesTab } from "./ClassesTab";
 import { MatieresTab } from "./MatieresTab";
+import { ParentsTab } from "./ParentsTab";
 
-type Tab = "etablissement" | "utilisateurs" | "classes" | "matieres";
+type Tab = "etablissement" | "utilisateurs" | "parents" | "classes" | "matieres";
 
 const tabs: { id: Tab; label: string; icon: typeof Settings }[] = [
   { id: "etablissement", label: "Établissement", icon: Settings },
   { id: "utilisateurs", label: "Utilisateurs", icon: Users },
+  { id: "parents", label: "Parents & Contacts", icon: UserCog },
   { id: "classes", label: "Classes", icon: GraduationCap },
   { id: "matieres", label: "Matières", icon: BookOpen },
 ];
@@ -20,12 +22,14 @@ const tabs: { id: Tab; label: string; icon: typeof Settings }[] = [
 interface ParametresTabsProps {
   etablissement: NonNullable<Awaited<ReturnType<typeof import("@/lib/actions/parametres").getEtablissementData>>>;
   users: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getUsersForTenant>>;
+  parents: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getParentsForSettings>>;
+  eleves: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getElevesForLinking>>;
   classes: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getClassesForSettings>>;
   matieres: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getMatieresForSettings>>;
   canManage: boolean;
 }
 
-export function ParametresTabs({ etablissement, users, classes, matieres, canManage }: ParametresTabsProps) {
+export function ParametresTabs({ etablissement, users, parents, eleves, classes, matieres, canManage }: ParametresTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>("etablissement");
 
   return (
@@ -50,6 +54,7 @@ export function ParametresTabs({ etablissement, users, classes, matieres, canMan
 
       {activeTab === "etablissement" && <EtablissementTab etablissement={etablissement} canManage={canManage} />}
       {activeTab === "utilisateurs" && <UsersTab users={users} canManage={canManage} />}
+      {activeTab === "parents" && <ParentsTab parents={parents} eleves={eleves} canManage={canManage} />}
       {activeTab === "classes" && <ClassesTab classes={classes} canManage={canManage} />}
       {activeTab === "matieres" && <MatieresTab matieres={matieres} canManage={canManage} />}
     </div>

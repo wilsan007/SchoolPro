@@ -7,6 +7,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid,
   PolarAngleAxis, PolarRadiusAxis, Legend, Cell,
+  PieChart, Pie, LineChart, Line,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, AlertTriangle, Users, CheckCircle2,
@@ -63,6 +64,10 @@ interface AnalyticsData {
   matieresData: MatiereData[];
   elevesParClasse: ClasseData[];
   bulletinsStats: { total: number; reussite: number; passage: number };
+  genderDist: { garcons: number; filles: number };
+  revenueData: { month: string; montant: number }[];
+  absenceParClasse: { classe: string; count: number }[];
+  classeRadarData: { classe: string; moyenne: number }[];
 }
 
 // ─── Composants utilitaires ───────────────────────────────────────────────────
@@ -122,8 +127,12 @@ export function AnalyticsView() {
 
   useEffect(() => {
     fetch("/api/analytics")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setData(d))
+      .catch((e) => console.error("[Analytics] Erreur fetch:", e))
       .finally(() => setLoading(false));
   }, []);
 
@@ -141,6 +150,10 @@ export function AnalyticsView() {
   if (!data) return null;
 
   const { synthese, top5, bottom5, elevesArisque, absencesChartData, matieresData, elevesParClasse } = data;
+  const genderDist = data.genderDist ?? { garcons: 0, filles: 0 };
+  const revenueData = data.revenueData ?? [];
+  const absenceParClasse = data.absenceParClasse ?? [];
+  const classeRadarData = data.classeRadarData ?? [];
 
   // Format date court pour graphique
   const absData = absencesChartData.map((d) => ({
@@ -426,6 +439,129 @@ export function AnalyticsView() {
                   </p>
                 )}
               </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Nouveaux graphiques : Genre, Revenus, Radar classes, Absences par classe */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Répartition par genre */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              Répartition par genre
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: "Garçons", value: genderDist.garcons, fill: "#3b82f6" },
+                    { name: "Filles", value: genderDist.filles, fill: "#ec4899" },
+                  ]}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label={(entry: any) => `${entry.name}: ${entry.value}`}
+                  labelLine={false}
+                >
+                  <Cell fill="#3b82f6" />
+                  <Cell fill="#ec4899" />
+                </Pie>
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Revenus (6 derniers mois) */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              Encaissements (6 derniers mois)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {revenueData.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
+                Aucune donnée de paiement
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={revenueData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    formatter={(v: number) => [`${v.toLocaleString()} F`, "Encaissé"]}
+                  />
+                  <Line type="monotone" dataKey="montant" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Radar moyennes par classe + Absences par classe */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Radar — moyennes par classe */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              Moyennes par classe (radar)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {classeRadarData.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
+                Aucune donnée disponible
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <RadarChart data={classeRadarData}>
+                  <PolarGrid stroke="#e5e7eb" />
+                  <PolarAngleAxis dataKey="classe" tick={{ fontSize: 10 }} />
+                  <PolarRadiusAxis domain={[0, 20]} tick={{ fontSize: 9 }} />
+                  <Radar name="Moyenne" dataKey="moyenne" stroke="#6366f1" fill="#6366f1" fillOpacity={0.3} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [`${v}/20`, "Moyenne"]} />
+                </RadarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Absences par classe */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500" />
+              Absences par classe
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {absenceParClasse.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
+                Aucune absence enregistrée
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={absenceParClasse} margin={{ top: 5, right: 10, left: -20, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="classe" tick={{ fontSize: 10 }} angle={-35} textAnchor="end" interval={0} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  <Bar dataKey="count" name="Absences" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>

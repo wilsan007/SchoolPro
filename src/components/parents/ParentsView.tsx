@@ -297,6 +297,16 @@ export function ParentsView({ parents }: ParentsViewProps) {
 
   return (
     <div className="space-y-6">
+      {/* Header actions */}
+      <div className="flex justify-end">
+        <a href="/parametres">
+          <Button size="sm" className="gap-2">
+            <UserCheck className="h-4 w-4" />
+            Ajouter un parent
+          </Button>
+        </a>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border-0 shadow-sm">

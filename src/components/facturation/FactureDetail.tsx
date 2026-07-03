@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus, FileText, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { enregistrerPaiement, annulerFacture, type PaiementFormData } from "@/lib/actions/facture";
 
@@ -19,6 +19,7 @@ interface Paiement {
   methode: string;
   reference: string | null;
   date: Date;
+  recu?: string | null;
 }
 
 interface FactureDetailProps {
@@ -89,6 +90,24 @@ export function FactureDetail({ facture }: FactureDetailProps) {
     }
   }
 
+  async function handleStripeCheckout() {
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ factureId: facture.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erreur");
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Paiement en ligne indisponible");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
   async function handleAnnuler() {
     if (!confirm("Voulez-vous vraiment annuler cette facture ?")) return;
     setIsPending(true);
@@ -123,6 +142,16 @@ export function FactureDetail({ facture }: FactureDetailProps) {
             >
               <XCircle className="h-4 w-4" />
               Annuler
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handleStripeCheckout}
+              disabled={isPending}
+            >
+              <CreditCard className="h-4 w-4" />
+              Payer en ligne
             </Button>
             <Button
               size="sm"
@@ -292,6 +321,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                     <th className="text-right px-4 py-2 font-medium">Montant</th>
                     <th className="text-left px-4 py-2 font-medium">Méthode</th>
                     <th className="text-left px-4 py-2 font-medium">Référence</th>
+                    <th className="text-center px-4 py-2 font-medium">Reçu</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -301,6 +331,17 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                       <td className="px-4 py-2 text-right font-medium text-green-600">{formatMoney(p.montant, p.devise)}</td>
                       <td className="px-4 py-2 capitalize">{p.methode}</td>
                       <td className="px-4 py-2 text-muted-foreground">{p.reference ?? "—"}</td>
+                      <td className="px-4 py-2 text-center">
+                        <a
+                          href={`/api/paiements/${p.id}/recu`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          PDF
+                        </a>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

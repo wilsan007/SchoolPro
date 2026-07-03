@@ -5,7 +5,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 
 const CreateSchema = z.object({
-  eleveId: z.string().cuid(),
+  eleveId: z.string().min(1),
   type: z.enum(["RETARD", "BAVARDAGE", "INSOLENCE", "BAGARRE", "TRICHE", "VANDALISM", "ABSENTEISME", "AUTRE"]),
   gravite: z.number().int().min(1).max(3),
   description: z.string().min(5).max(2000),

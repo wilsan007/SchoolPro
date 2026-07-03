@@ -1,3 +1,4 @@
+import React from "react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
@@ -26,7 +27,7 @@ async function getEmploiData(tenantId: string) {
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },
         classe: { select: { nom: true } },
-        enseignant: { include: { user: { select: { name: true } } } },
+        enseignant: { select: { user: { select: { name: true } } } },
       },
       orderBy: [{ jour: "asc" }, { heureDebut: "asc" }],
     }),
@@ -56,7 +57,7 @@ export default async function EmploiDuTempsPage() {
           classes={classes}
           matieres={matieres}
           enseignants={enseignants}
-          emplois={emplois}
+          emplois={emplois as unknown as React.ComponentProps<typeof EmploiDuTempsView>["emplois"]}
           tenantId={session.user.tenantId}
         />
       </div>

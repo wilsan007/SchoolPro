@@ -49,7 +49,7 @@ export default function LandingPage() {
               <ArrowRight className="h-5 w-5" />
             </Link>
           </Button>
-          <Button asChild variant="outline" size="lg" className="border-white/20 text-white hover:bg-white/10 h-12 px-8 text-base">
+          <Button asChild variant="outline" size="lg" className="border-white/20 bg-transparent text-white hover:bg-white/10 h-12 px-8 text-base">
             <Link href="/login">Voir la démo live</Link>
           </Button>
         </div>

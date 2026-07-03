@@ -85,8 +85,9 @@ export function AppelInterface({
           }),
         });
         if (!res.ok) throw new Error();
+        const data = await res.json();
         setSubmitted(true);
-        toast.success("Appel enregistré avec succès !");
+        toast.success(data.message ?? "Appel enregistré avec succès !");
       } catch {
         toast.error("Erreur lors de l'enregistrement de l'appel");
       }

@@ -101,10 +101,8 @@ export async function POST(req: NextRequest) {
       matiereStats[matiereId] = { max: max === -1 ? 0 : max, min: min === 21 ? 0 : min };
     }
 
-    const bulletinsGlobalAverages: { eleveId: string, moyenne: number | null }[] = [];
-
-    // 2. Generate bulletins for each student
-    for (const eleve of classe.eleves) {
+    // 2. Generate bulletins for each student — écritures DB en parallèle (au lieu d'une boucle séquentielle)
+    const bulletinsGlobalAverages = await Promise.all(classe.eleves.map(async (eleve) => {
       const absEleve = absences.filter(a => a.eleveId === eleve.id);
       const heuresAbsence = Math.round(absEleve.reduce((acc, a) => acc + calculateHours(a.heureDebut, a.heureFin), 0));
 
@@ -139,8 +137,6 @@ export async function POST(req: NextRequest) {
       }
 
       const moyenneGenerale = totalCoef > 0 ? Number((totalPoints / totalCoef).toFixed(2)) : null;
-      bulletinsGlobalAverages.push({ eleveId: eleve.id, moyenne: moyenneGenerale });
-
       const appreciation = genererAppréciation(moyenneGenerale);
 
       // Save bulletin
@@ -174,7 +170,9 @@ export async function POST(req: NextRequest) {
           }))
         });
       }
-    }
+
+      return { eleveId: eleve.id, moyenne: moyenneGenerale };
+    }));
 
     // 3. Update global rankings and class averages
     const validMoyennes = bulletinsGlobalAverages.filter(b => b.moyenne !== null).map(b => b.moyenne as number);
@@ -182,12 +180,12 @@ export async function POST(req: NextRequest) {
     const moyennePremier = validMoyennes.length > 0 ? Math.max(...validMoyennes) : null;
 
     bulletinsGlobalAverages.sort((a, b) => (b.moyenne ?? -1) - (a.moyenne ?? -1));
-    
-    await Promise.all(bulletinsGlobalAverages.map((b, index) => 
+
+    await Promise.all(bulletinsGlobalAverages.map((b, i) =>
       prisma.bulletin.update({
         where: { eleveId_periodeId: { eleveId: b.eleveId, periodeId } },
-        data: { 
-          rang: b.moyenne !== null ? index + 1 : null,
+        data: {
+          rang: b.moyenne !== null ? i + 1 : null,
           moyenneClasse,
           moyennePremier
         }

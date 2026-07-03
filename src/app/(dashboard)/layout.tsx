@@ -14,7 +14,6 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Charger les infos du tenant
   let tenantName = "Mon École";
   if (session.user.tenantId) {
     const tenant = await prisma.tenant.findUnique({

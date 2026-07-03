@@ -5,10 +5,10 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 
 const CreateSchema = z.object({
-  classeId: z.string().cuid(),
-  matiereId: z.string().cuid(),
-  enseignantId: z.string().cuid().optional().or(z.literal("")),
-  jour: z.enum(["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"]),
+  classeId: z.string().min(1),
+  matiereId: z.string().min(1),
+  enseignantId: z.string().min(1).optional().or(z.literal("")),
+  jour: z.enum(["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"]),
   heureDebut: z.string().regex(/^\d{2}:\d{2}$/),
   heureFin: z.string().regex(/^\d{2}:\d{2}$/),
   salle: z.string().max(50).optional(),
@@ -87,6 +87,46 @@ export async function POST(req: NextRequest) {
 
     if (overlap) {
       return NextResponse.json({ error: "Ce créneau chevauche un cours existant pour cette classe" }, { status: 409 });
+    }
+
+    // Vérifier conflit enseignant
+    if (enseignantId) {
+      const teacherConflict = await prisma.emploiTemps.findFirst({
+        where: {
+          tenantId,
+          enseignantId,
+          jour: jour as never,
+          annee: tenant?.currentYear ?? "2025-2026",
+          OR: [
+            { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
+            { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
+            { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+          ],
+        },
+      });
+      if (teacherConflict) {
+        return NextResponse.json({ error: "L'enseignant est déjà assigné à un autre cours à cet horaire" }, { status: 409 });
+      }
+    }
+
+    // Vérifier conflit salle
+    if (salle) {
+      const roomConflict = await prisma.emploiTemps.findFirst({
+        where: {
+          tenantId,
+          salle,
+          jour: jour as never,
+          annee: tenant?.currentYear ?? "2025-2026",
+          OR: [
+            { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
+            { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
+            { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+          ],
+        },
+      });
+      if (roomConflict) {
+        return NextResponse.json({ error: "La salle est déjà occupée à cet horaire" }, { status: 409 });
+      }
     }
 
     const creneau = await prisma.emploiTemps.create({

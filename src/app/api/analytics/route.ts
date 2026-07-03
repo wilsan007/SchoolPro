@@ -181,6 +181,50 @@ export async function GET(req: NextRequest) {
 
   // ─── Réponse ──────────────────────────────────────────────────────────────────
 
+  // Gender distribution
+  const [garcons, filles] = await Promise.all([
+    prisma.eleve.count({ where: { tenantId, statut: "ACTIF", sexe: "M" } }),
+    prisma.eleve.count({ where: { tenantId, statut: "ACTIF", sexe: "F" } }),
+  ]);
+
+  // Revenue (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const paiements = await prisma.paiement.findMany({
+    where: { facture: { tenantId }, date: { gte: sixMonthsAgo } },
+    select: { montant: true, devise: true, date: true },
+  });
+  const revenueByMonth: Record<string, number> = {};
+  for (const p of paiements) {
+    const monthKey = new Date(p.date).toLocaleDateString("fr-FR", { month: "short" });
+    revenueByMonth[monthKey] = (revenueByMonth[monthKey] ?? 0) + p.montant;
+  }
+  const revenueData = Object.entries(revenueByMonth).map(([month, montant]) => ({ month, montant }));
+
+  // Absence rate by class
+  const absencesByClasse: Record<string, number> = {};
+  const allAbsencesWithEleve = await prisma.absence.findMany({
+    where: { tenantId },
+    select: { eleve: { select: { classeId: true, classe: { select: { nom: true } } } } },
+  });
+  for (const a of allAbsencesWithEleve) {
+    const cn = a.eleve.classe?.nom ?? "Sans classe";
+    absencesByClasse[cn] = (absencesByClasse[cn] ?? 0) + 1;
+  }
+  const absenceParClasse = Object.entries(absencesByClasse).map(([classe, count]) => ({ classe, count }));
+
+  // Moyennes par classe (for radar chart)
+  const moyennesParClasse: Record<string, number[]> = {};
+  for (const note of notesPubliees) {
+    const cn = note.classe?.nom ?? "N/A";
+    if (!moyennesParClasse[cn]) moyennesParClasse[cn] = [];
+    moyennesParClasse[cn].push((note.valeur / note.noteMax) * 20);
+  }
+  const classeRadarData = Object.entries(moyennesParClasse).map(([classe, vals]) => ({
+    classe,
+    moyenne: Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100,
+  }));
+
   return NextResponse.json({
     synthese: {
       totalEleves,
@@ -205,5 +249,9 @@ export async function GET(req: NextRequest) {
       reussite: bulletinsData.filter((b) => (b.moyenneGenerale ?? 0) >= 10).length,
       passage: bulletinsData.filter((b) => b.decision === "Passage").length,
     },
+    genderDist: { garcons, filles },
+    revenueData,
+    absenceParClasse,
+    classeRadarData,
   });
 }

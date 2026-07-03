@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Power } from "lucide-react";
-import { createUser, toggleUserActive, deleteUser, type UserFormData } from "@/lib/actions/parametres";
+import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X } from "lucide-react";
+import { createUser, toggleUserActive, deleteUser, updateUserPhone, type UserFormData } from "@/lib/actions/parametres";
 
 interface UserItem {
   id: string;
@@ -37,6 +37,8 @@ const roleLabels: Record<string, string> = {
 export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: boolean }) {
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
+  const [phoneValue, setPhoneValue] = useState("");
   const [form, setForm] = useState<UserFormData>({
     name: "",
     email: "",
@@ -77,6 +79,19 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
       toast.success("Utilisateur supprimé");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
+    }
+  }
+
+  async function handleSavePhone(id: string) {
+    setIsPending(true);
+    try {
+      await updateUserPhone(id, phoneValue);
+      toast.success("Téléphone mis à jour");
+      setEditingPhoneId(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setIsPending(false);
     }
   }
 
@@ -144,6 +159,7 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Nom</th>
                   <th className="text-left px-4 py-3 font-medium">Email</th>
+                  <th className="text-left px-4 py-3 font-medium">Téléphone</th>
                   <th className="text-left px-4 py-3 font-medium">Rôle</th>
                   <th className="text-left px-4 py-3 font-medium">Statut</th>
                   <th className="text-left px-4 py-3 font-medium">Dernière connexion</th>
@@ -152,12 +168,45 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
               </thead>
               <tbody>
                 {users.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">Aucun utilisateur</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Aucun utilisateur</td></tr>
                 ) : (
                   users.map((u) => (
                     <tr key={u.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{u.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
+                      <td className="px-4 py-3">
+                        {editingPhoneId === u.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={phoneValue}
+                              onChange={(e) => setPhoneValue(e.target.value)}
+                              placeholder="ex: 253779876543"
+                              className="h-8 text-xs w-32"
+                            />
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleSavePhone(u.id)} disabled={isPending}>
+                              <Check className="h-3.5 w-3.5 text-green-600" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditingPhoneId(null)}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-muted-foreground" />
+                            <span className="font-mono text-xs">{u.phone ?? "—"}</span>
+                            {canManage && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 ml-1"
+                                onClick={() => { setEditingPhoneId(u.id); setPhoneValue(u.phone ?? ""); }}
+                              >
+                                <Edit3 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge variant="info">{roleLabels[u.role] ?? u.role}</Badge>
                       </td>

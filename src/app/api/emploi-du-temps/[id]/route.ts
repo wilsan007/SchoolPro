@@ -39,9 +39,74 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const existing = await prisma.emploiTemps.findFirst({ where: { id, tenantId } });
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
+    const newJour = body.jour ?? existing.jour;
+    const newHeureDebut = body.heureDebut ?? existing.heureDebut;
+    const newHeureFin = body.heureFin ?? existing.heureFin;
+    const newSalle = body.salle !== undefined ? body.salle : existing.salle;
+    const newEnseignantId = body.enseignantId !== undefined ? (body.enseignantId || null) : existing.enseignantId;
+
+    // Check class overlap (excluding self)
+    const classOverlap = await prisma.emploiTemps.findFirst({
+      where: {
+        id: { not: id },
+        tenantId,
+        classeId: existing.classeId,
+        jour: newJour,
+        OR: [
+          { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
+          { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
+          { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+        ],
+      },
+    });
+    if (classOverlap) {
+      return NextResponse.json({ error: "Ce créneau chevauche un cours existant pour cette classe" }, { status: 409 });
+    }
+
+    // Check teacher conflict (if teacher assigned)
+    if (newEnseignantId) {
+      const teacherConflict = await prisma.emploiTemps.findFirst({
+        where: {
+          id: { not: id },
+          tenantId,
+          enseignantId: newEnseignantId,
+          jour: newJour,
+          OR: [
+            { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
+            { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
+            { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+          ],
+        },
+      });
+      if (teacherConflict) {
+        return NextResponse.json({ error: "L'enseignant est déjà assigné à un autre cours à cet horaire" }, { status: 409 });
+      }
+    }
+
+    // Check room conflict (if room assigned)
+    if (newSalle) {
+      const roomConflict = await prisma.emploiTemps.findFirst({
+        where: {
+          id: { not: id },
+          tenantId,
+          salle: newSalle,
+          jour: newJour,
+          OR: [
+            { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
+            { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
+            { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+          ],
+        },
+      });
+      if (roomConflict) {
+        return NextResponse.json({ error: "La salle est déjà occupée à cet horaire" }, { status: 409 });
+      }
+    }
+
     const updated = await prisma.emploiTemps.update({
       where: { id },
       data: {
+        ...(body.jour && { jour: body.jour }),
         ...(body.salle !== undefined && { salle: body.salle }),
         ...(body.heureDebut && { heureDebut: body.heureDebut }),
         ...(body.heureFin && { heureFin: body.heureFin }),

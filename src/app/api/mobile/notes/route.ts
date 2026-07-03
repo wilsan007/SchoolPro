@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-server";
+import prisma from "@/lib/prisma";
 import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
@@ -13,51 +13,39 @@ export async function GET(req: NextRequest) {
   const eleveId = searchParams.get("eleveId");
   const matiereId = searchParams.get("matiereId");
 
-  let notesQuery = supabase
-    .from("notes")
-    .select(`
-      id,
-      valeur,
-      noteMax,
-      coefficient,
-      date,
-      intitule,
-      type,
-      eleve:eleveId ( id, nom, prenom ),
-      matiere:matiereId ( id, nom, code, couleur, coefficient ),
-      classe:classeId ( id, nom )
-    `)
-    .eq("tenantId", user.tenantId)
-    .order("date", { ascending: false })
-    .limit(50);
-
-  if (eleveId) notesQuery = notesQuery.eq("eleveId", eleveId);
-  if (matiereId) notesQuery = notesQuery.eq("matiereId", matiereId);
-
-  const [
-    { data: notes, error: notesError },
-    { data: matieres, error: matieresError },
-    { data: classes, error: classesError },
-  ] = await Promise.all([
-    notesQuery,
-    supabase
-      .from("matieres")
-      .select("id, nom, code, couleur, coefficient")
-      .eq("tenantId", user.tenantId)
-      .order("nom", { ascending: true }),
-    supabase
-      .from("classes")
-      .select("id, nom, niveau")
-      .eq("tenantId", user.tenantId)
-      .order("nom", { ascending: true }),
+  const [notes, matieres, classes] = await Promise.all([
+    prisma.note.findMany({
+      where: {
+        tenantId: user.tenantId,
+        ...(eleveId ? { eleveId } : {}),
+        ...(matiereId ? { matiereId } : {}),
+      },
+      select: {
+        id: true,
+        valeur: true,
+        noteMax: true,
+        coefficient: true,
+        date: true,
+        intitule: true,
+        type: true,
+        eleve: { select: { id: true, nom: true, prenom: true } },
+        matiere: { select: { id: true, nom: true, code: true, couleur: true, coefficient: true } },
+        classe: { select: { id: true, nom: true } },
+      },
+      orderBy: { date: "desc" },
+      take: 50,
+    }),
+    prisma.matiere.findMany({
+      where: { tenantId: user.tenantId },
+      select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
+      orderBy: { nom: "asc" },
+    }),
+    prisma.classe.findMany({
+      where: { tenantId: user.tenantId },
+      select: { id: true, nom: true, niveau: true },
+      orderBy: { nom: "asc" },
+    }),
   ]);
 
-  if (notesError || matieresError || classesError) {
-    return NextResponse.json(
-      { error: notesError?.message || matieresError?.message || classesError?.message },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({ notes: notes ?? [], matieres: matieres ?? [], classes: classes ?? [] });
+  return NextResponse.json({ notes, matieres, classes });
 }

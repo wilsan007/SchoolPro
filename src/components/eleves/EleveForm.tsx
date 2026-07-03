@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Upload, X, User } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface Classe {
@@ -44,6 +45,7 @@ interface EleveFormData {
   parentAdresse?: string;
   parentLien?: "PERE" | "MERE" | "TUTEUR" | "AUTRE";
   parentIsGardien?: boolean;
+  photoUrl?: string | null;
 }
 
 interface EleveFormProps {
@@ -95,7 +97,9 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
     parentAdresse: initialData?.parentAdresse ?? "",
     parentLien: initialData?.parentLien ?? "PERE",
     parentIsGardien: initialData?.parentIsGardien ?? true,
+    photoUrl: initialData?.photoUrl ?? null,
   });
+  const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function updateField<K extends keyof EleveFormData>(field: K, value: EleveFormData[K]) {
@@ -135,6 +139,25 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
 
   const inputClass = (field: string) => cn("h-10", errors[field] && "border-destructive");
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      const res = await fetch("/api/eleves/upload-photo", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erreur upload");
+      updateField("photoUrl", data.photoUrl);
+      toast.success("Photo téléchargée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur upload");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center justify-between">
@@ -154,7 +177,38 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
         <CardHeader>
           <CardTitle>Informations de l&apos;élève</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className="space-y-4">
+          {/* Photo upload */}
+          <div className="flex items-center gap-4">
+            <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+              {form.photoUrl ? (
+                <Image src={form.photoUrl} alt="Photo élève" fill className="object-cover" unoptimized />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <User className="w-10 h-10 text-gray-300" />
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-sm rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-fit">
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {uploading ? "Téléchargement..." : "Télécharger une photo"}
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading} />
+              </label>
+              {form.photoUrl && (
+                <button
+                  type="button"
+                  onClick={() => updateField("photoUrl", null)}
+                  className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-600 w-fit"
+                >
+                  <X className="w-3 h-3" /> Retirer la photo
+                </button>
+              )}
+              <p className="text-xs text-gray-400">JPG, PNG. 2 Mo max.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="prenom">Prénom *</Label>
             <Input id="prenom" value={form.prenom} onChange={(e) => updateField("prenom", e.target.value)} className={inputClass("prenom")} />
@@ -242,6 +296,7 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
           <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
             <Label htmlFor="besoinsSpeciaux">Besoins spéciaux</Label>
             <Input id="besoinsSpeciaux" value={form.besoinsSpeciaux} onChange={(e) => updateField("besoinsSpeciaux", e.target.value)} />
+          </div>
           </div>
         </CardContent>
       </Card>

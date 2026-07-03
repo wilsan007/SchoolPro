@@ -1,29 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Loader2, Clock, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SmartSuggestPanel } from "./SmartSuggestPanel";
 
-type Jour = "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
+type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
-const JOURS: Jour[] = ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
+const JOURS: Jour[] = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
 const JOURS_LABELS: Record<Jour, string> = {
-  LUNDI: "Lun", MARDI: "Mar", MERCREDI: "Mer",
-  JEUDI: "Jeu", VENDREDI: "Ven", SAMEDI: "Sam",
+  DIMANCHE: "Dim", LUNDI: "Lun", MARDI: "Mar", MERCREDI: "Mer", JEUDI: "Jeu",
+  VENDREDI: "Ven", SAMEDI: "Sam",
 };
 
-const TIME_SLOTS = [
+// Continuous grid: 07:00 → 18:00 in 30-min increments
+const ALL_SLOTS = [
   "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
   "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
   "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-  "16:00", "16:30", "17:00", "17:30", "18:00",
+  "16:00", "16:30", "17:00", "17:30",
 ];
 
-const SLOT_HEIGHT = 48; // px per 30-min slot
+const SLOT_HEIGHT = 48;
 
 interface Classe { id: string; nom: string; niveau: string }
 interface Matiere { id: string; nom: string; code: string; couleur: string | null; coefficient: number }
@@ -42,28 +43,26 @@ interface EmploiCreneau {
   enseignantId?: string | null;
 }
 
-function slotIndex(time: string): number {
-  return TIME_SLOTS.indexOf(time);
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
 }
 
-function slotDuration(debut: string, fin: string): number {
-  return slotIndex(fin) - slotIndex(debut);
+function slotIndexIn(time: string, slots: string[]): number {
+  return slots.indexOf(time);
 }
 
-function matiereColor(couleur: string | null, code: string): string {
-  if (couleur) {
-    // Map hex to a soft tinted class
-    const colorMap: Record<string, string> = {
-      "#3b82f6": "bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300",
-      "#ef4444": "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300",
-      "#f59e0b": "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300",
-      "#8b5cf6": "bg-violet-100 border-violet-300 text-violet-800 dark:bg-violet-900/30 dark:border-violet-700 dark:text-violet-300",
-      "#10b981": "bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300",
-      "#f97316": "bg-orange-100 border-orange-300 text-orange-800 dark:bg-orange-900/30 dark:border-orange-700 dark:text-orange-300",
-    };
-    return colorMap[couleur] ?? "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300";
-  }
-  return "bg-gray-100 border-gray-300 text-gray-800 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300";
+function matiereColor(couleur: string | null): string {
+  if (!couleur) return "bg-gray-100 border-gray-300 text-gray-800 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300";
+  const colorMap: Record<string, string> = {
+    "#3b82f6": "bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300",
+    "#ef4444": "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300",
+    "#f59e0b": "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300",
+    "#8b5cf6": "bg-violet-100 border-violet-300 text-violet-800 dark:bg-violet-900/30 dark:border-violet-700 dark:text-violet-300",
+    "#10b981": "bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300",
+    "#f97316": "bg-orange-100 border-orange-300 text-orange-800 dark:bg-orange-900/30 dark:border-orange-700 dark:text-orange-300",
+  };
+  return colorMap[couleur] ?? "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300";
 }
 
 function AddCreneauModal({
@@ -71,6 +70,7 @@ function AddCreneauModal({
   classes,
   matieres,
   enseignants,
+  availableSlots,
   onClose,
   onAdded,
 }: {
@@ -78,6 +78,7 @@ function AddCreneauModal({
   classes: Classe[];
   matieres: Matiere[];
   enseignants: Enseignant[];
+  availableSlots: string[];
   onClose: () => void;
   onAdded: (c: EmploiCreneau) => void;
 }) {
@@ -85,9 +86,9 @@ function AddCreneauModal({
     classeId,
     matiereId: matieres[0]?.id ?? "",
     enseignantId: "",
-    jour: "LUNDI" as Jour,
-    heureDebut: "08:00",
-    heureFin: "09:00",
+    jour: "DIMANCHE" as Jour,
+    heureDebut: availableSlots[0] ?? "07:30",
+    heureFin: availableSlots[1] ?? "08:00",
     salle: "",
   });
   const [isPending, startTransition] = useTransition();
@@ -160,7 +161,7 @@ function AddCreneauModal({
               onChange={(e) => setForm({ ...form, jour: e.target.value as Jour })}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              {JOURS.map((j) => <option key={j} value={j}>{j}</option>)}
+              {JOURS.map((j) => <option key={j} value={j}>{JOURS_LABELS[j]}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -172,7 +173,7 @@ function AddCreneauModal({
                 onChange={(e) => setForm({ ...form, heureDebut: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {TIME_SLOTS.slice(0, -1).map((t) => <option key={t} value={t}>{t}</option>)}
+                {availableSlots.slice(0, -1).map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
@@ -183,7 +184,7 @@ function AddCreneauModal({
                 onChange={(e) => setForm({ ...form, heureFin: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {TIME_SLOTS.slice(1).map((t) => <option key={t} value={t}>{t}</option>)}
+                {availableSlots.slice(1).map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>
@@ -223,7 +224,11 @@ export function EmploiDuTempsView({
   const [emplois, setEmplois] = useState<EmploiCreneau[]>(initial);
   const [selectedClasse, setSelectedClasse] = useState<Classe | null>(classes[0] ?? null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<{ jour: Jour; time: string } | null>(null);
+  const dragOffsetRef = useRef(0);
 
   const classeEmplois = selectedClasse
     ? emplois.filter(
@@ -250,12 +255,169 @@ export function EmploiDuTempsView({
     });
   }
 
-  // Compteur d'heures hebdo par classe
+  // Drag-and-drop: move a creneau to a new day/time
+  const moveCreneau = useCallback(async (id: string, newJour: Jour, newHeureDebut: string) => {
+    const creneau = emplois.find((e) => e.id === id);
+    if (!creneau) return;
+
+    const oldDebut = creneau.heureDebut;
+    const oldFin = creneau.heureFin;
+    const durationMin = timeToMinutes(oldFin) - timeToMinutes(oldDebut);
+    const newDebutMin = timeToMinutes(newHeureDebut);
+    const newFinMin = newDebutMin + durationMin;
+    const newHeureFin = `${String(Math.floor(newFinMin / 60)).padStart(2, "0")}:${String(newFinMin % 60).padStart(2, "0")}`;
+
+    if (creneau.jour === newJour && creneau.heureDebut === newHeureDebut) return;
+
+    // Optimistic update
+    setEmplois((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, jour: newJour, heureDebut: newHeureDebut, heureFin: newHeureFin } : e
+      )
+    );
+
+    try {
+      const res = await fetch(`/api/emploi-du-temps/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jour: newJour, heureDebut: newHeureDebut, heureFin: newHeureFin }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Erreur");
+      }
+      toast.success(`Créneau déplacé vers ${JOURS_LABELS[newJour]} ${newHeureDebut}`);
+    } catch (e: unknown) {
+      // Revert on error
+      setEmplois((prev) =>
+        prev.map((e) =>
+          e.id === id ? { ...e, jour: creneau.jour, heureDebut: oldDebut, heureFin: oldFin } : e
+        )
+      );
+      toast.error(e instanceof Error ? e.message : "Erreur lors du déplacement");
+    }
+  }, [emplois]);
+
+  // Render a single day column (drop zones)
+  function renderDayColumn(jour: Jour) {
+    return (
+      <div key={jour} className="relative border-l border-gray-100 dark:border-gray-800">
+        {ALL_SLOTS.map((time, idx) => {
+          const isDropTarget = dragOverSlot?.jour === jour && dragOverSlot?.time === time;
+          const isLunch = time === "12:30" || time === "13:00" || time === "13:30";
+          return (
+            <div
+              key={time}
+              className={cn(
+                "border-b border-gray-100 dark:border-gray-800 relative transition-colors",
+                isLunch
+                  ? "bg-gray-100/50 dark:bg-gray-800/50"
+                  : idx % 2 === 0 ? "bg-white dark:bg-gray-900" : "bg-gray-50/50 dark:bg-gray-800/30",
+                isDropTarget && "bg-green-100 dark:bg-green-900/30 ring-2 ring-green-400 ring-inset"
+              )}
+              style={{ height: SLOT_HEIGHT }}
+              onDragOver={(e) => {
+                if (draggedId) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDragOverSlot({ jour, time });
+                }
+              }}
+              onDragLeave={() => {
+                if (dragOverSlot?.jour === jour && dragOverSlot?.time === time) {
+                  setDragOverSlot(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedId) {
+                  moveCreneau(draggedId, jour, time);
+                  setDraggedId(null);
+                  setDragOverSlot(null);
+                }
+              }}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Render creneaux as absolutely positioned overlays
+  function renderCreneauxForDay(jour: Jour) {
+    const jourCreneaux = classeEmplois.filter((c) => c.jour === jour);
+
+    return jourCreneaux.map((creneau) => {
+      const startIdx = slotIndexIn(creneau.heureDebut, ALL_SLOTS);
+      const endIdx = slotIndexIn(creneau.heureFin, ALL_SLOTS);
+      if (startIdx < 0 || endIdx < 0) return null;
+
+      const top = startIdx * SLOT_HEIGHT;
+      const height = (endIdx - startIdx) * SLOT_HEIGHT;
+
+      return (
+        <div
+          key={creneau.id}
+          draggable
+          onDragStart={(e) => {
+            setDraggedId(creneau.id);
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", creneau.id);
+          }}
+          onDragEnd={() => {
+            setDraggedId(null);
+            setDragOverSlot(null);
+          }}
+          className={cn(
+            "absolute left-1 right-1 rounded-lg border overflow-hidden group cursor-grab active:cursor-grabbing transition-all pointer-events-auto",
+            matiereColor(creneau.matiere.couleur),
+            draggedId === creneau.id && "opacity-50 ring-2 ring-green-500"
+          )}
+          style={{ top: top + 2, height: height - 4 }}
+        >
+          <div className="p-1.5 h-full flex flex-col justify-between">
+            <div className="flex items-start gap-1">
+              <GripVertical className="w-3 h-3 opacity-40 flex-shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold leading-tight truncate">
+                  {creneau.matiere.code}
+                </p>
+                {height >= 80 && (
+                  <p className="text-xs opacity-80 truncate leading-tight mt-0.5">
+                    {creneau.matiere.nom}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="text-xs opacity-70 leading-tight">
+              {height >= 64 && creneau.enseignant && (
+                <p className="truncate">{creneau.enseignant.user.name}</p>
+              )}
+              {height >= 48 && creneau.salle && (
+                <p className="truncate">{creneau.salle}</p>
+              )}
+              <p>{creneau.heureDebut}→{creneau.heureFin}</p>
+            </div>
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
+            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
+            title="Supprimer"
+          >
+            <Trash2 className="w-3 h-3 text-red-500" />
+          </button>
+        </div>
+      );
+    });
+  }
+
+  // Compteur d'heures hebdo
   const totalHeures = classeEmplois.reduce((sum, c) => {
-    const debut = slotIndex(c.heureDebut);
-    const fin = slotIndex(c.heureFin);
-    return sum + (fin - debut) * 0.5;
+    return sum + (timeToMinutes(c.heureFin) - timeToMinutes(c.heureDebut)) / 60;
   }, 0);
+
+  // Get available slots for the add modal
+  const availableSlotsForAdd = ALL_SLOTS;
 
   return (
     <div className="space-y-6">
@@ -294,6 +456,15 @@ export function EmploiDuTempsView({
             Imprimer
           </Button>
           <Button
+            onClick={() => setShowSuggest(true)}
+            disabled={!selectedClasse}
+            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+            size="sm"
+          >
+            <Sparkles className="w-4 h-4" />
+            Optimiser
+          </Button>
+          <Button
             onClick={() => setShowAdd(true)}
             disabled={!selectedClasse}
             className="gap-2 bg-green-600 hover:bg-green-700 text-white"
@@ -305,103 +476,57 @@ export function EmploiDuTempsView({
         </div>
       </div>
 
+      {/* Info banner */}
+      <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2 flex items-center gap-2">
+        <GripVertical className="w-4 h-4" />
+        <span>Glissez-déposez les cours pour les déplacer. Horaires : 07:00–18:00 (tous les jours)</span>
+      </div>
+
       {/* Grille horaire */}
       {selectedClasse ? (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="min-w-[700px]">
+            <div className="min-w-[900px]">
               {/* Header jours */}
-              <div className="grid grid-cols-[60px_repeat(6,1fr)] border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <div className="p-3 text-xs text-gray-400 font-medium"></div>
                 {JOURS.map((j) => (
-                  <div key={j} className="p-3 text-center">
+                  <div key={j} className="p-3 text-center border-l border-gray-200 dark:border-gray-700">
                     <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{JOURS_LABELS[j]}</p>
-                    <p className="text-xs text-gray-400 capitalize">{j.toLowerCase()}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Corps de la grille */}
-              <div className="relative">
-                {/* Lignes horaires */}
-                {TIME_SLOTS.map((time, idx) => (
-                  <div
-                    key={time}
-                    className="grid grid-cols-[60px_repeat(6,1fr)] border-b border-gray-100 dark:border-gray-800"
-                    style={{ height: SLOT_HEIGHT }}
-                  >
-                    <div className={cn(
-                      "flex items-start justify-end pr-3 pt-1",
-                      idx % 2 === 0 ? "" : "opacity-0"
-                    )}>
-                      <span className="text-xs text-gray-400">{idx % 2 === 0 ? time : ""}</span>
+              {/* Body: time labels + day columns with creneaux */}
+              <div className="relative flex">
+                {/* Time labels column */}
+                <div className="w-[60px] flex-shrink-0">
+                  {ALL_SLOTS.map((time, idx) => (
+                    <div
+                      key={time}
+                      className="flex items-start justify-end pr-3 pt-1 border-b border-gray-100 dark:border-gray-800"
+                      style={{ height: SLOT_HEIGHT }}
+                    >
+                      {idx % 2 === 0 && <span className="text-xs text-gray-400">{time}</span>}
                     </div>
-                    {JOURS.map((j) => (
-                      <div
-                        key={j}
-                        className={cn(
-                          "border-l border-gray-100 dark:border-gray-800 relative",
-                          idx % 2 === 0 ? "bg-white dark:bg-gray-900" : "bg-gray-50/50 dark:bg-gray-800/30"
-                        )}
-                      />
+                  ))}
+                </div>
+
+                {/* Day columns container */}
+                <div className="flex-1 relative">
+                  {/* Grid background (drop zones) */}
+                  <div className="grid grid-cols-7 relative">
+                    {JOURS.map((jour) => renderDayColumn(jour))}
+                  </div>
+
+                  {/* Absolutely positioned creneaux overlay — pointer-events-none on container, auto only on creneaux */}
+                  <div className="absolute inset-0 grid grid-cols-7 pointer-events-none">
+                    {JOURS.map((jour) => (
+                      <div key={jour} className="relative">
+                        {renderCreneauxForDay(jour)}
+                      </div>
                     ))}
                   </div>
-                ))}
-
-                {/* Créneaux positionnés absolutement */}
-                <div className="absolute inset-0 grid grid-cols-[60px_repeat(6,1fr)] pointer-events-none">
-                  <div /> {/* Time column spacer */}
-                  {JOURS.map((jour) => {
-                    const jourCreneaux = classeEmplois.filter((c) => c.jour === jour);
-                    return (
-                      <div key={jour} className="relative pointer-events-auto">
-                        {jourCreneaux.map((creneau) => {
-                          const top = slotIndex(creneau.heureDebut) * SLOT_HEIGHT;
-                          const height = slotDuration(creneau.heureDebut, creneau.heureFin) * SLOT_HEIGHT;
-                          if (height <= 0) return null;
-                          return (
-                            <div
-                              key={creneau.id}
-                              className={cn(
-                                "absolute left-1 right-1 rounded-lg border overflow-hidden group transition-all",
-                                matiereColor(creneau.matiere.couleur, creneau.matiere.code)
-                              )}
-                              style={{ top: top + 2, height: height - 4 }}
-                            >
-                              <div className="p-1.5 h-full flex flex-col justify-between">
-                                <div>
-                                  <p className="text-xs font-bold leading-tight truncate">
-                                    {creneau.matiere.code}
-                                  </p>
-                                  {height >= 80 && (
-                                    <p className="text-xs opacity-80 truncate leading-tight mt-0.5">
-                                      {creneau.matiere.nom}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="text-xs opacity-70 leading-tight">
-                                  {height >= 64 && creneau.enseignant && (
-                                    <p className="truncate">{creneau.enseignant.user.name}</p>
-                                  )}
-                                  {height >= 48 && creneau.salle && (
-                                    <p className="truncate">{creneau.salle}</p>
-                                  )}
-                                  <p>{creneau.heureDebut}→{creneau.heureFin}</p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => deleteCreneau(creneau.id)}
-                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="w-3 h-3 text-red-500" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </div>
@@ -421,8 +546,22 @@ export function EmploiDuTempsView({
           classes={classes}
           matieres={matieres}
           enseignants={enseignants}
+          availableSlots={availableSlotsForAdd}
           onClose={() => setShowAdd(false)}
           onAdded={addCreneau}
+        />
+      )}
+
+      {showSuggest && selectedClasse && (
+        <SmartSuggestPanel
+          classeId={selectedClasse.id}
+          classeNom={selectedClasse.nom}
+          matieres={matieres}
+          enseignants={enseignants}
+          onClose={() => setShowSuggest(false)}
+          onGenerated={(creneaux) => {
+            setEmplois((prev) => [...prev, ...(creneaux as EmploiCreneau[])]);
+          }}
         />
       )}
     </div>

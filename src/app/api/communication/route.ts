@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 
 const NotifSchema = z.object({
   titre: z.string().min(1).max(200),
@@ -37,6 +38,16 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const denied = checkPermission(session.user.role, "communication:send");
   if (denied) return denied;
+
+  // Rate limit: 10 notifications per minute per user
+  const ip = getClientIP(req);
+  const rl = rateLimit({ max: 10, windowSec: 60, key: `notif:${session.user.id}:${ip}` });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Trop de notifications envoyées. Réessayez dans un instant." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
 
   const body = await req.json();
   const data = NotifSchema.parse(body);
