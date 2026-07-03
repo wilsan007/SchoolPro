@@ -9,35 +9,80 @@ import Link from "next/link";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 
-async function getAbsencesData(tenantId: string) {
+async function getTeacherClassIds(tenantId: string, userId: string): Promise<{ classeIds: string[]; isRestricted: boolean }> {
+  const enseignant = await prisma.enseignant.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+
+  if (!enseignant) return { classeIds: [], isRestricted: false };
+
+  const [emploiClasses, principalClasses] = await Promise.all([
+    prisma.emploiTemps.findMany({
+      where: { enseignantId: enseignant.id, tenantId },
+      select: { classeId: true },
+      distinct: ["classeId"],
+    }),
+    prisma.classe.findMany({
+      where: { profPrincipalId: enseignant.id, tenantId },
+      select: { id: true },
+    }),
+  ]);
+
+  const classeIds = Array.from(new Set([
+    ...emploiClasses.map((e) => e.classeId),
+    ...principalClasses.map((c) => c.id),
+  ]));
+
+  return { classeIds, isRestricted: true };
+}
+
+async function getAbsencesData(
+  tenantId: string,
+  classeFilter?: { classeIds: string[]; isRestricted: boolean }
+) {
   const today = new Date();
   const sevenDaysAgo = subDays(today, 7);
+
+  const absenceWhere = {
+    tenantId,
+    ...(classeFilter?.isRestricted && classeFilter.classeIds.length > 0
+      ? { eleve: { classeId: { in: classeFilter.classeIds } } }
+      : classeFilter?.isRestricted
+        ? { id: "__none__" }
+        : {}),
+  };
 
   const [absencesAujourdhui, absencesSemaine, absencesNonJustifiees, recentesAbsences] =
     await Promise.all([
       prisma.absence.count({
         where: {
-          tenantId,
+          ...absenceWhere,
           date: { gte: startOfDay(today), lte: endOfDay(today) },
         },
       }),
       prisma.absence.count({
-        where: { tenantId, date: { gte: sevenDaysAgo } },
+        where: {
+          ...absenceWhere,
+          date: { gte: sevenDaysAgo },
+        },
       }),
       prisma.absence.count({
-        where: { tenantId, statut: "INJUSTIFIEE" },
+        where: {
+          ...absenceWhere,
+          statut: "INJUSTIFIEE",
+        },
       }),
       prisma.absence.findMany({
-        where: { tenantId },
+        where: absenceWhere,
         orderBy: { date: "desc" },
-        take: 30,
         include: {
           eleve: {
             select: {
               nom: true,
               prenom: true,
               photoUrl: true,
-              classe: { select: { nom: true } },
+              classe: { select: { nom: true, niveau: true } },
             },
           },
         },
@@ -51,7 +96,12 @@ export default async function AbsencesPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
-  const data = await getAbsencesData(session.user.tenantId);
+  const isTeacher = session.user.role === "TEACHER" || session.user.role === "CLASS_TEACHER";
+  const classeFilter = isTeacher
+    ? await getTeacherClassIds(session.user.tenantId, session.user.id)
+    : undefined;
+
+  const data = await getAbsencesData(session.user.tenantId, classeFilter);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

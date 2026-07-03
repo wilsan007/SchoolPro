@@ -18,7 +18,13 @@ const EleveSchema = z.object({
   allergies: z.string().optional(),
 });
 
-// GET /api/eleves — liste des élèves du tenant
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
+const MAX_EXPORT_ROWS = 5000;
+
+// GET /api/eleves — liste paginée des élèves du tenant.
+// Passer ?export=true pour récupérer un lot complet (borné) destiné à l'export CSV,
+// sans pagination.
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -30,27 +36,55 @@ export async function GET(req: NextRequest) {
     const classeId = searchParams.get("classeId");
     const statut = searchParams.get("statut");
     const q = searchParams.get("q");
+    const isExport = searchParams.get("export") === "true";
 
-    const eleves = await prisma.eleve.findMany({
-      where: {
-        tenantId: session.user.tenantId,
-        ...(classeId && { classeId }),
-        ...(statut && { statut: statut as "ACTIF" }),
-        ...(q && {
-          OR: [
-            { nom: { contains: q, mode: "insensitive" } },
-            { prenom: { contains: q, mode: "insensitive" } },
-            { matricule: { contains: q, mode: "insensitive" } },
-          ],
-        }),
-      },
-      include: {
-        classe: { select: { nom: true, niveau: true } },
-      },
-      orderBy: [{ nom: "asc" }],
-    });
+    const where = {
+      tenantId: session.user.tenantId,
+      ...(classeId && { classeId }),
+      ...(statut && { statut: statut as "ACTIF" }),
+      ...(q && {
+        OR: [
+          { nom: { contains: q, mode: "insensitive" as const } },
+          { prenom: { contains: q, mode: "insensitive" as const } },
+          { matricule: { contains: q, mode: "insensitive" as const } },
+        ],
+      }),
+    };
 
-    return NextResponse.json({ eleves });
+    const include = {
+      classe: { select: { nom: true, niveau: true } },
+      parents: {
+        include: { parent: { select: { nom: true, prenom: true, phone: true } } },
+        where: { isGardien: true },
+        take: 1,
+      },
+    };
+
+    if (isExport) {
+      const eleves = await prisma.eleve.findMany({
+        where,
+        include,
+        orderBy: [{ classe: { nom: "asc" } }, { nom: "asc" }],
+        take: MAX_EXPORT_ROWS,
+      });
+      return NextResponse.json({ eleves });
+    }
+
+    const page = Math.max(1, Number(searchParams.get("page")) || 1);
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(searchParams.get("pageSize")) || DEFAULT_PAGE_SIZE));
+
+    const [eleves, total] = await Promise.all([
+      prisma.eleve.findMany({
+        where,
+        include,
+        orderBy: [{ nom: "asc" }],
+        take: pageSize,
+        skip: (page - 1) * pageSize,
+      }),
+      prisma.eleve.count({ where }),
+    ]);
+
+    return NextResponse.json({ eleves, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
   } catch (error) {
     console.error("[API/eleves GET]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

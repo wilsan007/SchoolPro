@@ -179,6 +179,26 @@ export async function GET(req: NextRequest) {
     nbNotes: d.valeurs.length,
   })).sort((a, b) => b.moyenne - a.moyenne);
 
+  // ─── Moyenne par matière par classe ───────────────────────────────────────────
+
+  const moyennesParMatiereParClasse: Record<string, Record<string, number[]>> = {};
+  for (const note of notesPubliees) {
+    const cn = note.classe?.nom ?? "N/A";
+    const m = note.matiere.nom;
+    if (!moyennesParMatiereParClasse[cn]) moyennesParMatiereParClasse[cn] = {};
+    if (!moyennesParMatiereParClasse[cn][m]) moyennesParMatiereParClasse[cn][m] = [];
+    moyennesParMatiereParClasse[cn][m].push((note.valeur / note.noteMax) * 20);
+  }
+  const matieresParClasse = Object.entries(moyennesParMatiereParClasse).map(([classe, matieres]) => ({
+    classe,
+    niveau: notesPubliees.find((n) => n.classe?.nom === classe)?.classe?.niveau ?? "",
+    matieres: Object.entries(matieres).map(([matiere, vals]) => ({
+      matiere,
+      moyenne: Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100,
+      nbNotes: vals.length,
+    })).sort((a, b) => b.moyenne - a.moyenne),
+  })).sort((a, b) => a.classe.localeCompare(b.classe));
+
   // ─── Réponse ──────────────────────────────────────────────────────────────────
 
   // Gender distribution
@@ -239,6 +259,7 @@ export async function GET(req: NextRequest) {
     elevesArisque,
     absencesChartData,
     matieresData,
+    matieresParClasse,
     elevesParClasse: elevesParClasse.map((c) => ({
       classe: c.nom,
       niveau: c.niveau,

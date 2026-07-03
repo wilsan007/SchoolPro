@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   ChevronUp, ChevronDown, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 
 interface Eleve {
   id: string;
@@ -46,42 +48,60 @@ const statutLabels = {
   ABANDONNE: "Abandonné",
 };
 
-export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
-  const [search, setSearch] = useState("");
+interface ElevesTableProps {
+  eleves: Eleve[];
+  total: number;
+  classes: string[];
+  initialQuery: string;
+  initialClasse: string;
+  initialStatut: string;
+}
+
+export function ElevesTable({ eleves, total, classes, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [search, setSearch] = useState(initialQuery);
   const [sortField, setSortField] = useState<"nom" | "classe" | "statut">("nom");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [showFilters, setShowFilters] = useState(false);
-  const [classeFilter, setClasseFilter] = useState<string>("");
-  const [statutFilter, setStatutFilter] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(Boolean(initialClasse || initialStatut));
+  const [activeGroup, setActiveGroup] = useState<SchoolGroup | null>(null);
+  const [activeClass, setActiveClass] = useState<string | null>(null);
 
-  const classes = useMemo(
-    () => Array.from(new Set(eleves.map((e) => e.classe?.nom).filter(Boolean))).sort(),
-    [eleves]
-  );
-  const statuts = useMemo(
-    () => Array.from(new Set(eleves.map((e) => e.statut))).sort(),
-    [eleves]
-  );
+  // Recherche : mise à jour de l'URL avec un debounce
+  useEffect(() => {
+    if (search === initialQuery) return;
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (search) params.set("q", search);
+      else params.delete("q");
+      router.push(`?${params.toString()}`);
+    }, 300);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
-  const filtered = eleves
-    .filter((e) => {
-      const q = search.toLowerCase();
-      const matchesSearch =
-        e.nom.toLowerCase().includes(q) ||
-        e.prenom.toLowerCase().includes(q) ||
-        e.matricule.toLowerCase().includes(q) ||
-        e.classe?.nom.toLowerCase().includes(q);
-      const matchesClasse = !classeFilter || e.classe?.nom === classeFilter;
-      const matchesStatut = !statutFilter || e.statut === statutFilter;
-      return matchesSearch && matchesClasse && matchesStatut;
-    })
-    .sort((a, b) => {
-      let va = "", vb = "";
-      if (sortField === "nom") { va = a.nom; vb = b.nom; }
-      else if (sortField === "classe") { va = a.classe?.nom ?? ""; vb = b.classe?.nom ?? ""; }
-      else { va = a.statut; vb = b.statut; }
-      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-    });
+  function setFilter(key: "classeId" | "statut", value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    router.push(`?${params.toString()}`);
+  }
+
+  function resetFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("classeId");
+    params.delete("statut");
+    router.push(`?${params.toString()}`);
+  }
+
+  const sorted = [...eleves].sort((a, b) => {
+    let va = "", vb = "";
+    if (sortField === "nom") { va = a.nom; vb = b.nom; }
+    else if (sortField === "classe") { va = a.classe?.nom ?? ""; vb = b.classe?.nom ?? ""; }
+    else { va = a.statut; vb = b.statut; }
+    return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
 
   function toggleSort(field: typeof sortField) {
     if (sortField === field) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -94,6 +114,30 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
       ? <ChevronUp className="h-3 w-3" />
       : <ChevronDown className="h-3 w-3" />;
   }
+
+  // Groupement des élèves par niveau scolaire, puis par niveau de classe, puis par classe
+  const groupedEleves = SCHOOL_GROUP_ORDER.map((group) => {
+    const classesInGroup = new Map<string, Eleve[]>();
+    for (const eleve of sorted) {
+      const classeNom = eleve.classe?.nom ?? "Sans classe";
+      const niveau = eleve.classe?.niveau ?? "";
+      const eleveGroup = eleve.classe ? getSchoolGroup(niveau, classeNom) : "Autre";
+      if (eleveGroup !== group) continue;
+      if (!classesInGroup.has(classeNom)) classesInGroup.set(classeNom, []);
+      classesInGroup.get(classeNom)!.push(eleve);
+    }
+    // Regrouper les classes par niveau (ex: toutes les 6ème A/B/C ensemble)
+    const classesByNiveau = new Map<string, { classe: string; eleves: Eleve[] }[]>();
+    for (const [classe, eleves] of Array.from(classesInGroup.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+      const niveauKey = eleves[0]?.classe?.niveau ?? classe;
+      if (!classesByNiveau.has(niveauKey)) classesByNiveau.set(niveauKey, []);
+      classesByNiveau.get(niveauKey)!.push({ classe, eleves });
+    }
+    return {
+      group,
+      classesByNiveau: Array.from(classesByNiveau.entries()).map(([niveau, classes]) => ({ niveau, classes })),
+    };
+  }).filter((g) => g.classesByNiveau.length > 0);
 
   return (
     <Card>
@@ -117,12 +161,12 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
         >
           <Filter className="h-4 w-4" />
           Filtres
-          {(classeFilter || statutFilter) && (
+          {(initialClasse || initialStatut) && (
             <span className="ml-1 flex h-2 w-2 rounded-full bg-primary" />
           )}
         </Button>
         <p className="text-sm text-muted-foreground ml-auto">
-          {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+          {total} résultat{total > 1 ? "s" : ""}
         </p>
       </div>
 
@@ -132,8 +176,8 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
             <label htmlFor="classe-filter" className="text-sm text-muted-foreground">Classe</label>
             <select
               id="classe-filter"
-              value={classeFilter}
-              onChange={(e) => setClasseFilter(e.target.value)}
+              value={initialClasse}
+              onChange={(e) => setFilter("classeId", e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">Toutes</option>
@@ -146,22 +190,22 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
             <label htmlFor="statut-filter" className="text-sm text-muted-foreground">Statut</label>
             <select
               id="statut-filter"
-              value={statutFilter}
-              onChange={(e) => setStatutFilter(e.target.value)}
+              value={initialStatut}
+              onChange={(e) => setFilter("statut", e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">Tous</option>
-              {statuts.map((s) => (
-                <option key={s} value={s}>{statutLabels[s as keyof typeof statutLabels] ?? s}</option>
+              {Object.entries(statutLabels).map(([s, label]) => (
+                <option key={s} value={s}>{label}</option>
               ))}
             </select>
           </div>
-          {(classeFilter || statutFilter) && (
+          {(initialClasse || initialStatut) && (
             <Button
               variant="ghost"
               size="sm"
               className="gap-2 text-muted-foreground"
-              onClick={() => { setClasseFilter(""); setStatutFilter(""); }}
+              onClick={resetFilters}
             >
               <X className="h-4 w-4" />
               Réinitialiser
@@ -170,128 +214,198 @@ export function ElevesTable({ eleves }: { eleves: Eleve[] }) {
         </div>
       )}
 
-      {/* Tableau */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/40">
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground w-10">#</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                <button onClick={() => toggleSort("nom")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  Élève <SortIcon field="nom" />
+      {/* Navigation par onglets horizontaux : Primaire | Collège | Lycée */}
+      {groupedEleves.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          Aucun élève trouvé
+        </div>
+      ) : (
+        <>
+          {/* Onglets groupes scolaires */}
+          <div className="flex items-center gap-1 px-4 pt-3 border-b">
+            {groupedEleves.map(({ group, classesByNiveau }) => {
+              const totalGroup = classesByNiveau.reduce(
+                (s, n) => s + n.classes.reduce((s2, c) => s2 + c.eleves.length, 0), 0
+              );
+              return (
+                <button
+                  key={group}
+                  onClick={() => {
+                    setActiveGroup(activeGroup === group ? null : group);
+                    setActiveClass(null);
+                  }}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2",
+                    activeGroup === group
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  )}
+                >
+                  {group}
+                  <span className="ml-1.5 text-xs opacity-70">({totalGroup})</span>
                 </button>
-              </th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Matricule</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                <button onClick={() => toggleSort("classe")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  Classe <SortIcon field="classe" />
-                </button>
-              </th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Naissance</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Parent/Tuteur</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                <button onClick={() => toggleSort("statut")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  Statut <SortIcon field="statut" />
-                </button>
-              </th>
-              <th className="px-4 py-3 w-24" />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center py-12 text-muted-foreground">
-                  Aucun élève trouvé
-                </td>
-              </tr>
-            ) : (
-              filtered.map((eleve, i) => {
-                const tuteur = eleve.parents[0]?.parent;
-                return (
-                  <tr
-                    key={eleve.id}
-                    className={cn(
-                      "border-b last:border-0 hover:bg-muted/30 transition-colors",
-                      i % 2 === 0 ? "bg-background" : "bg-muted/10"
-                    )}
-                  >
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8 flex-shrink-0">
-                          {eleve.photoUrl && <AvatarImage src={eleve.photoUrl} />}
-                          <AvatarFallback className={cn(
-                            "text-xs font-semibold",
-                            eleve.sexe === "F"
-                              ? "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
-                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+              );
+            })}
+          </div>
+
+          {/* Boutons de classes horizontaux, regroupés par niveau */}
+          {activeGroup && (
+            <div className="px-4 py-3 border-b bg-muted/20">
+              {groupedEleves
+                .find((g) => g.group === activeGroup)
+                ?.classesByNiveau.map(({ niveau, classes }) => (
+                  <div key={niveau} className="flex items-center gap-2 mb-2 last:mb-0">
+                    <span className="text-xs font-semibold text-muted-foreground min-w-[60px] flex-shrink-0">
+                      {niveau}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {classes.map(({ classe, eleves: classeEleves }) => (
+                        <button
+                          key={classe}
+                          onClick={() => setActiveClass(activeClass === classe ? null : classe)}
+                          className={cn(
+                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all border",
+                            activeClass === classe
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-background border-border hover:border-primary/40 hover:bg-accent"
+                          )}
+                        >
+                          {classe}
+                          <span className={cn(
+                            "ml-1.5 text-[10px]",
+                            activeClass === classe ? "opacity-80" : "text-muted-foreground"
                           )}>
-                            {getInitials(`${eleve.prenom} ${eleve.nom}`)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{eleve.prenom} {eleve.nom}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {eleve.sexe === "F" ? "♀" : "♂"} · {eleve.regime ?? "externe"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {eleve.matricule}
-                    </td>
-                    <td className="px-4 py-3">
-                      {eleve.classe ? (
-                        <div>
-                          <p className="font-medium">{eleve.classe.nom}</p>
-                          <p className="text-xs text-muted-foreground">{eleve.classe.niveau}</p>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Non affecté</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(eleve.dateNaissance)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {tuteur ? (
-                        <div>
-                          <p className="font-medium text-sm">{tuteur.prenom} {tuteur.nom}</p>
-                          <p className="text-xs text-muted-foreground">{tuteur.phone}</p>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={statutColors[eleve.statut as keyof typeof statutColors] ?? "secondary"}>
-                        {statutLabels[eleve.statut as keyof typeof statutLabels] ?? eleve.statut}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-                          <Link href={`/eleves/${eleve.id}`}>
-                            <Eye className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
-                        <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-                          <Link href={`/eleves/${eleve.id}`}>
-                            <Edit className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                            {classeEleves.length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {/* Tableau des élèves de la classe sélectionnée */}
+          {activeGroup && activeClass && (
+            <div className="overflow-x-auto">
+              {(() => {
+                const groupData = groupedEleves.find((g) => g.group === activeGroup);
+                const classData = groupData?.classesByNiveau
+                  .flatMap((n) => n.classes)
+                  .find((c) => c.classe === activeClass);
+                if (!classData) return null;
+                return (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground w-10">#</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">
+                          <button onClick={() => toggleSort("nom")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                            Élève <SortIcon field="nom" />
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Matricule</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Naissance</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Parent/Tuteur</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">
+                          <button onClick={() => toggleSort("statut")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                            Statut <SortIcon field="statut" />
+                          </button>
+                        </th>
+                        <th className="px-4 py-2 w-24" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classData.eleves.map((eleve, i) => {
+                        const tuteur = eleve.parents[0]?.parent;
+                        return (
+                          <tr
+                            key={eleve.id}
+                            className={cn(
+                              "border-b last:border-0 hover:bg-muted/30 transition-colors",
+                              i % 2 === 0 ? "bg-background" : "bg-muted/10"
+                            )}
+                          >
+                            <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  {eleve.photoUrl && <AvatarImage src={eleve.photoUrl} />}
+                                  <AvatarFallback className={cn(
+                                    "text-xs font-semibold",
+                                    eleve.sexe === "F"
+                                      ? "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
+                                      : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                  )}>
+                                    {getInitials(`${eleve.prenom} ${eleve.nom}`)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{eleve.prenom} {eleve.nom}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {eleve.sexe === "F" ? "♀" : "♂"} · {eleve.regime ?? "externe"}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                              {eleve.matricule}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {formatDate(eleve.dateNaissance)}
+                            </td>
+                            <td className="px-4 py-3">
+                              {tuteur ? (
+                                <div>
+                                  <p className="font-medium text-sm">{tuteur.prenom} {tuteur.nom}</p>
+                                  <p className="text-xs text-muted-foreground">{tuteur.phone}</p>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge variant={statutColors[eleve.statut as keyof typeof statutColors] ?? "secondary"}>
+                                {statutLabels[eleve.statut as keyof typeof statutLabels] ?? eleve.statut}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1">
+                                <Button asChild variant="ghost" size="icon" className="h-7 w-7">
+                                  <Link href={`/eleves/${eleve.id}`}>
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                                <Button asChild variant="ghost" size="icon" className="h-7 w-7">
+                                  <Link href={`/eleves/${eleve.id}`}>
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+              })()}
+            </div>
+          )}
+
+          {/* Message si aucun groupe/classe sélectionné */}
+          {(!activeGroup || !activeClass) && (
+            <div className="text-center py-10 text-muted-foreground text-sm">
+              {!activeGroup
+                ? "Sélectionnez un niveau scolaire ci-dessus pour afficher les classes."
+                : "Sélectionnez une classe ci-dessus pour afficher les élèves."}
+            </div>
+          )}
+        </>
+      )}
     </Card>
   );
 }

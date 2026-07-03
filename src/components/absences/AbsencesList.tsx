@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 import { Search, CheckCircle, XCircle, Clock } from "lucide-react";
 
 interface Absence {
@@ -22,7 +24,7 @@ interface Absence {
     nom: string;
     prenom: string;
     photoUrl: string | null;
-    classe: { nom: string } | null;
+    classe: { nom: string; niveau: string } | null;
   };
 }
 
@@ -49,6 +51,8 @@ const motifLabels: Record<string, string> = {
 export function AbsencesList({ absences }: { absences: Absence[] }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "EN_ATTENTE" | "INJUSTIFIEE" | "JUSTIFIEE">("all");
+  const [activeGroup, setActiveGroup] = useState<SchoolGroup | null>(null);
+  const [activeClass, setActiveClass] = useState<string | null>(null);
 
   const filtered = absences.filter((a) => {
     const q = search.toLowerCase();
@@ -60,12 +64,96 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
     return matchSearch && matchFilter;
   });
 
+  // Groupement des absences par niveau scolaire, puis par niveau de classe, puis par classe
+  const groupedAbsences = SCHOOL_GROUP_ORDER.map((group) => {
+    const classesInGroup = new Map<string, Absence[]>();
+    for (const abs of filtered) {
+      const classeNom = abs.eleve.classe?.nom ?? "Sans classe";
+      const niveau = abs.eleve.classe?.niveau ?? "";
+      const absGroup = abs.eleve.classe ? getSchoolGroup(niveau, classeNom) : "Autre";
+      if (absGroup !== group) continue;
+      if (!classesInGroup.has(classeNom)) classesInGroup.set(classeNom, []);
+      classesInGroup.get(classeNom)!.push(abs);
+    }
+    const classesByNiveau = new Map<string, { classe: string; absences: Absence[] }[]>();
+    for (const [classe, absences] of Array.from(classesInGroup.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+      const niveauKey = absences[0]?.eleve.classe?.niveau ?? classe;
+      if (!classesByNiveau.has(niveauKey)) classesByNiveau.set(niveauKey, []);
+      classesByNiveau.get(niveauKey)!.push({ classe, absences });
+    }
+    return {
+      group,
+      classesByNiveau: Array.from(classesByNiveau.entries()).map(([niveau, classes]) => ({ niveau, classes })),
+    };
+  }).filter((g) => g.classesByNiveau.length > 0);
+
   const tabs = [
     { key: "all", label: "Toutes", count: absences.length },
     { key: "EN_ATTENTE", label: "En attente", count: absences.filter((a) => a.statut === "EN_ATTENTE").length },
     { key: "INJUSTIFIEE", label: "Injustifiées", count: absences.filter((a) => a.statut === "INJUSTIFIEE").length },
     { key: "JUSTIFIEE", label: "Justifiées", count: absences.filter((a) => a.statut === "JUSTIFIEE").length },
   ] as const;
+
+  function renderAbsenceRow(absence: Absence) {
+    return (
+      <div key={absence.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
+        <Avatar className="h-9 w-9 flex-shrink-0">
+          {absence.eleve.photoUrl && <AvatarImage src={absence.eleve.photoUrl} />}
+          <AvatarFallback className="bg-muted text-xs font-semibold">
+            {getInitials(`${absence.eleve.prenom} ${absence.eleve.nom}`)}
+          </AvatarFallback>
+        </Avatar>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm">
+              {absence.eleve.prenom} {absence.eleve.nom}
+            </p>
+            {absence.isRetard && (
+              <Badge variant="warning" className="text-[10px] px-1.5 py-0">Retard</Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-0.5">
+            <p className="text-xs text-muted-foreground">
+              {motifLabels[absence.motif] ?? absence.motif}
+            </p>
+            {absence.heureDebut && (
+              <>
+                <span className="text-xs text-muted-foreground">·</span>
+                <p className="text-xs text-muted-foreground">
+                  {absence.heureDebut} – {absence.heureFin ?? "?"}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <p className="text-xs text-muted-foreground">{formatDate(absence.date, "dd/MM/yyyy")}</p>
+          <div className="flex items-center gap-1.5">
+            {statutIcons[absence.statut as keyof typeof statutIcons]}
+            <Badge variant={statutVariants[absence.statut as keyof typeof statutVariants] ?? "secondary"} className="text-xs">
+              {absence.statut === "JUSTIFIEE" ? "Justifiée"
+                : absence.statut === "INJUSTIFIEE" ? "Injustifiée"
+                : "En attente"}
+            </Badge>
+          </div>
+          <div className="flex gap-1">
+            {absence.statut === "EN_ATTENTE" && (
+              <>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700 hover:bg-green-50">
+                  Justifier
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
+                  Refuser
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -102,77 +190,101 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
         </div>
       </div>
 
-      {/* Liste */}
-      <div className="divide-y">
-        {filtered.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground text-sm">
-            Aucune absence trouvée
+      {/* Navigation par onglets horizontaux : Primaire | Collège | Lycée */}
+      {groupedAbsences.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          Aucune absence trouvée
+        </div>
+      ) : (
+        <>
+          {/* Onglets groupes scolaires */}
+          <div className="flex items-center gap-1 px-4 pt-3 border-b">
+            {groupedAbsences.map(({ group, classesByNiveau }) => {
+              const totalGroup = classesByNiveau.reduce(
+                (s, n) => s + n.classes.reduce((s2, c) => s2 + c.absences.length, 0), 0
+              );
+              return (
+                <button
+                  key={group}
+                  onClick={() => {
+                    setActiveGroup(activeGroup === group ? null : group);
+                    setActiveClass(null);
+                  }}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2",
+                    activeGroup === group
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  )}
+                >
+                  {group}
+                  <span className="ml-1.5 text-xs opacity-70">({totalGroup})</span>
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          filtered.map((absence) => (
-            <div key={absence.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
-              <Avatar className="h-9 w-9 flex-shrink-0">
-                {absence.eleve.photoUrl && <AvatarImage src={absence.eleve.photoUrl} />}
-                <AvatarFallback className="bg-muted text-xs font-semibold">
-                  {getInitials(`${absence.eleve.prenom} ${absence.eleve.nom}`)}
-                </AvatarFallback>
-              </Avatar>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-sm">
-                    {absence.eleve.prenom} {absence.eleve.nom}
-                  </p>
-                  {absence.isRetard && (
-                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">Retard</Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <p className="text-xs text-muted-foreground">
-                    {absence.eleve.classe?.nom ?? "Aucune classe"}
-                  </p>
-                  <span className="text-xs text-muted-foreground">·</span>
-                  <p className="text-xs text-muted-foreground">
-                    {motifLabels[absence.motif] ?? absence.motif}
-                  </p>
-                  {absence.heureDebut && (
-                    <>
-                      <span className="text-xs text-muted-foreground">·</span>
-                      <p className="text-xs text-muted-foreground">
-                        {absence.heureDebut} – {absence.heureFin ?? "?"}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <p className="text-xs text-muted-foreground">{formatDate(absence.date, "dd/MM/yyyy")}</p>
-                <div className="flex items-center gap-1.5">
-                  {statutIcons[absence.statut as keyof typeof statutIcons]}
-                  <Badge variant={statutVariants[absence.statut as keyof typeof statutVariants] ?? "secondary"} className="text-xs">
-                    {absence.statut === "JUSTIFIEE" ? "Justifiée"
-                      : absence.statut === "INJUSTIFIEE" ? "Injustifiée"
-                      : "En attente"}
-                  </Badge>
-                </div>
-                <div className="flex gap-1">
-                  {absence.statut === "EN_ATTENTE" && (
-                    <>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700 hover:bg-green-50">
-                        Justifier
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
-                        Refuser
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
+          {/* Boutons de classes horizontaux, regroupés par niveau */}
+          {activeGroup && (
+            <div className="px-4 py-3 border-b bg-muted/20">
+              {groupedAbsences
+                .find((g) => g.group === activeGroup)
+                ?.classesByNiveau.map(({ niveau, classes }) => (
+                  <div key={niveau} className="flex items-center gap-2 mb-2 last:mb-0">
+                    <span className="text-xs font-semibold text-muted-foreground min-w-[60px] flex-shrink-0">
+                      {niveau}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {classes.map(({ classe, absences: classeAbsences }) => (
+                        <button
+                          key={classe}
+                          onClick={() => setActiveClass(activeClass === classe ? null : classe)}
+                          className={cn(
+                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all border",
+                            activeClass === classe
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-background border-border hover:border-primary/40 hover:bg-accent"
+                          )}
+                        >
+                          {classe}
+                          <span className={cn(
+                            "ml-1.5 text-[10px]",
+                            activeClass === classe ? "opacity-80" : "text-muted-foreground"
+                          )}>
+                            {classeAbsences.length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
             </div>
-          ))
-        )}
-      </div>
+          )}
+
+          {/* Liste des absences de la classe sélectionnée */}
+          {activeGroup && activeClass && (
+            <div className="divide-y">
+              {(() => {
+                const groupData = groupedAbsences.find((g) => g.group === activeGroup);
+                const classData = groupData?.classesByNiveau
+                  .flatMap((n) => n.classes)
+                  .find((c) => c.classe === activeClass);
+                if (!classData) return null;
+                return classData.absences.map((absence) => renderAbsenceRow(absence));
+              })()}
+            </div>
+          )}
+
+          {/* Message si aucun groupe/classe sélectionné */}
+          {(!activeGroup || !activeClass) && (
+            <div className="text-center py-10 text-muted-foreground text-sm">
+              {!activeGroup
+                ? "Sélectionnez un niveau scolaire ci-dessus pour afficher les classes."
+                : "Sélectionnez une classe ci-dessus pour afficher les absences."}
+            </div>
+          )}
+        </>
+      )}
     </Card>
   );
 }

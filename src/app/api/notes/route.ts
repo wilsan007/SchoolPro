@@ -36,23 +36,35 @@ export async function GET(req: NextRequest) {
     const periodeId = searchParams.get("periodeId");
     const eleveId = searchParams.get("eleveId");
 
-    const notes = await prisma.note.findMany({
-      where: {
-        tenantId: session.user.tenantId,
-        ...(classeId && { classeId }),
-        ...(matiereId && { matiereId }),
-        ...(periodeId && { periodeId }),
-        ...(eleveId && { eleveId }),
-      },
-      include: {
-        eleve: { select: { nom: true, prenom: true, matricule: true } },
-        matiere: { select: { nom: true, code: true, couleur: true } },
-        periode: { select: { nom: true, numero: true } },
-      },
-      orderBy: [{ date: "desc" }],
-    });
+    // Bornes de sécurité : sans filtre (classe/matière/période/élève), la table peut
+    // contenir des centaines de milliers de lignes pour un gros tenant.
+    const page = Math.max(1, Number(searchParams.get("page")) || 1);
+    const pageSize = Math.min(500, Math.max(1, Number(searchParams.get("pageSize")) || 200));
 
-    return NextResponse.json({ notes });
+    const where = {
+      tenantId: session.user.tenantId,
+      ...(classeId && { classeId }),
+      ...(matiereId && { matiereId }),
+      ...(periodeId && { periodeId }),
+      ...(eleveId && { eleveId }),
+    };
+
+    const [notes, total] = await Promise.all([
+      prisma.note.findMany({
+        where,
+        include: {
+          eleve: { select: { nom: true, prenom: true, matricule: true } },
+          matiere: { select: { nom: true, code: true, couleur: true } },
+          periode: { select: { nom: true, numero: true } },
+        },
+        orderBy: [{ date: "desc" }],
+        take: pageSize,
+        skip: (page - 1) * pageSize,
+      }),
+      prisma.note.count({ where }),
+    ]);
+
+    return NextResponse.json({ notes, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
   } catch (error) {
     console.error("[API/notes GET]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

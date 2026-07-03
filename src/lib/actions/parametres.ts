@@ -408,9 +408,9 @@ export async function getElevesForLinking() {
       nom: true,
       prenom: true,
       matricule: true,
-      classe: { select: { nom: true } },
+      classe: { select: { nom: true, niveau: true } },
     },
-    orderBy: [{ nom: "asc" }, { prenom: "asc" }],
+    orderBy: [{ classe: { nom: "asc" } }, { nom: "asc" }, { prenom: "asc" }],
   });
 }
 

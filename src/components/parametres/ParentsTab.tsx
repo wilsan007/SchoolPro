@@ -16,6 +16,7 @@ import {
   deleteParent,
   type ParentFormData,
 } from "@/lib/actions/parametres";
+import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 
 interface EleveLink {
   eleve: {
@@ -45,7 +46,7 @@ interface EleveItem {
   nom: string;
   prenom: string;
   matricule: string;
-  classe: { nom: string } | null;
+  classe: { nom: string; niveau: string } | null;
 }
 
 export function ParentsTab({
@@ -63,6 +64,10 @@ export function ParentsTab({
   const [editingPhone, setEditingPhone] = useState<string | null>(null);
   const [selectedEleves, setSelectedEleves] = useState<string[]>([]);
   const [phoneForm, setPhoneForm] = useState({ phone: "", telegramChatId: "" });
+  const [formActiveGroup, setFormActiveGroup] = useState<SchoolGroup | null>(null);
+  const [formActiveClass, setFormActiveClass] = useState<string | null>(null);
+  const [linkActiveGroup, setLinkActiveGroup] = useState<SchoolGroup | null>(null);
+  const [linkActiveClass, setLinkActiveClass] = useState<string | null>(null);
 
   const [form, setForm] = useState<ParentFormData & { eleveIds: string[] }>({
     nom: "",
@@ -152,6 +157,31 @@ export function ParentsTab({
     );
   }
 
+  function groupElevesByLevel(list: EleveItem[]) {
+    return SCHOOL_GROUP_ORDER.map((group) => {
+      const classesInGroup = new Map<string, EleveItem[]>();
+      for (const el of list) {
+        const classeNom = el.classe?.nom ?? "Sans classe";
+        const niveau = el.classe?.niveau ?? "";
+        const elGroup = el.classe ? getSchoolGroup(niveau, classeNom) : "Autre";
+        if (elGroup !== group) continue;
+        if (!classesInGroup.has(classeNom)) classesInGroup.set(classeNom, []);
+        classesInGroup.get(classeNom)!.push(el);
+      }
+      // Regrouper les classes par niveau (ex: toutes les 6ème A/B/C ensemble)
+      const classesByNiveau = new Map<string, { classe: string; eleves: EleveItem[] }[]>();
+      for (const [classe, eleves] of Array.from(classesInGroup.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+        const niveauKey = eleves[0]?.classe?.niveau ?? classe;
+        if (!classesByNiveau.has(niveauKey)) classesByNiveau.set(niveauKey, []);
+        classesByNiveau.get(niveauKey)!.push({ classe, eleves });
+      }
+      return {
+        group,
+        classesByNiveau: Array.from(classesByNiveau.entries()).map(([niveau, classes]) => ({ niveau, classes })),
+      };
+    }).filter((g) => g.classesByNiveau.length > 0);
+  }
+
   return (
     <div className="space-y-4">
       {canManage && (
@@ -209,37 +239,103 @@ export function ParentsTab({
               {/* Sélection des élèves à lier */}
               <div className="space-y-2">
                 <Label>Lier à des élèves (optionnel)</Label>
-                <div className="max-h-48 overflow-y-auto border rounded-md p-3 space-y-1">
-                  {eleves.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">Aucun élève actif</p>
-                  ) : (
-                    eleves.map((el) => (
-                      <label
-                        key={el.id}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.eleveIds.includes(el.id)}
-                          onChange={() => {
-                            setForm((prev) => ({
-                              ...prev,
-                              eleveIds: prev.eleveIds.includes(el.id)
-                                ? prev.eleveIds.filter((id) => id !== el.id)
-                                : [...prev.eleveIds, el.id],
-                            }));
-                          }}
-                          className="rounded"
-                        />
-                        <span className="flex-1">
-                          {el.prenom} {el.nom}
-                          {el.classe && <span className="text-muted-foreground ml-2">({el.classe.nom})</span>}
-                        </span>
-                        <span className="text-xs text-muted-foreground font-mono">{el.matricule}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
+                {eleves.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun élève actif</p>
+                ) : (
+                  <div className="border rounded-md">
+                    {/* Onglets horizontaux : Primaire | Collège | Lycée */}
+                    <div className="flex items-center gap-1 px-3 pt-2 border-b">
+                      {groupElevesByLevel(eleves).map(({ group, classesByNiveau }) => {
+                        const totalGroup = classesByNiveau.reduce(
+                          (s, n) => s + n.classes.reduce((s2, c) => s2 + c.eleves.length, 0), 0
+                        );
+                        return (
+                          <button
+                            key={group}
+                            type="button"
+                            onClick={() => { setFormActiveGroup(formActiveGroup === group ? null : group); setFormActiveClass(null); }}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors border-b-2 ${
+                              formActiveGroup === group
+                                ? "border-primary text-primary bg-primary/5"
+                                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                            }`}
+                          >
+                            {group} <span className="opacity-70">({totalGroup})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Boutons de classes horizontaux par niveau */}
+                    {formActiveGroup && (
+                      <div className="px-3 py-2 border-b bg-muted/20">
+                        {groupElevesByLevel(eleves)
+                          .find((g) => g.group === formActiveGroup)
+                          ?.classesByNiveau.map(({ niveau, classes }) => (
+                            <div key={niveau} className="flex items-center gap-2 mb-1.5 last:mb-0">
+                              <span className="text-[10px] font-semibold text-muted-foreground min-w-[50px] flex-shrink-0">{niveau}</span>
+                              <div className="flex flex-wrap gap-1">
+                                {classes.map(({ classe, eleves: classeEleves }) => (
+                                  <button
+                                    key={classe}
+                                    type="button"
+                                    onClick={() => setFormActiveClass(formActiveClass === classe ? null : classe)}
+                                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all border ${
+                                      formActiveClass === classe
+                                        ? "bg-primary text-primary-foreground border-primary"
+                                        : "bg-background border-border hover:border-primary/40 hover:bg-accent"
+                                    }`}
+                                  >
+                                    {classe} <span className={formActiveClass === classe ? "opacity-80" : "text-muted-foreground"}>({classeEleves.length})</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Liste des élèves de la classe sélectionnée */}
+                    {formActiveGroup && formActiveClass && (
+                      <div className="max-h-48 overflow-y-auto p-2 space-y-0.5">
+                        {groupElevesByLevel(eleves)
+                          .find((g) => g.group === formActiveGroup)
+                          ?.classesByNiveau.flatMap((n) => n.classes)
+                          .find((c) => c.classe === formActiveClass)
+                          ?.eleves.map((el) => (
+                            <label
+                              key={el.id}
+                              className="flex items-center gap-2 px-2 py-1 rounded hover:bg-accent cursor-pointer text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={form.eleveIds.includes(el.id)}
+                                onChange={() => {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    eleveIds: prev.eleveIds.includes(el.id)
+                                      ? prev.eleveIds.filter((id) => id !== el.id)
+                                      : [...prev.eleveIds, el.id],
+                                  }));
+                                }}
+                                className="rounded"
+                              />
+                              <span className="flex-1">{el.prenom} {el.nom}</span>
+                              <span className="text-xs text-muted-foreground font-mono">{el.matricule}</span>
+                            </label>
+                          ))}
+                      </div>
+                    )}
+
+                    {(!formActiveGroup || !formActiveClass) && (
+                      <div className="text-center py-6 text-muted-foreground text-xs">
+                        {!formActiveGroup
+                          ? "Sélectionnez un niveau scolaire ci-dessus."
+                          : "Sélectionnez une classe ci-dessus pour afficher les élèves."}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {form.eleveIds.length > 0 && (
                   <p className="text-xs text-primary">{form.eleveIds.length} élève(s) sélectionné(s)</p>
                 )}
@@ -420,33 +516,103 @@ export function ParentsTab({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="max-h-64 overflow-y-auto border rounded-md p-3 space-y-1">
-              {eleves.map((el) => {
-                const parent = parents.find((p) => p.id === linkingParent);
-                const alreadyLinked = parent?.enfants.some((ep) => ep.eleve.id === el.id);
-                return (
-                  <label
-                    key={el.id}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-sm ${
-                      alreadyLinked ? "opacity-50" : "hover:bg-accent cursor-pointer"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedEleves.includes(el.id) || alreadyLinked}
-                      disabled={alreadyLinked}
-                      onChange={() => toggleEleveSelection(el.id)}
-                      className="rounded"
-                    />
-                    <span className="flex-1">
-                      {el.prenom} {el.nom}
-                      {el.classe && <span className="text-muted-foreground ml-2">({el.classe.nom})</span>}
-                    </span>
-                    {alreadyLinked && <Badge variant="secondary" className="text-xs">Déjà lié</Badge>}
-                  </label>
-                );
-              })}
-            </div>
+            {eleves.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Aucun élève actif</p>
+            ) : (
+              <div className="border rounded-md">
+                {/* Onglets horizontaux : Primaire | Collège | Lycée */}
+                <div className="flex items-center gap-1 px-3 pt-2 border-b">
+                  {groupElevesByLevel(eleves).map(({ group, classesByNiveau }) => {
+                    const totalGroup = classesByNiveau.reduce(
+                      (s, n) => s + n.classes.reduce((s2, c) => s2 + c.eleves.length, 0), 0
+                    );
+                    return (
+                      <button
+                        key={group}
+                        type="button"
+                        onClick={() => { setLinkActiveGroup(linkActiveGroup === group ? null : group); setLinkActiveClass(null); }}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors border-b-2 ${
+                          linkActiveGroup === group
+                            ? "border-primary text-primary bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                        }`}
+                      >
+                        {group} <span className="opacity-70">({totalGroup})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Boutons de classes horizontaux par niveau */}
+                {linkActiveGroup && (
+                  <div className="px-3 py-2 border-b bg-muted/20">
+                    {groupElevesByLevel(eleves)
+                      .find((g) => g.group === linkActiveGroup)
+                      ?.classesByNiveau.map(({ niveau, classes }) => (
+                        <div key={niveau} className="flex items-center gap-2 mb-1.5 last:mb-0">
+                          <span className="text-[10px] font-semibold text-muted-foreground min-w-[50px] flex-shrink-0">{niveau}</span>
+                          <div className="flex flex-wrap gap-1">
+                            {classes.map(({ classe, eleves: classeEleves }) => (
+                              <button
+                                key={classe}
+                                type="button"
+                                onClick={() => setLinkActiveClass(linkActiveClass === classe ? null : classe)}
+                                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all border ${
+                                  linkActiveClass === classe
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background border-border hover:border-primary/40 hover:bg-accent"
+                                }`}
+                              >
+                                {classe} <span className={linkActiveClass === classe ? "opacity-80" : "text-muted-foreground"}>({classeEleves.length})</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* Liste des élèves de la classe sélectionnée */}
+                {linkActiveGroup && linkActiveClass && (
+                  <div className="max-h-56 overflow-y-auto p-2 space-y-0.5">
+                    {groupElevesByLevel(eleves)
+                      .find((g) => g.group === linkActiveGroup)
+                      ?.classesByNiveau.flatMap((n) => n.classes)
+                      .find((c) => c.classe === linkActiveClass)
+                      ?.eleves.map((el) => {
+                        const parent = parents.find((p) => p.id === linkingParent);
+                        const alreadyLinked = parent?.enfants.some((ep) => ep.eleve.id === el.id);
+                        return (
+                          <label
+                            key={el.id}
+                            className={`flex items-center gap-2 px-2 py-1 rounded text-sm ${
+                              alreadyLinked ? "opacity-50" : "hover:bg-accent cursor-pointer"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedEleves.includes(el.id) || alreadyLinked}
+                              disabled={alreadyLinked}
+                              onChange={() => toggleEleveSelection(el.id)}
+                              className="rounded"
+                            />
+                            <span className="flex-1">{el.prenom} {el.nom}</span>
+                            {alreadyLinked && <Badge variant="secondary" className="text-xs">Déjà lié</Badge>}
+                          </label>
+                        );
+                      })}
+                  </div>
+                )}
+
+                {(!linkActiveGroup || !linkActiveClass) && (
+                  <div className="text-center py-6 text-muted-foreground text-xs">
+                    {!linkActiveGroup
+                      ? "Sélectionnez un niveau scolaire ci-dessus."
+                      : "Sélectionnez une classe ci-dessus pour afficher les élèves."}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 size="sm"

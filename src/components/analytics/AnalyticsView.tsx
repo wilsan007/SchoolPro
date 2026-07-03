@@ -12,8 +12,10 @@ import {
 import {
   TrendingUp, TrendingDown, AlertTriangle, Users, CheckCircle2,
   Star, BarChart3, Activity, Loader2, Shield,
+  ChevronRight, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSchoolGroup, SCHOOL_GROUP_ORDER } from "@/lib/school-groups";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,12 @@ interface ClasseData {
   effectif: number;
 }
 
+interface MatiereParClasseData {
+  classe: string;
+  niveau: string;
+  matieres: MatiereData[];
+}
+
 interface AnalyticsData {
   synthese: {
     totalEleves: number;
@@ -62,6 +70,7 @@ interface AnalyticsData {
   elevesArisque: EleveRisque[];
   absencesChartData: AbsenceChartPoint[];
   matieresData: MatiereData[];
+  matieresParClasse: MatiereParClasseData[];
   elevesParClasse: ClasseData[];
   bulletinsStats: { total: number; reussite: number; passage: number };
   genderDist: { garcons: number; filles: number };
@@ -124,6 +133,8 @@ const CHART_COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#3
 export function AnalyticsView() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/analytics")
@@ -149,7 +160,7 @@ export function AnalyticsView() {
 
   if (!data) return null;
 
-  const { synthese, top5, bottom5, elevesArisque, absencesChartData, matieresData, elevesParClasse } = data;
+  const { synthese, top5, bottom5, elevesArisque, absencesChartData, matieresData, matieresParClasse, elevesParClasse } = data;
   const genderDist = data.genderDist ?? { garcons: 0, filles: 0 };
   const revenueData = data.revenueData ?? [];
   const absenceParClasse = data.absenceParClasse ?? [];
@@ -160,6 +171,32 @@ export function AnalyticsView() {
     ...d,
     dateLabel: new Date(d.date).toLocaleDateString("fr-SN", { day: "2-digit", month: "2-digit" }),
   }));
+
+  // Groupement des moyennes par matière par classe selon le niveau scolaire
+  const matieresParClasseGrouped = SCHOOL_GROUP_ORDER.map((group) => ({
+    group,
+    classes: (matieresParClasse ?? [])
+      .filter((c) => getSchoolGroup(c.niveau, c.classe) === group)
+      .sort((a, b) => a.classe.localeCompare(b.classe)),
+  })).filter((g) => g.classes.length > 0);
+
+  function toggleGroup(group: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  }
+
+  function toggleClass(classe: string) {
+    setExpandedClasses((prev) => {
+      const next = new Set(prev);
+      if (next.has(classe)) next.delete(classe);
+      else next.add(classe);
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -250,44 +287,84 @@ export function AnalyticsView() {
         </CardContent>
       </Card>
 
-      {/* Moyennes par matière + Effectifs par classe */}
+      {/* Moyennes par matière par classe + Effectifs par classe */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Moyennes par matière */}
+        {/* Moyennes par matière — groupées par classe */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" />
-              Moyenne par matière
+              Moyenne par matière — par classe
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {matieresData.length === 0 ? (
+            {matieresParClasseGrouped.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
                 Aucune note publiée
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={matieresData} margin={{ top: 5, right: 10, left: -20, bottom: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="matiere"
-                    tick={{ fontSize: 10 }}
-                    angle={-35}
-                    textAnchor="end"
-                    interval={0}
-                  />
-                  <YAxis tick={{ fontSize: 10 }} domain={[0, 20]} />
-                  <Tooltip
-                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                    formatter={(v: number) => [`${v}/20`, "Moyenne"]}
-                  />
-                  <Bar dataKey="moyenne" radius={[4, 4, 0, 0]}>
-                    {matieresData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="space-y-1 max-h-[400px] overflow-y-auto scrollbar-thin">
+                {matieresParClasseGrouped.map(({ group, classes }) => (
+                  <div key={group}>
+                    {/* Niveau scolaire (Primaire / Collège / Lycée) */}
+                    <button
+                      onClick={() => toggleGroup(group)}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                    >
+                      {expandedGroups.has(group) ? (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{group}</span>
+                      <Badge variant="secondary" className="text-xs ml-1">
+                        {classes.length} classe{classes.length > 1 ? "s" : ""}
+                      </Badge>
+                    </button>
+
+                    {/* Classes sous le niveau */}
+                    {expandedGroups.has(group) && (
+                      <div className="ml-4 space-y-0.5">
+                        {classes.map((cls) => (
+                          <div key={cls.classe}>
+                            <button
+                              onClick={() => toggleClass(cls.classe)}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-muted/40 transition-colors text-left"
+                            >
+                              {expandedClasses.has(cls.classe) ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              )}
+                              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{cls.classe}</span>
+                              <span className="text-xs text-muted-foreground">({cls.matieres.length} matières)</span>
+                            </button>
+
+                            {/* Matières sous la classe */}
+                            {expandedClasses.has(cls.classe) && (
+                              <div className="ml-8 space-y-1 py-1">
+                                {cls.matieres.map((m, mi) => (
+                                  <div key={m.matiere} className="flex items-center gap-2 px-2 py-1 rounded text-xs">
+                                    <span
+                                      className="w-2 h-2 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: CHART_COLORS[mi % CHART_COLORS.length] }}
+                                    />
+                                    <span className="flex-1 text-gray-600 dark:text-gray-400">{m.matiere}</span>
+                                    <span className={cn("font-bold", getMoyenneColor(m.moyenne))}>
+                                      {m.moyenne.toFixed(2)}/20
+                                    </span>
+                                    <span className="text-muted-foreground text-[10px]">{m.nbNotes} notes</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
