@@ -50,24 +50,33 @@
           "color": "#4f46e5"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "4a75d071-5164-465a-ba1c-185797ef7d6c"
       },
       "router": {
         "origin": "ecolpro://"
       }
     },
     "updates": {
-      "url": ""
+      "enabled": false
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    }
+    "owner": "wailsan007"
   }
 }

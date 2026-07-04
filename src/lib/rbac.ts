@@ -36,6 +36,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
     "admissions:*", "rh:*", "finance:*", "inventaire:*", "alumni:*",
     "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
+    "ai:*",
   ],
 
   // Chef d'établissement — pédagogie & vie scolaire complètes, pas la finance/RH en écriture
@@ -45,6 +46,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
     "admissions:*", "rh:read", "finance:read", "inventaire:*", "alumni:*",
     "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
+    "ai:*",
   ],
 
   // Secrétariat — gestion administrative
@@ -60,7 +62,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "eleves:read", "classes:read", "matieres:read",
     "notes:*", "evaluations:*", "absences:read", "absences:write",
     "bulletins:read", "emploi-du-temps:read", "messages:*",
-    "cours:*", "analytics:read", "examens:read",
+    "cours:*", "analytics:read", "examens:read", "ai:teacher",
   ],
 
   // Professeur principal — enseignant + bulletins/conseil + vie scolaire
@@ -70,7 +72,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "bulletins:read", "bulletins:write", "bulletins:publish",
     "emploi-du-temps:read", "messages:*", "cours:*",
     "vie-scolaire:*", "orientation:read", "orientation:write",
-    "analytics:read", "examens:read", "parents:read",
+    "analytics:read", "examens:read", "parents:read", "ai:teacher",
   ],
 
   // Conseiller / CPE — vie scolaire & orientation
@@ -94,7 +96,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   PARENT: [
     "bulletins:read", "absences:read", "notes:read", "messages:*",
     "communication:read", "cours:read", "orientation:read",
-    "emploi-du-temps:read",
+    "emploi-du-temps:read", "ai:parent",
   ],
 
   // Élève — consultation de son périmètre (lecture seule + messagerie)

@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles } from "lucide-react";
+import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SmartSuggestPanel } from "./SmartSuggestPanel";
@@ -29,6 +29,8 @@ const SLOT_HEIGHT = 48;
 interface Classe { id: string; nom: string; niveau: string }
 interface Matiere { id: string; nom: string; code: string; couleur: string | null; coefficient: number }
 interface Enseignant { id: string; user: { name: string | null } }
+interface Salle { id: string; nom: string; capacite: number; type: string | null }
+interface Disponibilite { id: string; enseignantId: string; jour: string; heureDebut: string; heureFin: string }
 interface EmploiCreneau {
   id: string;
   jour: Jour;
@@ -52,6 +54,20 @@ function slotIndexIn(time: string, slots: string[]): number {
   return slots.indexOf(time);
 }
 
+/**
+ * Une session dédoublée en groupes A/B est représentée par deux lignes
+ * EmploiTemps distinctes (même jour/horaire, prof et salle différents) — il
+ * n'y a pas de champ "groupe" dédié en base. L'outil IA encode le groupe dans
+ * le libellé de la salle ("Salle 02 (Groupe A)") ; on l'extrait ici pour
+ * l'afficher comme badge plutôt que comme texte brut de salle.
+ */
+function parseGroupe(salle: string | null): { salleAffichee: string | null; groupe: string | null } {
+  if (!salle) return { salleAffichee: null, groupe: null };
+  const m = salle.match(/^(.*)\s\(Groupe (\w+)\)$/);
+  if (m) return { salleAffichee: m[1], groupe: m[2] };
+  return { salleAffichee: salle, groupe: null };
+}
+
 function matiereColor(couleur: string | null): string {
   if (!couleur) return "bg-gray-100 border-gray-300 text-gray-800 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300";
   const colorMap: Record<string, string> = {
@@ -70,6 +86,10 @@ function AddCreneauModal({
   classes,
   matieres,
   enseignants,
+  matiereToEnseignants,
+  salles,
+  disponibilites,
+  emploisExistants,
   availableSlots,
   onClose,
   onAdded,
@@ -78,6 +98,10 @@ function AddCreneauModal({
   classes: Classe[];
   matieres: Matiere[];
   enseignants: Enseignant[];
+  matiereToEnseignants: Record<string, { id: string; user: { name: string | null } }[]>;
+  salles: Salle[];
+  disponibilites: Disponibilite[];
+  emploisExistants: EmploiCreneau[];
   availableSlots: string[];
   onClose: () => void;
   onAdded: (c: EmploiCreneau) => void;
@@ -92,6 +116,40 @@ function AddCreneauModal({
     salle: "",
   });
   const [isPending, startTransition] = useTransition();
+
+  // Filter enseignants: only those who already teach the selected matiere
+  const filteredEnseignants = matiereToEnseignants[form.matiereId] ?? [];
+
+  // Check if the selected enseignant is available at the chosen day/time
+  const enseignantDisponible = (() => {
+    if (!form.enseignantId) return true;
+    const dispo = disponibilites.filter(
+      (d) => d.enseignantId === form.enseignantId && d.jour === form.jour
+    );
+    if (dispo.length === 0) return false; // No availability set for this day
+    const debutMin = timeToMinutes(form.heureDebut);
+    const finMin = timeToMinutes(form.heureFin);
+    return dispo.some(
+      (d) => timeToMinutes(d.heureDebut) <= debutMin && timeToMinutes(d.heureFin) >= finMin
+    );
+  })();
+
+  // Filter salles: only those not occupied at the chosen day/time
+  const sallesDisponibles = (() => {
+    const debutMin = timeToMinutes(form.heureDebut);
+    const finMin = timeToMinutes(form.heureFin);
+    return salles.filter((s) => {
+      // Check if any existing creneau uses this salle at the same time
+      const occupe = emploisExistants.some((e) => {
+        if (e.salle !== s.nom) return false;
+        if (e.jour !== form.jour) return false;
+        const eDebut = timeToMinutes(e.heureDebut);
+        const eFin = timeToMinutes(e.heureFin);
+        return eDebut < finMin && eFin > debutMin; // overlap
+      });
+      return !occupe;
+    });
+  })();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -136,7 +194,7 @@ function AddCreneauModal({
             <select
               required
               value={form.matiereId}
-              onChange={(e) => setForm({ ...form, matiereId: e.target.value })}
+              onChange={(e) => setForm({ ...form, matiereId: e.target.value, enseignantId: "" })}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               {matieres.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
@@ -144,14 +202,20 @@ function AddCreneauModal({
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Enseignant</label>
-            <select
-              value={form.enseignantId}
-              onChange={(e) => setForm({ ...form, enseignantId: e.target.value })}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="">Non assigné</option>
-              {enseignants.map((e) => <option key={e.id} value={e.id}>{e.user.name ?? "Enseignant"}</option>)}
-            </select>
+            {filteredEnseignants.length > 0 ? (
+              <select
+                value={form.enseignantId}
+                onChange={(e) => setForm({ ...form, enseignantId: e.target.value })}
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Non assigné</option>
+                {filteredEnseignants.map((e) => <option key={e.id} value={e.id}>{e.user.name ?? "Enseignant"}</option>)}
+              </select>
+            ) : (
+              <p className="text-xs text-gray-400 italic py-2">
+                Aucun enseignant n'enseigne actuellement cette matière. Assignez d'abord un enseignant à un créneau avec cette matière.
+              </p>
+            )}
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Jour *</label>
@@ -188,18 +252,53 @@ function AddCreneauModal({
               </select>
             </div>
           </div>
+          {/* Avertissement disponibilité enseignant */}
+          {form.enseignantId && !enseignantDisponible && (
+            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg p-2.5">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>Cet enseignant n'est pas disponible le {JOURS_LABELS[form.jour]} de {form.heureDebut} à {form.heureFin}.</span>
+            </div>
+          )}
+          {form.enseignantId && enseignantDisponible && (
+            <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 rounded-lg p-2.5">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <span>Enseignant disponible à ce créneau.</span>
+            </div>
+          )}
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Salle</label>
-            <input
-              value={form.salle}
-              onChange={(e) => setForm({ ...form, salle: e.target.value })}
-              placeholder="ex: Salle 201"
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
+              Salle {sallesDisponibles.length > 0 && <span className="text-xs text-gray-400">({sallesDisponibles.length} disponible{sallesDisponibles.length > 1 ? "s" : ""})</span>}
+            </label>
+            {salles.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-2">
+                Aucune salle déclarée. Ajoutez des salles dans la gestion des établissements.
+              </p>
+            ) : sallesDisponibles.length > 0 ? (
+              <select
+                value={form.salle}
+                onChange={(e) => setForm({ ...form, salle: e.target.value })}
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Sans salle</option>
+                {sallesDisponibles.map((s) => (
+                  <option key={s.id} value={s.nom}>
+                    {s.nom}{s.capacite ? ` (cap. ${s.capacite})` : ""}{s.type ? ` — ${s.type}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-600 italic py-2">
+                Toutes les salles sont occupées à ce créneau. Choisissez un autre horaire.
+              </p>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
-            <Button type="submit" disabled={isPending} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+            <Button
+              type="submit"
+              disabled={isPending || (form.enseignantId !== "" && !enseignantDisponible)}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            >
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ajouter"}
             </Button>
           </div>
@@ -214,11 +313,17 @@ export function EmploiDuTempsView({
   matieres,
   enseignants,
   emplois: initial,
+  matiereToEnseignants,
+  salles,
+  disponibilites,
 }: {
   classes: Classe[];
   matieres: Matiere[];
   enseignants: Enseignant[];
   emplois: EmploiCreneau[];
+  matiereToEnseignants: Record<string, { id: string; user: { name: string | null } }[]>;
+  salles: Salle[];
+  disponibilites: Disponibilite[];
   tenantId: string;
 }) {
   const [emplois, setEmplois] = useState<EmploiCreneau[]>(initial);
@@ -343,13 +448,23 @@ export function EmploiDuTempsView({
     );
   }
 
-  // Render creneaux as absolutely positioned overlays
+  // Render creneaux as absolutely positioned overlays. Les créneaux qui
+  // partagent exactement le même horaire (sessions dédoublées en groupes
+  // A/B) sont regroupés et affichés côte à côte plutôt que superposés — sans
+  // ça, un seul des deux groupes était visible/cliquable.
   function renderCreneauxForDay(jour: Jour) {
     const jourCreneaux = classeEmplois.filter((c) => c.jour === jour);
 
-    return jourCreneaux.map((creneau) => {
-      const startIdx = slotIndexIn(creneau.heureDebut, ALL_SLOTS);
-      const endIdx = slotIndexIn(creneau.heureFin, ALL_SLOTS);
+    const parHoraire = new Map<string, EmploiCreneau[]>();
+    for (const c of jourCreneaux) {
+      const key = `${c.heureDebut}-${c.heureFin}`;
+      if (!parHoraire.has(key)) parHoraire.set(key, []);
+      parHoraire.get(key)!.push(c);
+    }
+
+    return [...parHoraire.values()].map((group) => {
+      const startIdx = slotIndexIn(group[0].heureDebut, ALL_SLOTS);
+      const endIdx = slotIndexIn(group[0].heureFin, ALL_SLOTS);
       if (startIdx < 0 || endIdx < 0) return null;
 
       const top = startIdx * SLOT_HEIGHT;
@@ -357,55 +472,66 @@ export function EmploiDuTempsView({
 
       return (
         <div
-          key={creneau.id}
-          draggable
-          onDragStart={(e) => {
-            setDraggedId(creneau.id);
-            e.dataTransfer.effectAllowed = "move";
-            e.dataTransfer.setData("text/plain", creneau.id);
-          }}
-          onDragEnd={() => {
-            setDraggedId(null);
-            setDragOverSlot(null);
-          }}
-          className={cn(
-            "absolute left-1 right-1 rounded-lg border overflow-hidden group cursor-grab active:cursor-grabbing transition-all pointer-events-auto",
-            matiereColor(creneau.matiere.couleur),
-            draggedId === creneau.id && "opacity-50 ring-2 ring-green-500"
-          )}
+          key={`${jour}-${group[0].heureDebut}-${group[0].heureFin}`}
+          className="absolute left-1 right-1 flex gap-1 pointer-events-none"
           style={{ top: top + 2, height: height - 4 }}
         >
-          <div className="p-1.5 h-full flex flex-col justify-between">
-            <div className="flex items-start gap-1">
-              <GripVertical className="w-3 h-3 opacity-40 flex-shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold leading-tight truncate">
-                  {creneau.matiere.code}
-                </p>
-                {height >= 80 && (
-                  <p className="text-xs opacity-80 truncate leading-tight mt-0.5">
-                    {creneau.matiere.nom}
-                  </p>
+          {group.map((creneau) => {
+            const { salleAffichee, groupe } = parseGroupe(creneau.salle);
+            return (
+              <div
+                key={creneau.id}
+                draggable
+                onDragStart={(e) => {
+                  setDraggedId(creneau.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", creneau.id);
+                }}
+                onDragEnd={() => {
+                  setDraggedId(null);
+                  setDragOverSlot(null);
+                }}
+                className={cn(
+                  "relative flex-1 min-w-0 rounded-lg border overflow-hidden group cursor-grab active:cursor-grabbing transition-all pointer-events-auto",
+                  matiereColor(creneau.matiere.couleur),
+                  draggedId === creneau.id && "opacity-50 ring-2 ring-green-500"
                 )}
+              >
+                <div className="p-1.5 h-full flex flex-col justify-between">
+                  <div className="flex items-start gap-1">
+                    <GripVertical className="w-3 h-3 opacity-40 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold leading-tight truncate">
+                        {creneau.matiere.code}
+                        {groupe && <span className="ml-1 opacity-70">· Gr.{groupe}</span>}
+                      </p>
+                      {height >= 80 && (
+                        <p className="text-xs opacity-80 truncate leading-tight mt-0.5">
+                          {creneau.matiere.nom}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-xs opacity-70 leading-tight">
+                    {height >= 64 && creneau.enseignant && (
+                      <p className="truncate">{creneau.enseignant.user.name}</p>
+                    )}
+                    {height >= 48 && salleAffichee && (
+                      <p className="truncate">{salleAffichee}</p>
+                    )}
+                    <p>{creneau.heureDebut}→{creneau.heureFin}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
+                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
+                  title="Supprimer"
+                >
+                  <Trash2 className="w-3 h-3 text-red-500" />
+                </button>
               </div>
-            </div>
-            <div className="text-xs opacity-70 leading-tight">
-              {height >= 64 && creneau.enseignant && (
-                <p className="truncate">{creneau.enseignant.user.name}</p>
-              )}
-              {height >= 48 && creneau.salle && (
-                <p className="truncate">{creneau.salle}</p>
-              )}
-              <p>{creneau.heureDebut}→{creneau.heureFin}</p>
-            </div>
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
-            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
-            title="Supprimer"
-          >
-            <Trash2 className="w-3 h-3 text-red-500" />
-          </button>
+            );
+          })}
         </div>
       );
     });
@@ -546,6 +672,10 @@ export function EmploiDuTempsView({
           classes={classes}
           matieres={matieres}
           enseignants={enseignants}
+          matiereToEnseignants={matiereToEnseignants}
+          salles={salles}
+          disponibilites={disponibilites}
+          emploisExistants={emplois}
           availableSlots={availableSlotsForAdd}
           onClose={() => setShowAdd(false)}
           onAdded={addCreneau}
@@ -558,9 +688,22 @@ export function EmploiDuTempsView({
           classeNom={selectedClasse.nom}
           matieres={matieres}
           enseignants={enseignants}
+          matiereToEnseignants={matiereToEnseignants}
           onClose={() => setShowSuggest(false)}
           onGenerated={(creneaux) => {
             setEmplois((prev) => [...prev, ...(creneaux as EmploiCreneau[])]);
+          }}
+          onReplaced={(creneaux) => {
+            // auto-generate DELETES all existing creneaux for this class/year in DB
+            // So we must REPLACE, not append — remove old creneaux for this class and add new ones
+            const newCreneaux = creneaux as EmploiCreneau[];
+            setEmplois((prev) => {
+              const otherClasses = prev.filter(
+                (e) => e.classe.nom !== selectedClasse.nom &&
+                       (e as { classeId?: string }).classeId !== selectedClasse.id
+              );
+              return [...otherClasses, ...newCreneaux];
+            });
           }}
         />
       )}

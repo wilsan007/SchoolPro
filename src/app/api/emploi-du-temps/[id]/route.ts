@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
@@ -18,6 +19,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await prisma.emploiTemps.delete({ where: { id } });
 
+    revalidatePath("/emploi-du-temps");
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/emploi-du-temps/:id DELETE]", error);
@@ -119,6 +121,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     });
 
+    revalidatePath("/emploi-du-temps");
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API/emploi-du-temps/:id PATCH]", error);

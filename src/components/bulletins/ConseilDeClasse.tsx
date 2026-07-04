@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Award, AlertTriangle, TrendingUp, CheckCircle2, Save, Loader2, Star, ThumbsDown, Minus } from "lucide-react";
+import { Award, AlertTriangle, TrendingUp, CheckCircle2, Save, Loader2, Star, ThumbsDown, Minus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -48,6 +48,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
   const [eleves, setEleves] = useState<EleveConseil[]>(initial);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [aiLoadingId, setAiLoadingId] = useState<string | null>(null);
 
   const stats = {
     felicitations: eleves.filter((e) => e.decision === "FELICITATIONS").length,
@@ -70,6 +71,25 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
       prev.map((e) => (e.id === eleveId ? { ...e, appreciation } : e))
     );
     setSaved(false);
+  }
+
+  async function suggererAppreciation(eleveId: string) {
+    setAiLoadingId(eleveId);
+    try {
+      const res = await fetch("/api/ai/appreciation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eleveId, periodeId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erreur IA");
+      setAppreciation(eleveId, data.appreciation);
+      toast.success("Suggestion IA générée — relisez avant d'enregistrer");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Impossible de générer une suggestion IA");
+    } finally {
+      setAiLoadingId(null);
+    }
   }
 
   function applyAutoDecisions() {
@@ -220,13 +240,28 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        value={eleve.appreciation}
-                        onChange={(e) => setAppreciation(eleve.id, e.target.value)}
-                        placeholder="Appréciation personnalisée..."
-                        className="w-full text-xs bg-transparent border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 focus:outline-none focus:border-green-500 text-gray-700 dark:text-gray-300 placeholder-gray-300"
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={eleve.appreciation}
+                          onChange={(e) => setAppreciation(eleve.id, e.target.value)}
+                          placeholder="Appréciation personnalisée..."
+                          className="w-full text-xs bg-transparent border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 focus:outline-none focus:border-green-500 text-gray-700 dark:text-gray-300 placeholder-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => suggererAppreciation(eleve.id)}
+                          disabled={aiLoadingId === eleve.id}
+                          title="Suggestion IA"
+                          className="shrink-0 p-1.5 rounded border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors disabled:opacity-50"
+                        >
+                          {aiLoadingId === eleve.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

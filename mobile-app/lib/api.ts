@@ -1,10 +1,32 @@
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Platform.OS === "web"
+    ? "http://localhost:3000"
+    : "https://ecol-pro-ace391.netlify.app");
 
 const TOKEN_KEY = "ecolpro_token";
 const USER_KEY = "ecolpro_user";
 const TENANT_KEY = "ecolpro_tenant";
+
+const isWeb = Platform.OS === "web";
+
+async function secureGet(key: string): Promise<string | null> {
+  if (isWeb) return localStorage.getItem(key);
+  return SecureStore.getItemAsync(key);
+}
+
+async function secureSet(key: string, value: string): Promise<void> {
+  if (isWeb) { localStorage.setItem(key, value); return; }
+  await SecureStore.setItemAsync(key, value);
+}
+
+async function secureDelete(key: string): Promise<void> {
+  if (isWeb) { localStorage.removeItem(key); return; }
+  await SecureStore.deleteItemAsync(key);
+}
 
 export interface AuthUser {
   id: string;
@@ -24,25 +46,25 @@ export interface TenantInfo {
 
 export async function getToken(): Promise<string | null> {
   try {
-    return await SecureStore.getItemAsync(TOKEN_KEY);
+    return await secureGet(TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
 export async function setToken(token: string): Promise<void> {
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await secureSet(TOKEN_KEY, token);
 }
 
 export async function clearToken(): Promise<void> {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-  await SecureStore.deleteItemAsync(USER_KEY);
-  await SecureStore.deleteItemAsync(TENANT_KEY);
+  await secureDelete(TOKEN_KEY);
+  await secureDelete(USER_KEY);
+  await secureDelete(TENANT_KEY);
 }
 
 export async function getStoredUser(): Promise<AuthUser | null> {
   try {
-    const raw = await SecureStore.getItemAsync(USER_KEY);
+    const raw = await secureGet(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -50,12 +72,12 @@ export async function getStoredUser(): Promise<AuthUser | null> {
 }
 
 export async function setStoredUser(user: AuthUser): Promise<void> {
-  await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+  await secureSet(USER_KEY, JSON.stringify(user));
 }
 
 export async function getStoredTenant(): Promise<TenantInfo | null> {
   try {
-    const raw = await SecureStore.getItemAsync(TENANT_KEY);
+    const raw = await secureGet(TENANT_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -63,7 +85,7 @@ export async function getStoredTenant(): Promise<TenantInfo | null> {
 }
 
 export async function setStoredTenant(tenant: TenantInfo): Promise<void> {
-  await SecureStore.setItemAsync(TENANT_KEY, JSON.stringify(tenant));
+  await secureSet(TENANT_KEY, JSON.stringify(tenant));
 }
 
 interface FetchOptions extends RequestInit {

@@ -3,9 +3,8 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
-  ClipboardCheck,
   BookOpen,
-  User,
+  Grid3x3,
 } from "lucide-react-native";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -30,7 +29,7 @@ export default function TabLayout() {
           paddingTop: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "600",
         },
       }}
@@ -57,13 +56,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="appel"
-        options={{
-          title: "Appel",
-          tabBarIcon: ({ color }) => <ClipboardCheck size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="notes"
         options={{
           title: "Notes",
@@ -71,14 +63,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="plus"
         options={{
-          title: "Profil",
-          tabBarIcon: ({ color }) => <User size={22} color={color} />,
+          title: "Plus",
+          tabBarIcon: ({ color }) => <Grid3x3 size={22} color={color} />,
         }}
       />
 
-      {/* Hidden tabs — accessible via router.push from dashboard */}
+      {/* Hidden tabs — accessible via "Plus" page */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="appel" options={{ href: null }} />
       <Tabs.Screen name="emploi-du-temps" options={{ href: null }} />
       <Tabs.Screen name="vie-scolaire" options={{ href: null }} />
       <Tabs.Screen name="messages" options={{ href: null }} />

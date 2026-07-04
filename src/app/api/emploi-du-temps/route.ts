@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
@@ -148,6 +149,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    revalidatePath("/emploi-du-temps");
     return NextResponse.json(creneau, { status: 201 });
   } catch (error) {
     console.error("[API/emploi-du-temps POST]", error);

@@ -1,7 +1,22 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { AiChatWidget } from "@/components/ai/AiChatWidget";
 import prisma from "@/lib/prisma";
+
+const AI_GREETINGS: Record<string, string> = {
+  SUPER_ADMIN:
+    "Posez-moi vos questions sur la gestion de l'établissement : synthèses, aide à la décision, rédaction de communications...",
+  TENANT_ADMIN:
+    "Posez-moi vos questions sur la gestion de l'établissement : synthèses, aide à la décision, rédaction de communications...",
+  PRINCIPAL:
+    "Posez-moi vos questions sur la gestion pédagogique et administrative de l'établissement...",
+  TEACHER:
+    "Posez-moi vos questions : préparation de cours, idées d'exercices, conseils pédagogiques...",
+  CLASS_TEACHER:
+    "Posez-moi vos questions : préparation de cours, conseil de classe, conseils pédagogiques...",
+  PARENT: "Posez-moi vos questions sur la scolarité de votre/vos enfant(s).",
+};
 
 export default async function DashboardLayout({
   children,
@@ -49,6 +64,9 @@ export default async function DashboardLayout({
       <main className="flex-1 flex flex-col overflow-hidden">
         {children}
       </main>
+      {AI_GREETINGS[session.user.role] && (
+        <AiChatWidget greeting={AI_GREETINGS[session.user.role]} />
+      )}
     </div>
   );
 }

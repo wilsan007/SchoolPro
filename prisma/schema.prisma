@@ -93,8 +93,58 @@ model Tenant {
   evaluations    Evaluation[]
   disponibilites DisponibiliteEnseignant[]
   salles         Salle[]
+  sites          Site[]
 
   @@map("tenants")
+}
+
+// ============================================================
+// SITES / CAMPUSES (multi-sites au sein d'un même tenant)
+// ============================================================
+
+model Site {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  nom      String // "Campus Central", "Annexe PK12"
+  code     String? // "SITE-01"
+  adresse  String?
+  ville    String?
+  telephone String?
+  email    String?
+  actif    Boolean @default(true)
+
+  classes  Classe[]
+  salles   Salle[]
+  factures Facture[]
+  users    User[]
+
+  // Enseignants multi-sites
+  enseignantSites EnseignantSite[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("sites")
+}
+
+// Table de liaison pour les enseignants qui travaillent sur plusieurs sites
+model EnseignantSite {
+  id           String @id @default(cuid())
+  enseignantId String
+  siteId       String
+
+  enseignant Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
+  site       Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([enseignantId, siteId])
+  @@index([enseignantId])
+  @@index([siteId])
+  @@map("enseignant_sites")
 }
 
 // ============================================================
@@ -159,6 +209,9 @@ model User {
   tenantId String? // null pour SUPER_ADMIN
   tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = tous les sites (direction générale)
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   email         String    @unique
   emailVerified DateTime?
   password      String? // hashé avec bcrypt
@@ -201,6 +254,7 @@ model User {
   devices DeviceToken[] @relation("UserDevices")
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("users")
 }
 
@@ -253,6 +307,9 @@ model Classe {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = non rattaché à un site spécifique
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   nom         String // "Terminale A", "CM2 A"
   niveau      String // "Terminale", "CM2"
   filiere     String? // "Scientifique", "Littéraire"
@@ -268,6 +325,7 @@ model Classe {
   evaluations Evaluation[]
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("classes")
 }
 
@@ -433,6 +491,7 @@ model Enseignant {
   emploiTemps        EmploiTemps[]
   disponibilites     DisponibiliteEnseignant[]
   ficheRH            FicheRH?
+  sites              EnseignantSite[]
 
   @@index([tenantId])
   @@map("enseignants")
@@ -495,12 +554,17 @@ model Salle {
   id       String  @id @default(cuid())
   tenantId String
   tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String? // null = non rattaché à un site spécifique
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   nom      String // "Salle 101"
   capacite Int     @default(30)
   type     String? // "cours", "labo", "informatique"
   batiment String?
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("salles")
 }
 
@@ -768,6 +832,9 @@ model Facture {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = non rattaché à un site spécifique
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   eleveId String
   eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
@@ -786,6 +853,7 @@ model Facture {
   @@index([tenantId])
   @@index([eleveId])
   @@index([tenantId, statut])
+  @@index([siteId])
   @@map("factures")
 }
 

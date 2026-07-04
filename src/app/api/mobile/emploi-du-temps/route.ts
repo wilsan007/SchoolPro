@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       heureDebut: true,
       heureFin: true,
       salle: true,
-      classe: { select: { id: true, nom: true } },
+      classe: { select: { id: true, nom: true, niveau: true } },
       matiere: { select: { id: true, nom: true, code: true, couleur: true } },
       enseignant: {
         select: {
