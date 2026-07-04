@@ -72,6 +72,7 @@
     "@capacitor/android": "^6.2.1",
     "@capacitor/cli": "^6.2.1",
     "@capacitor/ios": "^6.2.1",
+    "@netlify/plugin-nextjs": "^5.15.12",
     "@playwright/test": "^1.61.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
