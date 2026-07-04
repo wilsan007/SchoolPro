@@ -4,3 +4,9 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# NextAuth needs the deployment URL
+[build.environment]
+  NEXTAUTH_URL = "https://ecol-pro-ace391.netlify.app"
+  AUTH_URL = "https://ecol-pro-ace391.netlify.app"
+  AUTH_TRUST_HOST = "true"
