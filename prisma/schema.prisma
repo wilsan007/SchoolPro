@@ -841,7 +841,7 @@ model Facture {
   numero   String
   libelle  String // "Scolarité 2025-2026", "Cantine Octobre"
   montant  Float
-  devise   String        @default("XOF")
+  devise   String        @default("DJF")
   statut   StatutFacture @default(EN_ATTENTE)
   echeance DateTime?
 
@@ -863,7 +863,7 @@ model Paiement {
   facture   Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
 
   montant   Float
-  devise    String   @default("XOF")
+  devise    String   @default("DJF")
   methode   String // "espèces", "wave", "orange_money", "carte", "virement"
   reference String?
   date      DateTime @default(now())
@@ -1321,7 +1321,7 @@ model ItemInventaire {
   localisation String? // "Salle informatique A", "Magasin"
   fournisseur  String?
   prixUnitaire Float?
-  devise       String  @default("XOF")
+  devise       String  @default("DJF")
 
   dateAchat    DateTime?
   dateGarantie DateTime?

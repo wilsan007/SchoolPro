@@ -48,7 +48,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const newEnseignantId = body.enseignantId !== undefined ? (body.enseignantId || null) : existing.enseignantId;
 
     // Check class overlap (excluding self)
-    const classOverlap = await prisma.emploiTemps.findFirst({
+    // Two creneaux with different groups (e.g. "Salle 101 (Groupe A)" vs "Salle 102 (Groupe B)")
+    // can share the same time slot — only same-group or no-group overlaps are conflicts.
+    const classOverlaps = await prisma.emploiTemps.findMany({
       where: {
         id: { not: id },
         tenantId,
@@ -61,8 +63,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ],
       },
     });
-    if (classOverlap) {
-      return NextResponse.json({ error: "Ce créneau chevauche un cours existant pour cette classe" }, { status: 409 });
+
+    // Parse group from salle label: "Salle 101 (Groupe A)" -> "A"
+    function parseGroup(salle: string | null): string | null {
+      if (!salle) return null;
+      const m = salle.match(/\(Groupe (\w+)\)$/);
+      return m ? m[1] : null;
+    }
+
+    const newGroup = parseGroup(newSalle);
+    for (const other of classOverlaps) {
+      const otherGroup = parseGroup(other.salle);
+      // Two different groups (A + B) can share the same slot
+      if (newGroup && otherGroup && newGroup !== otherGroup) continue;
+      // Same group, or one/both have no group = conflict
+      return NextResponse.json(
+        { error: "Ce créneau chevauche un cours existant pour cette classe. Seuls deux groupes différents (A et B) peuvent partager le même créneau." },
+        { status: 409 }
+      );
     }
 
     // Check teacher conflict (if teacher assigned)

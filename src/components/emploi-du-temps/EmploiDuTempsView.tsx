@@ -374,6 +374,31 @@ export function EmploiDuTempsView({
 
     if (creneau.jour === newJour && creneau.heureDebut === newHeureDebut) return;
 
+    // Check conflicts with existing creneaux at the target slot
+    const draggedGroup = parseGroupe(creneau.salle).groupe;
+    const conflicting = classeEmplois.filter((c) => {
+      if (c.id === id) return false; // skip self
+      if (c.jour !== newJour) return false;
+      const cDebut = timeToMinutes(c.heureDebut);
+      const cFin = timeToMinutes(c.heureFin);
+      // Check time overlap
+      return newDebutMin < cFin && newFinMin > cDebut;
+    });
+
+    for (const other of conflicting) {
+      const otherGroup = parseGroupe(other.salle).groupe;
+      // Two different groups (A + B) can share the same slot
+      if (draggedGroup && otherGroup && draggedGroup !== otherGroup) continue;
+      // Any other combination is a conflict — show clear feedback
+      const reason = !draggedGroup && !otherGroup
+        ? "Conflit : deux cours en tronc commun ne peuvent pas partager le même créneau."
+        : !draggedGroup || !otherGroup
+        ? "Conflit : un cours en tronc commun et un cours en groupe ne peuvent pas partager le même créneau."
+        : `Conflit : le Groupe ${draggedGroup} a déjà un cours à ce créneau. Seuls deux groupes différents (A et B) peuvent cohabiter.`;
+      toast.error(reason, { duration: 5000 });
+      return;
+    }
+
     // Optimistic update
     setEmplois((prev) =>
       prev.map((e) =>
@@ -389,7 +414,7 @@ export function EmploiDuTempsView({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Erreur");
+        throw new Error(data.error ?? "Erreur lors du déplacement");
       }
       toast.success(`Créneau déplacé vers ${JOURS_LABELS[newJour]} ${newHeureDebut}`);
     } catch (e: unknown) {
@@ -399,9 +424,9 @@ export function EmploiDuTempsView({
           e.id === id ? { ...e, jour: creneau.jour, heureDebut: oldDebut, heureFin: oldFin } : e
         )
       );
-      toast.error(e instanceof Error ? e.message : "Erreur lors du déplacement");
+      toast.error(e instanceof Error ? e.message : "Erreur lors du déplacement", { duration: 5000 });
     }
-  }, [emplois]);
+  }, [emplois, classeEmplois]);
 
   // Render a single day column (drop zones)
   function renderDayColumn(jour: Jour) {
@@ -428,6 +453,11 @@ export function EmploiDuTempsView({
                   setDragOverSlot({ jour, time });
                 }
               }}
+              onDragEnter={(e) => {
+                if (draggedId) {
+                  e.preventDefault();
+                }
+              }}
               onDragLeave={() => {
                 if (dragOverSlot?.jour === jour && dragOverSlot?.time === time) {
                   setDragOverSlot(null);
@@ -435,10 +465,14 @@ export function EmploiDuTempsView({
               }}
               onDrop={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 if (draggedId) {
+                  console.log('[drag-drop] Drop on', jour, time, 'draggedId:', draggedId);
                   moveCreneau(draggedId, jour, time);
                   setDraggedId(null);
                   setDragOverSlot(null);
+                } else {
+                  console.log('[drag-drop] Drop but no draggedId!');
                 }
               }}
             />
@@ -483,6 +517,7 @@ export function EmploiDuTempsView({
                 key={creneau.id}
                 draggable
                 onDragStart={(e) => {
+                  console.log('[drag-drop] dragStart on creneau', creneau.id, creneau.matiere.code);
                   setDraggedId(creneau.id);
                   e.dataTransfer.effectAllowed = "move";
                   e.dataTransfer.setData("text/plain", creneau.id);
@@ -492,9 +527,13 @@ export function EmploiDuTempsView({
                   setDragOverSlot(null);
                 }}
                 className={cn(
-                  "relative flex-1 min-w-0 rounded-lg border overflow-hidden group cursor-grab active:cursor-grabbing transition-all pointer-events-auto",
+                  "relative flex-1 min-w-0 rounded-lg border overflow-hidden group cursor-grab active:cursor-grabbing transition-all",
                   matiereColor(creneau.matiere.couleur),
-                  draggedId === creneau.id && "opacity-50 ring-2 ring-green-500"
+                  draggedId === creneau.id && "opacity-50 ring-2 ring-green-500",
+                  // When dragging, disable pointer-events on all cards so drop events
+                  // reach the grid cells underneath. The dragged card keeps pointer-events
+                  // so the dragstart/dragend still work.
+                  draggedId && draggedId !== creneau.id ? "pointer-events-none" : "pointer-events-auto"
                 )}
               >
                 <div className="p-1.5 h-full flex flex-col justify-between">

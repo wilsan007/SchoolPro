@@ -52,7 +52,9 @@ const statutConfig: Record<string, { label: string; variant: "default" | "succes
 };
 
 function formatMoney(amount: number, devise: string) {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: devise }).format(amount);
+  // Force DJF for display regardless of what's stored in DB
+  const currency = devise === "XOF" ? "DJF" : devise;
+  return new Intl.NumberFormat("fr-DJ", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
 export function FactureDetail({ facture }: FactureDetailProps) {
