@@ -9,7 +9,7 @@ const FactureSchema = z.object({
   eleveId: z.string().min(1, "L'élève est requis"),
   libelle: z.string().min(1, "Le libellé est requis"),
   montant: z.number().min(0.01, "Le montant doit être positif"),
-  devise: z.string().default("XOF"),
+  devise: z.string().default("DJF"),
   echeance: z.string().optional(),
 });
 
@@ -86,7 +86,7 @@ export async function createFacture(data: FactureFormData) {
       numero,
       libelle: values.libelle,
       montant: values.montant,
-      devise: values.devise || "XOF",
+      devise: values.devise || "DJF",
       statut: "EN_ATTENTE",
       echeance: values.echeance ? new Date(values.echeance) : null,
     },

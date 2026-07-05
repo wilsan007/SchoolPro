@@ -35,7 +35,7 @@ export function FactureForm({ eleves }: { eleves: EleveOption[] }) {
     eleveId: "",
     libelle: "",
     montant: 0,
-    devise: "XOF",
+    devise: "DJF",
     echeance: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -126,7 +126,7 @@ export function FactureForm({ eleves }: { eleves: EleveOption[] }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="montant">Montant (XOF) *</Label>
+            <Label htmlFor="montant">Montant (FDJ) *</Label>
             <Input
               id="montant"
               type="number"

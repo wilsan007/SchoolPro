@@ -287,8 +287,8 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         <StatCard label="Incidents" value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
         <StatCard
           label="Solde dû"
-          value={`${(totalDu - totalPaye).toLocaleString()} XOF`}
-          sub={`Payé: ${totalPaye.toLocaleString()} XOF`}
+          value={`${(totalDu - totalPaye).toLocaleString()} FDJ`}
+          sub={`Payé: ${totalPaye.toLocaleString()} FDJ`}
           color={totalDu - totalPaye > 0 ? "text-red-600" : "text-green-600"}
         />
       </div>

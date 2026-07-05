@@ -58,7 +58,7 @@ const ETAT_CONFIG: Record<Etat, { label: string; dot: string }> = {
 const EMPTY_FORM = {
   nom: "", description: "", reference: "", categorie: "AUTRE" as Categorie,
   etat: "BON" as Etat, quantite: 1, quantiteMin: 0, localisation: "",
-  fournisseur: "", prixUnitaire: "" as string | number, devise: "XOF",
+  fournisseur: "", prixUnitaire: "" as string | number, devise: "DJF",
   dateAchat: "", dateRevision: "", notes: "",
 };
 
@@ -168,7 +168,7 @@ export function InventaireView() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total articles", value: stats.total, icon: Package, color: "text-indigo-600" },
-          { label: "Valeur totale", value: `${stats.valeurTotale.toLocaleString("fr-FR")} XOF`, icon: DollarSign, color: "text-green-600", small: true },
+          { label: "Valeur totale", value: `${stats.valeurTotale.toLocaleString("fr-FR")} FDJ`, icon: DollarSign, color: "text-green-600", small: true },
           { label: "Alertes stock", value: stats.alertes, icon: AlertTriangle, color: "text-yellow-600",
             onClick: () => setShowAlerte(!showAlerte) },
           { label: "Hors service", value: stats.horsService, icon: XCircle, color: "text-red-600" },

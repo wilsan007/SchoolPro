@@ -23,7 +23,7 @@ const EtablissementSchema = z.object({
   notationMax: z.number().min(1).max(100),
   langue: z.string().default("fr"),
   timezone: z.string().default("Africa/Dakar"),
-  currency: z.string().default("XOF"),
+  currency: z.string().default("DJF"),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
 });

@@ -23,11 +23,11 @@ export function generateMatricule(annee: string, sequence: number): string {
   return `${year}-${String(sequence).padStart(4, "0")}`;
 }
 
-/** Formate un montant en XOF (FCFA) */
+/** Formate un montant dans la devise spécifiée (DJF par défaut) */
 export function formatCurrency(
   amount: number,
-  currency = "XOF",
-  locale = "fr-SN"
+  currency = "DJF",
+  locale = "fr-DJ"
 ): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",

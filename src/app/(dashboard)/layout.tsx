@@ -64,9 +64,11 @@ export default async function DashboardLayout({
       <main className="flex-1 flex flex-col overflow-hidden">
         {children}
       </main>
+      {/* AI chat widget temporarily hidden
       {AI_GREETINGS[session.user.role] && (
         <AiChatWidget greeting={AI_GREETINGS[session.user.role]} />
       )}
+      */}
     </div>
   );
 }

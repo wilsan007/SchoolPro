@@ -156,19 +156,19 @@ export function FacturesTable({ factures }: FacturesTableProps) {
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Total facturé</p>
-            <p className="text-lg font-bold">{formatMoney(totalMontant, filtered[0]?.devise ?? "XOF")}</p>
+            <p className="text-lg font-bold">{formatMoney(totalMontant, filtered[0]?.devise ?? "DJF")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Total encaissé</p>
-            <p className="text-lg font-bold text-green-600">{formatMoney(totalPaye, filtered[0]?.devise ?? "XOF")}</p>
+            <p className="text-lg font-bold text-green-600">{formatMoney(totalPaye, filtered[0]?.devise ?? "DJF")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Solde restant</p>
-            <p className="text-lg font-bold text-red-600">{formatMoney(totalRestant, filtered[0]?.devise ?? "XOF")}</p>
+            <p className="text-lg font-bold text-red-600">{formatMoney(totalRestant, filtered[0]?.devise ?? "DJF")}</p>
           </CardContent>
         </Card>
       </div>

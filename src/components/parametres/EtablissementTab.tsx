@@ -137,6 +137,7 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
             <Label htmlFor="currency">Devise</Label>
             <select id="currency" value={form.currency} onChange={(e) => update("currency", e.target.value)} disabled={!canManage}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="DJF">FDJ (Franc Djiboutien)</option>
               <option value="XOF">FCFA (XOF)</option>
               <option value="EUR">Euro (€)</option>
               <option value="USD">Dollar US ($)</option>
