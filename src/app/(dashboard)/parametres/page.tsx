@@ -20,7 +20,10 @@ export default async function ParametresPage() {
     auth(),
     getTranslations("parametres"),
   ]);
-  if (!session?.user?.tenantId) redirect("/login");
+  if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) {
+    redirect(session.user.role === "SUPER_ADMIN" ? "/super-admin" : "/select-tenant");
+  }
 
   const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
 

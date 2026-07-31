@@ -7,6 +7,12 @@ node_modules/
 .next/
 out/
 build/
+.open-next/
+pages-output/
+
+# Cloudflare
+wrangler.jsonc
+.dev.vars
 
 # Environment
 .env
