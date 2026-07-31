@@ -7,10 +7,26 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  serverExternalPackages: [
+    "stripe",
+    "@stripe/stripe-js",
+    "resend",
+    "@supabase/supabase-js",
+  ],
   experimental: {
     serverActions: {
       allowedOrigins: ["*.ecolpro.app", "*.netlify.app", "*.pages.dev", "localhost:3000", "localhost:3001", "localhost:3002", "localhost:3003", "localhost:3004", "localhost:3005", "10.139.161.24:3003"],
     },
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "next/og": false,
+      sharp: false,
+      exceljs: false,
+      papaparse: false,
+    };
+    return config;
   },
   images: {
     remotePatterns: [
