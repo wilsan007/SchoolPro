@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Loader2, Save } from "lucide-react";
 import { updateEtablissement, type EtablissementFormData } from "@/lib/actions/parametres";
+import { useTranslations } from "next-intl";
 
 interface EtablissementTabProps {
   etablissement: {
@@ -32,6 +33,7 @@ interface EtablissementTabProps {
 }
 
 export function EtablissementTab({ etablissement, canManage }: EtablissementTabProps) {
+  const t = useTranslations("parametres");
   const [isPending, setIsPending] = useState(false);
   const [form, setForm] = useState<EtablissementFormData>({
     name: etablissement.name,
@@ -60,9 +62,9 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
     setIsPending(true);
     try {
       await updateEtablissement(form);
-      toast.success("Paramètres enregistrés");
+      toast.success(t("settingsSaved"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -72,48 +74,48 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Informations générales</CardTitle>
+          <CardTitle>{t("generalInfo")}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="name">Nom de l&apos;établissement *</Label>
+            <Label htmlFor="name">{t("schoolName")}</Label>
             <Input id="name" value={form.name} onChange={(e) => update("name", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Téléphone</Label>
+            <Label htmlFor="phone">{t("phone")}</Label>
             <Input id="phone" value={form.phone} onChange={(e) => update("phone", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("email")}</Label>
             <Input id="email" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="website">Site web</Label>
+            <Label htmlFor="website">{t("website")}</Label>
             <Input id="website" value={form.website} onChange={(e) => update("website", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="siret">N° d&apos;agrément</Label>
+            <Label htmlFor="siret">{t("agreementNumber")}</Label>
             <Input id="siret" value={form.siret} onChange={(e) => update("siret", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="address">Adresse</Label>
+            <Label htmlFor="address">{t("address")}</Label>
             <Input id="address" value={form.address} onChange={(e) => update("address", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="city">Ville</Label>
+            <Label htmlFor="city">{t("city")}</Label>
             <Input id="city" value={form.city} onChange={(e) => update("city", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="country">Pays</Label>
+            <Label htmlFor="country">{t("country")}</Label>
             <select id="country" value={form.country} onChange={(e) => update("country", e.target.value)} disabled={!canManage}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="SN">Sénégal</option>
-              <option value="CI">Côte d&apos;Ivoire</option>
-              <option value="DJ">Djibouti</option>
-              <option value="ML">Mali</option>
-              <option value="BF">Burkina Faso</option>
-              <option value="CM">Cameroun</option>
-              <option value="FR">France</option>
+              <option value="SN">{t("senegal")}</option>
+              <option value="CI">{t("ivoryCoast")}</option>
+              <option value="DJ">{t("djibouti")}</option>
+              <option value="ML">{t("mali")}</option>
+              <option value="BF">{t("burkinaFaso")}</option>
+              <option value="CM">{t("cameroon")}</option>
+              <option value="FR">{t("france")}</option>
             </select>
           </div>
         </CardContent>
@@ -121,20 +123,20 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
 
       <Card>
         <CardHeader>
-          <CardTitle>Configuration pédagogique</CardTitle>
+          <CardTitle>{t("eduConfig")}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="currentYear">Année scolaire</Label>
+            <Label htmlFor="currentYear">{t("schoolYear")}</Label>
             <Input id="currentYear" value={form.currentYear} onChange={(e) => update("currentYear", e.target.value)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="notationMax">Notation sur</Label>
+            <Label htmlFor="notationMax">{t("gradingScale")}</Label>
             <Input id="notationMax" type="number" min="1" max="100" value={form.notationMax}
               onChange={(e) => update("notationMax", parseInt(e.target.value) || 20)} disabled={!canManage} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="currency">Devise</Label>
+            <Label htmlFor="currency">{t("currency")}</Label>
             <select id="currency" value={form.currency} onChange={(e) => update("currency", e.target.value)} disabled={!canManage}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
               <option value="DJF">FDJ (Franc Djiboutien)</option>
@@ -144,7 +146,7 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="langue">Langue</Label>
+            <Label htmlFor="langue">{t("language")}</Label>
             <select id="langue" value={form.langue} onChange={(e) => update("langue", e.target.value)} disabled={!canManage}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
               <option value="fr">Français</option>
@@ -153,7 +155,7 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="timezone">Fuseau horaire</Label>
+            <Label htmlFor="timezone">{t("timezone")}</Label>
             <select id="timezone" value={form.timezone} onChange={(e) => update("timezone", e.target.value)} disabled={!canManage}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
               <option value="Africa/Dakar">Africa/Dakar</option>
@@ -169,7 +171,7 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
         <div className="flex justify-end">
           <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Enregistrer
+            {t("save")}
           </Button>
         </div>
       )}

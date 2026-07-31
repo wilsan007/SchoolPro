@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { EmploiDuTempsView } from "@/components/emploi-du-temps/EmploiDuTempsView";
 import { fuzzyFind } from "@/lib/text-match";
+import { getTranslations } from "next-intl/server";
 
 async function getEmploiData(tenantId: string) {
   const [classes, matieres, enseignants, emplois, salles, disponibilites] = await Promise.all([
@@ -78,7 +79,10 @@ async function getEmploiData(tenantId: string) {
 }
 
 export default async function EmploiDuTempsPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("emploi"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const { classes, matieres, enseignants, emplois, matiereToEnseignants, salles, disponibilites } = await getEmploiData(
@@ -88,8 +92,8 @@ export default async function EmploiDuTempsPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Emploi du temps"
-        subtitle="Visualisation et configuration des créneaux horaires par classe"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

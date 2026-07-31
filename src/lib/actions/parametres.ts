@@ -153,6 +153,15 @@ export async function createUser(data: UserFormData) {
       phone: v.phone || null,
       password: hashed,
       isActive: v.isActive,
+      // Créer l'entrée UserTenant pour le multi-tenant
+      userTenants: {
+        create: {
+          tenantId: session.user.tenantId,
+          role: v.role,
+          isActive: v.isActive,
+          isDefault: true,
+        },
+      },
     },
   });
 
@@ -236,6 +245,7 @@ const ClasseSchema = z.object({
   filiere: z.string().optional(),
   effectifMax: z.number().min(1).default(40),
   annee: z.string().default("2025-2026"),
+  structureId: z.string().optional(),
 });
 
 export type ClasseFormData = z.infer<typeof ClasseSchema>;
@@ -249,6 +259,7 @@ export async function getClassesForSettings() {
     include: {
       _count: { select: { eleves: true } },
       profPrincipal: { select: { user: { select: { name: true } } } },
+      structure: { select: { id: true, nom: true, type: true } },
     },
     orderBy: [{ niveau: "asc" }, { nom: "asc" }],
   });
@@ -272,6 +283,7 @@ export async function createClasse(data: ClasseFormData) {
       filiere: v.filiere || null,
       effectifMax: v.effectifMax,
       annee: v.annee,
+      structureId: v.structureId || null,
     },
   });
 
@@ -567,6 +579,195 @@ export async function updateUserPhone(userId: string, phone: string) {
       data: { phone },
     });
   }
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+// ============================================================
+// RÈGLES D'APPRÉCIATION / CLÔTURE DES PÉRIODES / SIGNATURE
+// ============================================================
+
+export async function getReglesAppreciation() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  return prisma.reglesAppreciation.findMany({
+    where: { tenantId: session.user.tenantId },
+    orderBy: [{ contexte: "asc" }, { seuilMin: "asc" }],
+  });
+}
+
+export async function getPeriodesForCloture() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  const annee = await prisma.anneesScolaires.findFirst({
+    where: { tenantId: session.user.tenantId, isCurrent: true },
+  });
+  if (!annee) return [];
+
+  return prisma.periode.findMany({
+    where: { anneeId: annee.id },
+    orderBy: { numero: "asc" },
+  });
+}
+
+// ============================================================
+// SITES / CAMPUSES
+// ============================================================
+
+const SiteSchema = z.object({
+  nom: z.string().min(2, "Le nom du site est requis"),
+  code: z.string().optional(),
+  adresse: z.string().optional(),
+  ville: z.string().optional(),
+  telephone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  actif: z.boolean().default(true),
+});
+
+export type SiteFormData = z.infer<typeof SiteSchema>;
+
+export async function getSitesForSettings() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  return prisma.site.findMany({
+    where: { tenantId: session.user.tenantId },
+    include: {
+      _count: {
+        select: {
+          classes: true,
+          eleves: true,
+          salles: true,
+          users: true,
+          factures: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function createSite(data: SiteFormData) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const parsed = SiteSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const v = parsed.data;
+  await prisma.site.create({
+    data: {
+      tenantId: session.user.tenantId,
+      nom: v.nom,
+      code: v.code || null,
+      adresse: v.adresse || null,
+      ville: v.ville || null,
+      telephone: v.telephone || null,
+      email: v.email || null,
+      actif: v.actif,
+    },
+  });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function updateSite(siteId: string, data: Partial<SiteFormData>) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const site = await prisma.site.findFirst({
+    where: { id: siteId, tenantId: session.user.tenantId },
+  });
+  if (!site) throw new Error("Site non trouvé");
+
+  const parsed = SiteSchema.partial().safeParse(data);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const v = parsed.data;
+  await prisma.site.update({
+    where: { id: siteId },
+    data: {
+      nom: v.nom,
+      code: v.code,
+      adresse: v.adresse,
+      ville: v.ville,
+      telephone: v.telephone,
+      email: v.email,
+      actif: v.actif,
+    },
+  });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function deleteSite(siteId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const site = await prisma.site.findFirst({
+    where: { id: siteId, tenantId: session.user.tenantId },
+    include: {
+      _count: {
+        select: {
+          classes: true,
+          eleves: true,
+          users: true,
+        },
+      },
+    },
+  });
+  if (!site) throw new Error("Site non trouvé");
+  if (site._count.classes > 0 || site._count.eleves > 0) {
+    throw new Error("Impossible de supprimer un site contenant des classes ou des élèves");
+  }
+
+  await prisma.site.delete({ where: { id: siteId } });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function assignUserToSite(userId: string, siteId: string | null) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, tenantId: session.user.tenantId },
+  });
+  if (!user) throw new Error("Utilisateur non trouvé");
+
+  if (siteId) {
+    const site = await prisma.site.findFirst({
+      where: { id: siteId, tenantId: session.user.tenantId },
+    });
+    if (!site) throw new Error("Site non trouvé");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { siteId },
+  });
 
   revalidatePath("/parametres");
   return { success: true };

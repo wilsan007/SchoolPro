@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { AdmissionsView } from "@/components/admissions/AdmissionsView";
+import { getTranslations } from "next-intl/server";
 
 async function getCandidatures(tenantId: string) {
   const anneeActuelle = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
@@ -16,7 +17,10 @@ async function getCandidatures(tenantId: string) {
 }
 
 export default async function AdmissionsPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("admissions"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const { candidatures } = await getCandidatures(session.user.tenantId);
@@ -24,8 +28,8 @@ export default async function AdmissionsPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Admissions & Inscriptions"
-        subtitle="Gestion des candidatures, examens d'entrée et inscriptions"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

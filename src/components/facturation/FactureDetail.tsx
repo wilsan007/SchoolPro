@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus, FileText, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { enregistrerPaiement, annulerFacture, type PaiementFormData } from "@/lib/actions/facture";
+import { useTranslations } from "next-intl";
 
 interface Paiement {
   id: string;
@@ -44,11 +45,11 @@ interface FactureDetailProps {
   };
 }
 
-const statutConfig: Record<string, { label: string; variant: "default" | "success" | "warning" | "destructive" | "secondary" }> = {
-  EN_ATTENTE: { label: "En attente", variant: "warning" },
-  PAYEE: { label: "Payée", variant: "success" },
-  EN_RETARD: { label: "En retard", variant: "destructive" },
-  ANNULEE: { label: "Annulée", variant: "secondary" },
+const statutConfig: Record<string, { labelKey: string; variant: "default" | "success" | "warning" | "destructive" | "secondary" }> = {
+  EN_ATTENTE: { labelKey: "statusPending", variant: "warning" },
+  PAYEE: { labelKey: "statusPaid", variant: "success" },
+  EN_RETARD: { labelKey: "statusOverdue", variant: "destructive" },
+  ANNULEE: { labelKey: "statusCancelled", variant: "secondary" },
 };
 
 function formatMoney(amount: number, devise: string) {
@@ -58,6 +59,7 @@ function formatMoney(amount: number, devise: string) {
 }
 
 export function FactureDetail({ facture }: FactureDetailProps) {
+  const t = useTranslations("facturation");
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [showPaiement, setShowPaiement] = useState(false);
@@ -75,18 +77,18 @@ export function FactureDetail({ facture }: FactureDetailProps) {
   async function handlePaiement(e: React.FormEvent) {
     e.preventDefault();
     if (paiement.montant <= 0) {
-      toast.error("Le montant doit être positif");
+      toast.error(t("amountPositive"));
       return;
     }
     setIsPending(true);
     try {
       await enregistrerPaiement(facture.id, paiement);
-      toast.success("Paiement enregistré avec succès");
+      toast.success(t("paymentSuccess"));
       setShowPaiement(false);
       setPaiement({ montant: 0, methode: "espèces", reference: "" });
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -104,21 +106,21 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       if (!res.ok) throw new Error(data.error ?? "Erreur");
       if (data.url) window.location.href = data.url;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Paiement en ligne indisponible");
+      toast.error(err instanceof Error ? err.message : t("onlineUnavailable"));
     } finally {
       setIsPending(false);
     }
   }
 
   async function handleAnnuler() {
-    if (!confirm("Voulez-vous vraiment annuler cette facture ?")) return;
+    if (!confirm(t("confirmCancel"))) return;
     setIsPending(true);
     try {
       await annulerFacture(facture.id);
-      toast.success("Facture annulée");
+      toast.success(t("invoiceCancelled"));
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -130,7 +132,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
         <Button asChild variant="outline" size="sm" className="gap-2">
           <Link href="/facturation">
             <ArrowLeft className="h-4 w-4" />
-            Retour aux factures
+            {t("backToInvoices")}
           </Link>
         </Button>
         {facture.statut !== "ANNULEE" && facture.statut !== "PAYEE" && (
@@ -143,7 +145,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
               disabled={isPending}
             >
               <XCircle className="h-4 w-4" />
-              Annuler
+              {t("cancel")}
             </Button>
             <Button
               variant="outline"
@@ -153,7 +155,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
               disabled={isPending}
             >
               <CreditCard className="h-4 w-4" />
-              Payer en ligne
+              {t("payOnline")}
             </Button>
             <Button
               size="sm"
@@ -162,7 +164,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
               disabled={isPending}
             >
               <Plus className="h-4 w-4" />
-              Encaisser un paiement
+              {t("collectPayment")}
             </Button>
           </div>
         )}
@@ -175,16 +177,16 @@ export function FactureDetail({ facture }: FactureDetailProps) {
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold font-mono">{facture.numero}</h2>
-                <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                <Badge variant={cfg.variant}>{t(cfg.labelKey)}</Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">{facture.libelle}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Créée le {new Date(facture.createdAt).toLocaleDateString("fr-FR")}
-                {facture.echeance && ` · Échéance: ${new Date(facture.echeance).toLocaleDateString("fr-FR")}`}
+                {t("createdOn")} {new Date(facture.createdAt).toLocaleDateString("fr-FR")}
+                {facture.echeance && ` · ${t("dueOn")}: ${new Date(facture.echeance).toLocaleDateString("fr-FR")}`}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Montant</p>
+              <p className="text-xs text-muted-foreground">{t("amount")}</p>
               <p className="text-2xl font-bold">{formatMoney(facture.montant, facture.devise)}</p>
             </div>
           </div>
@@ -195,21 +197,21 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Élève</CardTitle>
+            <CardTitle className="text-sm">{t("student")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             <p className="font-medium">{facture.eleve.prenom} {facture.eleve.nom}</p>
             <p className="text-sm text-muted-foreground">{facture.eleve.matricule}</p>
             <p className="text-sm text-muted-foreground">{facture.eleve.classe?.nom ?? "N/A"} — {facture.eleve.classe?.niveau ?? ""}</p>
             <Button asChild variant="outline" size="sm" className="mt-2">
-              <Link href={`/eleves/${facture.eleve.id}`}>Voir la fiche</Link>
+              <Link href={`/eleves/${facture.eleve.id}`}>{t("viewProfile")}</Link>
             </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Tuteur légal</CardTitle>
+            <CardTitle className="text-sm">{t("legalGuardian")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             {tuteur ? (
@@ -219,7 +221,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                 {tuteur.email && <p className="text-sm text-muted-foreground">{tuteur.email}</p>}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">Aucun tuteur enregistré</p>
+              <p className="text-sm text-muted-foreground">{t("noGuardian")}</p>
             )}
           </CardContent>
         </Card>
@@ -229,19 +231,19 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Facturé</p>
+            <p className="text-xs text-muted-foreground">{t("invoiced")}</p>
             <p className="text-lg font-bold">{formatMoney(facture.montant, facture.devise)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Encaissé</p>
+            <p className="text-xs text-muted-foreground">{t("collected")}</p>
             <p className="text-lg font-bold text-green-600">{formatMoney(totalPaye, facture.devise)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Restant dû</p>
+            <p className="text-xs text-muted-foreground">{t("remaining")}</p>
             <p className={`text-lg font-bold ${restant > 0 ? "text-red-600" : "text-green-600"}`}>
               {formatMoney(restant, facture.devise)}
             </p>
@@ -253,12 +255,12 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       {showPaiement && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Encaisser un paiement</CardTitle>
+            <CardTitle className="text-sm">{t("collectPayment")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePaiement} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="montant">Montant ({facture.devise}) *</Label>
+                <Label htmlFor="montant">{t("amount")} ({facture.devise}) *</Label>
                 <Input
                   id="montant"
                   type="number"
@@ -269,25 +271,25 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="methode">Méthode *</Label>
+                <Label htmlFor="methode">{t("method")} *</Label>
                 <select
                   id="methode"
                   value={paiement.methode}
                   onChange={(e) => setPaiement({ ...paiement, methode: e.target.value })}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  <option value="espèces">Espèces</option>
-                  <option value="wave">Wave</option>
-                  <option value="orange_money">Orange Money</option>
-                  <option value="carte">Carte bancaire</option>
-                  <option value="virement">Virement</option>
+                  <option value="espèces">{t("cash")}</option>
+                  <option value="wave">{t("wave")}</option>
+                  <option value="orange_money">{t("orangeMoney")}</option>
+                  <option value="carte">{t("card")}</option>
+                  <option value="virement">{t("transfer")}</option>
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="reference">Référence</Label>
+                <Label htmlFor="reference">{t("reference")}</Label>
                 <Input
                   id="reference"
-                  placeholder="N° transaction..."
+                  placeholder={t("referencePlaceholder")}
                   value={paiement.reference ?? ""}
                   onChange={(e) => setPaiement({ ...paiement, reference: e.target.value })}
                 />
@@ -295,10 +297,10 @@ export function FactureDetail({ facture }: FactureDetailProps) {
               <div className="md:col-span-3 flex gap-2">
                 <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                  Valider le paiement
+                  {t("validatePayment")}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowPaiement(false)}>
-                  Annuler
+                  {t("cancel")}
                 </Button>
               </div>
             </form>
@@ -309,21 +311,21 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       {/* Historique des paiements */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Historique des paiements</CardTitle>
+          <CardTitle className="text-sm">{t("paymentHistory")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {facture.paiements.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">Aucun paiement enregistré</p>
+            <p className="text-sm text-muted-foreground py-6 text-center">{t("noPayments")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="text-left px-4 py-2 font-medium">Date</th>
-                    <th className="text-right px-4 py-2 font-medium">Montant</th>
-                    <th className="text-left px-4 py-2 font-medium">Méthode</th>
-                    <th className="text-left px-4 py-2 font-medium">Référence</th>
-                    <th className="text-center px-4 py-2 font-medium">Reçu</th>
+                    <th className="text-left px-4 py-2 font-medium">{t("date")}</th>
+                    <th className="text-right px-4 py-2 font-medium">{t("amount")}</th>
+                    <th className="text-left px-4 py-2 font-medium">{t("method")}</th>
+                    <th className="text-left px-4 py-2 font-medium">{t("reference")}</th>
+                    <th className="text-center px-4 py-2 font-medium">{t("receipt")}</th>
                   </tr>
                 </thead>
                 <tbody>

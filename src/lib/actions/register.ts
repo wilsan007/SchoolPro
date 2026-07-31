@@ -74,7 +74,7 @@ export async function registerTenant(data: RegisterFormData) {
     },
   });
 
-  await prisma.user.create({
+  const newUser = await prisma.user.create({
     data: {
       tenantId: tenant.id,
       email: values.adminEmail,
@@ -85,6 +85,15 @@ export async function registerTenant(data: RegisterFormData) {
       phone: values.adminPhone || null,
       role: "TENANT_ADMIN",
       isActive: true,
+      // Créer l'entrée UserTenant pour le multi-tenant
+      userTenants: {
+        create: {
+          tenantId: tenant.id,
+          role: "TENANT_ADMIN",
+          isActive: true,
+          isDefault: true,
+        },
+      },
     },
   });
 

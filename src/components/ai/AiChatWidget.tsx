@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, X, Send, Loader2, Check, Ban, AlertTriangle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface PendingAction {
   type: "create_emploi_du_temps";
@@ -68,6 +69,7 @@ const JOUR_LABELS: Record<string, string> = {
 const STORAGE_KEY = "ecolpro-ai-chat-messages";
 
 export function AiChatWidget({ greeting }: { greeting: string }) {
+  const t = useTranslations("ai");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -119,7 +121,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
         body: JSON.stringify({ messages: next.map(({ role, content }) => ({ role, content })) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur IA");
+      if (!res.ok) throw new Error(data.error ?? t("aiError"));
 
       const actions: ActionItem[] = [
         ...(data.pendingAction ? [{ action: data.pendingAction as PendingAction }] : []),
@@ -133,7 +135,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `⚠️ ${err instanceof Error ? err.message : "Erreur"}` },
+        { role: "assistant", content: `⚠️ ${err instanceof Error ? err.message : t("aiError")}` },
       ]);
     } finally {
       setLoading(false);
@@ -158,7 +160,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur lors de la création du créneau");
+      if (!res.ok) throw new Error(data.error ?? t("createSlotError"));
 
       setActionStatus(messageIndex, actionIndex, "applied");
       router.refresh();
@@ -166,14 +168,14 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
         ...prev,
         {
           role: "assistant",
-          content: `✅ Créneau créé : ${action.matiereNom} — ${action.classeNom}, ${JOUR_LABELS[action.jour] ?? action.jour} ${action.heureDebut}-${action.heureFin}.`,
+          content: `✅ ${t("slotCreated", { matiere: action.matiereNom, classe: action.classeNom, jour: t(`days.${action.jour}`), debut: action.heureDebut, fin: action.heureFin })}`,
         },
       ]);
     } catch (err) {
       setActionStatus(messageIndex, actionIndex, "error");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `⚠️ ${err instanceof Error ? err.message : "Impossible de créer le créneau"}` },
+        { role: "assistant", content: `⚠️ ${err instanceof Error ? err.message : t("slotCreateError")}` },
       ]);
     } finally {
       setApplyingKey(null);
@@ -221,7 +223,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur lors du remplacement de l'emploi du temps");
+      if (!res.ok) throw new Error(data.error ?? t("replaceError"));
 
       setBulkStatus(messageIndex, "applied");
       router.refresh();
@@ -229,7 +231,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
         ...prev,
         {
           role: "assistant",
-          content: `✅ Emploi du temps de ${plan.classeNom} remplacé : ${data.deleted} créneau(x) supprimé(s), ${data.created} créé(s).`,
+          content: `✅ ${t("bulkSuccess", { class: plan.classeNom, deleted: data.deleted, created: data.created })}`,
         },
       ]);
     } catch (err) {
@@ -238,7 +240,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
         ...prev,
         {
           role: "assistant",
-          content: `⚠️ ${err instanceof Error ? err.message : "Impossible de remplacer l'emploi du temps"} — tu peux redemander une régénération du plan.`,
+          content: `⚠️ ${t("bulkErrorRetry")}`,
         },
       ]);
     } finally {
@@ -253,17 +255,17 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shrink-0">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-semibold">Assistant IA EcolPro</span>
+              <span className="text-sm font-semibold">{t("assistantTitle")}</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMessages([])}
-                aria-label="Nouvelle conversation"
-                title="Nouvelle conversation"
+                aria-label={t("newConversation")}
+                title={t("newConversation")}
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
-              <button onClick={() => setOpen(false)} aria-label="Fermer">
+              <button onClick={() => setOpen(false)} aria-label={t("close")}>
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -294,8 +296,8 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                       <p className="text-gray-700 dark:text-gray-300">
                         {action.matiereNom} — {action.classeNom}
                         <br />
-                        {JOUR_LABELS[action.jour] ?? action.jour} {action.heureDebut}-{action.heureFin}
-                        {action.salle ? ` · Salle ${action.salle}` : ""}
+                        {t(`days.${action.jour}`)} {action.heureDebut}-{action.heureFin}
+                        {action.salle ? ` · ${t("room")} ${action.salle}` : ""}
                         {action.enseignantNom ? ` · ${action.enseignantNom}` : ""}
                       </p>
 
@@ -307,7 +309,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 disabled:opacity-50"
                           >
                             {applyingKey === key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                            Confirmer
+                            {t("confirm")}
                           </button>
                           <button
                             onClick={() => setActionStatus(mi, ai, "cancelled")}
@@ -315,13 +317,13 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
                           >
                             <Ban className="w-3.5 h-3.5" />
-                            Annuler
+                            {t("cancel")}
                           </button>
                         </div>
                       )}
-                      {status === "applied" && <p className="text-green-600 font-medium">✓ Créé</p>}
-                      {status === "cancelled" && <p className="text-gray-400 font-medium">Annulé</p>}
-                      {status === "error" && <p className="text-red-500 font-medium">Échec — voir message ci-dessus</p>}
+                      {status === "applied" && <p className="text-green-600 font-medium">{t("created")}</p>}
+                      {status === "cancelled" && <p className="text-gray-400 font-medium">{t("cancelled")}</p>}
+                      {status === "error" && <p className="text-red-500 font-medium">{t("failed")}</p>}
                     </div>
                   );
                 })}
@@ -330,10 +332,10 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                   <div className="max-w-[95%] rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 p-3 text-xs space-y-2">
                     <p className="flex items-center gap-1.5 font-semibold text-red-700 dark:text-red-400">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      Remplacement complet — {m.bulkPlan.classeNom}
+                      {t("replaceTitle", { class: m.bulkPlan.classeNom })}
                     </p>
                     <p className="text-gray-600 dark:text-gray-300">
-                      {m.bulkPlan.nbCreneauxExistants} créneau(x) actuel(s) seront supprimés et remplacés par {m.bulkPlan.plan.length} nouveau(x) créneau(x).
+                      {t("replaceDesc", { existing: m.bulkPlan.nbCreneauxExistants, new: m.bulkPlan.plan.length })}
                     </p>
 
                     {m.bulkPlan.warnings.length > 0 && (
@@ -348,7 +350,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                       {m.bulkPlan.plan.map((c, ci) => (
                         <div key={ci} className="px-2 py-1 flex justify-between gap-2">
                           <span>
-                            {JOUR_LABELS[c.jour] ?? c.jour} {c.heureDebut}-{c.heureFin} · {c.matiereNom}
+                            {t(`days.${c.jour}`)} {c.heureDebut}-{c.heureFin} · {c.matiereNom}
                             {c.groupe ? ` (Gr. ${c.groupe})` : ""}
                           </span>
                           <span className="text-gray-500 shrink-0">{c.enseignantNom ?? "—"}</span>
@@ -364,7 +366,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
                         >
                           {applyingKey === `bulk-${mi}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                          Confirmer le remplacement
+                          {t("confirmReplace")}
                         </button>
                         <button
                           onClick={() => setBulkStatus(mi, "cancelled")}
@@ -372,13 +374,13 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
                         >
                           <Ban className="w-3.5 h-3.5" />
-                          Annuler
+                          {t("cancel")}
                         </button>
                       </div>
                     )}
-                    {m.bulkStatus === "applied" && <p className="text-green-600 font-medium">✓ Emploi du temps remplacé</p>}
-                    {m.bulkStatus === "cancelled" && <p className="text-gray-400 font-medium">Annulé</p>}
-                    {m.bulkStatus === "error" && <p className="text-red-500 font-medium">Échec — voir message ci-dessus</p>}
+                    {m.bulkStatus === "applied" && <p className="text-green-600 font-medium">{t("replaced")}</p>}
+                    {m.bulkStatus === "cancelled" && <p className="text-gray-400 font-medium">{t("cancelled")}</p>}
+                    {m.bulkStatus === "error" && <p className="text-red-500 font-medium">{t("failed")}</p>}
                   </div>
                 )}
               </div>
@@ -396,7 +398,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
                   send();
                 }
               }}
-              placeholder="Posez votre question..."
+              placeholder={t("inputPlaceholder")}
               disabled={loading}
               className="flex-1 text-sm bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
             />
@@ -404,7 +406,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
               onClick={send}
               disabled={loading || !input.trim()}
               className="p-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50 shrink-0"
-              aria-label="Envoyer"
+              aria-label={t("send")}
             >
               <Send className="w-4 h-4" />
             </button>
@@ -415,7 +417,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
       <button
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
-        title="Assistant IA"
+        title={t("assistantBtn")}
       >
         {open ? <X className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
       </button>

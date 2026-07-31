@@ -1,19 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, Send, CheckCircle,
   Loader2, Eye, Users, ChevronRight, X,
-  BookOpen,
+  BookOpen, TableProperties,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ConseilDeClasse } from "./ConseilDeClasse";
 import type { BulletinData } from "@/lib/pdf/bulletin-generator";
 import { BulletinPreview } from "./BulletinPreview";
+import { BulletinMatrix } from "./BulletinMatrix";
 
 interface Classe {
   id: string;
@@ -41,7 +43,7 @@ interface EleveConseil {
   appreciation: string;
 }
 
-type View = "workflow" | "conseil" | "preview";
+type View = "workflow" | "conseil" | "preview" | "matrix";
 
 export function BulletinsManager({
   classes, periodes,
@@ -50,6 +52,7 @@ export function BulletinsManager({
   periodes: Periode[];
   tenantId: string;
 }) {
+  const t = useTranslations("bulletinsManager");
   const [selectedClasse, setSelectedClasse] = useState<Classe | null>(classes[0] ?? null);
   const [selectedPeriode, setSelectedPeriode] = useState<Periode | null>(
     periodes.find((p) => p.isCurrent) ?? periodes[0] ?? null
@@ -62,10 +65,46 @@ export function BulletinsManager({
   const [conseilEleves, setConseilEleves] = useState<EleveConseil[]>([]);
   const [previewData, setPreviewData] = useState<BulletinData | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(false);
 
   const key = `${selectedClasse?.id}-${selectedPeriode?.id}`;
   const isGenerated = generated.has(key);
   const isPublished = published.has(key);
+
+  // Vérifier si des bulletins existent déjà en DB pour cette classe/période
+  async function checkExistingBulletins(classeId: string, periodeId: string) {
+    setCheckingExisting(true);
+    try {
+      const res = await fetch(`/api/bulletins/check-existing?classeId=${classeId}&periodeId=${periodeId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.exists) {
+          setGenerated((prev) => new Set([...prev, `${classeId}-${periodeId}`]));
+          if (data.published) {
+            setPublished((prev) => new Set([...prev, `${classeId}-${periodeId}`]));
+          }
+          return true;
+        }
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setCheckingExisting(false);
+    }
+    return false;
+  }
+
+  // Quand on change de classe/période, vérifier si bulletins déjà générés
+  useEffect(() => {
+    if (selectedClasse && selectedPeriode) {
+      checkExistingBulletins(selectedClasse.id, selectedPeriode.id);
+    }
+  }, [selectedClasse?.id, selectedPeriode?.id]);
+
+  // Replier la sidebar automatiquement en vue matricielle
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("sidebar-collapse", { detail: { collapse: view === "matrix" } }));
+  }, [view]);
 
   async function genererBulletins() {
     if (!selectedClasse || !selectedPeriode) return;
@@ -78,11 +117,11 @@ export function BulletinsManager({
           body: JSON.stringify({ classeId: selectedClasse.id, periodeId: selectedPeriode.id }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Erreur");
+        if (!res.ok) throw new Error(data.error ?? t("error"));
         setGenerated((prev) => new Set([...prev, key]));
-        toast.success(`${data.count} bulletins générés avec succès !`);
+        toast.success(t("successGenerated", { count: data.count }));
       } catch (e: unknown) {
-        toast.error(e instanceof Error ? e.message : "Erreur lors de la génération");
+        toast.error(e instanceof Error ? e.message : t("errGeneration"));
       } finally {
         setGenerating(false);
       }
@@ -101,9 +140,9 @@ export function BulletinsManager({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         setPublished((prev) => new Set([...prev, key]));
-        toast.success(`${data.count} bulletins publiés — parents notifiés !`);
+        toast.success(t("successPublished", { count: data.count }));
       } catch {
-        toast.error("Erreur lors de la publication");
+        toast.error(t("errPublication"));
       }
     });
   }
@@ -149,7 +188,7 @@ export function BulletinsManager({
     try {
       const firstEleve = selectedClasse.eleves[0];
       if (!firstEleve) {
-        toast.error("Aucun élève dans cette classe");
+        toast.error(t("errNoStudents"));
         return;
       }
       const res = await fetch(
@@ -160,25 +199,100 @@ export function BulletinsManager({
         setPreviewData(data);
         setView("preview");
       } else {
-        toast.error("Impossible de charger la prévisualisation");
+        toast.error(t("errPreviewLoad"));
       }
     } catch {
-      toast.error("Erreur lors du chargement");
+      toast.error(t("errLoad"));
     } finally {
       setLoadingPreview(false);
     }
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Colonne gauche : sélecteurs */}
+    <div className={view === "matrix" ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-3 gap-6"}>
+      {/* Barre de filtres horizontale — visible seulement en vue matricielle */}
+      {view === "matrix" && (
+        <div className="flex flex-wrap items-center gap-2 px-1 sticky top-0 z-30 bg-background py-2 border-b">
+          {/* Retour */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setView("workflow")}
+            className="gap-1.5 text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+            {t("back")}
+          </Button>
+
+          <div className="h-5 w-px bg-border mx-1" />
+
+          {/* Sélecteur classe */}
+          <select
+            value={selectedClasse?.id ?? ""}
+            onChange={(e) => {
+              const c = classes.find((c) => c.id === e.target.value);
+              if (c) setSelectedClasse(c);
+            }}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>{c.nom} ({c.eleves.length})</option>
+            ))}
+          </select>
+
+          {/* Sélecteur période */}
+          <select
+            value={selectedPeriode?.id ?? ""}
+            onChange={(e) => {
+              const p = periodes.find((p) => p.id === e.target.value);
+              if (p) setSelectedPeriode(p);
+            }}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {periodes.map((p) => (
+              <option key={p.id} value={p.id}>{p.nom}</option>
+            ))}
+          </select>
+
+          <div className="h-5 w-px bg-border mx-1" />
+
+          {/* Boutons d'action rapides */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={previsualiser}
+            disabled={loadingPreview || !isGenerated}
+          >
+            {loadingPreview ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
+            {t("preview")}
+          </Button>
+          {!isPublished && isGenerated && (
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={publierBulletins}
+              disabled={isPending}
+            >
+              {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              {t("publish")}
+            </Button>
+          )}
+          {isPublished && (
+            <Badge variant="success" className="text-xs">{t("published")}</Badge>
+          )}
+        </div>
+      )}
+
+      {/* Colonne gauche : sélecteurs — cachée en vue matricielle */}
+      {view !== "matrix" && (
       <div className="space-y-4">
         {/* Période */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-primary" />
-              Période
+              {t("period")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 pt-0 space-y-1">
@@ -199,7 +313,7 @@ export function BulletinsManager({
                     variant={selectedPeriode?.id === p.id ? "outline" : "success"}
                     className="text-[10px] px-1.5"
                   >
-                    En cours
+                    {t("inProgress")}
                   </Badge>
                 )}
               </button>
@@ -212,7 +326,7 @@ export function BulletinsManager({
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
-              Classe
+              {t("class")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 pt-0 space-y-1">
@@ -233,7 +347,7 @@ export function BulletinsManager({
                     "text-xs",
                     selectedClasse?.id === c.id ? "text-white/70" : "text-muted-foreground"
                   )}>
-                    {c.eleves.length} élève{c.eleves.length !== 1 ? "s" : ""}
+                    {t("studentsCount", { count: c.eleves.length })}
                   </p>
                 </div>
                 <ChevronRight className="h-3.5 w-3.5 opacity-50" />
@@ -242,11 +356,12 @@ export function BulletinsManager({
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Colonne droite : contenu principal */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className={view === "matrix" ? "space-y-3" : "lg:col-span-2 space-y-4"}>
 
-        {/* Onglets */}
+        {/* Onglets — cachés en vue matricielle (barre de filtres déjà présente) */}
         {(view === "conseil" || view === "preview") && (
           <div className="flex items-center gap-2">
             <Button
@@ -256,10 +371,10 @@ export function BulletinsManager({
               className="gap-2 text-muted-foreground"
             >
               <X className="h-4 w-4" />
-              Retour
+              {t("back")}
             </Button>
             <span className="text-sm text-muted-foreground">
-              {view === "conseil" ? "Conseil de classe" : "Prévisualisation bulletin"}
+              {view === "conseil" ? t("viewConseil") : t("viewPreview")}
             </span>
           </div>
         )}
@@ -275,14 +390,14 @@ export function BulletinsManager({
                       {selectedClasse.nom} — {selectedPeriode.nom}
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {selectedClasse.eleves.length} bulletins à générer
+                      {t("bulletinsToGenerate", { count: selectedClasse.eleves.length })}
                       {selectedClasse.profPrincipal && (
-                        <> · Prof. principal : <strong>{selectedClasse.profPrincipal.user.name}</strong></>
+                        <> · {t("mainTeacher")} : <strong>{selectedClasse.profPrincipal.user.name}</strong></>
                       )}
                     </p>
                   </div>
                   <Badge variant={isPublished ? "success" : isGenerated ? "info" : "outline"}>
-                    {isPublished ? "Publiés" : isGenerated ? "Générés" : "En attente"}
+                    {isPublished ? t("published") : isGenerated ? t("generated") : t("pending")}
                   </Badge>
                 </div>
 
@@ -291,26 +406,26 @@ export function BulletinsManager({
                   {[
                     {
                       step: 1,
-                      label: "Calcul des moyennes",
-                      desc: "Pondération par coefficient, classement, statistiques de classe",
+                      label: t("step1Label"),
+                      desc: t("step1Desc"),
                       done: true,
                     },
                     {
                       step: 2,
-                      label: "Génération des appréciations",
-                      desc: "Suggestions automatiques par niveau de moyenne",
+                      label: t("step2Label"),
+                      desc: t("step2Desc"),
                       done: isGenerated,
                     },
                     {
                       step: 3,
-                      label: "Conseil de classe",
-                      desc: "Délibérations, félicitations, avertissements, décisions de passage",
+                      label: t("step3Label"),
+                      desc: t("step3Desc"),
                       done: isGenerated,
                     },
                     {
                       step: 4,
-                      label: "Distribution aux parents",
-                      desc: "Email + notification ENT + téléchargement PDF",
+                      label: t("step4Label"),
+                      desc: t("step4Desc"),
                       done: isPublished,
                     },
                   ].map((s) => (
@@ -340,13 +455,21 @@ export function BulletinsManager({
                   {!isGenerated ? (
                     <Button onClick={genererBulletins} disabled={generating || isPending} className="gap-2">
                       {generating ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" />Génération en cours…</>
+                        <><Loader2 className="h-4 w-4 animate-spin" />{t("generating")}</>
                       ) : (
-                        <><FileText className="h-4 w-4" />Générer les bulletins</>
+                        <><FileText className="h-4 w-4" />{t("generate")}</>
                       )}
                     </Button>
                   ) : (
                     <>
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setView("matrix")}
+                      >
+                        <TableProperties className="h-4 w-4" />
+                        {t("viewMatrix")}
+                      </Button>
                       <Button
                         variant="outline"
                         className="gap-2"
@@ -358,18 +481,18 @@ export function BulletinsManager({
                         ) : (
                           <Eye className="h-4 w-4" />
                         )}
-                        Prévisualiser
+                        {t("previewPdf")}
                       </Button>
                       <Button variant="outline" className="gap-2" disabled>
                         <Download className="h-4 w-4" />
-                        Télécharger ZIP
+                        {t("downloadZip")}
                       </Button>
                       {!isPublished && (
                         <Button onClick={publierBulletins} disabled={isPending} className="gap-2">
                           {isPending ? (
-                            <><Loader2 className="h-4 w-4 animate-spin" />Publication…</>
+                            <><Loader2 className="h-4 w-4 animate-spin" />{t("publishing")}</>
                           ) : (
-                            <><Send className="h-4 w-4" />Publier aux parents</>
+                            <><Send className="h-4 w-4" />{t("publishToParents")}</>
                           )}
                         </Button>
                       )}
@@ -384,12 +507,12 @@ export function BulletinsManager({
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" />
-                  Conseil de classe
+                  {t("viewConseil")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Délibérez, attribuez félicitations / encouragements / avertissements, et saisissez les décisions de passage ou de redoublement pour chaque élève.
+                  {t("conseilDesc")}
                 </p>
                 <Button
                   variant="outline"
@@ -399,7 +522,7 @@ export function BulletinsManager({
                   disabled={!isGenerated}
                 >
                   <Users className="h-4 w-4" />
-                  {isGenerated ? "Ouvrir le conseil de classe" : "Générez les bulletins d'abord"}
+                  {isGenerated ? t("openConseil") : t("generateFirst")}
                 </Button>
               </CardContent>
             </Card>
@@ -421,11 +544,20 @@ export function BulletinsManager({
           </Card>
         )}
 
+        {/* VUE : Matrice (classe entière) */}
+        {view === "matrix" && selectedClasse && selectedPeriode && (
+          <BulletinMatrix
+            classeId={selectedClasse.id}
+            periodeId={selectedPeriode.id}
+            classeNom={selectedClasse.nom}
+          />
+        )}
+
         {/* VUE : Prévisualisation bulletin */}
         {view === "preview" && previewData && (
           <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
-              <CardTitle className="text-sm">Prévisualisation — {previewData.eleveNom} {previewData.elevePrenom}</CardTitle>
+              <CardTitle className="text-sm">{t("previewOf", { nom: previewData.eleveNom, prenom: previewData.elevePrenom })}</CardTitle>
               <Button variant="ghost" size="icon" onClick={() => setView("workflow")}>
                 <X className="h-4 w-4" />
               </Button>

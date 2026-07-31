@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn, getInitials, calculerMoyenne, timeAgo } from "@/lib/utils";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ function getMoyenneColor(moyenne: number | null): string {
 // ─── Sous-composant : carte enfant ────────────────────────────────────────────
 
 function EnfantCard({ enfant }: { enfant: EleveInfo }) {
+  const t = useTranslations("parents");
   const moyenne = calculerMoyenne(enfant.notes);
   const absencesCount = enfant.absences.length;
   const bulletinsPublies = enfant.bulletins.filter((b) => b.isPublie);
@@ -104,7 +106,7 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
                 {moyenne.toFixed(2)}/20
               </span>
             ) : (
-              <span className="text-xs text-gray-400">Pas de notes</span>
+              <span className="text-xs text-gray-400">{t("pvNoGrades")}</span>
             )}
           </div>
 
@@ -113,7 +115,7 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
             <div className="flex items-center gap-1">
               <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
               <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
-                {absencesCount} abs. injust.
+                {t("pvAbsUnjust", { count: absencesCount })}
               </span>
             </div>
           )}
@@ -123,7 +125,7 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
             <div className="flex items-center gap-1">
               <FileText className="w-3.5 h-3.5 text-gray-400" />
               <span className="text-xs text-gray-500">
-                {bulletinsPublies.length} bulletin{bulletinsPublies.length > 1 ? "s" : ""} publié{bulletinsPublies.length > 1 ? "s" : ""}
+                {t("pvBulletins", { count: bulletinsPublies.length })}
               </span>
             </div>
           )}
@@ -136,6 +138,7 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
 // ─── Sous-composant : carte parent ───────────────────────────────────────────
 
 function ParentCard({ parent }: { parent: ParentData }) {
+  const t = useTranslations("parents");
   const [expanded, setExpanded] = useState(true);
   const actif = isENTActif(parent.user?.lastLoginAt ?? null);
   const totalAbsences = parent.eleves.reduce(
@@ -193,11 +196,11 @@ function ParentCard({ parent }: { parent: ParentData }) {
                     ) : (
                       <WifiOff className="w-3 h-3" />
                     )}
-                    ENT {actif ? "actif" : "inactif"}
+                    ENT {actif ? t("pvEntActive") : t("pvEntInactive")}
                   </Badge>
                 ) : (
                   <Badge className="text-xs bg-orange-50 text-orange-600 border-orange-200">
-                    Sans compte
+                    {t("pvNoAccount")}
                   </Badge>
                 )}
               </div>
@@ -206,7 +209,7 @@ function ParentCard({ parent }: { parent: ParentData }) {
             {/* Dernière connexion */}
             {parent.user?.lastLoginAt && (
               <p className="text-xs text-gray-400 mt-1">
-                Dernière connexion : {timeAgo(parent.user.lastLoginAt)}
+                {t("pvLastLogin", { time: timeAgo(parent.user.lastLoginAt) })}
               </p>
             )}
           </div>
@@ -217,7 +220,7 @@ function ParentCard({ parent }: { parent: ParentData }) {
           <div className="mt-3 px-3 py-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0" />
             <p className="text-xs text-orange-700 dark:text-orange-300">
-              {totalAbsences} absence{totalAbsences > 1 ? "s" : ""} injustifiée{totalAbsences > 1 ? "s" : ""} à régulariser
+              {t("pvAbsAlert", { count: totalAbsences })}
             </p>
           </div>
         )}
@@ -230,7 +233,7 @@ function ParentCard({ parent }: { parent: ParentData }) {
           >
             <span className="flex items-center gap-1">
               <Users className="w-3.5 h-3.5" />
-              {parent.eleves.length} enfant{parent.eleves.length > 1 ? "s" : ""} lié{parent.eleves.length > 1 ? "s" : ""}
+              {t("pvChildren", { count: parent.eleves.length })}
             </span>
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -249,11 +252,11 @@ function ParentCard({ parent }: { parent: ParentData }) {
           <Link href="/messages" className="flex-1">
             <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
               <MessageSquare className="w-3.5 h-3.5" />
-              Envoyer un message
+              {t("pvSendMessage")}
             </Button>
           </Link>
           <Button variant="ghost" size="sm" className="text-xs text-gray-500">
-            Voir le profil
+            {t("pvViewProfile")}
           </Button>
         </div>
       </CardContent>
@@ -264,6 +267,7 @@ function ParentCard({ parent }: { parent: ParentData }) {
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export function ParentsView({ parents }: ParentsViewProps) {
+  const t = useTranslations("parents");
   const [search, setSearch] = useState("");
   const [filtre, setFiltre] = useState<"tous" | "actif" | "inactif" | "sans_compte">("tous");
 
@@ -302,7 +306,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
         <a href="/parametres">
           <Button size="sm" className="gap-2">
             <UserCheck className="h-4 w-4" />
-            Ajouter un parent
+            {t("pvAddParent")}
           </Button>
         </a>
       </div>
@@ -313,7 +317,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Total parents</p>
+                <p className="text-xs text-gray-500">{t("pvTotalParents")}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">{stats.total}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
@@ -327,9 +331,9 @@ export function ParentsView({ parents }: ParentsViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">ENT actifs</p>
+                <p className="text-xs text-gray-500">{t("pvEntActiveShort")}</p>
                 <p className="text-2xl font-bold text-green-600 mt-0.5">{stats.actifs}</p>
-                <p className="text-xs text-gray-400">{stats.avecCompte} avec compte</p>
+                <p className="text-xs text-gray-400">{t("pvWithAccount", { count: stats.avecCompte })}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <Wifi className="w-5 h-5 text-green-600" />
@@ -342,7 +346,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Enfants suivis</p>
+                <p className="text-xs text-gray-500">{t("pvChildrenFollowed")}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">{stats.totalEnfants}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -356,7 +360,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Abs. injustifiées</p>
+                <p className="text-xs text-gray-500">{t("pvAbsUnjustified")}</p>
                 <p className={cn(
                   "text-2xl font-bold mt-0.5",
                   stats.totalAbsences > 0 ? "text-orange-500" : "text-gray-900 dark:text-white"
@@ -379,7 +383,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Rechercher un parent (nom, email, téléphone)…"
+                placeholder={t("pvSearchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 text-sm"
@@ -397,10 +401,10 @@ export function ParentsView({ parents }: ParentsViewProps) {
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                   )}
                 >
-                  {f === "tous" && "Tous"}
-                  {f === "actif" && "ENT actifs"}
-                  {f === "inactif" && "ENT inactifs"}
-                  {f === "sans_compte" && "Sans compte"}
+                  {f === "tous" && t("pvFilterAll")}
+                  {f === "actif" && t("pvFilterActive")}
+                  {f === "inactif" && t("pvFilterInactive")}
+                  {f === "sans_compte" && t("pvFilterNoAccount")}
                 </button>
               ))}
             </div>
@@ -413,10 +417,10 @@ export function ParentsView({ parents }: ParentsViewProps) {
         <Card className="border-0 shadow-sm">
           <CardContent className="py-16 text-center">
             <UserCheck className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Aucun parent trouvé</p>
+            <p className="text-gray-500 text-sm">{t("pvNoParentFound")}</p>
             {search && (
               <p className="text-xs text-gray-400 mt-1">
-                Essayez d'autres termes de recherche
+                {t("pvTryOtherSearch")}
               </p>
             )}
           </CardContent>
@@ -430,8 +434,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
       )}
 
       <p className="text-xs text-gray-400 text-center">
-        {parentsFiltres.length} parent{parentsFiltres.length > 1 ? "s" : ""} affiché{parentsFiltres.length > 1 ? "s" : ""}
-        {filtre !== "tous" || search ? ` (sur ${parents.length} au total)` : ""}
+        {t("pvCountDisplayed", { count: parentsFiltres.length })}
       </p>
     </div>
   );

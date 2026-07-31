@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Calculator, CheckCircle } from "lucide-react";
+import { Loader2, Calculator, CheckCircle, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { useTranslations } from "next-intl";
 
-export function BilanAnnuelManager({ classes }: { classes: any[] }) {
+export function BilanAnnuelManager({ classes, anneeId }: { classes: any[]; anneeId?: string }) {
+  const t = useTranslations("bulletins");
   const [selectedClasse, setSelectedClasse] = useState<string>(classes[0]?.id || "");
   const [loading, setLoading] = useState(false);
   const [bilans, setBilans] = useState<any[]>([]);
@@ -21,12 +23,12 @@ export function BilanAnnuelManager({ classes }: { classes: any[] }) {
       const data = await res.json();
       if (res.ok) {
         setBilans(data.bilans || []);
-        toast.success("Bilan annuel calculé avec succès");
+        toast.success(t("annualSuccess"));
       } else {
         toast.error(data.error);
       }
     } catch (e) {
-      toast.error("Erreur lors du calcul du bilan annuel");
+      toast.error(t("errAnnualCalc"));
     } finally {
       setLoading(false);
     }
@@ -36,18 +38,18 @@ export function BilanAnnuelManager({ classes }: { classes: any[] }) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Génération des Bilans Annuels</CardTitle>
+          <CardTitle className="text-base font-semibold">{t("annualGenTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Le bilan annuel calcule la moyenne des trimestres précédents pour déterminer la moyenne finale de l'année scolaire et propose une décision d'orientation automatique (Passage ou Redoublement).
+            {t("annualGenDesc")}
           </p>
           <div className="flex gap-4 items-end">
             <div className="flex-1 max-w-sm">
-              <label className="text-sm font-medium mb-1.5 block">Sélectionnez la classe</label>
+              <label className="text-sm font-medium mb-1.5 block">{t("selectClassLabel")}</label>
               <Select value={selectedClasse} onValueChange={setSelectedClasse}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une classe" />
+                  <SelectValue placeholder={t("selectClass")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map(c => (
@@ -58,7 +60,7 @@ export function BilanAnnuelManager({ classes }: { classes: any[] }) {
             </div>
             <Button onClick={genererBilan} disabled={loading} className="gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-              Calculer le bilan de la classe
+              {t("calculateAnnual")}
             </Button>
           </div>
         </CardContent>
@@ -67,10 +69,10 @@ export function BilanAnnuelManager({ classes }: { classes: any[] }) {
       {bilans.length > 0 && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base font-semibold">Résultats de fin d'année</CardTitle>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Impression des bilans (Fonctionnalité PDF à venir)")}>
+            <CardTitle className="text-base font-semibold">{t("annualResults")}</CardTitle>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success(t("validateArchive"))}>
               <CheckCircle className="h-4 w-4 text-green-500" />
-              Valider et Archiver
+              {t("validateArchive")}
             </Button>
           </CardHeader>
           <CardContent className="p-0">
@@ -78,10 +80,11 @@ export function BilanAnnuelManager({ classes }: { classes: any[] }) {
               <table className="w-full text-sm text-left">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Élève</th>
-                    <th className="px-4 py-3 font-medium text-center">Rang Annuel</th>
-                    <th className="px-4 py-3 font-medium text-center">Moyenne Annuelle</th>
-                    <th className="px-4 py-3 font-medium">Décision Proposée</th>
+                    <th className="px-4 py-3 font-medium">{t("student")}</th>
+                    <th className="px-4 py-3 font-medium text-center">{t("annualRank")}</th>
+                    <th className="px-4 py-3 font-medium text-center">{t("annualAverage")}</th>
+                    <th className="px-4 py-3 font-medium">{t("proposedDecision")}</th>
+                    <th className="px-4 py-3 font-medium text-right">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -95,13 +98,27 @@ export function BilanAnnuelManager({ classes }: { classes: any[] }) {
                             {b.moyenneAnnuelle.toFixed(2)}/20
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground italic">Insuffisant</span>
+                          <span className="text-muted-foreground italic">{t("insufficient")}</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={b.decisionProposee === "PASSAGE" ? "default" : "destructive"}>
                           {b.decisionProposee}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {anneeId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => window.open(`/bulletin-annuel/${b.id}/${anneeId}`, "_blank")}
+                            title={t("viewAnnualReport")}
+                          >
+                            <Eye className="h-4 w-4" />
+                            {t("reportCard")}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

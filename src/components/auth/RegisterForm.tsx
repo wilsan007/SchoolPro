@@ -12,6 +12,7 @@ import { ArrowLeft, Loader2, School, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { registerTenant, type RegisterFormData } from "@/lib/actions/register";
+import { useTranslations } from "next-intl";
 
 const FormSchema = z.object({
   schoolName: z.string().min(2, "Le nom de l'établissement est requis"),
@@ -26,22 +27,23 @@ const FormSchema = z.object({
   plan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]),
 });
 
-const schoolTypeLabels: Record<string, string> = {
-  maternelle: "Maternelle",
-  primaire: "Primaire",
-  college: "Collège",
-  lycee: "Lycée",
-  mixte: "Mixte (tous niveaux)",
+const schoolTypeKeys: Record<string, string> = {
+  maternelle: "typeMaternelle",
+  primaire: "typePrimaire",
+  college: "typeCollege",
+  lycee: "typeLycee",
+  mixte: "typeMixte",
 };
 
-const planLabels: Record<string, { label: string; price: string; desc: string }> = {
-  STARTER: { label: "Starter", price: "49€/mois", desc: "< 200 élèves" },
-  PRO: { label: "Pro", price: "149€/mois", desc: "200-1000 élèves" },
-  BUSINESS: { label: "Business", price: "399€/mois", desc: "1000-5000 élèves" },
-  ENTERPRISE: { label: "Enterprise", price: "Sur devis", desc: "> 5000 élèves" },
+const planKeys: Record<string, { labelKey: string; price: string; descKey: string }> = {
+  STARTER: { labelKey: "planStarter", price: "49€/mois", descKey: "planStarterDesc" },
+  PRO: { labelKey: "planPro", price: "149€/mois", descKey: "planProDesc" },
+  BUSINESS: { labelKey: "planBusiness", price: "399€/mois", descKey: "planBusinessDesc" },
+  ENTERPRISE: { labelKey: "planEnterprise", price: "Sur devis", descKey: "planEnterpriseDesc" },
 };
 
 export function RegisterForm() {
+  const t = useTranslations("register");
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -78,7 +80,7 @@ export function RegisterForm() {
         next[issue.path[0]] = issue.message;
       });
       setErrors(next);
-      toast.error("Veuillez corriger les erreurs du formulaire");
+      toast.error(t("formErrors"));
       return;
     }
 
@@ -86,9 +88,9 @@ export function RegisterForm() {
     try {
       await registerTenant(form);
       setSuccess(true);
-      toast.success("Votre espace EcolPro a été créé ! Essai gratuit de 30 jours.");
+      toast.success(t("createdSuccess"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -101,25 +103,24 @@ export function RegisterForm() {
           <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mb-2">
             <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
           </div>
-          <CardTitle>Espace créé avec succès !</CardTitle>
+          <CardTitle>{t("successTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground text-center">
-            Votre établissement <strong>{form.schoolName}</strong> a été enregistré.
-            Vous bénéficiez d&apos;un essai gratuit de 30 jours.
+            {t("successMsg", { name: form.schoolName })}
           </p>
           <p className="text-sm text-muted-foreground text-center">
-            Connectez-vous avec votre email administrateur pour commencer.
+            {t("successLoginMsg")}
           </p>
           <Button asChild className="w-full gap-2">
             <Link href="/login">
-              Se connecter
+              {t("login")}
             </Link>
           </Button>
           <Button asChild variant="outline" className="w-full gap-2">
             <Link href="/">
               <ArrowLeft className="h-4 w-4" />
-              Retour à l&apos;accueil
+              {t("backHome")}
             </Link>
           </Button>
         </CardContent>
@@ -135,7 +136,7 @@ export function RegisterForm() {
         <Button asChild variant="ghost" size="sm" className="gap-2">
           <Link href="/">
             <ArrowLeft className="h-4 w-4" />
-            Retour à l&apos;accueil
+            {t("backHome")}
           </Link>
         </Button>
       </div>
@@ -145,15 +146,15 @@ export function RegisterForm() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <School className="h-5 w-5 text-primary" />
-            Informations de l&apos;établissement
+            {t("schoolInfo")}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="schoolName">Nom de l&apos;établissement *</Label>
+            <Label htmlFor="schoolName">{t("schoolName")}</Label>
             <Input
               id="schoolName"
-              placeholder="Ex: Lycée Mohamed Hashim Ledi"
+              placeholder={t("schoolNamePlaceholder")}
               value={form.schoolName}
               onChange={(e) => updateField("schoolName", e.target.value)}
               className={inputClass("schoolName")}
@@ -162,24 +163,24 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="schoolType">Type d&apos;établissement *</Label>
+            <Label htmlFor="schoolType">{t("schoolType")}</Label>
             <select
               id="schoolType"
               value={form.schoolType}
               onChange={(e) => updateField("schoolType", e.target.value as RegisterFormData["schoolType"])}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {Object.entries(schoolTypeLabels).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+              {Object.entries(schoolTypeKeys).map(([key, labelKey]) => (
+                <option key={key} value={key}>{t(labelKey)}</option>
               ))}
             </select>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="city">Ville *</Label>
+            <Label htmlFor="city">{t("city")}</Label>
             <Input
               id="city"
-              placeholder="Ex: Djibouti"
+              placeholder={t("cityPlaceholder")}
               value={form.city}
               onChange={(e) => updateField("city", e.target.value)}
               className={inputClass("city")}
@@ -188,10 +189,10 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Téléphone *</Label>
+            <Label htmlFor="phone">{t("phone")}</Label>
             <Input
               id="phone"
-              placeholder="+253 ..."
+              placeholder={t("phonePlaceholder")}
               value={form.phone}
               onChange={(e) => updateField("phone", e.target.value)}
               className={inputClass("phone")}
@@ -200,11 +201,11 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email de l&apos;établissement *</Label>
+            <Label htmlFor="email">{t("schoolEmail")}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="contact@ecole.edu"
+              placeholder={t("schoolEmailPlaceholder")}
               value={form.email}
               onChange={(e) => updateField("email", e.target.value)}
               className={inputClass("email")}
@@ -213,10 +214,10 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="address">Adresse</Label>
+            <Label htmlFor="address">{t("address")}</Label>
             <Input
               id="address"
-              placeholder="Rue, quartier, BP..."
+              placeholder={t("addressPlaceholder")}
               value={form.address ?? ""}
               onChange={(e) => updateField("address", e.target.value)}
             />
@@ -227,11 +228,11 @@ export function RegisterForm() {
       {/* Administrateur */}
       <Card>
         <CardHeader>
-          <CardTitle>Compte administrateur</CardTitle>
+          <CardTitle>{t("adminAccount")}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="adminFirstName">Prénom *</Label>
+            <Label htmlFor="adminFirstName">{t("firstName")}</Label>
             <Input
               id="adminFirstName"
               value={form.adminFirstName}
@@ -242,7 +243,7 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="adminLastName">Nom *</Label>
+            <Label htmlFor="adminLastName">{t("lastName")}</Label>
             <Input
               id="adminLastName"
               value={form.adminLastName}
@@ -253,11 +254,11 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="adminEmail">Email administrateur *</Label>
+            <Label htmlFor="adminEmail">{t("adminEmail")}</Label>
             <Input
               id="adminEmail"
               type="email"
-              placeholder="admin@ecole.edu"
+              placeholder={t("adminEmailPlaceholder")}
               value={form.adminEmail}
               onChange={(e) => updateField("adminEmail", e.target.value)}
               className={inputClass("adminEmail")}
@@ -266,11 +267,11 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="adminPassword">Mot de passe *</Label>
+            <Label htmlFor="adminPassword">{t("adminPassword")}</Label>
             <Input
               id="adminPassword"
               type="password"
-              placeholder="Min. 8 caractères"
+              placeholder={t("passwordPlaceholder")}
               value={form.adminPassword}
               onChange={(e) => updateField("adminPassword", e.target.value)}
               className={inputClass("adminPassword")}
@@ -279,10 +280,10 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="adminPhone">Téléphone administrateur</Label>
+            <Label htmlFor="adminPhone">{t("adminPhone")}</Label>
             <Input
               id="adminPhone"
-              placeholder="+253 ..."
+              placeholder={t("phonePlaceholder")}
               value={form.adminPhone ?? ""}
               onChange={(e) => updateField("adminPhone", e.target.value)}
             />
@@ -293,11 +294,11 @@ export function RegisterForm() {
       {/* Plan */}
       <Card>
         <CardHeader>
-          <CardTitle>Choisissez votre plan</CardTitle>
+          <CardTitle>{t("choosePlan")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Object.entries(planLabels).map(([key, plan]) => (
+            {Object.entries(planKeys).map(([key, plan]) => (
               <button
                 key={key}
                 type="button"
@@ -309,21 +310,21 @@ export function RegisterForm() {
                     : "border-border hover:border-primary/50"
                 )}
               >
-                <p className="font-semibold text-sm">{plan.label}</p>
+                <p className="font-semibold text-sm">{t(plan.labelKey)}</p>
                 <p className="text-lg font-bold mt-1">{plan.price}</p>
-                <p className="text-xs text-muted-foreground mt-1">{plan.desc}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t(plan.descKey)}</p>
               </button>
             ))}
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            Vous bénéficiez d&apos;un essai gratuit de 30 jours. Aucune carte bancaire requise.
+            {t("trialInfo")}
           </p>
         </CardContent>
       </Card>
 
       <Button type="submit" size="lg" className="w-full gap-2" disabled={isPending}>
         {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <School className="h-4 w-4" />}
-        Créer mon espace EcolPro
+        {t("submit")}
       </Button>
     </form>
   );

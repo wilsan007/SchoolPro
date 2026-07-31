@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Plus, Filter, Eye } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface FactureWithRelations {
   id: string;
@@ -31,11 +32,11 @@ interface FacturesTableProps {
   factures: FactureWithRelations[];
 }
 
-const statutConfig: Record<string, { label: string; variant: "default" | "success" | "warning" | "destructive" | "secondary" }> = {
-  EN_ATTENTE: { label: "En attente", variant: "warning" },
-  PAYEE: { label: "Payée", variant: "success" },
-  EN_RETARD: { label: "En retard", variant: "destructive" },
-  ANNULEE: { label: "Annulée", variant: "secondary" },
+const statutConfig: Record<string, { labelKey: string; variant: "default" | "success" | "warning" | "destructive" | "secondary" }> = {
+  EN_ATTENTE: { labelKey: "statusPending", variant: "warning" },
+  PAYEE: { labelKey: "statusPaid", variant: "success" },
+  EN_RETARD: { labelKey: "statusOverdue", variant: "destructive" },
+  ANNULEE: { labelKey: "statusCancelled", variant: "secondary" },
 };
 
 function formatMoney(amount: number, devise: string) {
@@ -45,6 +46,7 @@ function formatMoney(amount: number, devise: string) {
 }
 
 export function FacturesTable({ factures }: FacturesTableProps) {
+  const t = useTranslations("facturation");
   const [search, setSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -112,23 +114,23 @@ export function FacturesTable({ factures }: FacturesTableProps) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Input
-          placeholder="Rechercher par numéro, élève, libellé..."
+          placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-9 max-w-xs"
         />
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowFilters(!showFilters)}>
           <Filter className="h-4 w-4" />
-          Filtres
+          {t("filters")}
         </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV}>
           <Download className="h-4 w-4" />
-          Exporter
+          {t("export")}
         </Button>
         <Button asChild size="sm" className="gap-2 ml-auto">
           <Link href="/facturation/nouvelle">
             <Plus className="h-4 w-4" />
-            Nouvelle facture
+            {t("newInvoice")}
           </Link>
         </Button>
       </div>
@@ -137,17 +139,17 @@ export function FacturesTable({ factures }: FacturesTableProps) {
         <Card>
           <CardContent className="pt-4 flex flex-wrap gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Statut</label>
+              <label className="text-xs font-medium text-muted-foreground">{t("status")}</label>
               <select
                 value={statutFilter}
                 onChange={(e) => setStatutFilter(e.target.value)}
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">Tous</option>
-                <option value="EN_ATTENTE">En attente</option>
-                <option value="PAYEE">Payée</option>
-                <option value="EN_RETARD">En retard</option>
-                <option value="ANNULEE">Annulée</option>
+                <option value="">{t("all")}</option>
+                <option value="EN_ATTENTE">{t("statusPending")}</option>
+                <option value="PAYEE">{t("statusPaid")}</option>
+                <option value="EN_RETARD">{t("statusOverdue")}</option>
+                <option value="ANNULEE">{t("statusCancelled")}</option>
               </select>
             </div>
           </CardContent>
@@ -157,19 +159,19 @@ export function FacturesTable({ factures }: FacturesTableProps) {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Total facturé</p>
+            <p className="text-xs text-muted-foreground">{t("totalInvoiced")}</p>
             <p className="text-lg font-bold">{formatMoney(totalMontant, filtered[0]?.devise ?? "DJF")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Total encaissé</p>
+            <p className="text-xs text-muted-foreground">{t("totalCollected")}</p>
             <p className="text-lg font-bold text-green-600">{formatMoney(totalPaye, filtered[0]?.devise ?? "DJF")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Solde restant</p>
+            <p className="text-xs text-muted-foreground">{t("balanceRemaining")}</p>
             <p className="text-lg font-bold text-red-600">{formatMoney(totalRestant, filtered[0]?.devise ?? "DJF")}</p>
           </CardContent>
         </Card>
@@ -181,21 +183,21 @@ export function FacturesTable({ factures }: FacturesTableProps) {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium">N°</th>
-                  <th className="text-left px-4 py-3 font-medium">Élève</th>
-                  <th className="text-left px-4 py-3 font-medium">Libellé</th>
-                  <th className="text-right px-4 py-3 font-medium">Montant</th>
-                  <th className="text-right px-4 py-3 font-medium">Payé</th>
-                  <th className="text-left px-4 py-3 font-medium">Échéance</th>
-                  <th className="text-left px-4 py-3 font-medium">Statut</th>
-                  <th className="text-right px-4 py-3 font-medium">Actions</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colNumber")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colStudent")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colLabel")}</th>
+                  <th className="text-right px-4 py-3 font-medium">{t("colAmount")}</th>
+                  <th className="text-right px-4 py-3 font-medium">{t("colPaid")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colDueDate")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colStatus")}</th>
+                  <th className="text-right px-4 py-3 font-medium">{t("colActions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Aucune facture trouvée
+                      {t("noInvoices")}
                     </td>
                   </tr>
                 ) : (
@@ -207,7 +209,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                         <td className="px-4 py-3 font-mono text-xs">{f.numero}</td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{f.eleve.prenom} {f.eleve.nom}</div>
-                          <div className="text-xs text-muted-foreground">{f.eleve.matricule} · {f.eleve.classe?.nom ?? "N/A"}</div>
+                          <div className="text-xs text-muted-foreground">{f.eleve.matricule} · {f.eleve.classe?.nom ?? t("notApplicable")}</div>
                         </td>
                         <td className="px-4 py-3">{f.libelle}</td>
                         <td className="px-4 py-3 text-right font-medium">{formatMoney(f.montant, f.devise)}</td>
@@ -216,13 +218,13 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                           {f.echeance ? new Date(f.echeance).toLocaleDateString("fr-FR") : "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                          <Badge variant={cfg.variant}>{t(cfg.labelKey)}</Badge>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Button asChild variant="ghost" size="sm" className="gap-1">
                             <Link href={`/facturation/${f.id}`}>
                               <Eye className="h-3.5 w-3.5" />
-                              Détail
+                              {t("detail")}
                             </Link>
                           </Button>
                         </td>

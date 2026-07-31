@@ -2,18 +2,21 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { AlumniView } from "@/components/alumni/AlumniView";
+import { getTranslations } from "next-intl/server";
 
 export const metadata = { title: "Alumni — Anciens élèves | EcolPro" };
 
 export default async function AlumniPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("alumni"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
-
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Alumni — Anciens élèves"
-        subtitle="Annuaire et suivi post-diplôme des anciens élèves de l'établissement"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,24 +53,24 @@ interface Cours {
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
-const NIVEAU_CONFIG: Record<Niveau, { label: string; color: string }> = {
-  DEBUTANT:       { label: "Débutant",      color: "bg-green-50 text-green-700 border-green-200" },
-  INTERMEDIAIRE:  { label: "Intermédiaire", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  AVANCE:         { label: "Avancé",        color: "bg-purple-50 text-purple-700 border-purple-200" },
+const NIVEAU_CONFIG: Record<Niveau, { labelKey: string; color: string }> = {
+  DEBUTANT:       { labelKey: "beginner",      color: "bg-green-50 text-green-700 border-green-200" },
+  INTERMEDIAIRE:  { labelKey: "intermediate", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  AVANCE:         { labelKey: "advanced",      color: "bg-purple-50 text-purple-700 border-purple-200" },
 };
 
-const STATUT_CONFIG: Record<StatutCours, { label: string; color: string }> = {
-  BROUILLON: { label: "Brouillon", color: "bg-gray-100 text-gray-600" },
-  PUBLIE:    { label: "Publié",    color: "bg-green-100 text-green-700" },
-  ARCHIVE:   { label: "Archivé",  color: "bg-orange-100 text-orange-700" },
+const STATUT_CONFIG: Record<StatutCours, { labelKey: string; color: string }> = {
+  BROUILLON: { labelKey: "statusDraft",     color: "bg-gray-100 text-gray-600" },
+  PUBLIE:    { labelKey: "statusPublished", color: "bg-green-100 text-green-700" },
+  ARCHIVE:   { labelKey: "statusArchived",  color: "bg-orange-100 text-orange-700" },
 };
 
-const TYPE_CONTENU_CONFIG: Record<TypeContenu, { label: string; icon: React.ReactNode; color: string }> = {
-  VIDEO:    { label: "Vidéo",    icon: <Video className="w-4 h-4" />,       color: "text-red-500" },
-  DOCUMENT: { label: "Document", icon: <FileText className="w-4 h-4" />,    color: "text-blue-500" },
-  LIEN:     { label: "Lien",     icon: <Globe className="w-4 h-4" />,       color: "text-cyan-500" },
-  TEXTE:    { label: "Texte",    icon: <AlignLeft className="w-4 h-4" />,   color: "text-gray-600" },
-  QUIZ:     { label: "Quiz",     icon: <HelpCircle className="w-4 h-4" />,  color: "text-purple-500" },
+const TYPE_CONTENU_CONFIG: Record<TypeContenu, { labelKey: string; icon: React.ReactNode; color: string }> = {
+  VIDEO:    { labelKey: "typeVideo",    icon: <Video className="w-4 h-4" />,       color: "text-red-500" },
+  DOCUMENT: { labelKey: "typeDocument", icon: <FileText className="w-4 h-4" />,    color: "text-blue-500" },
+  LIEN:     { labelKey: "typeLink",     icon: <Globe className="w-4 h-4" />,       color: "text-cyan-500" },
+  TEXTE:    { labelKey: "typeText",     icon: <AlignLeft className="w-4 h-4" />,   color: "text-gray-600" },
+  QUIZ:     { labelKey: "typeQuiz",     icon: <HelpCircle className="w-4 h-4" />,  color: "text-purple-500" },
 };
 
 // ─── Modal Création Cours ───────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ function CreerCoursModal({ onClose, onCreate }: {
   onClose: () => void;
   onCreate: (c: Cours) => void;
 }) {
+  const t = useTranslations("cours");
   const [form, setForm] = useState({
     titre: "", description: "",
     niveau: "INTERMEDIAIRE" as Niveau,
@@ -102,11 +104,11 @@ function CreerCoursModal({ onClose, onCreate }: {
         });
         if (!res.ok) throw new Error();
         const { cours } = await res.json();
-        toast.success("Cours créé avec succès !");
+        toast.success(t("courseCreated"));
         onCreate(cours);
         onClose();
       } catch {
-        toast.error("Erreur lors de la création");
+        toast.error(t("createError"));
       }
     });
   };
@@ -116,18 +118,18 @@ function CreerCoursModal({ onClose, onCreate }: {
       <Card className="w-full max-w-lg border-0 shadow-2xl">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <BookOpen className="w-5 h-5 text-primary" /> Nouveau cours
+            <BookOpen className="w-5 h-5 text-primary" /> {t("newCourse")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Titre du cours *</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("courseTitle")}</label>
             <Input value={form.titre} onChange={e => set("titre", e.target.value)}
               placeholder="Ex : Introduction aux mathématiques" className="text-sm" />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Description</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("description")}</label>
             <textarea value={form.description} onChange={e => set("description", e.target.value)}
               rows={3} placeholder="Objectifs, contenu du cours…"
               className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -135,16 +137,16 @@ function CreerCoursModal({ onClose, onCreate }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Niveau</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("level")}</label>
               <select value={form.niveau} onChange={e => set("niveau", e.target.value)}
                 className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background">
-                <option value="DEBUTANT">Débutant</option>
-                <option value="INTERMEDIAIRE">Intermédiaire</option>
-                <option value="AVANCE">Avancé</option>
+                <option value="DEBUTANT">{t("beginner")}</option>
+                <option value="INTERMEDIAIRE">{t("intermediate")}</option>
+                <option value="AVANCE">{t("advanced")}</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Durée estimée (min)</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("estimatedDuration")}</label>
               <Input type="number" value={form.dureeMin} onChange={e => set("dureeMin", e.target.value)}
                 placeholder="60" className="text-sm" />
             </div>
@@ -152,26 +154,26 @@ function CreerCoursModal({ onClose, onCreate }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Matière</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("subject")}</label>
               <Input value={form.matiereNom} onChange={e => set("matiereNom", e.target.value)}
                 placeholder="Mathématiques" className="text-sm" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Classe cible</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("targetClass")}</label>
               <Input value={form.classeNom} onChange={e => set("classeNom", e.target.value)}
                 placeholder="Terminale S" className="text-sm" />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Statut</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("status")}</label>
             <div className="flex gap-2">
               {(["BROUILLON", "PUBLIE"] as StatutCours[]).map(s => (
                 <button key={s} onClick={() => set("statut", s)}
                   className={cn("flex-1 py-2 rounded-lg text-xs font-medium border transition-all",
                     form.statut === s ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"
                   )}>
-                  {STATUT_CONFIG[s].label}
+                  {t(STATUT_CONFIG[s].labelKey)}
                 </button>
               ))}
             </div>
@@ -180,9 +182,9 @@ function CreerCoursModal({ onClose, onCreate }: {
           <div className="flex gap-2 pt-2">
             <Button onClick={handleSubmit} disabled={isPending || !form.titre} className="flex-1 gap-2">
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Créer le cours
+              {t("createCourse")}
             </Button>
-            <Button variant="ghost" onClick={onClose}>Annuler</Button>
+            <Button variant="ghost" onClick={onClose}>{t("cancel")}</Button>
           </div>
         </CardContent>
       </Card>
@@ -198,6 +200,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
   onClose: () => void;
   onAdded: (c: ContenuCours) => void;
 }) {
+  const t = useTranslations("cours");
   const [form, setForm] = useState({
     titre: "", type: "TEXTE" as TypeContenu,
     url: "", texte: "", dureeMin: "",
@@ -224,11 +227,11 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
         });
         if (!res.ok) throw new Error();
         const { contenu } = await res.json();
-        toast.success("Contenu ajouté !");
+        toast.success(t("contentAdded"));
         onAdded(contenu);
         onClose();
       } catch {
-        toast.error("Erreur lors de l'ajout");
+        toast.error(t("addError"));
       }
     });
   };
@@ -241,28 +244,28 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
       <Card className="w-full max-w-lg border-0 shadow-2xl">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Layers className="w-5 h-5 text-primary" /> Ajouter un contenu
+            <Layers className="w-5 h-5 text-primary" /> {t("addContent")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Titre *</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("contentTitle")}</label>
             <Input value={form.titre} onChange={e => set("titre", e.target.value)}
               placeholder="Ex : Chapitre 1 — Introduction" className="text-sm" />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1.5 block">Type de contenu</label>
+            <label className="text-xs font-medium text-gray-600 mb-1.5 block">{t("contentType")}</label>
             <div className="grid grid-cols-5 gap-1.5">
-              {(Object.keys(TYPE_CONTENU_CONFIG) as TypeContenu[]).map(t => (
-                <button key={t} onClick={() => set("type", t)}
+              {(Object.keys(TYPE_CONTENU_CONFIG) as TypeContenu[]).map(tc => (
+                <button key={tc} onClick={() => set("type", tc)}
                   className={cn("flex flex-col items-center gap-1 p-2 rounded-lg border text-xs transition-all",
-                    form.type === t ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"
+                    form.type === tc ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"
                   )}>
-                  <span className={form.type === t ? "text-primary" : TYPE_CONTENU_CONFIG[t].color}>
-                    {TYPE_CONTENU_CONFIG[t].icon}
+                  <span className={form.type === tc ? "text-primary" : TYPE_CONTENU_CONFIG[tc].color}>
+                    {TYPE_CONTENU_CONFIG[tc].icon}
                   </span>
-                  {TYPE_CONTENU_CONFIG[t].label}
+                  {t(TYPE_CONTENU_CONFIG[tc].labelKey)}
                 </button>
               ))}
             </div>
@@ -270,7 +273,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
 
           {needsUrl && (
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">URL / Lien *</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("urlLabel")}</label>
               <Input value={form.url} onChange={e => set("url", e.target.value)}
                 placeholder={form.type === "VIDEO" ? "https://youtube.com/watch?v=..." : "https://..."}
                 className="text-sm" />
@@ -280,7 +283,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
           {needsTexte && (
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">
-                {form.type === "QUIZ" ? "Questions (JSON ou texte libre)" : "Contenu"}
+                {form.type === "QUIZ" ? t("quizLabel") : t("contentLabel")}
               </label>
               <textarea value={form.texte} onChange={e => set("texte", e.target.value)}
                 rows={5} placeholder={form.type === "QUIZ" ? "Q1: ...\nA) ...\nB) ...\nRéponse: A" : "Rédigez le contenu ici…"}
@@ -289,7 +292,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
           )}
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Durée estimée (min)</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("estimatedDuration")}</label>
             <Input type="number" value={form.dureeMin} onChange={e => set("dureeMin", e.target.value)}
               placeholder="15" className="text-sm" />
           </div>
@@ -297,9 +300,9 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
           <div className="flex gap-2 pt-2">
             <Button onClick={handleSubmit} disabled={isPending || !form.titre} className="flex-1 gap-2">
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Ajouter
+              {t("add")}
             </Button>
-            <Button variant="ghost" onClick={onClose}>Annuler</Button>
+            <Button variant="ghost" onClick={onClose}>{t("cancel")}</Button>
           </div>
         </CardContent>
       </Card>
@@ -314,6 +317,7 @@ function CoursCard({ cours, onSelect, onDelete }: {
   onSelect: (c: Cours) => void;
   onDelete: (id: string) => void;
 }) {
+  const t = useTranslations("cours");
   const nConfig = NIVEAU_CONFIG[cours.niveau];
   const sConfig = STATUT_CONFIG[cours.statut];
 
@@ -327,8 +331,8 @@ function CoursCard({ cours, onSelect, onDelete }: {
             <BookMarked className="w-5 h-5 text-primary" />
           </div>
           <div className="flex gap-1.5 flex-shrink-0">
-            <Badge className={cn("text-xs border", nConfig.color)}>{nConfig.label}</Badge>
-            <Badge className={cn("text-xs", sConfig.color)}>{sConfig.label}</Badge>
+            <Badge className={cn("text-xs border", nConfig.color)}>{t(nConfig.labelKey)}</Badge>
+            <Badge className={cn("text-xs", sConfig.color)}>{t(sConfig.labelKey)}</Badge>
           </div>
         </div>
 
@@ -362,9 +366,9 @@ function CoursCard({ cours, onSelect, onDelete }: {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2 mb-4">
           {[
-            { label: "Chapitres", value: cours._count?.contenus ?? 0, icon: <Layers className="w-3.5 h-3.5" /> },
-            { label: "Vues", value: cours.nbVues, icon: <Eye className="w-3.5 h-3.5" /> },
-            { label: "Inscrits", value: cours.nbInscrits, icon: <Users className="w-3.5 h-3.5" /> },
+            { label: t("chapters"), value: cours._count?.contenus ?? 0, icon: <Layers className="w-3.5 h-3.5" /> },
+            { label: t("views"), value: cours.nbVues, icon: <Eye className="w-3.5 h-3.5" /> },
+            { label: t("subscribers"), value: cours.nbInscrits, icon: <Users className="w-3.5 h-3.5" /> },
           ].map(s => (
             <div key={s.label} className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex justify-center text-gray-400 mb-0.5">{s.icon}</div>
@@ -385,7 +389,7 @@ function CoursCard({ cours, onSelect, onDelete }: {
               <Trash2 className="w-3 h-3" />
             </Button>
             <Button size="sm" className="h-6 text-xs px-2 gap-1" onClick={() => onSelect(cours)}>
-              Ouvrir <ChevronRight className="w-3 h-3" />
+              {t("open")} <ChevronRight className="w-3 h-3" />
             </Button>
           </div>
         </div>
@@ -400,6 +404,7 @@ function CoursDetail({ cours: initial, onBack }: {
   cours: Cours;
   onBack: () => void;
 }) {
+  const t = useTranslations("cours");
   const [cours, setCours] = useState<Cours & { contenus: ContenuCours[] }>({
     ...initial,
     contenus: initial.contenus ?? [],
@@ -419,9 +424,9 @@ function CoursDetail({ cours: initial, onBack }: {
         if (!res.ok) throw new Error();
         const { cours: updated } = await res.json();
         setCours(c => ({ ...c, statut: updated.statut }));
-        toast.success(newStatut === "PUBLIE" ? "Cours publié !" : "Cours dépublié");
+        toast.success(newStatut === "PUBLIE" ? t("coursePublished") : t("courseUnpublished"));
       } catch {
-        toast.error("Erreur");
+        toast.error(t("error"));
       }
     });
   };
@@ -444,12 +449,12 @@ function CoursDetail({ cours: initial, onBack }: {
       {/* Header */}
       <div className="flex items-start gap-4">
         <Button variant="outline" size="sm" onClick={onBack} className="gap-1 flex-shrink-0">
-          <ArrowLeft className="w-4 h-4" /> Retour
+          <ArrowLeft className="w-4 h-4" /> {t("back")}
         </Button>
         <div className="flex-1">
           <div className="flex flex-wrap gap-2 mb-2">
-            <Badge className={cn("text-xs border", nConfig.color)}>{nConfig.label}</Badge>
-            <Badge className={cn("text-xs", sConfig.color)}>{sConfig.label}</Badge>
+            <Badge className={cn("text-xs border", nConfig.color)}>{t(nConfig.labelKey)}</Badge>
+            <Badge className={cn("text-xs", sConfig.color)}>{t(sConfig.labelKey)}</Badge>
             {cours.matiereNom && <Badge variant="outline" className="text-xs">{cours.matiereNom}</Badge>}
             {cours.classeNom && <Badge variant="outline" className="text-xs">{cours.classeNom}</Badge>}
           </div>
@@ -464,10 +469,10 @@ function CoursDetail({ cours: initial, onBack }: {
             className="gap-2"
           >
             {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-            {cours.statut === "PUBLIE" ? "Dépublier" : "Publier"}
+            {cours.statut === "PUBLIE" ? t("unpublish") : t("publish")}
           </Button>
           <Button onClick={() => setShowAddContenu(true)} className="gap-2">
-            <Plus className="w-4 h-4" /> Ajouter contenu
+            <Plus className="w-4 h-4" /> {t("addContentBtn")}
           </Button>
         </div>
       </div>
@@ -475,10 +480,10 @@ function CoursDetail({ cours: initial, onBack }: {
       {/* Stats rapides */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Chapitres", value: cours.contenus.length, icon: <Layers className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
-          { label: "Durée totale", value: totalDuree > 0 ? `${totalDuree} min` : "—", icon: <Clock className="w-5 h-5 text-blue-600" />, bg: "bg-blue-100" },
-          { label: "Vues", value: cours.nbVues, icon: <Eye className="w-5 h-5 text-purple-600" />, bg: "bg-purple-100" },
-          { label: "Inscrits", value: cours.nbInscrits, icon: <Users className="w-5 h-5 text-green-600" />, bg: "bg-green-100" },
+          { label: t("chapters"), value: cours.contenus.length, icon: <Layers className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
+          { label: t("totalDuration"), value: totalDuree > 0 ? `${totalDuree} ${t("min")}` : "—", icon: <Clock className="w-5 h-5 text-blue-600" />, bg: "bg-blue-100" },
+          { label: t("views"), value: cours.nbVues, icon: <Eye className="w-5 h-5 text-purple-600" />, bg: "bg-purple-100" },
+          { label: t("subscribers"), value: cours.nbInscrits, icon: <Users className="w-5 h-5 text-green-600" />, bg: "bg-green-100" },
         ].map(s => (
           <Card key={s.label} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center gap-3">
@@ -499,16 +504,16 @@ function CoursDetail({ cours: initial, onBack }: {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Layers className="w-4 h-4 text-primary" />
-            Programme du cours ({cours.contenus.length} chapitre{cours.contenus.length !== 1 ? "s" : ""})
+            {t("courseProgram", { count: cours.contenus.length, s: cours.contenus.length !== 1 ? "s" : "" })}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {cours.contenus.length === 0 ? (
             <div className="text-center py-12">
               <Layers className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-500 mb-3">Aucun contenu pour l'instant</p>
+              <p className="text-sm text-gray-500 mb-3">{t("noContent")}</p>
               <Button onClick={() => setShowAddContenu(true)} className="gap-2" size="sm">
-                <Plus className="w-3.5 h-3.5" /> Ajouter le premier chapitre
+                <Plus className="w-3.5 h-3.5" /> {t("addFirstChapter")}
               </Button>
             </div>
           ) : (
@@ -524,7 +529,7 @@ function CoursDetail({ cours: initial, onBack }: {
                     <div className={cn("flex-shrink-0", tConfig.color)}>{tConfig.icon}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{c.titre}</p>
-                      <p className="text-xs text-gray-400">{tConfig.label}{c.dureeMin ? ` · ${c.dureeMin} min` : ""}</p>
+                      <p className="text-xs text-gray-400">{t(TYPE_CONTENU_CONFIG[c.type].labelKey)}{c.dureeMin ? ` · ${c.dureeMin} ${t("min")}` : ""}</p>
                     </div>
                     {c.url && (
                       <a href={c.url} target="_blank" rel="noopener noreferrer"
@@ -548,6 +553,7 @@ function CoursDetail({ cours: initial, onBack }: {
 // ─── Vue principale ─────────────────────────────────────────────────────────────
 
 export function CoursView() {
+  const t = useTranslations("cours");
   const [cours, setCours] = useState<Cours[]>([]);
   const [selected, setSelected] = useState<Cours | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -562,7 +568,7 @@ export function CoursView() {
     fetch("/api/cours")
       .then(r => r.json())
       .then(({ cours }) => setCours(cours ?? []))
-      .catch(() => toast.error("Impossible de charger les cours"))
+      .catch(() => toast.error(t("loadError")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -587,9 +593,9 @@ export function CoursView() {
       try {
         await fetch(`/api/cours/${id}`, { method: "DELETE" });
         setCours(prev => prev.filter(c => c.id !== id));
-        toast.success("Cours supprimé");
+        toast.success(t("courseDeleted"));
       } catch {
-        toast.error("Erreur lors de la suppression");
+        toast.error(t("deleteError"));
       }
     });
   };
@@ -621,21 +627,21 @@ export function CoursView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cours en ligne</h2>
-          <p className="text-sm text-gray-500">{stats.publies} cours publié{stats.publies !== 1 ? "s" : ""}</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("title")}</h2>
+          <p className="text-sm text-gray-500">{t("publishedCourses", { count: stats.publies, s: stats.publies !== 1 ? "s" : "" })}</p>
         </div>
         <Button onClick={() => setShowCreate(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Nouveau cours
+          <Plus className="w-4 h-4" /> {t("newCourse")}
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total cours", value: stats.total, icon: <BookOpen className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
-          { label: "Publiés", value: stats.publies, icon: <Globe className="w-5 h-5 text-green-600" />, bg: "bg-green-100 dark:bg-green-900/30" },
-          { label: "Brouillons", value: stats.brouillons, icon: <FileText className="w-5 h-5 text-gray-500" />, bg: "bg-gray-100 dark:bg-gray-800" },
-          { label: "Total vues", value: stats.totalVues, icon: <Eye className="w-5 h-5 text-purple-600" />, bg: "bg-purple-100 dark:bg-purple-900/30" },
+          { label: t("totalCourses"), value: stats.total, icon: <BookOpen className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
+          { label: t("published"), value: stats.publies, icon: <Globe className="w-5 h-5 text-green-600" />, bg: "bg-green-100 dark:bg-green-900/30" },
+          { label: t("drafts"), value: stats.brouillons, icon: <FileText className="w-5 h-5 text-gray-500" />, bg: "bg-gray-100 dark:bg-gray-800" },
+          { label: t("totalViews"), value: stats.totalVues, icon: <Eye className="w-5 h-5 text-purple-600" />, bg: "bg-purple-100 dark:bg-purple-900/30" },
         ].map(s => (
           <Card key={s.label} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
@@ -656,7 +662,7 @@ export function CoursView() {
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher un cours…" className="pl-9 text-sm h-9" />
+            placeholder={t("searchPlaceholder")} className="pl-9 text-sm h-9" />
           {search && (
             <button onClick={() => setSearch("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -670,7 +676,7 @@ export function CoursView() {
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
                 filtreStatut === s ? "bg-primary text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200"
               )}>
-              {s === "TOUS" ? "Tous" : STATUT_CONFIG[s as StatutCours].label}
+              {s === "TOUS" ? t("all") : t(STATUT_CONFIG[s as StatutCours].labelKey)}
             </button>
           ))}
         </div>
@@ -680,7 +686,7 @@ export function CoursView() {
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
                 filtreNiveau === n ? "bg-primary text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200"
               )}>
-              {n === "TOUS" ? "Tous niveaux" : NIVEAU_CONFIG[n as Niveau].label}
+              {n === "TOUS" ? t("allLevels") : t(NIVEAU_CONFIG[n as Niveau].labelKey)}
             </button>
           ))}
         </div>
@@ -696,11 +702,11 @@ export function CoursView() {
           <CardContent className="py-16 text-center">
             <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <p className="text-sm text-gray-500 mb-3">
-              {search ? "Aucun cours ne correspond à la recherche" : "Aucun cours créé"}
+              {search ? t("noCoursesSearch") : t("noCourses")}
             </p>
             {!search && (
               <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
-                <Plus className="w-3.5 h-3.5" /> Créer le premier cours
+                <Plus className="w-3.5 h-3.5" /> {t("createFirstCourse")}
               </Button>
             )}
           </CardContent>

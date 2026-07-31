@@ -7,19 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { cn, getInitials, timeAgo } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: "Super Admin",
-  TENANT_ADMIN: "Directeur",
-  PRINCIPAL: "Principal",
-  TEACHER: "Enseignant",
-  STUDENT: "Élève",
-  PARENT: "Parent",
-  ACCOUNTANT: "Comptable",
-  LIBRARIAN: "Bibliothécaire",
-  NURSE: "Infirmier(e)",
-  GUARD: "Vigile",
-  STAFF: "Personnel",
+const ROLE_KEYS: Record<string, string> = {
+  SUPER_ADMIN: "roles.SUPER_ADMIN",
+  TENANT_ADMIN: "roles.TENANT_ADMIN",
+  PRINCIPAL: "roles.PRINCIPAL",
+  TEACHER: "roles.TEACHER",
+  STUDENT: "roles.STUDENT",
+  PARENT: "roles.PARENT",
+  ACCOUNTANT: "roles.ACCOUNTANT",
+  LIBRARIAN: "roles.LIBRARIAN",
+  NURSE: "roles.NURSE",
+  GUARD: "roles.GUARD",
+  STAFF: "roles.STAFF",
 };
 
 interface User {
@@ -58,6 +59,7 @@ function NewConversationModal({
   onClose: () => void;
   onCreated: (conv: Conversation) => void;
 }) {
+  const t = useTranslations("messages");
   const [selected, setSelected] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
   const [firstMsg, setFirstMsg] = useState("");
@@ -66,7 +68,7 @@ function NewConversationModal({
 
   const others = allUsers.filter((u) => u.id !== currentUserId);
   const filtered = search
-    ? others.filter((u) => u.name?.toLowerCase().includes(search.toLowerCase()) || ROLE_LABEL[u.role]?.toLowerCase().includes(search.toLowerCase()))
+    ? others.filter((u) => u.name?.toLowerCase().includes(search.toLowerCase()) || t(ROLE_KEYS[u.role] ?? u.role)?.toLowerCase().includes(search.toLowerCase()))
     : others;
 
   function toggle(id: string) {
@@ -86,10 +88,10 @@ function NewConversationModal({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         onCreated(data);
-        toast.success("Conversation créée !");
+        toast.success(t("conversationCreated"));
         onClose();
       } catch (e: unknown) {
-        toast.error(e instanceof Error ? e.message : "Erreur");
+        toast.error(e instanceof Error ? e.message : t("sendError"));
       }
     });
   }
@@ -98,15 +100,15 @@ function NewConversationModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold">Nouvelle conversation</h2>
+          <h2 className="text-lg font-semibold">{t("newConversation")}</h2>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Rechercher des destinataires</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("searchRecipients")}</label>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nom ou rôle..."
+              placeholder={t("searchPlaceholder")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -131,7 +133,7 @@ function NewConversationModal({
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{u.name}</p>
-                  <p className="text-xs text-gray-400">{ROLE_LABEL[u.role] ?? u.role}</p>
+                  <p className="text-xs text-gray-400">{t(ROLE_KEYS[u.role] ?? u.role)}</p>
                 </div>
                 {selected.includes(u.id) && (
                   <CheckCheck className="w-4 h-4 text-green-600 shrink-0" />
@@ -139,7 +141,7 @@ function NewConversationModal({
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="text-center text-sm text-gray-400 py-4">Aucun utilisateur trouvé</p>
+              <p className="text-center text-sm text-gray-400 py-4">{t("noUsersFound")}</p>
             )}
           </div>
           {selected.length > 0 && (
@@ -156,33 +158,33 @@ function NewConversationModal({
             </div>
           )}
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Sujet (optionnel)</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("subjectOptional")}</label>
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="ex: Réunion parents d'élèves"
+              placeholder={t("subjectPlaceholder")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Message *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("messageLabel")}</label>
             <textarea
               required
               value={firstMsg}
               onChange={(e) => setFirstMsg(e.target.value)}
               rows={3}
-              placeholder="Écrivez votre message..."
+              placeholder={t("messagePlaceholder")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>{t("cancel")}</Button>
             <Button
               type="submit"
               disabled={isPending || selected.length === 0 || !firstMsg.trim()}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
-              {isPending ? "Envoi..." : "Envoyer"}
+              {isPending ? t("sending") : t("sendBtn")}
             </Button>
           </div>
         </form>
@@ -201,6 +203,7 @@ export function MessagerieView({
   tenantId: string;
   allUsers: User[];
 }) {
+  const t = useTranslations("messages");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [newMsg, setNewMsg] = useState("");
@@ -250,7 +253,7 @@ export function MessagerieView({
       );
       setNewMsg("");
     } catch {
-      toast.error("Erreur lors de l'envoi");
+      toast.error(t("sendError"));
     } finally {
       setSending(false);
     }
@@ -274,9 +277,9 @@ export function MessagerieView({
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Messages</h2>
+              <h2 className="font-semibold text-gray-900 dark:text-white">{t("messagesTitle")}</h2>
               {totalUnread > 0 && (
-                <p className="text-xs text-green-600">{totalUnread} non lu{totalUnread > 1 ? "s" : ""}</p>
+                <p className="text-xs text-green-600">{t("unread", { count: totalUnread })}</p>
               )}
             </div>
             <Button
@@ -292,7 +295,7 @@ export function MessagerieView({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher..."
+              placeholder={t("search")}
               className="w-full pl-9 pr-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 border-0"
             />
           </div>
@@ -301,16 +304,16 @@ export function MessagerieView({
         {/* Liste */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-32 text-gray-400 text-sm">Chargement...</div>
+            <div className="flex items-center justify-center h-32 text-gray-400 text-sm">{t("loading")}</div>
           ) : filteredConvs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-gray-400">
               <Users className="w-8 h-8 mb-2 opacity-40" />
-              <p className="text-sm">Aucune conversation</p>
+              <p className="text-sm">{t("noConversations")}</p>
               <button
                 onClick={() => setShowNew(true)}
                 className="text-xs text-green-600 hover:underline mt-1"
               >
-                Démarrer une nouvelle
+                {t("startNew")}
               </button>
             </div>
           ) : (
@@ -338,7 +341,7 @@ export function MessagerieView({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <p className={cn("text-sm font-medium truncate", conv.unreadCount > 0 && "font-bold text-gray-900 dark:text-white")}>
-                        {conv.participants.length > 2 ? (conv.subject ?? "Groupe") : (other?.name ?? "Inconnu")}
+                        {conv.participants.length > 2 ? (conv.subject ?? t("group")) : (other?.name ?? t("unknown"))}
                       </p>
                       <span className="text-xs text-gray-400 shrink-0 ml-2">
                         {conv.lastMessage ? timeAgo(conv.lastMessage.createdAt) : ""}
@@ -346,7 +349,7 @@ export function MessagerieView({
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
                       <p className="text-xs text-gray-500 truncate">
-                        {conv.lastMessage?.content ?? "Pas de messages"}
+                        {conv.lastMessage?.content ?? t("noMessages")}
                       </p>
                       {conv.unreadCount > 0 && (
                         <span className="ml-2 bg-green-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">
@@ -380,10 +383,10 @@ export function MessagerieView({
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white text-sm">
                         {selectedConv.participants.length > 2
-                          ? (selectedConv.subject ?? `Groupe (${selectedConv.participants.length})`)
-                          : (other?.name ?? "Inconnu")}
+                          ? (selectedConv.subject ?? t("groupCount", { count: selectedConv.participants.length }))
+                          : (other?.name ?? t("unknown"))}
                       </p>
-                      {other && <p className="text-xs text-gray-400">{ROLE_LABEL[other.role] ?? other.role}</p>}
+                      {other && <p className="text-xs text-gray-400">{t(ROLE_KEYS[other.role] ?? other.role)}</p>}
                     </div>
                   </>
                 );
@@ -394,7 +397,7 @@ export function MessagerieView({
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {selectedConv.messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-400">
-                  <p className="text-sm">Démarrez la conversation</p>
+                  <p className="text-sm">{t("startConversation")}</p>
                 </div>
               ) : (
                 selectedConv.messages.map((msg) => {
@@ -440,7 +443,7 @@ export function MessagerieView({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(e); }
                 }}
-                placeholder="Écrivez un message... (Entrée pour envoyer)"
+                placeholder={t("typeMessage")}
                 rows={2}
                 className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500 border-0"
               />
@@ -459,11 +462,11 @@ export function MessagerieView({
             <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
               <Send className="w-7 h-7 opacity-40" />
             </div>
-            <p className="font-medium text-gray-500">Sélectionnez une conversation</p>
-            <p className="text-sm">ou commencez-en une nouvelle</p>
+            <p className="font-medium text-gray-500">{t("selectConversation")}</p>
+            <p className="text-sm">{t("orStartNew")}</p>
             <Button onClick={() => setShowNew(true)} variant="outline" className="mt-2 gap-2">
               <Plus className="w-4 h-4" />
-              Nouveau message
+              {t("newMessage")}
             </Button>
           </div>
         )}

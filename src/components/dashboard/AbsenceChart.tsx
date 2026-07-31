@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -15,6 +16,7 @@ interface WeekData {
 }
 
 export function AbsenceChart({ tenantId }: { tenantId: string }) {
+  const t = useTranslations("dashboard");
   const [data, setData] = useState<WeekData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,8 +31,8 @@ export function AbsenceChart({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Évolution des absences</CardTitle>
-        <CardDescription>8 dernières semaines — {new Date().getFullYear()}</CardDescription>
+        <CardTitle className="text-base font-semibold">{t("absencesChart")}</CardTitle>
+        <CardDescription>{t("last8Weeks")} — {new Date().getFullYear()}</CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -39,7 +41,7 @@ export function AbsenceChart({ tenantId }: { tenantId: string }) {
           </div>
         ) : data.length === 0 || data.every((d) => d.justifiees === 0 && d.injustifiees === 0 && d.retards === 0) ? (
           <div className="flex items-center justify-center h-[220px] text-sm text-muted-foreground">
-            Aucune absence enregistrée sur les 8 dernières semaines
+            {t("noAbsences8Weeks")}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
@@ -70,9 +72,9 @@ export function AbsenceChart({ tenantId }: { tenantId: string }) {
                 iconSize={8}
                 wrapperStyle={{ fontSize: "12px" }}
               />
-              <Bar dataKey="justifiees" name="Justifiées" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="injustifiees" name="Injustifiées" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="retards" name="Retards" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="justifiees" name={t("justified")} fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="injustifiees" name={t("unjustified")} fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="retards" name={t("late")} fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}

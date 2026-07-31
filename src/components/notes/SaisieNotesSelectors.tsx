@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 // Let's use standard select from ui if available, or a native select for maximum compatibility and simplicity
 interface Props {
@@ -21,6 +22,7 @@ export function SaisieNotesSelectors({
   selectedEvaluationId = "",
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("notes");
 
   function handleClasseChange(classeId: string) {
     const params = new URLSearchParams();
@@ -45,15 +47,15 @@ export function SaisieNotesSelectors({
   }
 
   return (
-    <div className="bg-white p-4 rounded-xl border shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="bg-background p-4 rounded-xl border shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="space-y-2">
-        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">1. Choisir une Classe</label>
+        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t("selectClassLabel")}</label>
         <select
           value={selectedClasseId}
           onChange={(e) => handleClasseChange(e.target.value)}
-          className="w-full h-10 px-3 border rounded-lg bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full h-10 px-3 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">-- Sélectionner une classe --</option>
+          <option value="">{t("selectClassPlaceholder")}</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}
@@ -63,13 +65,13 @@ export function SaisieNotesSelectors({
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">2. Choisir une Matière</label>
+        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t("selectSubjectLabel")}</label>
         <select
           value={selectedMatiereId}
           onChange={(e) => handleMatiereChange(e.target.value)}
-          className="w-full h-10 px-3 border rounded-lg bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full h-10 px-3 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">-- Sélectionner une matière --</option>
+          <option value="">{t("selectSubjectPlaceholder")}</option>
           {matieres.map((m) => (
             <option key={m.id} value={m.id}>
               {m.nom}
@@ -79,14 +81,14 @@ export function SaisieNotesSelectors({
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">3. Choisir l'Examen/Évaluation</label>
+        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t("selectExamLabel")}</label>
         <select
           value={selectedEvaluationId}
           onChange={(e) => handleEvaluationChange(e.target.value)}
           disabled={!selectedClasseId || !selectedMatiereId}
-          className="w-full h-10 px-3 border rounded-lg bg-gray-50 text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full h-10 px-3 border rounded-lg bg-background text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">-- Sélectionner un examen --</option>
+          <option value="">{t("selectExamPlaceholder")}</option>
           {evaluations.map((ev) => (
             <option key={ev.id} value={ev.id}>
               {ev.titre} ({ev.type})

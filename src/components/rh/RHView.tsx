@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getInitials, formatCurrency } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,12 +24,12 @@ const MOIS_FR = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
-const CONTRAT_CONFIG: Record<TypeContrat, { label: string; color: string }> = {
-  CDI: { label: "CDI", color: "bg-green-50 text-green-700 border-green-200" },
-  CDD: { label: "CDD", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  VACATAIRE: { label: "Vacataire", color: "bg-orange-50 text-orange-700 border-orange-200" },
-  FONCTIONNAIRE: { label: "Fonctionnaire", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  STAGIAIRE: { label: "Stagiaire", color: "bg-gray-100 text-gray-600 border-gray-200" },
+const CONTRAT_CONFIG: Record<TypeContrat, { labelKey: string; color: string }> = {
+  CDI: { labelKey: "contractTypes.CDI", color: "bg-green-50 text-green-700 border-green-200" },
+  CDD: { labelKey: "contractTypes.CDD", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  VACATAIRE: { labelKey: "contractTypes.VACATAIRE", color: "bg-orange-50 text-orange-700 border-orange-200" },
+  FONCTIONNAIRE: { labelKey: "contractTypes.FONCTIONNAIRE", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  STAGIAIRE: { labelKey: "contractTypes.STAGIAIRE", color: "bg-gray-100 text-gray-600 border-gray-200" },
 };
 
 interface BulletinPaie {
@@ -100,6 +101,7 @@ function EnseignantRHCard({
   enseignant: EnseignantRH;
   onUpdate: (id: string, ficheRH: FicheRH) => void;
 }) {
+  const t = useTranslations("rh");
   const [expanded, setExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [generatingPaie, setGeneratingPaie] = useState(false);
@@ -123,11 +125,11 @@ function EnseignantRHCard({
           body: JSON.stringify({ mois: moisActuel, annee: anneeActuelle }),
         });
         if (!res.ok) throw new Error();
-        toast.success(`Bulletin de paie ${MOIS_FR[moisActuel - 1]} généré`);
+        toast.success(t("paySlipGenerated", { month: t(`months.${moisActuel - 1}`) }));
         // Refresh simple
         window.location.reload();
       } catch {
-        toast.error("Erreur lors de la génération");
+        toast.error(t("genPayError"));
       } finally {
         setGeneratingPaie(false);
       }
@@ -157,13 +159,13 @@ function EnseignantRHCard({
                   {enseignant.user.name}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {enseignant.specialite ?? "Matière non définie"}
+                  {enseignant.specialite ?? t("subjectUndefined")}
                 </p>
               </div>
               <div className="flex gap-1.5 flex-wrap justify-end">
                 {contratConfig && (
                   <Badge className={cn("text-xs", contratConfig.color)}>
-                    {contratConfig.label}
+                    {t(contratConfig.labelKey)}
                   </Badge>
                 )}
                 <Badge className={cn(
@@ -172,7 +174,7 @@ function EnseignantRHCard({
                     ? "bg-green-50 text-green-700 border-green-200"
                     : "bg-gray-100 text-gray-500 border-gray-200"
                 )}>
-                  {enseignant.user.isActive ? "Actif" : "Inactif"}
+                  {enseignant.user.isActive ? t("active") : t("inactive")}
                 </Badge>
               </div>
             </div>
@@ -185,7 +187,7 @@ function EnseignantRHCard({
               </span>
               <span className="flex items-center gap-1">
                 <BookOpen className="w-3 h-3" />
-                {enseignant.emploiTemps.length} créneaux
+                {t("slots", { count: enseignant.emploiTemps.length })}
               </span>
               {ficheRH?.salaireBase && (
                 <span className="flex items-center gap-1">
@@ -208,7 +210,7 @@ function EnseignantRHCard({
           <div className="mt-3 flex flex-wrap gap-1.5">
             {enseignant.classesPrincipales.map((c) => (
               <Badge key={c.id} className="text-xs bg-primary/10 text-primary border-primary/20">
-                PP {c.nom}
+                {t("mainTeacher")} {c.nom}
               </Badge>
             ))}
           </div>
@@ -232,7 +234,7 @@ function EnseignantRHCard({
             ))}
             {enseignant.emploiTemps.length > 3 && (
               <p className="text-xs text-gray-400 pl-4">
-                +{enseignant.emploiTemps.length - 3} autre{enseignant.emploiTemps.length - 3 > 1 ? "s" : ""}…
+                {t("moreSlots", { count: enseignant.emploiTemps.length - 3, s: enseignant.emploiTemps.length - 3 > 1 ? "s" : "" })}
               </p>
             )}
           </div>
@@ -246,7 +248,7 @@ function EnseignantRHCard({
           >
             <span className="flex items-center gap-1">
               <FileText className="w-3.5 h-3.5" />
-              Bulletins de paie ({ficheRH?.bulletinsPaie.length ?? 0})
+              {t("paySlips", { count: ficheRH?.bulletinsPaie.length ?? 0 })}
             </span>
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -260,9 +262,9 @@ function EnseignantRHCard({
                     className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-xs"
                   >
                     <span className="text-gray-600 dark:text-gray-400">
-                      {MOIS_FR[bp.mois - 1]} {bp.annee}
+                      {t(`months.${bp.mois - 1}`)} {bp.annee}
                     </span>
-                    <span className="text-gray-500">{bp.heuresEffectuees}h effectuées</span>
+                    <span className="text-gray-500">{t("hoursDone", { count: bp.heuresEffectuees })}</span>
                     <span className="font-semibold text-gray-900 dark:text-white">
                       {formatCurrency(bp.netAPayer)}
                     </span>
@@ -272,12 +274,12 @@ function EnseignantRHCard({
                         ? "bg-green-50 text-green-700 border-green-200"
                         : "bg-orange-50 text-orange-600 border-orange-200"
                     )}>
-                      {bp.isPaye ? "Payé" : "En attente"}
+                      {bp.isPaye ? t("paid") : t("pending")}
                     </Badge>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-gray-400 py-2 text-center">Aucun bulletin généré</p>
+                <p className="text-xs text-gray-400 py-2 text-center">{t("noPaySlip")}</p>
               )}
 
               <Button
@@ -292,7 +294,7 @@ function EnseignantRHCard({
                 ) : (
                   <Calendar className="w-3.5 h-3.5" />
                 )}
-                Générer bulletin {MOIS_FR[moisActuel - 1]}
+                {t("generatePaySlip", { month: t(`months.${moisActuel - 1}`) })}
               </Button>
             </div>
           )}
@@ -309,6 +311,7 @@ interface RHViewProps {
 }
 
 export function RHView({ enseignants: initial }: RHViewProps) {
+  const t = useTranslations("rh");
   const [enseignants, setEnseignants] = useState<EnseignantRH[]>(initial);
   const [search, setSearch] = useState("");
   const [filtreContrat, setFiltreContrat] = useState<TypeContrat | "TOUS">("TOUS");
@@ -350,7 +353,7 @@ export function RHView({ enseignants: initial }: RHViewProps) {
         <a href="/parametres">
           <Button size="sm" className="gap-2">
             <Users className="h-4 w-4" />
-            Ajouter un enseignant
+            {t("addTeacher")}
           </Button>
         </a>
       </div>
@@ -361,9 +364,9 @@ export function RHView({ enseignants: initial }: RHViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Enseignants</p>
+                <p className="text-xs text-gray-500">{t("teachers")}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">{stats.total}</p>
-                <p className="text-xs text-gray-400">{stats.actifs} actifs</p>
+                <p className="text-xs text-gray-400">{stats.actifs} {t("active")}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                 <Users className="w-5 h-5 text-amber-600" />
@@ -376,7 +379,7 @@ export function RHView({ enseignants: initial }: RHViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Heures/semaine</p>
+                <p className="text-xs text-gray-500">{t("hoursPerWeek")}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">{stats.totalHeures}h</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -390,9 +393,9 @@ export function RHView({ enseignants: initial }: RHViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Fiches RH</p>
+                <p className="text-xs text-gray-500">{t("rhSheets")}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">{stats.avecFiche}</p>
-                <p className="text-xs text-gray-400">sur {stats.total}</p>
+                <p className="text-xs text-gray-400">{t("ofTotal", { total: stats.total })}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -405,11 +408,11 @@ export function RHView({ enseignants: initial }: RHViewProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Masse salariale</p>
+                <p className="text-xs text-gray-500">{t("salaryMass")}</p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
                   {formatCurrency(stats.masseTotal)}
                 </p>
-                <p className="text-xs text-gray-400">par mois</p>
+                <p className="text-xs text-gray-400">{t("perMonth")}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-purple-600" />
@@ -426,7 +429,7 @@ export function RHView({ enseignants: initial }: RHViewProps) {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Rechercher un enseignant…"
+                placeholder={t("searchTeacher")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 text-sm"
@@ -444,7 +447,7 @@ export function RHView({ enseignants: initial }: RHViewProps) {
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200"
                   )}
                 >
-                  {f === "TOUS" ? "Tous" : CONTRAT_CONFIG[f as TypeContrat].label}
+                  {f === "TOUS" ? t("all") : t(CONTRAT_CONFIG[f as TypeContrat].labelKey)}
                 </button>
               ))}
             </div>
@@ -457,7 +460,7 @@ export function RHView({ enseignants: initial }: RHViewProps) {
         <Card className="border-0 shadow-sm">
           <CardContent className="py-16 text-center">
             <Briefcase className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Aucun enseignant trouvé</p>
+            <p className="text-sm text-gray-500">{t("noTeacherFound")}</p>
           </CardContent>
         </Card>
       ) : (

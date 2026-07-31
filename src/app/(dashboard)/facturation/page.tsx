@@ -3,9 +3,13 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { FacturesTable } from "@/components/facturation/FacturesTable";
 import { getFacturesForTenant } from "@/lib/actions/facture";
+import { getTranslations } from "next-intl/server";
 
 export default async function FacturationPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("facturation"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const factures = await getFacturesForTenant();
@@ -20,8 +24,8 @@ export default async function FacturationPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Facturation"
-        subtitle={`${stats.total} factures — ${stats.payees} payées, ${stats.enAttente} en attente, ${stats.enRetard} en retard`}
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

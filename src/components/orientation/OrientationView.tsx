@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getInitials, calculerMoyenne } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -23,14 +24,14 @@ import {
 type TypeRecom = "FILIERE_SCIENTIFIQUE" | "FILIERE_LITTERAIRE" | "FILIERE_TECHNIQUE" |
   "FILIERE_PROFESSIONNELLE" | "REDOUBLEMENT" | "SOUTIEN_RENFORCE" | "EXCELLENTE_VOIE";
 
-const RECOM_CONFIG: Record<TypeRecom, { label: string; color: string; emoji: string }> = {
-  EXCELLENTE_VOIE:      { label: "Excellente voie",     color: "bg-yellow-50 text-yellow-800 border-yellow-300",  emoji: "⭐" },
-  FILIERE_SCIENTIFIQUE: { label: "Filière scientifique", color: "bg-blue-50 text-blue-800 border-blue-300",       emoji: "🔬" },
-  FILIERE_LITTERAIRE:   { label: "Filière littéraire",   color: "bg-purple-50 text-purple-800 border-purple-300", emoji: "📚" },
-  FILIERE_TECHNIQUE:    { label: "Filière technique",    color: "bg-green-50 text-green-800 border-green-300",    emoji: "🔧" },
-  FILIERE_PROFESSIONNELLE: { label: "Voie professionnelle", color: "bg-teal-50 text-teal-800 border-teal-300",   emoji: "🏭" },
-  SOUTIEN_RENFORCE:     { label: "Soutien renforcé",     color: "bg-orange-50 text-orange-800 border-orange-300", emoji: "🤝" },
-  REDOUBLEMENT:         { label: "Redoublement",         color: "bg-red-50 text-red-800 border-red-300",          emoji: "🔄" },
+const RECOM_CONFIG: Record<TypeRecom, { labelKey: string; color: string; emoji: string }> = {
+  EXCELLENTE_VOIE:      { labelKey: "recomTypes.EXCELLENTE_VOIE",     color: "bg-yellow-50 text-yellow-800 border-yellow-300",  emoji: "⭐" },
+  FILIERE_SCIENTIFIQUE: { labelKey: "recomTypes.FILIERE_SCIENTIFIQUE", color: "bg-blue-50 text-blue-800 border-blue-300",       emoji: "🔬" },
+  FILIERE_LITTERAIRE:   { labelKey: "recomTypes.FILIERE_LITTERAIRE",   color: "bg-purple-50 text-purple-800 border-purple-300", emoji: "📚" },
+  FILIERE_TECHNIQUE:    { labelKey: "recomTypes.FILIERE_TECHNIQUE",    color: "bg-green-50 text-green-800 border-green-300",    emoji: "🔧" },
+  FILIERE_PROFESSIONNELLE: { labelKey: "recomTypes.FILIERE_PROFESSIONNELLE", color: "bg-teal-50 text-teal-800 border-teal-300",   emoji: "🏭" },
+  SOUTIEN_RENFORCE:     { labelKey: "recomTypes.SOUTIEN_RENFORCE",     color: "bg-orange-50 text-orange-800 border-orange-300", emoji: "🤝" },
+  REDOUBLEMENT:         { labelKey: "recomTypes.REDOUBLEMENT",         color: "bg-red-50 text-red-800 border-red-300",          emoji: "🔄" },
 };
 
 interface EleveResume {
@@ -63,6 +64,7 @@ function FicheOrientationEleve({
   eleveId,
   onBack,
 }: { eleveId: string; onBack: () => void }) {
+  const t = useTranslations("orientation");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -116,8 +118,8 @@ function FicheOrientationEleve({
             commentaire,
           }),
         });
-        toast.success("Orientation enregistrée");
-      } catch { toast.error("Erreur"); }
+        toast.success(t("orientationSaved"));
+      } catch { toast.error(t("error")); }
     });
   };
 
@@ -139,7 +141,7 @@ function FicheOrientationEleve({
           {/* Moyenne actuelle */}
           <Card className="border-0 shadow-sm">
             <CardContent className="p-5 text-center">
-              <p className="text-xs text-gray-500 mb-2">Moyenne actuelle</p>
+              <p className="text-xs text-gray-500 mb-2">{t("currentAverage")}</p>
               <p className={cn(
                 "text-4xl font-bold",
                 (moyenneActuelle ?? 0) >= 14 ? "text-green-600" :
@@ -148,7 +150,7 @@ function FicheOrientationEleve({
               )}>
                 {moyenneActuelle?.toFixed(2) ?? "—"}/20
               </p>
-              <p className="text-xs text-gray-400 mt-1">{notes.length} notes publiées</p>
+              <p className="text-xs text-gray-400 mt-1">{t("publishedGrades", { count: notes.length })}</p>
             </CardContent>
           </Card>
 
@@ -156,19 +158,19 @@ function FicheOrientationEleve({
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Abs. injustifiées</span>
+                <span className="text-xs text-gray-500">{t("unjustAbsences")}</span>
                 <Badge className={absencesInjust > 5 ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"}>
                   {absencesInjust}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Incidents</span>
+                <span className="text-xs text-gray-500">{t("incidents")}</span>
                 <Badge className={incidents > 0 ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-gray-100 text-gray-500"}>
                   {incidents}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Années de parcours</span>
+                <span className="text-xs text-gray-500">{t("parcoursYears")}</span>
                 <Badge className="bg-blue-50 text-blue-700 border-blue-200">{parcours.length}</Badge>
               </div>
             </CardContent>
@@ -181,7 +183,7 @@ function FicheOrientationEleve({
           {chartData.length > 0 && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-gray-600">Évolution des moyennes annuelles</CardTitle>
+                <CardTitle className="text-sm text-gray-600">{t("avgEvolution")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
@@ -190,7 +192,7 @@ function FicheOrientationEleve({
                     <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
                     <YAxis domain={[0, 20]} tick={{ fontSize: 11 }} />
                     <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                    <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "Seuil", position: "right", fontSize: 10 }} />
+                    <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="4 4" label={{ value: t("threshold"), position: "right", fontSize: 10 }} />
                     <Line type="monotone" dataKey="moyenne" stroke="#6366f1" strokeWidth={2.5} dot={{ fill: "#6366f1", r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -203,22 +205,22 @@ function FicheOrientationEleve({
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-gray-600 flex items-center gap-2">
                 <Compass className="w-4 h-4 text-primary" />
-                Recommandation d'orientation
+                {t("recomTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className={cn("p-3 rounded-xl border-2 flex items-center gap-3", RECOM_CONFIG[recomAuto].color)}>
                 <span className="text-2xl">{RECOM_CONFIG[recomAuto].emoji}</span>
                 <div>
-                  <p className="font-semibold text-sm">{RECOM_CONFIG[recomAuto].label}</p>
-                  <p className="text-xs opacity-70">Recommandation automatique basée sur la moyenne</p>
+                  <p className="font-semibold text-sm">{t(RECOM_CONFIG[recomAuto].labelKey)}</p>
+                  <p className="text-xs opacity-70">{t("recomAuto")}</p>
                 </div>
               </div>
 
               {/* Override manuel */}
               <div>
                 <label className="text-xs text-gray-600 mb-1.5 block font-medium">
-                  Modifier la recommandation (facultatif)
+                  {t("recomEdit")}
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {(Object.keys(RECOM_CONFIG) as TypeRecom[]).map((r) => (
@@ -233,7 +235,7 @@ function FicheOrientationEleve({
                       )}
                     >
                       <span>{RECOM_CONFIG[r].emoji}</span>
-                      <span className="truncate">{RECOM_CONFIG[r].label}</span>
+                      <span className="truncate">{t(RECOM_CONFIG[r].labelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -241,19 +243,19 @@ function FicheOrientationEleve({
 
               {/* Commentaire */}
               <div>
-                <label className="text-xs text-gray-600 mb-1 block font-medium">Commentaire du conseiller</label>
+                <label className="text-xs text-gray-600 mb-1 block font-medium">{t("counselorComment")}</label>
                 <textarea
                   value={commentaire}
                   onChange={(e) => setCommentaire(e.target.value)}
                   rows={3}
-                  placeholder="Observations, points forts, axes de travail…"
+                  placeholder={t("commentPlaceholder")}
                   className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background resize-none"
                 />
               </div>
 
               <Button onClick={handleSauvegarder} disabled={isPending} className="w-full gap-2">
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Enregistrer l'orientation
+                {t("saveOrientation")}
               </Button>
             </CardContent>
           </Card>
@@ -266,6 +268,7 @@ function FicheOrientationEleve({
 // ─── Vue principale ───────────────────────────────────────────────────────────
 
 export function OrientationView() {
+  const t = useTranslations("orientation");
   const [eleves, setEleves] = useState<EleveResume[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -310,10 +313,10 @@ export function OrientationView() {
       {/* En-tête stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Élèves à orienter", value: elevesAvecMoyenne.length, icon: <Users className="w-5 h-5 text-indigo-600" />, color: "bg-indigo-100 dark:bg-indigo-900/30" },
-          { label: "Excellente voie", value: recomStats["EXCELLENTE_VOIE"] ?? 0, icon: <Star className="w-5 h-5 text-yellow-600" />, color: "bg-yellow-100 dark:bg-yellow-900/30" },
-          { label: "Soutien / Redoublement", value: (recomStats["SOUTIEN_RENFORCE"] ?? 0) + (recomStats["REDOUBLEMENT"] ?? 0), icon: <AlertTriangle className="w-5 h-5 text-orange-600" />, color: "bg-orange-100 dark:bg-orange-900/30" },
-          { label: "Avec parcours enregistré", value: elevesAvecMoyenne.filter((e) => e.parcours.length > 0).length, icon: <BarChart3 className="w-5 h-5 text-green-600" />, color: "bg-green-100 dark:bg-green-900/30" },
+          { label: t("studentsToOrient"), value: elevesAvecMoyenne.length, icon: <Users className="w-5 h-5 text-indigo-600" />, color: "bg-indigo-100 dark:bg-indigo-900/30" },
+          { label: t("excellentPath"), value: recomStats["EXCELLENTE_VOIE"] ?? 0, icon: <Star className="w-5 h-5 text-yellow-600" />, color: "bg-yellow-100 dark:bg-yellow-900/30" },
+          { label: t("supportRepeat"), value: (recomStats["SOUTIEN_RENFORCE"] ?? 0) + (recomStats["REDOUBLEMENT"] ?? 0), icon: <AlertTriangle className="w-5 h-5 text-orange-600" />, color: "bg-orange-100 dark:bg-orange-900/30" },
+          { label: t("withParcours"), value: elevesAvecMoyenne.filter((e) => e.parcours.length > 0).length, icon: <BarChart3 className="w-5 h-5 text-green-600" />, color: "bg-green-100 dark:bg-green-900/30" },
         ].map((s) => (
           <Card key={s.label} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
@@ -331,7 +334,7 @@ export function OrientationView() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input
-          placeholder="Rechercher un élève…"
+          placeholder={t("searchStudent")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9 text-sm"
@@ -343,7 +346,7 @@ export function OrientationView() {
         <Card className="border-0 shadow-sm">
           <CardContent className="py-16 text-center">
             <Compass className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Aucun élève trouvé</p>
+            <p className="text-sm text-gray-500">{t("noStudentFound")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -366,7 +369,7 @@ export function OrientationView() {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-sm text-gray-900 dark:text-white">{e.prenom} {e.nom}</p>
                       <Badge className="text-xs bg-primary/10 text-primary border-primary/20">
-                        {e.classe?.nom ?? "Sans classe"}
+                        {e.classe?.nom ?? t("noClass")}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3 mt-1">
@@ -379,13 +382,13 @@ export function OrientationView() {
                         {e.moyenne?.toFixed(2) ?? "—"}/20
                       </span>
                       {e.absences.length > 0 && (
-                        <span className="text-xs text-orange-500">{e.absences.length} abs.</span>
+                        <span className="text-xs text-orange-500">{t("absShort", { count: e.absences.length })}</span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge className={cn("text-xs gap-1", recomCfg.color)}>
-                      {recomCfg.emoji} {recomCfg.label}
+                      {recomCfg.emoji} {t(recomCfg.labelKey)}
                     </Badge>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </div>

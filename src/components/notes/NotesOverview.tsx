@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getNoteColor } from "@/lib/utils";
 import { PenLine, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Matiere {
   id: string;
@@ -24,29 +25,43 @@ interface Classe {
   niveau: string;
 }
 
-export function NotesOverview({ matieres, classes }: { matieres: Matiere[]; classes: Classe[] }) {
-  const [selectedClasse, setSelectedClasse] = useState<string>("all");
+export function NotesOverview({ matieres, classes, selectedClasseId = "" }: { matieres: Matiere[]; classes: Classe[]; selectedClasseId?: string }) {
+  const t = useTranslations("notes");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function handleClasseFilter(classeId: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (classeId) {
+      params.set("classeId", classeId);
+    } else {
+      params.delete("classeId");
+    }
+    params.delete("matiereId");
+    params.delete("evaluationId");
+    router.push(`/notes?${params.toString()}`);
+  }
 
   return (
     <div className="space-y-4">
       {/* Filtre classe */}
       <div className="flex gap-2 flex-wrap">
         <button
-          onClick={() => setSelectedClasse("all")}
+          onClick={() => handleClasseFilter("")}
           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            selectedClasse === "all"
+            !selectedClasseId
               ? "bg-primary text-white"
               : "bg-muted hover:bg-muted/80 text-muted-foreground"
           }`}
         >
-          Toutes les classes
+          {t("allClasses")}
         </button>
         {classes.map((classe) => (
           <button
             key={classe.id}
-            onClick={() => setSelectedClasse(classe.id)}
+            onClick={() => handleClasseFilter(classe.id)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              selectedClasse === classe.id
+              selectedClasseId === classe.id
                 ? "bg-primary text-white"
                 : "bg-muted hover:bg-muted/80 text-muted-foreground"
             }`}
@@ -80,7 +95,7 @@ export function NotesOverview({ matieres, classes }: { matieres: Matiere[]; clas
                     </CardTitle>
                   </div>
                   <Badge variant="outline" className="text-xs shrink-0">
-                    Coeff. {matiere.coefficient}
+                    {t("coeff", { value: matiere.coefficient })}
                   </Badge>
                 </div>
               </CardHeader>
@@ -88,7 +103,7 @@ export function NotesOverview({ matieres, classes }: { matieres: Matiere[]; clas
                 {/* Moyenne */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">Moyenne classe</p>
+                    <p className="text-xs text-muted-foreground">{t("classAverageLabel")}</p>
                     <div className="flex items-center gap-1 mt-0.5">
                       <MoyenneIcon className={`h-3.5 w-3.5 ${moyenneColor}`} />
                       <span className={`text-lg font-bold ${moyenneColor}`}>
@@ -97,7 +112,7 @@ export function NotesOverview({ matieres, classes }: { matieres: Matiere[]; clas
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Notes saisies</p>
+                    <p className="text-xs text-muted-foreground">{t("gradesEnteredLabel")}</p>
                     <p className="text-lg font-bold">{matiere.totalNotes}</p>
                   </div>
                 </div>
@@ -122,9 +137,9 @@ export function NotesOverview({ matieres, classes }: { matieres: Matiere[]; clas
                   size="sm"
                   className="w-full"
                 >
-                  <Link href={`/notes?matiereId=${matiere.id}`}>
+                  <Link href={`/notes?matiereId=${matiere.id}${selectedClasseId ? `&classeId=${selectedClasseId}` : ""}`}>
                     <PenLine className="h-3.5 w-3.5 mr-2" />
-                    Saisir des notes
+                    {t("enterGrades")}
                   </Link>
                 </Button>
               </CardContent>

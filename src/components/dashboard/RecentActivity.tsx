@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,18 +16,19 @@ interface Note {
   matiere: { nom: string; couleur: string | null };
 }
 
-export function RecentActivity({ notes }: { notes: Note[] }) {
+export async function RecentActivity({ notes }: { notes: Note[] }) {
+  const t = await getTranslations("dashboard");
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-base font-semibold">Notes récentes</CardTitle>
-        <Badge variant="secondary" className="text-xs">{notes.length} dernières</Badge>
+        <CardTitle className="text-base font-semibold">{t("recentGrades")}</CardTitle>
+        <Badge variant="secondary" className="text-xs">{t("latestCount", { count: notes.length })}</Badge>
       </CardHeader>
       <CardContent>
         {notes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <BookOpen className="h-10 w-10 text-muted-foreground/30 mb-3" />
-            <p className="text-sm text-muted-foreground">Aucune note saisie récemment</p>
+            <p className="text-sm text-muted-foreground">{t("noRecentGrades")}</p>
           </div>
         ) : (
           <div className="space-y-4">

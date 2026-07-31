@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { startOfDay, endOfDay, subDays } from "date-fns";
+import { getTranslations } from "next-intl/server";
 
 async function getTeacherClassIds(tenantId: string, userId: string): Promise<{ classeIds: string[]; isRestricted: boolean }> {
   const enseignant = await prisma.enseignant.findUnique({
@@ -53,49 +54,50 @@ async function getAbsencesData(
         : {}),
   };
 
-  const [absencesAujourdhui, absencesSemaine, absencesNonJustifiees, recentesAbsences] =
-    await Promise.all([
-      prisma.absence.count({
-        where: {
-          ...absenceWhere,
-          date: { gte: startOfDay(today), lte: endOfDay(today) },
-        },
-      }),
-      prisma.absence.count({
-        where: {
-          ...absenceWhere,
-          date: { gte: sevenDaysAgo },
-        },
-      }),
-      prisma.absence.count({
-        where: {
-          ...absenceWhere,
-          statut: "INJUSTIFIEE",
-        },
-      }),
-      prisma.absence.findMany({
-        where: absenceWhere,
-        orderBy: { date: "desc" },
-        include: {
-          eleve: {
-            select: {
-              nom: true,
-              prenom: true,
-              photoUrl: true,
-              classe: { select: { nom: true, niveau: true } },
-            },
+  const [absenceStats, recentesAbsences] = await Promise.all([
+    prisma.absence.groupBy({
+      by: ["statut"],
+      where: { ...absenceWhere, date: { gte: sevenDaysAgo } },
+      _count: true,
+    }),
+    prisma.absence.findMany({
+      where: absenceWhere,
+      orderBy: { date: "desc" },
+      take: 50,
+      include: {
+        eleve: {
+          select: {
+            nom: true,
+            prenom: true,
+            photoUrl: true,
+            classe: { select: { nom: true, niveau: true } },
           },
         },
-      }),
-    ]);
+      },
+    }),
+  ]);
 
-  return { absencesAujourdhui, absencesSemaine, absencesNonJustifiees, recentesAbsences };
+  const statutMap = Object.fromEntries(absenceStats.map((s) => [s.statut, s._count]));
+  const absencesSemaine = Object.values(statutMap).reduce((a, b) => a + b, 0);
+
+  const absencesAujourdhui = recentesAbsences.filter(
+    (a) => a.date >= startOfDay(today) && a.date <= endOfDay(today)
+  ).length;
+
+  return {
+    absencesAujourdhui,
+    absencesSemaine,
+    absencesNonJustifiees: statutMap["INJUSTIFIEE"] ?? 0,
+    recentesAbsences,
+  };
 }
 
 export default async function AbsencesPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("absences"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
-
   const isTeacher = session.user.role === "TEACHER" || session.user.role === "CLASS_TEACHER";
   const classeFilter = isTeacher
     ? await getTeacherClassIds(session.user.tenantId, session.user.id)
@@ -106,8 +108,8 @@ export default async function AbsencesPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Gestion des Absences"
-        subtitle="Suivi et justification des absences élèves"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
@@ -124,13 +126,13 @@ export default async function AbsencesPage() {
             <Button asChild size="sm" variant="outline" className="gap-2">
               <Link href="/absences/appel">
                 <ClipboardCheck className="h-4 w-4" />
-                Faire l'appel
+                {t("call")}
               </Link>
             </Button>
             <Button asChild size="sm" className="gap-2">
               <Link href="/absences">
                 <Plus className="h-4 w-4" />
-                Saisir absence
+                {t("addAbsence")}
               </Link>
             </Button>
           </div>

@@ -1,28 +1,31 @@
+"use client";
+
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserPlus, ClipboardCheck, PenLine, CalendarPlus } from "lucide-react";
 
 const actions = [
   {
-    label: "Inscrire un élève",
+    labelKey: "eleves.register",
     icon: UserPlus,
     href: "/eleves",
     color: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400",
   },
   {
-    label: "Faire l'appel",
+    labelKey: "absences.call",
     icon: ClipboardCheck,
     href: "/absences/appel",
     color: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
   },
   {
-    label: "Saisir des notes",
+    labelKey: "notes.enter",
     icon: PenLine,
     href: "/notes",
     color: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
   },
   {
-    label: "Planifier un examen",
+    labelKey: "examens.schedule",
     icon: CalendarPlus,
     href: "/evaluations",
     color: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -30,10 +33,11 @@ const actions = [
 ];
 
 export function QuickActions() {
+  const t = useTranslations();
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Actions rapides</CardTitle>
+        <CardTitle className="text-base font-semibold">{t("dashboard.quickActions")}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3">
@@ -47,7 +51,7 @@ export function QuickActions() {
                 <action.icon className="h-4 w-4" />
               </div>
               <span className="text-xs font-medium text-foreground leading-tight">
-                {action.label}
+                {t(action.labelKey)}
               </span>
             </Link>
           ))}

@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error("[API/bulletins/preview]", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Erreur inconnue";
+    return NextResponse.json({ error: "Erreur serveur", detail: message }, { status: 500 });
   }
 }

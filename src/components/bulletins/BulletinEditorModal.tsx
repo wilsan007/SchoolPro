@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTranslations } from "next-intl";
 
 interface BulletinEditorModalProps {
   bulletin: any;
@@ -18,6 +19,7 @@ interface BulletinEditorModalProps {
 }
 
 export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: BulletinEditorModalProps) {
+  const t = useTranslations("bulletins");
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     moyenneGenerale: bulletin?.moyenneGenerale ?? "",
@@ -44,13 +46,13 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
         }),
       });
 
-      if (!res.ok) throw new Error("Erreur lors de la mise à jour");
+      if (!res.ok) throw new Error(t("errUpdate"));
 
-      toast.success("Bulletin mis à jour avec succès");
+      toast.success(t("updateSuccess"));
       onSuccess();
       onClose();
     } catch (err) {
-      toast.error("Impossible de modifier le bulletin");
+      toast.error(t("errEdit"));
     } finally {
       setLoading(false);
     }
@@ -60,26 +62,26 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
     <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Éditer le bulletin - {bulletin.eleve.nom} {bulletin.eleve.prenom}</DialogTitle>
+          <DialogTitle>{t("editBulletinTitle", { nom: bulletin.eleve.nom, prenom: bulletin.eleve.prenom })}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Moyenne Générale (forcée)</Label>
+              <Label>{t("forcedAvg")}</Label>
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Laisser vide pour auto"
+                placeholder={t("leaveEmptyAuto")}
                 value={formData.moyenneGenerale}
                 onChange={(e) => setFormData({ ...formData, moyenneGenerale: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>Rang</Label>
+              <Label>{t("rankLabel")}</Label>
               <Input
                 type="number"
-                placeholder="Ex: 1"
+                placeholder={t("rankPlaceholder")}
                 value={formData.rang}
                 onChange={(e) => setFormData({ ...formData, rang: e.target.value })}
               />
@@ -87,29 +89,29 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
           </div>
 
           <div className="space-y-2">
-            <Label>Décision du conseil</Label>
+            <Label>{t("councilDecision")}</Label>
             <Select 
               value={formData.decision} 
               onValueChange={(val: string) => setFormData({ ...formData, decision: val === "NONE" ? "" : val })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner une décision" />
+                <SelectValue placeholder={t("selectDecision")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="NONE">Aucune</SelectItem>
-                <SelectItem value="PASSAGE">Passage en classe supérieure</SelectItem>
-                <SelectItem value="REDOUBLEMENT">Redoublement</SelectItem>
-                <SelectItem value="FELICITATIONS">Félicitations</SelectItem>
-                <SelectItem value="ENCOURAGEMENTS">Encouragements</SelectItem>
-                <SelectItem value="AVERTISSEMENT">Avertissement</SelectItem>
+                <SelectItem value="NONE">{t("none")}</SelectItem>
+                <SelectItem value="PASSAGE">{t("passingUpper")}</SelectItem>
+                <SelectItem value="REDOUBLEMENT">{t("repeating")}</SelectItem>
+                <SelectItem value="FELICITATIONS">{t("felicitations")}</SelectItem>
+                <SelectItem value="ENCOURAGEMENTS">{t("encouragements")}</SelectItem>
+                <SelectItem value="AVERTISSEMENT">{t("warning")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Appréciation générale</Label>
+            <Label>{t("generalAppreciation")}</Label>
             <Textarea
-              placeholder="Saisissez l'appréciation du professeur principal ou du directeur..."
+              placeholder={t("appreciationPlaceholderInput")}
               className="resize-none"
               rows={4}
               value={formData.appreciation}
@@ -119,11 +121,11 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Annuler
+              {t("cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Enregistrer
+              {t("save")}
             </Button>
           </DialogFooter>
         </form>

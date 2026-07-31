@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER } from "@/lib/school-groups";
+import { useTranslations } from "next-intl";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,7 @@ const CHART_COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#3
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export function AnalyticsView() {
+  const t = useTranslations("analytics");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -152,7 +154,7 @@ export function AnalyticsView() {
       <div className="flex items-center justify-center py-32">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Chargement des analytics…</p>
+          <p className="text-sm text-gray-500">{t("loadingAnalytics")}</p>
         </div>
       </div>
     );
@@ -203,42 +205,42 @@ export function AnalyticsView() {
       {/* KPI principaux */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
-          title="Élèves actifs"
+          title={t("activeStudents")}
           value={synthese.totalEleves}
           icon={<Users className="w-5 h-5 text-blue-600" />}
           color="bg-blue-100 dark:bg-blue-900/30"
         />
         <StatCard
-          title="Taux de réussite"
+          title={t("successRate")}
           value={`${synthese.tauxReussite}%`}
-          sub={`${synthese.enReussite} élèves ≥ 10`}
+          sub={t("successSub", { count: synthese.enReussite })}
           icon={<CheckCircle2 className="w-5 h-5 text-green-600" />}
           color="bg-green-100 dark:bg-green-900/30"
           trend={synthese.tauxReussite >= 70 ? "up" : "down"}
         />
         <StatCard
-          title="Évalués"
+          title={t("evaluated")}
           value={synthese.elevesAEvaluer}
-          sub="avec au moins 1 note"
+          sub={t("evaluatedSub")}
           icon={<BarChart3 className="w-5 h-5 text-indigo-600" />}
           color="bg-indigo-100 dark:bg-indigo-900/30"
         />
         <StatCard
-          title="Incidents ouverts"
+          title={t("openIncidents")}
           value={synthese.incidentsOuverts}
           icon={<Shield className="w-5 h-5 text-red-600" />}
           color="bg-red-100 dark:bg-red-900/30"
           trend={synthese.incidentsOuverts > 5 ? "down" : "neutral"}
         />
         <StatCard
-          title="Élèves à risque"
+          title={t("atRiskStudents")}
           value={elevesArisque.length}
-          sub="décrochage potentiel"
+          sub={t("atRiskSub")}
           icon={<AlertTriangle className="w-5 h-5 text-orange-600" />}
           color="bg-orange-100 dark:bg-orange-900/30"
         />
         <StatCard
-          title="Examens en cours"
+          title={t("ongoingExams")}
           value={synthese.examensEnCours}
           icon={<Activity className="w-5 h-5 text-purple-600" />}
           color="bg-purple-100 dark:bg-purple-900/30"
@@ -250,13 +252,13 @@ export function AnalyticsView() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <Activity className="w-4 h-4 text-primary" />
-            Évolution des absences (30 derniers jours)
+            {t("absenceEvolution")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {absData.length === 0 ? (
             <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-              Aucune donnée d'absences disponible
+              {t("noAbsenceData")}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
@@ -279,8 +281,8 @@ export function AnalyticsView() {
                   labelStyle={{ fontWeight: 600 }}
                 />
                 <Legend iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                <Area type="monotone" dataKey="injust" name="Injustifiées" stroke="#ef4444" fill="url(#gInjust)" strokeWidth={2} />
-                <Area type="monotone" dataKey="just" name="Justifiées" stroke="#10b981" fill="url(#gJust)" strokeWidth={2} />
+                <Area type="monotone" dataKey="injust" name={t("absenceInjust")} stroke="#ef4444" fill="url(#gInjust)" strokeWidth={2} />
+                <Area type="monotone" dataKey="just" name={t("absenceJust")} stroke="#10b981" fill="url(#gJust)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -294,13 +296,13 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" />
-              Moyenne par matière — par classe
+              {t("avgByMatter")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {matieresParClasseGrouped.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-                Aucune note publiée
+                {t("noPublishedGrades")}
               </div>
             ) : (
               <div className="space-y-1 max-h-[400px] overflow-y-auto scrollbar-thin">
@@ -318,7 +320,7 @@ export function AnalyticsView() {
                       )}
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{group}</span>
                       <Badge variant="secondary" className="text-xs ml-1">
-                        {classes.length} classe{classes.length > 1 ? "s" : ""}
+                        {t("classCount", { count: classes.length })}
                       </Badge>
                     </button>
 
@@ -337,7 +339,7 @@ export function AnalyticsView() {
                                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                               )}
                               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{cls.classe}</span>
-                              <span className="text-xs text-muted-foreground">({cls.matieres.length} matières)</span>
+                              <span className="text-xs text-muted-foreground">{t("matterCount", { count: cls.matieres.length })}</span>
                             </button>
 
                             {/* Matières sous la classe */}
@@ -353,7 +355,7 @@ export function AnalyticsView() {
                                     <span className={cn("font-bold", getMoyenneColor(m.moyenne))}>
                                       {m.moyenne.toFixed(2)}/20
                                     </span>
-                                    <span className="text-muted-foreground text-[10px]">{m.nbNotes} notes</span>
+                                    <span className="text-muted-foreground text-[10px]">{t("notesCount", { count: m.nbNotes })}</span>
                                   </div>
                                 ))}
                               </div>
@@ -374,13 +376,13 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <Users className="w-4 h-4 text-primary" />
-              Effectifs par classe
+              {t("classSize")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {elevesParClasse.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-                Aucune classe configurée
+                {t("noClassConfigured")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -393,7 +395,7 @@ export function AnalyticsView() {
                   <XAxis type="number" tick={{ fontSize: 10 }} />
                   <YAxis dataKey="classe" type="category" tick={{ fontSize: 11 }} width={70} />
                   <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  <Bar dataKey="effectif" name="Élèves" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="effectif" name={t("studentsLabel")} fill="#6366f1" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -408,12 +410,12 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <Star className="w-4 h-4 text-yellow-500" />
-              Top 5 élèves
+              {t("top5")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {top5.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">Aucune note disponible</p>
+              <p className="text-xs text-gray-400 text-center py-4">{t("noGradesAvailable")}</p>
             ) : (
               <div className="space-y-2">
                 {top5.map((e, i) => (
@@ -447,12 +449,12 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-red-500" />
-              Élèves en difficulté
+              {t("strugglingStudents")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {bottom5.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">Aucune note disponible</p>
+              <p className="text-xs text-gray-400 text-center py-4">{t("noGradesAvailable")}</p>
             ) : (
               <div className="space-y-2">
                 {bottom5.map((e) => (
@@ -478,14 +480,14 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-500" />
-              Risque décrochage
+              {t("dropoutRisk")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {elevesArisque.length === 0 ? (
               <div className="text-center py-4">
                 <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                <p className="text-xs text-gray-400">Aucun élève à risque identifié</p>
+                <p className="text-xs text-gray-400">{t("noAtRiskStudents")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -512,7 +514,7 @@ export function AnalyticsView() {
                 ))}
                 {elevesArisque.length > 6 && (
                   <p className="text-xs text-gray-400 text-center">
-                    +{elevesArisque.length - 6} autre{elevesArisque.length - 6 > 1 ? "s" : ""}
+                    {t("moreCount", { count: elevesArisque.length - 6 })}
                   </p>
                 )}
               </div>
@@ -528,7 +530,7 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <Users className="w-4 h-4 text-primary" />
-              Répartition par genre
+              {t("genderDist")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -536,8 +538,8 @@ export function AnalyticsView() {
               <PieChart>
                 <Pie
                   data={[
-                    { name: "Garçons", value: genderDist.garcons, fill: "#3b82f6" },
-                    { name: "Filles", value: genderDist.filles, fill: "#ec4899" },
+                    { name: t("boys"), value: genderDist.garcons, fill: "#3b82f6" },
+                    { name: t("girls"), value: genderDist.filles, fill: "#ec4899" },
                   ]}
                   dataKey="value"
                   nameKey="name"
@@ -561,13 +563,13 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-green-500" />
-              Encaissements (6 derniers mois)
+              {t("revenue6m")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {revenueData.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-                Aucune donnée de paiement
+                {t("noRevenueData")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -577,7 +579,7 @@ export function AnalyticsView() {
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                    formatter={(v: number) => [`${v.toLocaleString()} F`, "Encaissé"]}
+                    formatter={(v: number) => [`${v.toLocaleString()} F`, t("collected")]}
                   />
                   <Line type="monotone" dataKey="montant" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
@@ -594,13 +596,13 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" />
-              Moyennes par classe (radar)
+              {t("classRadar")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {classeRadarData.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-                Aucune donnée disponible
+                {t("noDataAvailable")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
@@ -608,8 +610,8 @@ export function AnalyticsView() {
                   <PolarGrid stroke="#e5e7eb" />
                   <PolarAngleAxis dataKey="classe" tick={{ fontSize: 10 }} />
                   <PolarRadiusAxis domain={[0, 20]} tick={{ fontSize: 9 }} />
-                  <Radar name="Moyenne" dataKey="moyenne" stroke="#6366f1" fill="#6366f1" fillOpacity={0.3} />
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [`${v}/20`, "Moyenne"]} />
+                  <Radar name={t("avgLabel")} dataKey="moyenne" stroke="#6366f1" fill="#6366f1" fillOpacity={0.3} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [`${v}/20`, t("avgLabel")]} />
                 </RadarChart>
               </ResponsiveContainer>
             )}
@@ -621,13 +623,13 @@ export function AnalyticsView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-500" />
-              Absences par classe
+              {t("absenceByClass")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {absenceParClasse.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-                Aucune absence enregistrée
+                {t("noAbsenceRecorded")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
@@ -636,7 +638,7 @@ export function AnalyticsView() {
                   <XAxis dataKey="classe" tick={{ fontSize: 10 }} angle={-35} textAnchor="end" interval={0} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  <Bar dataKey="count" name="Absences" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" name={t("absencesLabel")} fill="#f59e0b" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

@@ -87,6 +87,30 @@ export async function POST(req: NextRequest) {
     const tenantId = session.user.tenantId;
     const { notes, isPubliee } = parsed.data;
 
+    // Garde-fou : refuse la saisie sur une période clôturée ou dont la date limite est dépassée.
+    const periodeIds = [...new Set(notes.map((n) => n.periodeId).filter((id): id is string => !!id))];
+    if (periodeIds.length > 0) {
+      const periodes = await prisma.periode.findMany({
+        where: { id: { in: periodeIds }, annee: { tenantId } },
+        select: { id: true, nom: true, statut: true, dateLimiteSaisie: true },
+      });
+      const now = new Date();
+      const bloquee = periodes.find(
+        (p) => p.statut === "CLOTUREE" || (p.dateLimiteSaisie && p.dateLimiteSaisie < now)
+      );
+      if (bloquee) {
+        return NextResponse.json(
+          {
+            error:
+              bloquee.statut === "CLOTUREE"
+                ? `La période « ${bloquee.nom} » est clôturée. La saisie des notes est verrouillée.`
+                : `La date limite de saisie de la période « ${bloquee.nom} » est dépassée.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const created = await prisma.$transaction(
       notes.map((note) =>
         prisma.note.create({

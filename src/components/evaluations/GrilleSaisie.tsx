@@ -7,6 +7,7 @@ import { Save, ArrowLeft, Lock, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface EleveGrille {
   eleveId: string;
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function GrilleSaisie({ evaluation, initialGrille }: Props) {
+  const t = useTranslations("evaluations");
   const [grille, setGrille] = useState<EleveGrille[]>(initialGrille);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -58,10 +60,10 @@ export function GrilleSaisie({ evaluation, initialGrille }: Props) {
 
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.error || "Erreur lors de la sauvegarde");
+          throw new Error(err.error || t("grilleSaveError"));
         }
 
-        toast.success("Notes sauvegardées avec succès !");
+        toast.success(t("grilleSaved"));
         router.refresh();
       } catch (error: any) {
         toast.error(error.message);
@@ -70,31 +72,31 @@ export function GrilleSaisie({ evaluation, initialGrille }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
-      <div className="bg-[#eef2f6] px-4 py-3 border-b flex justify-between items-center">
-        <h3 className="font-semibold text-[#0f4c75]">Saisie des notes</h3>
+    <div className="bg-card rounded-xl shadow-sm border overflow-hidden mt-6">
+      <div className="bg-muted px-4 py-3 border-b flex justify-between items-center">
+        <h3 className="font-semibold text-foreground">{t("grilleTitle")}</h3>
         <Button onClick={handleSave} disabled={isPending} className="bg-yellow-500 hover:bg-yellow-600 text-white gap-2 shadow-sm h-8">
           <Save className="h-4 w-4" />
-          {isPending ? "Sauvegarde..." : "Enregistrer"}
+          {isPending ? t("grilleSaving") : t("grilleSave")}
         </Button>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-[#0f4c75] text-white">
+          <thead className="bg-muted text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-semibold">Matricule</th>
-              <th className="px-4 py-3 font-semibold">Nom</th>
-              <th className="px-4 py-3 font-semibold">Prénom</th>
-              <th className="px-4 py-3 font-semibold w-32">Note (/20)</th>
-              <th className="px-4 py-3 font-semibold">Commentaire</th>
-              <th className="px-4 py-3 font-semibold text-center w-24">Actions</th>
+              <th className="px-4 py-3 font-semibold">{t("grilleColMatricule")}</th>
+              <th className="px-4 py-3 font-semibold">{t("grilleColNom")}</th>
+              <th className="px-4 py-3 font-semibold">{t("grilleColPrenom")}</th>
+              <th className="px-4 py-3 font-semibold w-32">{t("grilleColNote")}</th>
+              <th className="px-4 py-3 font-semibold">{t("grilleColComment")}</th>
+              <th className="px-4 py-3 font-semibold text-center w-24">{t("grilleColActions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {grille.map((eleve) => (
-              <tr key={eleve.eleveId} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-2 font-mono text-gray-600">{eleve.matricule}</td>
+              <tr key={eleve.eleveId} className="hover:bg-muted/50 transition-colors">
+                <td className="px-4 py-2 font-mono text-muted-foreground">{eleve.matricule}</td>
                 <td className="px-4 py-2 font-bold uppercase">{eleve.nom}</td>
                 <td className="px-4 py-2 uppercase">{eleve.prenom}</td>
                 <td className="px-4 py-2">
@@ -112,7 +114,7 @@ export function GrilleSaisie({ evaluation, initialGrille }: Props) {
                   <Input
                     className="h-8 w-full"
                     value={eleve.commentaire}
-                    placeholder="Observation..."
+                    placeholder={t("grillePlaceholder")}
                     onChange={(e) => updateEleve(eleve.eleveId, "commentaire", e.target.value)}
                   />
                 </td>

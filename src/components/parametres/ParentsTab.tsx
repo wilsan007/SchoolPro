@@ -17,6 +17,7 @@ import {
   type ParentFormData,
 } from "@/lib/actions/parametres";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
+import { useTranslations } from "next-intl";
 
 interface EleveLink {
   eleve: {
@@ -58,6 +59,7 @@ export function ParentsTab({
   eleves: EleveItem[];
   canManage: boolean;
 }) {
+  const t = useTranslations("parents");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [linkingParent, setLinkingParent] = useState<string | null>(null);
@@ -86,14 +88,14 @@ export function ParentsTab({
     setIsPending(true);
     try {
       await createParent(form);
-      toast.success("Parent créé et lié aux élèves");
+      toast.success(t("parentCreated"));
       setShowForm(false);
       setForm({
         nom: "", prenom: "", phone: "", phone2: "", email: "",
         telegramChatId: "", profession: "", adresse: "", eleveIds: [],
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("error"));
     } finally {
       setIsPending(false);
     }
@@ -101,29 +103,29 @@ export function ParentsTab({
 
   async function handleLink(parentId: string) {
     if (selectedEleves.length === 0) {
-      toast.error("Sélectionnez au moins un élève");
+      toast.error(t("selectStudent"));
       return;
     }
     setIsPending(true);
     try {
       await linkParentToEleves(parentId, selectedEleves);
-      toast.success(`${selectedEleves.length} élève(s) lié(s)`);
+      toast.success(t("studentsLinked", { count: selectedEleves.length }));
       setLinkingParent(null);
       setSelectedEleves([]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("error"));
     } finally {
       setIsPending(false);
     }
   }
 
   async function handleUnlink(parentId: string, eleveId: string, eleveNom: string) {
-    if (!confirm(`Délier ${eleveNom} de ce parent ?`)) return;
+    if (!confirm(t("confirmUnlink", { name: eleveNom }))) return;
     try {
       await unlinkParentFromEleve(parentId, eleveId);
-      toast.success("Lien supprimé");
+      toast.success(t("linkRemoved"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("error"));
     }
   }
 
@@ -131,23 +133,23 @@ export function ParentsTab({
     setIsPending(true);
     try {
       await updateParentPhone(parentId, phoneForm.phone, phoneForm.telegramChatId);
-      toast.success("Contact mis à jour");
+      toast.success(t("contactUpdated"));
       setEditingPhone(null);
       setPhoneForm({ phone: "", telegramChatId: "" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("error"));
     } finally {
       setIsPending(false);
     }
   }
 
   async function handleDelete(parentId: string, parentNom: string) {
-    if (!confirm(`Supprimer ${parentNom} ?`)) return;
+    if (!confirm(t("confirmDelete", { name: parentNom }))) return;
     try {
       await deleteParent(parentId);
-      toast.success("Parent supprimé");
+      toast.success(t("parentDeleted"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("error"));
     }
   }
 
@@ -188,7 +190,7 @@ export function ParentsTab({
         <div className="flex justify-end">
           <Button size="sm" className="gap-2" onClick={() => setShowForm(!showForm)}>
             <Plus className="h-4 w-4" />
-            Ajouter un parent
+            {t("add")}
           </Button>
         </div>
       )}
@@ -197,50 +199,50 @@ export function ParentsTab({
       {showForm && canManage && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Nouveau parent / tuteur</CardTitle>
+            <CardTitle className="text-sm">{t("newParent")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-nom">Nom *</Label>
+                  <Label htmlFor="p-nom">{t("lastName")}</Label>
                   <Input id="p-nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-prenom">Prénom *</Label>
+                  <Label htmlFor="p-prenom">{t("firstName")}</Label>
                   <Input id="p-prenom" value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-phone">Téléphone * (WhatsApp/SMS)</Label>
+                  <Label htmlFor="p-phone">{t("phoneRequired")}</Label>
                   <Input id="p-phone" placeholder="ex: 253779876543" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-phone2">Téléphone 2 (optionnel)</Label>
+                  <Label htmlFor="p-phone2">{t("phone2")}</Label>
                   <Input id="p-phone2" value={form.phone2 ?? ""} onChange={(e) => setForm({ ...form, phone2: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-email">Email</Label>
+                  <Label htmlFor="p-email">{t("email")}</Label>
                   <Input id="p-email" type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-telegram">Telegram Chat ID (optionnel)</Label>
+                  <Label htmlFor="p-telegram">{t("telegramChatId")}</Label>
                   <Input id="p-telegram" placeholder="ex: 123456789" value={form.telegramChatId ?? ""} onChange={(e) => setForm({ ...form, telegramChatId: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-profession">Profession</Label>
+                  <Label htmlFor="p-profession">{t("profession")}</Label>
                   <Input id="p-profession" value={form.profession ?? ""} onChange={(e) => setForm({ ...form, profession: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-adresse">Adresse</Label>
+                  <Label htmlFor="p-adresse">{t("adresse")}</Label>
                   <Input id="p-adresse" value={form.adresse ?? ""} onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
                 </div>
               </div>
 
               {/* Sélection des élèves à lier */}
               <div className="space-y-2">
-                <Label>Lier à des élèves (optionnel)</Label>
+                <Label>{t("linkStudents")}</Label>
                 {eleves.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Aucun élève actif</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t("noStudents")}</p>
                 ) : (
                   <div className="border rounded-md">
                     {/* Onglets horizontaux : Primaire | Collège | Lycée */}
@@ -330,24 +332,24 @@ export function ParentsTab({
                     {(!formActiveGroup || !formActiveClass) && (
                       <div className="text-center py-6 text-muted-foreground text-xs">
                         {!formActiveGroup
-                          ? "Sélectionnez un niveau scolaire ci-dessus."
-                          : "Sélectionnez une classe ci-dessus pour afficher les élèves."}
+                          ? t("selectLevel")
+                          : t("selectClass")}
                       </div>
                     )}
                   </div>
                 )}
                 {form.eleveIds.length > 0 && (
-                  <p className="text-xs text-primary">{form.eleveIds.length} élève(s) sélectionné(s)</p>
+                  <p className="text-xs text-primary">{t("studentsSelected", { count: form.eleveIds.length })}</p>
                 )}
               </div>
 
               <div className="flex gap-2">
                 <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Créer le parent
+                  {t("createParent")}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>
-                  Annuler
+                  {t("cancel")}
                 </Button>
               </div>
             </form>
@@ -362,18 +364,18 @@ export function ParentsTab({
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium">Parent / Tuteur</th>
-                  <th className="text-left px-4 py-3 font-medium">Téléphone</th>
-                  <th className="text-left px-4 py-3 font-medium">Telegram</th>
-                  <th className="text-left px-4 py-3 font-medium">Élèves liés</th>
-                  {canManage && <th className="text-right px-4 py-3 font-medium">Actions</th>}
+                  <th className="text-left px-4 py-3 font-medium">{t("parentGuardian")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("phone")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("telegram")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("linkedStudents")}</th>
+                  {canManage && <th className="text-right px-4 py-3 font-medium">{t("actions")}</th>}
                 </tr>
               </thead>
               <tbody>
                 {parents.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Aucun parent enregistré. Cliquez sur "Ajouter un parent" pour commencer.
+                      {t("noParents")}
                     </td>
                   </tr>
                 ) : (
@@ -388,13 +390,13 @@ export function ParentsTab({
                         {editingPhone === p.id ? (
                           <div className="flex flex-col gap-1">
                             <Input
-                              placeholder="Téléphone"
+                              placeholder={t("phone")}
                               value={phoneForm.phone}
                               onChange={(e) => setPhoneForm({ ...phoneForm, phone: e.target.value })}
                               className="h-8 text-xs w-32"
                             />
                             <Input
-                              placeholder="Telegram Chat ID"
+                              placeholder={t("telegram")}
                               value={phoneForm.telegramChatId}
                               onChange={(e) => setPhoneForm({ ...phoneForm, telegramChatId: e.target.value })}
                               className="h-8 text-xs w-32"
@@ -452,7 +454,7 @@ export function ParentsTab({
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {p.enfants.length === 0 ? (
-                            <span className="text-muted-foreground text-xs">Aucun élève lié</span>
+                            <span className="text-muted-foreground text-xs">{t("noLinkedStudents")}</span>
                           ) : (
                             p.enfants.map((ep) => (
                               <Badge key={ep.eleve.id} variant="secondary" className="gap-1">
@@ -481,7 +483,7 @@ export function ParentsTab({
                                 setLinkingParent(linkingParent === p.id ? null : p.id);
                                 setSelectedEleves([]);
                               }}
-                              title="Lier à des élèves"
+                              title={t("linkToStudents")}
                             >
                               <Link2 className="h-3.5 w-3.5" />
                             </Button>
@@ -490,7 +492,7 @@ export function ParentsTab({
                               size="icon"
                               className="h-8 w-8 text-destructive"
                               onClick={() => handleDelete(p.id, `${p.prenom} ${p.nom}`)}
-                              title="Supprimer"
+                              title={t("delete")}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -512,7 +514,7 @@ export function ParentsTab({
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Lier des élèves au parent
+              {t("linkStudentsToParent")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -597,7 +599,7 @@ export function ParentsTab({
                               className="rounded"
                             />
                             <span className="flex-1">{el.prenom} {el.nom}</span>
-                            {alreadyLinked && <Badge variant="secondary" className="text-xs">Déjà lié</Badge>}
+                            {alreadyLinked && <Badge variant="secondary" className="text-xs">{t("alreadyLinked")}</Badge>}
                           </label>
                         );
                       })}
@@ -607,8 +609,8 @@ export function ParentsTab({
                 {(!linkActiveGroup || !linkActiveClass) && (
                   <div className="text-center py-6 text-muted-foreground text-xs">
                     {!linkActiveGroup
-                      ? "Sélectionnez un niveau scolaire ci-dessus."
-                      : "Sélectionnez une classe ci-dessus pour afficher les élèves."}
+                      ? t("selectLevel")
+                      : t("selectClass")}
                   </div>
                 )}
               </div>
@@ -621,10 +623,10 @@ export function ParentsTab({
                 disabled={isPending || selectedEleves.length === 0}
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                Lier {selectedEleves.length} élève(s)
+                {t("linkBtn", { count: selectedEleves.length })}
               </Button>
               <Button variant="outline" size="sm" onClick={() => { setLinkingParent(null); setSelectedEleves([]); }}>
-                Annuler
+                {t("cancel")}
               </Button>
             </div>
           </CardContent>

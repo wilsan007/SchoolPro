@@ -5,6 +5,8 @@ import { PWAProvider } from "@/components/providers/PWAProvider";
 import { PWAEnhanced } from "@/components/providers/PWAEnhanced";
 import { NativeProvider } from "@/components/providers/NativeProvider";
 import { Toaster } from "sonner";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 
 const inter = Inter({
@@ -33,11 +35,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#6366f1" />
@@ -46,18 +51,20 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="EcolPro" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <PWAProvider />
-          <PWAEnhanced />
-          <NativeProvider />
-          {children}
-          <Toaster position="top-right" richColors closeButton />
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <PWAProvider />
+            <PWAEnhanced />
+            <NativeProvider />
+            {children}
+            <Toaster position="top-right" richColors closeButton />
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -11,6 +11,10 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  // Prisma >= 5.9.0: prepared statements sont activés par défaut
+  // sauf si pgbouncer=true dans l'URL (mode transaction).
+  // Pour les activer explicitement en mode session, utiliser:
+  // relationMode = "foreignKeys" (déjà le défaut)
 }
 
 // ============================================================
@@ -65,6 +69,11 @@ model Tenant {
   primaryColor   String?
   secondaryColor String?
 
+  // Signature & cachet pour documents officiels (bulletins, attestations)
+  signatureUrl       String?
+  cachetUrl          String?
+  chefEtablissement  String?
+
   // Stripe
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
@@ -74,6 +83,7 @@ model Tenant {
 
   // Relations
   users          User[]
+  userTenants    UserTenant[]
   annees         AnneesScolaires[]
   classes        Classe[]
   matieres       Matiere[]
@@ -94,6 +104,9 @@ model Tenant {
   disponibilites DisponibiliteEnseignant[]
   salles         Salle[]
   sites          Site[]
+  structures     Structure[]
+  reglesAppreciation ReglesAppreciation[]
+  dispenses          DispenseMatiere[]
 
   @@map("tenants")
 }
@@ -115,10 +128,18 @@ model Site {
   email    String?
   actif    Boolean @default(true)
 
-  classes  Classe[]
-  salles   Salle[]
-  factures Facture[]
-  users    User[]
+  classes      Classe[]
+  salles       Salle[]
+  factures     Facture[]
+  users        User[]
+  eleves       Eleve[]
+  examens      Examen[]
+  evenements   Evenement[]
+  notifications Notification[]
+  candidatures Candidature[]
+  alumni       Alumni[]
+  inventaire   ItemInventaire[]
+  cours        Cours[]
 
   // Enseignants multi-sites
   enseignantSites EnseignantSite[]
@@ -178,6 +199,11 @@ model Periode {
   dateFin   DateTime
   isCurrent Boolean  @default(false)
 
+  // Clôture / prolongation de période
+  statut           String  @default("OUVERTE") // OUVERTE | CLOTUREE
+  cloturedAt       DateTime?
+  dateLimiteSaisie DateTime? // prolongation exceptionnelle
+
   notes       Note[]
   bulletins   Bulletin[]
   evaluations Evaluation[]
@@ -227,6 +253,7 @@ model User {
 
   // Préférences
   langue        String @default("fr")
+  locale        String @default("fr") // FR ou EN pour l'interface
   notifications Json? // { email: true, sms: false, push: true }
 
   createdAt DateTime @default(now())
@@ -239,6 +266,7 @@ model User {
   // Relations métier
   enseignant Enseignant?
   parent     Parent?
+  eleve      Eleve?
 
   // Messagerie
   messagesSent        Message[]                 @relation("MessageSender")
@@ -253,9 +281,35 @@ model User {
   // Appareils mobiles (push)
   devices DeviceToken[] @relation("UserDevices")
 
+  // Multi-tenant: liste des tenants accessibles
+  userTenants UserTenant[]
+
   @@index([tenantId])
   @@index([siteId])
   @@map("users")
+}
+
+// ============================================================
+// USER TENANT (Jointure multi-tenant — un user peut accéder à plusieurs écoles)
+// ============================================================
+
+model UserTenant {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      Role     // Rôle spécifique à ce tenant
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false) // Tenant par défaut à la connexion
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tenantId]) // Un user = une seule fois par tenant
+  @@index([tenantId])
+  @@map("user_tenants")
 }
 
 model Account {
@@ -302,6 +356,32 @@ model VerificationToken {
 // STRUCTURE PÉDAGOGIQUE
 // ============================================================
 
+enum StructureType {
+  MATERNELLE
+  PRIMAIRE
+  COLLEGE
+  LYCEE
+}
+
+model Structure {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  type     StructureType // MATERNELLE, PRIMAIRE, COLLEGE, LYCEE
+  nom      String   // "Maternelle", "Primaire", etc.
+  actif    Boolean  @default(true)
+
+  classes  Classe[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, type])
+  @@map("structures")
+}
+
 model Classe {
   id       String @id @default(cuid())
   tenantId String
@@ -309,6 +389,9 @@ model Classe {
 
   siteId String? // null = non rattaché à un site spécifique
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  structureId String? // null = non rattaché à une structure pédagogique
+  structure   Structure? @relation(fields: [structureId], references: [id], onDelete: SetNull)
 
   nom         String // "Terminale A", "CM2 A"
   niveau      String // "Terminale", "CM2"
@@ -326,6 +409,7 @@ model Classe {
 
   @@index([tenantId])
   @@index([siteId])
+  @@index([structureId])
   @@map("classes")
 }
 
@@ -344,6 +428,7 @@ model Matiere {
   emploiTemps      EmploiTemps[]
   bulletinMatieres BulletinMatiere[]
   evaluations      Evaluation[]
+  dispenses        DispenseMatiere[]
 
   @@index([tenantId])
   @@map("matieres")
@@ -371,6 +456,9 @@ model Eleve {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = non rattaché à un site spécifique
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   matricule     String // auto-généré
   nom           String
   prenom        String
@@ -383,6 +471,10 @@ model Eleve {
 
   classeId String?
   classe   Classe? @relation(fields: [classeId], references: [id])
+
+  // Compte de connexion élève (optionnel — généré en masse depuis Paramètres/Élèves)
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
 
   // Santé
   groupeSanguin   String?
@@ -411,10 +503,12 @@ model Eleve {
   documents Document[]
   incidents Incident[]
   parcours  ParcoursScolaire[]
+  dispenses DispenseMatiere[]
 
   @@unique([tenantId, matricule])
   @@index([tenantId])
   @@index([classeId])
+  @@index([siteId])
   @@map("eleves")
 }
 
@@ -787,6 +881,9 @@ model Examen {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = non rattaché à un site spécifique
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   intitule    String // "Baccalauréat 2026"
   description String?
   statut      StatutExamen @default(PROGRAMME)
@@ -796,6 +893,7 @@ model Examen {
   sessions SessionExamen[]
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("examens")
 }
 
@@ -905,6 +1003,9 @@ model Evenement {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = événement global (tous sites)
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   titre       String
   description String?
   type        String // "reunion", "sortie", "vacances", "conseil_classe"
@@ -918,6 +1019,7 @@ model Evenement {
   createdAt DateTime @default(now())
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("evenements")
 }
 
@@ -1072,6 +1174,9 @@ model Notification {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = notification globale (tous sites)
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   titre   String
   contenu String             @db.Text
   canal   CanalNotification  @default(IN_APP)
@@ -1095,6 +1200,7 @@ model Notification {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("notifications")
 }
 
@@ -1191,6 +1297,9 @@ model Candidature {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = candidature non rattachée à un site
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   // Informations élève
   nom           String
   prenom        String
@@ -1226,6 +1335,7 @@ model Candidature {
 
   @@index([tenantId])
   @@index([tenantId, statut])
+  @@index([siteId])
   @@map("candidatures")
 }
 
@@ -1245,6 +1355,9 @@ model Alumni {
   id       String @id @default(cuid())
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String? // null = non rattaché à un site
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
   // Infos identité (copie depuis Eleve si existant)
   eleveId       String? // lien optionnel vers l'élève source
@@ -1279,6 +1392,7 @@ model Alumni {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("alumni")
 }
 
@@ -1310,6 +1424,9 @@ model ItemInventaire {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = non rattaché à un site
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   nom         String
   description String?
   reference   String? // code interne / numéro de série
@@ -1334,6 +1451,7 @@ model ItemInventaire {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("inventaire")
 }
 
@@ -1444,6 +1562,9 @@ model Cours {
   id       String @id @default(cuid())
   tenantId String
 
+  siteId String? // null = cours partagé entre tous les sites
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   titre       String
   description String?     @db.Text
   niveau      NiveauCours @default(INTERMEDIAIRE)
@@ -1469,6 +1590,7 @@ model Cours {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("cours")
 }
 
@@ -1514,4 +1636,58 @@ model ProgressionEleve {
 
   @@unique([coursId, eleveNom])
   @@map("progressions_eleves")
+}
+
+// ============================================================
+// RÈGLES D'APPRÉCIATION CONFIGURABLES (Phase 3 — MENFOP)
+// ============================================================
+
+enum ContexteAppreciation {
+  NOTE_MATIERE
+  BULLETIN_PERIODE
+  BULLETIN_ANNUEL
+  ABSENCE
+}
+
+model ReglesAppreciation {
+  id        String                @id @default(cuid())
+  tenantId  String
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  contexte  ContexteAppreciation
+  seuilMin  Float
+  seuilMax  Float
+  libelle   String
+  ordre     Int                   @default(0)
+
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([tenantId, contexte])
+  @@map("regles_appreciation")
+}
+
+// ============================================================
+// DISPENSE DE MATIÈRE (exempter un élève d'une matière)
+// ============================================================
+
+model DispenseMatiere {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  eleveId   String
+  eleve     Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  matiereId String
+  matiere   Matiere @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+  periodeId String?
+  motif     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eleveId, matiereId, periodeId])
+  @@index([tenantId])
+  @@index([eleveId])
+  @@map("dispenses_matiere")
 }

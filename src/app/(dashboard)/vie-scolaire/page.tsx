@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { VieScolaireView } from "@/components/vie-scolaire/VieScolaireView";
+import { getTranslations } from "next-intl/server";
 
 async function getVieScolaireData(tenantId: string) {
   const [incidents, eleves, classes] = await Promise.all([
@@ -32,7 +33,10 @@ async function getVieScolaireData(tenantId: string) {
 }
 
 export default async function VieScolairePage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("vieScolaire"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const { incidents, eleves, classes } = await getVieScolaireData(session.user.tenantId);
@@ -40,8 +44,8 @@ export default async function VieScolairePage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Vie Scolaire & Discipline"
-        subtitle="Incidents, sanctions, comportement et suivi élèves"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

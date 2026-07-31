@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AiChatWidget } from "@/components/ai/AiChatWidget";
 import prisma from "@/lib/prisma";
+import { getTranslations } from "next-intl/server";
+import { unstable_cache } from "next/cache";
 
 const AI_GREETINGS: Record<string, string> = {
   SUPER_ADMIN:
@@ -18,38 +20,48 @@ const AI_GREETINGS: Record<string, string> = {
   PARENT: "Posez-moi vos questions sur la scolarité de votre/vos enfant(s).",
 };
 
+const getTenantName = unstable_cache(
+  async (tenantId: string) => {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+    return tenant?.name ?? "Mon École";
+  },
+  ["tenant-name"],
+  { revalidate: 300, tags: ["tenant-name"] }
+);
+
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const [session, tRoles] = await Promise.all([
+    auth(),
+    getTranslations("roles"),
+  ]);
 
   if (!session?.user) {
     redirect("/login");
   }
 
-  let tenantName = "Mon École";
-  if (session.user.tenantId) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: session.user.tenantId },
-      select: { name: true },
-    });
-    if (tenant) tenantName = tenant.name;
-  }
+  const tenantName = session.user.tenantId
+    ? await getTenantName(session.user.tenantId)
+    : "Mon École";
 
   const roleLabels: Record<string, string> = {
-    SUPER_ADMIN: "Super Admin",
-    TENANT_ADMIN: "Directeur",
-    PRINCIPAL: "Chef d'établissement",
-    SECRETARY: "Secrétariat",
-    TEACHER: "Enseignant",
-    CLASS_TEACHER: "Prof. Principal",
-    COUNSELOR: "Conseiller",
-    NURSE: "Infirmier(e)",
-    ACCOUNTANT: "Comptable",
-    PARENT: "Parent",
-    STUDENT: "Élève",
+    SUPER_ADMIN: tRoles("SUPER_ADMIN"),
+    TENANT_ADMIN: tRoles("TENANT_ADMIN"),
+    PRINCIPAL: tRoles("PRINCIPAL"),
+    SECRETARY: tRoles("SECRETARY"),
+    TEACHER: tRoles("TEACHER"),
+    CLASS_TEACHER: tRoles("CLASS_TEACHER"),
+    COUNSELOR: tRoles("COUNSELOR"),
+    NURSE: tRoles("NURSE"),
+    ACCOUNTANT: tRoles("ACCOUNTANT"),
+    PARENT: tRoles("PARENT"),
+    STUDENT: tRoles("STUDENT"),
   };
 
   return (
@@ -59,9 +71,11 @@ export default async function DashboardLayout({
         userRole={roleLabels[session.user.role] ?? session.user.role}
         userAvatar={session.user.image ?? undefined}
         tenantName={tenantName}
+        tenantId={session.user.tenantId}
         isSuperAdmin={session.user.role === "SUPER_ADMIN"}
+        availableTenants={session.user.availableTenants}
       />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden bg-background">
         {children}
       </main>
       {/* AI chat widget temporarily hidden

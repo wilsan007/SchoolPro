@@ -7,6 +7,7 @@ import { BulletinsList } from "@/components/bulletins/BulletinsList";
 import { BilanAnnuelManager } from "@/components/bulletins/BilanAnnuelManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, List, Award } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 async function getBulletinsData(tenantId: string) {
   const [classes, periodes] = await Promise.all([
@@ -21,21 +22,26 @@ async function getBulletinsData(tenantId: string) {
     prisma.periode.findMany({
       where: { annee: { tenantId } },
       orderBy: { numero: "asc" },
+      include: { annee: { select: { id: true, libelle: true } } },
     }),
   ]);
-  return { classes, periodes };
+  const anneeId = periodes.find(p => p.isCurrent)?.anneeId ?? periodes[0]?.anneeId;
+  return { classes, periodes, anneeId };
 }
 
 export default async function BulletinsPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("bulletins"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
-  const { classes, periodes } = await getBulletinsData(session.user.tenantId);
+  const { classes, periodes, anneeId } = await getBulletinsData(session.user.tenantId);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Bulletins de Notes"
-        subtitle="Génération, validation et distribution des bulletins"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
@@ -44,15 +50,15 @@ export default async function BulletinsPage() {
           <TabsList className="mb-6 grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="generation" className="gap-2">
               <FileText className="h-4 w-4" />
-              Génération
+              {t("generation")}
             </TabsTrigger>
             <TabsTrigger value="liste" className="gap-2">
               <List className="h-4 w-4" />
-              Liste
+              {t("list")}
             </TabsTrigger>
             <TabsTrigger value="annuel" className="gap-2">
               <Award className="h-4 w-4" />
-              Bilan Annuel
+              {t("annualSummary")}
             </TabsTrigger>
           </TabsList>
           
@@ -65,7 +71,7 @@ export default async function BulletinsPage() {
           </TabsContent>
           
           <TabsContent value="annuel" className="mt-0 outline-none">
-            <BilanAnnuelManager classes={classes} />
+            <BilanAnnuelManager classes={classes} anneeId={anneeId} />
           </TabsContent>
         </Tabs>
       </div>

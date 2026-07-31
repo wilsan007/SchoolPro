@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { X, Sparkles, Loader2, CheckCircle2, AlertCircle, Plus, Wand2, Check, Users, Split, Info } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -23,10 +24,7 @@ interface Suggestion {
   raison: string;
 }
 
-const JOURS_LABELS: Record<string, string> = {
-  DIMANCHE: "Dimanche", LUNDI: "Lundi", MARDI: "Mardi", MERCREDI: "Mercredi",
-  JEUDI: "Jeudi", VENDREDI: "Vendredi", SAMEDI: "Samedi",
-};
+const JOURS_KEYS: string[] = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
 
 export function SmartSuggestPanel({
   classeId,
@@ -47,6 +45,7 @@ export function SmartSuggestPanel({
   onGenerated: (creneaux: unknown[]) => void;
   onReplaced?: (creneaux: unknown[]) => void;
 }) {
+  const t = useTranslations("emploi");
   const [matiereId, setMatiereId] = useState(matieres[0]?.id ?? "");
   const [enseignantId, setEnseignantId] = useState("");
 
@@ -244,7 +243,7 @@ export function SmartSuggestPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur");
       setSuggestions(data.suggestions ?? []);
-      if (!data.suggestions?.length) toast.info("Aucun créneau disponible trouvé");
+      if (!data.suggestions?.length) toast.info(t("noSlotsFound"));
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Erreur");
     } finally {
@@ -271,7 +270,7 @@ export function SmartSuggestPanel({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Erreur");
         onGenerated([data]);
-        toast.success(`Créneau ajouté : ${JOURS_LABELS[s.jour]} ${s.heureDebut}`);
+        toast.success(t("slotAdded", { jour: t(`days.${s.jour}`), heure: s.heureDebut }));
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : "Erreur");
       }
@@ -279,9 +278,7 @@ export function SmartSuggestPanel({
   }
 
   async function autoGenerate() {
-    const confirmed = window.confirm(
-      "⚠️ Attention : cette action va SUPPRIMER tous les créneaux existants de cette classe pour l'année en cours et les remplacer par les nouveaux.\n\nVoulez-vous continuer ?"
-    );
+    const confirmed = window.confirm(t("confirmAutoGen"));
     if (!confirmed) return;
 
     setAutoGenerating(true);
@@ -339,11 +336,12 @@ export function SmartSuggestPanel({
       const skipped = stats?.skipped ?? 0;
       if (totalCreated > 0) {
         toast.success(
-          `${totalCreated} créneau(x) généré(s)` +
-          (skipped ? `, ${skipped} matière(s) sans créneau — voir le rapport ci-dessous` : "")
+          skipped
+            ? t("slotsGeneratedWithSkipped", { count: totalCreated, skipped })
+            : t("slotsGenerated", { count: totalCreated })
         );
       } else {
-        toast.error("Aucun créneau généré — consultez le rapport ci-dessous pour comprendre pourquoi");
+        toast.error(t("noSlotsGenerated"));
       }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Erreur");
@@ -358,7 +356,7 @@ export function SmartSuggestPanel({
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold">Optimisation — {classeNom}</h2>
+            <h2 className="text-lg font-semibold">{t("optimization", { classeNom })}</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
@@ -371,22 +369,22 @@ export function SmartSuggestPanel({
             <div className="flex items-center gap-2">
               <Wand2 className="w-4 h-4 text-indigo-600" />
               <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">
-                Génération automatique — Semestre complet
+                {t("autoGenTitle")}
               </h3>
             </div>
             <p className="text-xs text-indigo-700 dark:text-indigo-400">
-              Sélectionnez les matières, la plage horaire et les jours. Le système génère un emploi du temps pour toute l'année en évitant les conflits de professeurs et de salles.
+              {t("autoGenDescription")}
             </p>
 
             {/* Sélection des matières */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300">Matières</label>
+                <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300">{t("subjects")}</label>
                 <button
                   onClick={selectAllMatieres}
                   className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                 >
-                  {selectedMatiereIds.size === matieres.length ? "Tout désélectionner" : "Tout sélectionner"}
+                  {selectedMatiereIds.size === matieres.length ? t("deselectAll") : t("selectAll")}
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg p-2 border border-indigo-100 dark:border-indigo-800">
@@ -415,7 +413,7 @@ export function SmartSuggestPanel({
                       </div>
                       <span className="flex-1 truncate">{m.nom}</span>
                       {pairedBy ? (
-                        <span className="text-[10px] px-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" title={`Jumelle de ${pairedBy.parentName} (config verrouillée)`}>
+                        <span className="text-[10px] px-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" title={t("locked", { name: pairedBy.parentName })}>
                           ↔ {pairedBy.parentName}
                         </span>
                       ) : (
@@ -423,7 +421,7 @@ export function SmartSuggestPanel({
                           "text-[10px] px-1 rounded",
                           ensCount > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400"
                         )}>
-                          {ensCount} ens.
+                          {t("ensShort", { count: ensCount })}
                         </span>
                       )}
                     </button>
@@ -435,31 +433,31 @@ export function SmartSuggestPanel({
             {/* Plage horaire & jours */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 block mb-1">Heure début</label>
+                <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 block mb-1">{t("startTime")}</label>
                 <select
                   value={heureMin}
                   onChange={(e) => setHeureMin(e.target.value)}
                   className="w-full border border-indigo-100 dark:border-indigo-800 rounded-lg px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {["07:00","07:30","08:00","08:30","09:00","09:30","10:00"].map((t) => <option key={t} value={t}>{t}</option>)}
+                  {["07:00","07:30","08:00","08:30","09:00","09:30","10:00"].map((tm) => <option key={tm} value={tm}>{tm}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 block mb-1">Heure fin</label>
+                <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 block mb-1">{t("endTime")}</label>
                 <select
                   value={heureMax}
                   onChange={(e) => setHeureMax(e.target.value)}
                   className="w-full border border-indigo-100 dark:border-indigo-800 rounded-lg px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {["16:00","16:30","17:00","17:30","18:00","18:30","19:00"].map((t) => <option key={t} value={t}>{t}</option>)}
+                  {["16:00","16:30","17:00","17:30","18:00","18:30","19:00"].map((tm) => <option key={tm} value={tm}>{tm}</option>)}
                 </select>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 block mb-1">Jours actifs</label>
+              <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 block mb-1">{t("activeDays")}</label>
               <div className="flex flex-wrap gap-1.5">
-                {Object.entries(JOURS_LABELS).map(([key, label]) => {
+                {JOURS_KEYS.map((key) => {
                   const checked = selectedJours.has(key);
                   return (
                     <button
@@ -472,7 +470,7 @@ export function SmartSuggestPanel({
                           : "bg-white dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700"
                       )}
                     >
-                      {label}
+                      {t(`days.${key}`)}
                     </button>
                   );
                 })}
@@ -485,7 +483,7 @@ export function SmartSuggestPanel({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Configuration des matières ({selectedMatiereIds.size})
+                  {t("matiereConfig", { count: selectedMatiereIds.size })}
                 </h3>
               </div>
               <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
@@ -512,14 +510,14 @@ export function SmartSuggestPanel({
                         </span>
                         {isLocked && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center gap-1">
-                            <Split className="w-3 h-3" /> Verrouillé — jumelle de {lockedBy?.parentName}
+                            <Split className="w-3 h-3" /> {t("locked", { name: lockedBy?.parentName ?? "" })}
                           </span>
                         )}
                       </div>
 
                       {isLocked && (
                         <div className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md px-2 py-1">
-                          Configuration synchronisée avec {lockedBy?.parentName}. Seul l'enseignant peut être modifié.
+                          {t("lockedDescription", { name: lockedBy?.parentName ?? "" })}
                         </div>
                       )}
 
@@ -542,7 +540,7 @@ export function SmartSuggestPanel({
                           )}>
                             {cfg.troncCommun && <Check className="w-2.5 h-2.5 text-indigo-600" />}
                           </div>
-                          <Users className="w-3 h-3" /> Tronc commun
+                          <Users className="w-3 h-3" /> {t("troncCommun")}
                         </button>
                         <button
                           onClick={() => !isLocked && updateMatiereConfig(mId, { groupes: !cfg.groupes })}
@@ -561,7 +559,7 @@ export function SmartSuggestPanel({
                           )}>
                             {cfg.groupes && <Check className="w-2.5 h-2.5 text-indigo-600" />}
                           </div>
-                          <Split className="w-3 h-3" /> 2 groupes
+                          <Split className="w-3 h-3" /> {t("twoGroups")}
                         </button>
                       </div>
 
@@ -569,7 +567,7 @@ export function SmartSuggestPanel({
                       {cfg.troncCommun && (
                         <div className="flex items-center gap-2 pl-1">
                           <Users className="w-3 h-3 text-indigo-500 flex-shrink-0" />
-                          <label className="text-[11px] text-gray-500 whitespace-nowrap">Heures tronc commun/sem:</label>
+                          <label className="text-[11px] text-gray-500 whitespace-nowrap">{t("troncCommunHours")}</label>
                           <input
                             type="number"
                             min={1}
@@ -590,7 +588,7 @@ export function SmartSuggestPanel({
                         <>
                           <div className="flex items-center gap-2 pl-1">
                             <Split className="w-3 h-3 text-indigo-500 flex-shrink-0" />
-                            <label className="text-[11px] text-gray-500 whitespace-nowrap">Heures par groupe/sem:</label>
+                            <label className="text-[11px] text-gray-500 whitespace-nowrap">{t("groupHours")}</label>
                             <input
                               type="number"
                               min={1}
@@ -605,7 +603,7 @@ export function SmartSuggestPanel({
                             />
                           </div>
                           <div className="flex items-center gap-2 pl-1">
-                            <label className="text-[11px] text-gray-500 whitespace-nowrap">Switch avec:</label>
+                            <label className="text-[11px] text-gray-500 whitespace-nowrap">{t("switchWith")}</label>
                             <select
                               value={cfg.pairedMatiereId}
                               disabled={isLocked}
@@ -615,7 +613,7 @@ export function SmartSuggestPanel({
                                 isLocked && "opacity-60 cursor-not-allowed"
                               )}
                             >
-                              <option value="">— Aucune (groupe seul) —</option>
+                              <option value="">{t("noPair")}</option>
                               {otherSelectedMatieres.map((m) => (
                                 <option key={m.id} value={m.id}>{m.nom}</option>
                               ))}
@@ -626,20 +624,20 @@ export function SmartSuggestPanel({
 
                       {/* Ligne 5: enseignant */}
                       <div>
-                        <label className="text-[11px] text-gray-500 block mb-0.5">Enseignant</label>
+                        <label className="text-[11px] text-gray-500 block mb-0.5">{t("teacher")}</label>
                         {ens.length > 0 ? (
                           <select
                             value={cfg.enseignantId}
                             onChange={(e) => updateMatiereConfig(mId, { enseignantId: e.target.value })}
                             className="w-full border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-xs bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           >
-                            <option value="">Auto</option>
+                            <option value="">{t("auto")}</option>
                             {ens.map((e) => (
-                              <option key={e.id} value={e.id}>{e.user.name ?? "Enseignant"}</option>
+                              <option key={e.id} value={e.id}>{e.user.name ?? t("teacher")}</option>
                             ))}
                           </select>
                         ) : (
-                          <p className="text-[11px] text-gray-400 italic">Aucun enseignant assigné</p>
+                          <p className="text-[11px] text-gray-400 italic">{t("noTeacher")}</p>
                         )}
                       </div>
                     </div>
@@ -650,13 +648,13 @@ export function SmartSuggestPanel({
               {/* Total + bouton générer */}
               <div className="flex items-center justify-between gap-3 pt-1">
                 <div className="text-xs text-gray-500">
-                  Total: {Array.from(selectedMatiereIds).reduce((sum, mId) => {
+                  {t("totalHours", { count: Array.from(selectedMatiereIds).reduce((sum, mId) => {
                     const cfg = matiereConfigs[mId];
                     let h = 0;
                     if (cfg?.troncCommun) h += cfg.troncCommunHeures;
                     if (cfg?.groupes) h += cfg.groupesHeures * 2;
                     return sum + h;
-                  }, 0)} h/sem
+                  }, 0) })}
                 </div>
                 <Button
                   onClick={autoGenerate}
@@ -664,9 +662,9 @@ export function SmartSuggestPanel({
                   className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
                 >
                   {autoGenerating ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Génération…</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> {t("generating")}</>
                   ) : (
-                    <><Wand2 className="w-4 h-4" /> Générer ({selectedMatiereIds.size} matière{selectedMatiereIds.size > 1 ? "s" : ""})</>
+                    <><Wand2 className="w-4 h-4" /> {t("generate", { count: selectedMatiereIds.size, s: selectedMatiereIds.size > 1 ? "s" : "" })}</>
                   )}
                 </Button>
               </div>
@@ -679,7 +677,7 @@ export function SmartSuggestPanel({
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 text-gray-500" />
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Rapport de génération
+                  {t("genReport")}
                 </h3>
               </div>
               <div className="space-y-1.5 max-h-[30vh] overflow-y-auto">
@@ -738,7 +736,7 @@ export function SmartSuggestPanel({
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-            <span className="text-xs text-gray-400">ou suggestions ciblées</span>
+            <span className="text-xs text-gray-400">{t("orTargeted")}</span>
             <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
           </div>
 
@@ -746,7 +744,7 @@ export function SmartSuggestPanel({
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Matière</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("subject")}</label>
                 <select
                   value={matiereId}
                   onChange={(e) => { setMatiereId(e.target.value); setEnseignantId(""); }}
@@ -756,22 +754,22 @@ export function SmartSuggestPanel({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Enseignant</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("teacher")}</label>
                 {filteredEnseignants.length > 0 ? (
                   <select
                     value={enseignantId}
                     onChange={(e) => setEnseignantId(e.target.value)}
                     className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="">Tous</option>
+                    <option value="">{t("all")}</option>
                     {filteredEnseignants.map((e) => <option key={e.id} value={e.id}>{e.user.name ?? "?"}</option>)}
                   </select>
                 ) : (
-                  <p className="text-xs text-gray-400 italic py-2">Aucun enseignant pour cette matière</p>
+                  <p className="text-xs text-gray-400 italic py-2">{t("noTeacherForSubject")}</p>
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Durée</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("duration")}</label>
                 <select
                   value={duree}
                   onChange={(e) => setDuree(Number(e.target.value))}
@@ -792,9 +790,9 @@ export function SmartSuggestPanel({
               className="w-full gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Recherche…</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {t("searching")}</>
               ) : (
-                <><Sparkles className="w-4 h-4" /> Suggérer des créneaux</>
+                <><Sparkles className="w-4 h-4" /> {t("suggestSlots")}</>
               )}
             </Button>
           </div>
@@ -803,7 +801,7 @@ export function SmartSuggestPanel({
           {suggestions.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Créneaux suggérés ({suggestions.length})
+                {t("suggestedSlots", { count: suggestions.length })}
               </h3>
               {suggestions.map((s, i) => (
                 <div
@@ -823,12 +821,12 @@ export function SmartSuggestPanel({
                     )}
                     <div>
                       <p className="text-sm font-medium">
-                        {JOURS_LABELS[s.jour]} {s.heureDebut}–{s.heureFin}
+                        {t(`days.${s.jour}`)} {s.heureDebut}–{s.heureFin}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {s.enseignantNom ?? "Non assigné"}
+                        {s.enseignantNom ?? t("unassigned")}
                         {s.salle && ` • ${s.salle}`}
-                        {` • Score: ${s.score}%`}
+                        {` • ${t("score", { score: s.score })}`}
                       </p>
                       {s.conflits.length > 0 && (
                         <p className="text-xs text-amber-600 mt-0.5">{s.conflits.join(", ")}</p>
@@ -842,7 +840,7 @@ export function SmartSuggestPanel({
                     className="gap-1 bg-indigo-600 hover:bg-indigo-700 text-white"
                   >
                     <Plus className="w-3 h-3" />
-                    Ajouter
+                    {t("add")}
                   </Button>
                 </div>
               ))}

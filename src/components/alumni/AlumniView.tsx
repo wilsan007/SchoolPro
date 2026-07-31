@@ -6,6 +6,7 @@ import {
   GraduationCap, Users, Briefcase, TrendingUp, Plus, Search,
   ExternalLink, Mail, Phone, Edit3, Trash2, X, Building2
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type StatutAlumni = "ETUDES_SUPERIEURES" | "EN_EMPLOI" | "RECHERCHE_EMPLOI" | "ENTREPRENEUR" | "INCONNU";
 
@@ -36,12 +37,12 @@ interface Stats {
   annees: string[];
 }
 
-const STATUT_CONFIG: Record<StatutAlumni, { label: string; color: string }> = {
-  ETUDES_SUPERIEURES: { label: "Études supérieures", color: "bg-blue-100 text-blue-700" },
-  EN_EMPLOI:          { label: "En emploi",           color: "bg-green-100 text-green-700" },
-  RECHERCHE_EMPLOI:   { label: "Recherche emploi",     color: "bg-yellow-100 text-yellow-700" },
-  ENTREPRENEUR:       { label: "Entrepreneur",          color: "bg-purple-100 text-purple-700" },
-  INCONNU:            { label: "Inconnu",               color: "bg-gray-100 text-gray-500" },
+const STATUT_CONFIG: Record<StatutAlumni, { labelKey: string; color: string }> = {
+  ETUDES_SUPERIEURES: { labelKey: "statusEtudesSuperieures", color: "bg-blue-100 text-blue-700" },
+  EN_EMPLOI:          { labelKey: "statusEnEmploi",          color: "bg-green-100 text-green-700" },
+  RECHERCHE_EMPLOI:   { labelKey: "statusRechercheEmploi",   color: "bg-yellow-100 text-yellow-700" },
+  ENTREPRENEUR:       { labelKey: "statusEntrepreneur",      color: "bg-purple-100 text-purple-700" },
+  INCONNU:            { labelKey: "statusInconnu",           color: "bg-gray-100 text-gray-500" },
 };
 
 const EMPTY_FORM = {
@@ -53,6 +54,7 @@ const EMPTY_FORM = {
 };
 
 export function AlumniView() {
+  const t = useTranslations("alumni");
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, etudes: 0, emploi: 0, entrepreneurs: 0, annees: [] });
   const [loading, setLoading] = useState(true);
@@ -109,19 +111,19 @@ export function AlumniView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (!res.ok) { toast.error("Erreur lors de l'enregistrement"); return; }
-      toast.success(editing ? "Alumni mis à jour" : "Alumni ajouté");
+      if (!res.ok) { toast.error(t("saveError")); return; }
+      toast.success(editing ? t("updatedSuccess") : t("addedSuccess"));
       setShowForm(false);
       load();
     });
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Supprimer cet alumni ?")) return;
+    if (!confirm(t("confirmDelete"))) return;
     startTransition(async () => {
       const res = await fetch(`/api/alumni/${id}`, { method: "DELETE" });
-      if (!res.ok) { toast.error("Erreur suppression"); return; }
-      toast.success("Alumni supprimé");
+      if (!res.ok) { toast.error(t("deleteError")); return; }
+      toast.success(t("deletedSuccess"));
       load();
     });
   };
@@ -137,31 +139,31 @@ export function AlumniView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Réseau Alumni</h1>
-          <p className="text-gray-500 text-sm mt-1">Anciens élèves de l'établissement</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("headerTitle")}</h1>
+          <p className="text-gray-500 text-sm mt-1">{t("headerSubtitle")}</p>
         </div>
         <button
           onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
         >
-          <Plus className="w-4 h-4" /> Ajouter un alumni
+          <Plus className="w-4 h-4" /> {t("addAlumni")}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total alumni", value: stats.total, icon: GraduationCap, color: "text-indigo-600" },
-          { label: "En études", value: stats.etudes, icon: Users, color: "text-blue-600" },
-          { label: "En emploi", value: stats.emploi, icon: Briefcase, color: "text-green-600" },
-          { label: "Entrepreneurs", value: stats.entrepreneurs, icon: TrendingUp, color: "text-purple-600" },
+          { label: t("statTotal"), value: stats.total, icon: GraduationCap, color: "text-indigo-600" },
+          { label: t("statEtudes"), value: stats.etudes, icon: Users, color: "text-blue-600" },
+          { label: t("statEmploi"), value: stats.emploi, icon: Briefcase, color: "text-green-600" },
+          { label: t("statEntrepreneurs"), value: stats.entrepreneurs, icon: TrendingUp, color: "text-purple-600" },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+          <div key={s.label} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500 font-medium">{s.label}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{s.label}</p>
               <s.icon className={`w-4 h-4 ${s.color}`} />
             </div>
-            <p className="text-2xl font-bold text-gray-900 mt-2">{s.value}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2">{s.value}</p>
           </div>
         ))}
       </div>
@@ -173,7 +175,7 @@ export function AlumniView() {
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); load(e.target.value, filterStatut, filterAnnee); }}
-            placeholder="Rechercher un alumni..."
+            placeholder={t("searchPlaceholder")}
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           />
         </div>
@@ -182,9 +184,9 @@ export function AlumniView() {
           onChange={(e) => { setFilterStatut(e.target.value); load(search, e.target.value, filterAnnee); }}
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
         >
-          <option value="all">Tous les statuts</option>
+          <option value="all">{t("allStatuses")}</option>
           {Object.entries(STATUT_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
+            <option key={k} value={k}>{t(v.labelKey)}</option>
           ))}
         </select>
         <select
@@ -192,7 +194,7 @@ export function AlumniView() {
           onChange={(e) => { setFilterAnnee(e.target.value); load(search, filterStatut, e.target.value); }}
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
         >
-          <option value="all">Toutes les années</option>
+          <option value="all">{t("allYears")}</option>
           {stats.annees.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
       </div>
@@ -207,7 +209,7 @@ export function AlumniView() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>Aucun alumni trouvé</p>
+          <p>{t("noResults")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -246,32 +248,33 @@ function AlumniCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("alumni");
   const cfg = STATUT_CONFIG[a.statut];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-sm">
+          <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-semibold text-sm">
             {a.prenom[0]}{a.nom[0]}
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{a.prenom} {a.nom}</p>
-            <p className="text-xs text-gray-500">{a.classeDepart} · {a.anneeDiplome}</p>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">{a.prenom} {a.nom}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{a.classeDepart} · {a.anneeDiplome}</p>
           </div>
         </div>
         <div className="flex gap-1">
-          <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             <Edit3 className="w-4 h-4" />
           </button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+          <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
-        {cfg.label}
+        {t(cfg.labelKey)}
       </span>
 
       {(a.etablissement || a.formation) && (
@@ -323,15 +326,16 @@ function AlumniForm({
   isPending: boolean;
   isEdit: boolean;
 }) {
+  const t = useTranslations("alumni");
   const f = (k: keyof typeof EMPTY_FORM, v: string | boolean) =>
     setForm({ ...form, [k]: v });
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">{isEdit ? "Modifier un alumni" : "Ajouter un alumni"}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{isEdit ? t("editTitle") : t("addTitle")}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 dark:text-gray-500">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -339,12 +343,12 @@ function AlumniForm({
         <div className="overflow-y-auto p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Prénom *</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("firstName")}</label>
               <input value={form.prenom} onChange={(e) => f("prenom", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Nom *</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("lastName")}</label>
               <input value={form.nom} onChange={(e) => f("nom", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
@@ -352,13 +356,13 @@ function AlumniForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Année diplôme *</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("graduationYearLabel")}</label>
               <input value={form.anneeDiplome} onChange={(e) => f("anneeDiplome", e.target.value)}
                 placeholder="2024-2025"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Classe de départ *</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("departureClass")}</label>
               <input value={form.classeDepart} onChange={(e) => f("classeDepart", e.target.value)}
                 placeholder="Terminale S"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
@@ -367,31 +371,31 @@ function AlumniForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Mention</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("mention")}</label>
               <input value={form.mention} onChange={(e) => f("mention", e.target.value)}
                 placeholder="Très Bien"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Statut actuel</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("currentStatus")}</label>
               <select value={form.statut} onChange={(e) => f("statut", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none">
                 {Object.entries(STATUT_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
+                  <option key={k} value={k}>{t(v.labelKey)}</option>
                 ))}
               </select>
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Établissement / Entreprise</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("establishment")}</label>
             <input value={form.etablissement} onChange={(e) => f("etablissement", e.target.value)}
               placeholder="Université Cheikh Anta Diop"
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Formation / Poste</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("formation")}</label>
             <input value={form.formation} onChange={(e) => f("formation", e.target.value)}
               placeholder="Licence Informatique"
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
@@ -399,12 +403,12 @@ function AlumniForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Email</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("email")}</label>
               <input type="email" value={form.email} onChange={(e) => f("email", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Téléphone</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("phone")}</label>
               <input value={form.telephone} onChange={(e) => f("telephone", e.target.value)}
                 placeholder="+221 77 000 00 00"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
@@ -412,7 +416,7 @@ function AlumniForm({
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">LinkedIn</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("linkedin")}</label>
             <input value={form.linkedin} onChange={(e) => f("linkedin", e.target.value)}
               placeholder="https://linkedin.com/in/..."
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
@@ -422,18 +426,18 @@ function AlumniForm({
             <input type="checkbox" checked={form.accepteContact}
               onChange={(e) => f("accepteContact", e.target.checked)}
               className="rounded border-gray-300 text-indigo-600" />
-            <span className="text-sm text-gray-600">Accepte d'être contacté par l'établissement</span>
+            <span className="text-sm text-gray-600">{t("acceptContact")}</span>
           </label>
         </div>
 
         <div className="p-5 border-t border-gray-100 flex gap-3">
           <button onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-            Annuler
+            {t("cancel")}
           </button>
           <button onClick={onSubmit} disabled={isPending || !form.nom || !form.prenom || !form.anneeDiplome}
             className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors">
-            {isPending ? "Enregistrement..." : isEdit ? "Modifier" : "Ajouter"}
+            {isPending ? t("saving") : isEdit ? t("editBtn") : t("addBtn")}
           </button>
         </div>
       </div>

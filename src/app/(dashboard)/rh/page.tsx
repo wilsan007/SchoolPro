@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { RHView } from "@/components/rh/RHView";
+import { getTranslations } from "next-intl/server";
 
 async function getEnseignantsRH(tenantId: string) {
   const enseignants = await prisma.enseignant.findMany({
@@ -40,7 +41,10 @@ async function getEnseignantsRH(tenantId: string) {
 }
 
 export default async function RHPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("rh"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const { enseignants } = await getEnseignantsRH(session.user.tenantId);
@@ -48,8 +52,8 @@ export default async function RHPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Ressources Humaines & Paie"
-        subtitle="Gestion des contrats, fiches RH et bulletins de salaire des enseignants"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

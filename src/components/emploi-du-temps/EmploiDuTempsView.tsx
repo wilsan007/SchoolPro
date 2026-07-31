@@ -7,14 +7,11 @@ import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles, AlertCir
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SmartSuggestPanel } from "./SmartSuggestPanel";
+import { useTranslations } from "next-intl";
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
 const JOURS: Jour[] = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
-const JOURS_LABELS: Record<Jour, string> = {
-  DIMANCHE: "Dim", LUNDI: "Lun", MARDI: "Mar", MERCREDI: "Mer", JEUDI: "Jeu",
-  VENDREDI: "Ven", SAMEDI: "Sam",
-};
 
 // Continuous grid: 07:00 → 18:00 in 30-min increments
 const ALL_SLOTS = [
@@ -106,6 +103,7 @@ function AddCreneauModal({
   onClose: () => void;
   onAdded: (c: EmploiCreneau) => void;
 }) {
+  const t = useTranslations("emploi");
   const [form, setForm] = useState({
     classeId,
     matiereId: matieres[0]?.id ?? "",
@@ -161,12 +159,12 @@ function AddCreneauModal({
           body: JSON.stringify(form),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Erreur");
+        if (!res.ok) throw new Error(data.error ?? t("deleteError"));
         onAdded(data);
-        toast.success("Créneau ajouté !");
+        toast.success(t("slotAddedToast"));
         onClose();
       } catch (e: unknown) {
-        toast.error(e instanceof Error ? e.message : "Erreur");
+        toast.error(e instanceof Error ? e.message : t("deleteError"));
       }
     });
   }
@@ -175,11 +173,11 @@ function AddCreneauModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold">Nouveau créneau</h2>
+          <h2 className="text-lg font-semibold">{t("newSlot")}</h2>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Classe *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("class")}</label>
             <select
               required
               value={form.classeId}
@@ -190,7 +188,7 @@ function AddCreneauModal({
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Matière *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("subjectLabel")}</label>
             <select
               required
               value={form.matiereId}
@@ -201,54 +199,54 @@ function AddCreneauModal({
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Enseignant</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("teacherLabel")}</label>
             {filteredEnseignants.length > 0 ? (
               <select
                 value={form.enseignantId}
                 onChange={(e) => setForm({ ...form, enseignantId: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                <option value="">Non assigné</option>
-                {filteredEnseignants.map((e) => <option key={e.id} value={e.id}>{e.user.name ?? "Enseignant"}</option>)}
+                <option value="">{t("unassigned")}</option>
+                {filteredEnseignants.map((e) => <option key={e.id} value={e.id}>{e.user.name ?? t("teacherLabel")}</option>)}
               </select>
             ) : (
               <p className="text-xs text-gray-400 italic py-2">
-                Aucun enseignant n'enseigne actuellement cette matière. Assignez d'abord un enseignant à un créneau avec cette matière.
+                {t("noTeacherForMatiere")}
               </p>
             )}
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Jour *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("dayLabel")}</label>
             <select
               required
               value={form.jour}
               onChange={(e) => setForm({ ...form, jour: e.target.value as Jour })}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              {JOURS.map((j) => <option key={j} value={j}>{JOURS_LABELS[j]}</option>)}
+              {JOURS.map((j) => <option key={j} value={j}>{t(`daysShort.${j}`)}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Début *</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("startLabel")}</label>
               <select
                 required
                 value={form.heureDebut}
                 onChange={(e) => setForm({ ...form, heureDebut: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {availableSlots.slice(0, -1).map((t) => <option key={t} value={t}>{t}</option>)}
+                {availableSlots.slice(0, -1).map((slot) => <option key={slot} value={slot}>{slot}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Fin *</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("endLabel")}</label>
               <select
                 required
                 value={form.heureFin}
                 onChange={(e) => setForm({ ...form, heureFin: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {availableSlots.slice(1).map((t) => <option key={t} value={t}>{t}</option>)}
+                {availableSlots.slice(1).map((slot) => <option key={slot} value={slot}>{slot}</option>)}
               </select>
             </div>
           </div>
@@ -256,22 +254,22 @@ function AddCreneauModal({
           {form.enseignantId && !enseignantDisponible && (
             <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg p-2.5">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>Cet enseignant n'est pas disponible le {JOURS_LABELS[form.jour]} de {form.heureDebut} à {form.heureFin}.</span>
+              <span>{t("teacherNotAvailable", { jour: t(`daysShort.${form.jour}`), debut: form.heureDebut, fin: form.heureFin })}</span>
             </div>
           )}
           {form.enseignantId && enseignantDisponible && (
             <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 rounded-lg p-2.5">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-              <span>Enseignant disponible à ce créneau.</span>
+              <span>{t("teacherAvailable")}</span>
             </div>
           )}
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
-              Salle {sallesDisponibles.length > 0 && <span className="text-xs text-gray-400">({sallesDisponibles.length} disponible{sallesDisponibles.length > 1 ? "s" : ""})</span>}
+              {t("roomLabel")} {sallesDisponibles.length > 0 && <span className="text-xs text-gray-400">({t("roomsAvailable", { count: sallesDisponibles.length })})</span>}
             </label>
             {salles.length === 0 ? (
               <p className="text-xs text-gray-400 italic py-2">
-                Aucune salle déclarée. Ajoutez des salles dans la gestion des établissements.
+                {t("noRooms")}
               </p>
             ) : sallesDisponibles.length > 0 ? (
               <select
@@ -279,7 +277,7 @@ function AddCreneauModal({
                 onChange={(e) => setForm({ ...form, salle: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                <option value="">Sans salle</option>
+                <option value="">{t("noRoom")}</option>
                 {sallesDisponibles.map((s) => (
                   <option key={s.id} value={s.nom}>
                     {s.nom}{s.capacite ? ` (cap. ${s.capacite})` : ""}{s.type ? ` — ${s.type}` : ""}
@@ -288,18 +286,18 @@ function AddCreneauModal({
               </select>
             ) : (
               <p className="text-xs text-amber-600 italic py-2">
-                Toutes les salles sont occupées à ce créneau. Choisissez un autre horaire.
+                {t("allRoomsOccupied")}
               </p>
             )}
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>{t("cancel")}</Button>
             <Button
               type="submit"
               disabled={isPending || (form.enseignantId !== "" && !enseignantDisponible)}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ajouter"}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("addBtn")}
             </Button>
           </div>
         </form>
@@ -326,6 +324,7 @@ export function EmploiDuTempsView({
   disponibilites: Disponibilite[];
   tenantId: string;
 }) {
+  const t = useTranslations("emploi");
   const [emplois, setEmplois] = useState<EmploiCreneau[]>(initial);
   const [selectedClasse, setSelectedClasse] = useState<Classe | null>(classes[0] ?? null);
   const [showAdd, setShowAdd] = useState(false);
@@ -353,9 +352,9 @@ export function EmploiDuTempsView({
         const res = await fetch(`/api/emploi-du-temps/${id}`, { method: "DELETE" });
         if (!res.ok) throw new Error();
         setEmplois((prev) => prev.filter((e) => e.id !== id));
-        toast.success("Créneau supprimé");
+        toast.success(t("slotDeletedToast"));
       } catch {
-        toast.error("Impossible de supprimer");
+        toast.error(t("deleteError"));
       }
     });
   }
@@ -391,10 +390,10 @@ export function EmploiDuTempsView({
       if (draggedGroup && otherGroup && draggedGroup !== otherGroup) continue;
       // Any other combination is a conflict — show clear feedback
       const reason = !draggedGroup && !otherGroup
-        ? "Conflit : deux cours en tronc commun ne peuvent pas partager le même créneau."
+        ? t("conflictBothTroncCommun")
         : !draggedGroup || !otherGroup
-        ? "Conflit : un cours en tronc commun et un cours en groupe ne peuvent pas partager le même créneau."
-        : `Conflit : le Groupe ${draggedGroup} a déjà un cours à ce créneau. Seuls deux groupes différents (A et B) peuvent cohabiter.`;
+        ? t("conflictTroncCommunGroup")
+        : t("conflictSameGroup", { group: draggedGroup ?? "" });
       toast.error(reason, { duration: 5000 });
       return;
     }
@@ -414,9 +413,9 @@ export function EmploiDuTempsView({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Erreur lors du déplacement");
+        throw new Error(data.error ?? t("moveError"));
       }
-      toast.success(`Créneau déplacé vers ${JOURS_LABELS[newJour]} ${newHeureDebut}`);
+      toast.success(t("slotMovedToast", { jour: t(`daysShort.${newJour}`), heure: newHeureDebut }));
     } catch (e: unknown) {
       // Revert on error
       setEmplois((prev) =>
@@ -424,7 +423,7 @@ export function EmploiDuTempsView({
           e.id === id ? { ...e, jour: creneau.jour, heureDebut: oldDebut, heureFin: oldFin } : e
         )
       );
-      toast.error(e instanceof Error ? e.message : "Erreur lors du déplacement", { duration: 5000 });
+      toast.error(e instanceof Error ? e.message : t("moveError"), { duration: 5000 });
     }
   }, [emplois, classeEmplois]);
 
@@ -564,7 +563,7 @@ export function EmploiDuTempsView({
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
                   className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
-                  title="Supprimer"
+                  title={t("deleteTitle")}
                 >
                   <Trash2 className="w-3 h-3 text-red-500" />
                 </button>
@@ -608,7 +607,7 @@ export function EmploiDuTempsView({
           {selectedClasse && (
             <span className="text-sm text-gray-500">
               <Clock className="w-4 h-4 inline mr-1" />
-              {totalHeures}h / semaine
+              {t("hoursPerWeek", { count: totalHeures })}
             </span>
           )}
           <Button
@@ -618,7 +617,7 @@ export function EmploiDuTempsView({
             onClick={() => window.print()}
           >
             <Printer className="w-4 h-4" />
-            Imprimer
+            {t("print")}
           </Button>
           <Button
             onClick={() => setShowSuggest(true)}
@@ -627,7 +626,7 @@ export function EmploiDuTempsView({
             size="sm"
           >
             <Sparkles className="w-4 h-4" />
-            Optimiser
+            {t("optimize")}
           </Button>
           <Button
             onClick={() => setShowAdd(true)}
@@ -636,7 +635,7 @@ export function EmploiDuTempsView({
             size="sm"
           >
             <Plus className="w-4 h-4" />
-            Ajouter créneau
+            {t("addSlotBtn")}
           </Button>
         </div>
       </div>
@@ -644,7 +643,7 @@ export function EmploiDuTempsView({
       {/* Info banner */}
       <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2 flex items-center gap-2">
         <GripVertical className="w-4 h-4" />
-        <span>Glissez-déposez les cours pour les déplacer. Horaires : 07:00–18:00 (tous les jours)</span>
+        <span>{t("dragHint")}</span>
       </div>
 
       {/* Grille horaire */}
@@ -657,7 +656,7 @@ export function EmploiDuTempsView({
                 <div className="p-3 text-xs text-gray-400 font-medium"></div>
                 {JOURS.map((j) => (
                   <div key={j} className="p-3 text-center border-l border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{JOURS_LABELS[j]}</p>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t(`daysShort.${j}`)}</p>
                   </div>
                 ))}
               </div>
@@ -700,7 +699,7 @@ export function EmploiDuTempsView({
       ) : (
         <Card>
           <CardContent className="flex items-center justify-center py-16 text-gray-400">
-            <p>Sélectionnez une classe pour afficher son emploi du temps</p>
+            <p>{t("selectClass")}</p>
           </CardContent>
         </Card>
       )}

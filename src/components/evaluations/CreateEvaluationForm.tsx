@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface Props {
   classes: { id: string; nom: string }[];
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function CreateEvaluationForm({ classes, matieres, periodes }: Props) {
+  const t = useTranslations("evaluations");
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -47,10 +49,10 @@ export function CreateEvaluationForm({ classes, matieres, periodes }: Props) {
 
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.error || "Erreur de création");
+          throw new Error(err.error || t("createError"));
         }
 
-        toast.success("Évaluation planifiée avec succès");
+        toast.success(t("createSuccess"));
         setOpen(false);
         router.refresh();
       } catch (error: any) {
@@ -64,53 +66,58 @@ export function CreateEvaluationForm({ classes, matieres, periodes }: Props) {
       <DialogTrigger asChild>
         <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md">
           <PlusCircle className="h-5 w-5" />
-          Ajouter un examen
+          {t("addExam")}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl bg-white border-none shadow-2xl rounded-xl">
-        <DialogHeader className="bg-gray-50 -mx-6 -mt-6 p-6 border-b rounded-t-xl mb-4">
-          <DialogTitle className="text-xl text-gray-800 font-bold flex items-center gap-2">
+      <DialogContent
+        className="max-w-2xl bg-background border-none shadow-2xl rounded-xl"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="bg-muted -mx-6 -mt-6 p-6 border-b rounded-t-xl mb-4">
+          <DialogTitle className="text-xl text-foreground font-bold flex items-center gap-2">
             <PlusCircle className="h-6 w-6 text-blue-600" />
-            Ajouter un examen
+            {t("addExam")}
           </DialogTitle>
-          <p className="text-sm text-gray-500 mt-1">Créez un nouvel examen pour une classe et une matière spécifiques.</p>
+          <p className="text-sm text-muted-foreground mt-1">{t("addExamDesc")}</p>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-6">
-          <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-            <h3 className="text-sm font-semibold text-blue-800 mb-4">Informations de l'examen</h3>
+          <div className="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900">
+            <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-400 mb-4">{t("examInfo")}</h3>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="titre" className="text-red-500 font-medium">Titre de l'examen *</Label>
-                <Input id="titre" name="titre" required placeholder="Controle 1 math test" className="bg-white" />
+                <Label htmlFor="titre" className="text-red-500 font-medium">{t("examTitle")}</Label>
+                <Input id="titre" name="titre" required placeholder={t("examTitlePlaceholder")} className="bg-background" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="type" className="text-red-500 font-medium">Type d'examen *</Label>
+                <Label htmlFor="type" className="text-red-500 font-medium">{t("examType")}</Label>
                 <Select name="type" required defaultValue="CONTROLE">
-                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CONTROLE">Contrôle</SelectItem>
-                    <SelectItem value="DEVOIR">Devoir</SelectItem>
-                    <SelectItem value="EXAMEN">Examen</SelectItem>
-                    <SelectItem value="TP">TP</SelectItem>
+                    <SelectItem value="CONTROLE">{t("typeControle")}</SelectItem>
+                    <SelectItem value="DEVOIR">{t("typeDevoir")}</SelectItem>
+                    <SelectItem value="EXAMEN">{t("typeExamen")}</SelectItem>
+                    <SelectItem value="TP">{t("typeTP")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="classeId" className="text-red-500 font-medium">Classe *</Label>
+                <Label htmlFor="classeId" className="text-red-500 font-medium">{t("class")}</Label>
                 <Select name="classeId" required>
-                  <SelectTrigger className="bg-white"><SelectValue placeholder="Sélectionner une classe" /></SelectTrigger>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder={t("selectClass")} /></SelectTrigger>
                   <SelectContent>
                     {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="matiereId" className="text-red-500 font-medium">Matière *</Label>
+                <Label htmlFor="matiereId" className="text-red-500 font-medium">{t("subject")}</Label>
                 <Select name="matiereId" required>
-                  <SelectTrigger className="bg-white"><SelectValue placeholder="Sélectionner une matière" /></SelectTrigger>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder={t("selectSubject")} /></SelectTrigger>
                   <SelectContent>
                     {matieres.map(m => <SelectItem key={m.id} value={m.id}>{m.nom}</SelectItem>)}
                   </SelectContent>
@@ -118,9 +125,9 @@ export function CreateEvaluationForm({ classes, matieres, periodes }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="periodeId" className="text-red-500 font-medium">Période *</Label>
+                <Label htmlFor="periodeId" className="text-red-500 font-medium">{t("period")}</Label>
                 <Select name="periodeId" required>
-                  <SelectTrigger className="bg-white"><SelectValue placeholder="Sélectionner la période" /></SelectTrigger>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder={t("selectPeriod")} /></SelectTrigger>
                   <SelectContent>
                     {periodes.map(p => <SelectItem key={p.id} value={p.id}>{p.nom}</SelectItem>)}
                   </SelectContent>
@@ -128,31 +135,31 @@ export function CreateEvaluationForm({ classes, matieres, periodes }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="date" className="text-red-500 font-medium">Date et heure *</Label>
-                <Input type="datetime-local" id="date" name="date" required className="bg-white" />
+                <Label htmlFor="date" className="text-red-500 font-medium">{t("dateTime")}</Label>
+                <Input type="datetime-local" id="date" name="date" required className="bg-background" />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="duree" className="text-red-500 font-medium">Durée (min) *</Label>
-                <Input type="number" id="duree" name="duree" defaultValue={60} required className="bg-white" />
+                <Label htmlFor="duree" className="text-red-500 font-medium">{t("duration")}</Label>
+                <Input type="number" id="duree" name="duree" defaultValue={60} required className="bg-background" />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="coefficient" className="text-red-500 font-medium">Coefficient *</Label>
-                <Input type="number" step="0.1" id="coefficient" name="coefficient" defaultValue={1} required className="bg-white" />
+                <Label htmlFor="coefficient" className="text-red-500 font-medium">{t("coefficient")}</Label>
+                <Input type="number" step="0.1" id="coefficient" name="coefficient" defaultValue={1} required className="bg-background" />
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description / Instructions</Label>
-            <Textarea id="description" name="description" placeholder="Instructions pour les élèves..." className="bg-gray-50" />
+            <Label htmlFor="description">{t("description")}</Label>
+            <Textarea id="description" name="description" placeholder={t("descriptionPlaceholder")} className="bg-muted" />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t("cancel")}</Button>
             <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {isPending ? "Enregistrement..." : "Enregistrer"}
+              {isPending ? t("saving") : t("save")}
             </Button>
           </div>
         </form>

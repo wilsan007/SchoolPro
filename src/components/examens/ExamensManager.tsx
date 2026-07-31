@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 type StatutExamen = "PROGRAMME" | "EN_COURS" | "TERMINE" | "ANNULE";
 
@@ -47,11 +48,11 @@ interface Matiere {
   coefficient: number;
 }
 
-const STATUT_CONFIG: Record<StatutExamen, { label: string; icon: React.ReactNode; badge: string }> = {
-  PROGRAMME: { label: "Programmé", icon: <Calendar className="w-3.5 h-3.5" />, badge: "info" },
-  EN_COURS: { label: "En cours", icon: <PlayCircle className="w-3.5 h-3.5" />, badge: "warning" },
-  TERMINE: { label: "Terminé", icon: <CheckCircle2 className="w-3.5 h-3.5" />, badge: "success" },
-  ANNULE: { label: "Annulé", icon: <XCircle className="w-3.5 h-3.5" />, badge: "destructive" },
+const STATUT_CONFIG: Record<StatutExamen, { labelKey: string; icon: React.ReactNode; badge: string }> = {
+  PROGRAMME: { labelKey: "programmed", icon: <Calendar className="w-3.5 h-3.5" />, badge: "info" },
+  EN_COURS: { labelKey: "inProgress", icon: <PlayCircle className="w-3.5 h-3.5" />, badge: "warning" },
+  TERMINE: { labelKey: "completed", icon: <CheckCircle2 className="w-3.5 h-3.5" />, badge: "success" },
+  ANNULE: { labelKey: "cancelled", icon: <XCircle className="w-3.5 h-3.5" />, badge: "destructive" },
 };
 
 function CreateExamenModal({
@@ -61,6 +62,7 @@ function CreateExamenModal({
   onClose: () => void;
   onCreated: (exam: Examen) => void;
 }) {
+  const t = useTranslations("examens");
   const [form, setForm] = useState({
     intitule: "",
     description: "",
@@ -81,7 +83,7 @@ function CreateExamenModal({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         onCreated(data);
-        toast.success("Examen créé !");
+        toast.success(t("createdSuccess"));
         onClose();
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : "Erreur");
@@ -93,38 +95,38 @@ function CreateExamenModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold">Créer un examen</h2>
-          <p className="text-sm text-gray-500 mt-1">Programmez un examen officiel</p>
+          <h2 className="text-lg font-semibold">{t("createTitle")}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("createSubtitle")}</p>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
-              Intitulé *
+              {t("intitule")}
             </label>
             <input
               required
               value={form.intitule}
               onChange={(e) => setForm({ ...form, intitule: e.target.value })}
-              placeholder="ex: Baccalauréat 2026"
+              placeholder={t("intitulePlaceholder")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
-              Description
+              {t("description")}
             </label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={2}
-              placeholder="Description optionnelle..."
+              placeholder={t("descriptionPlaceholder")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
-                Date début *
+                {t("startDate")}
               </label>
               <input
                 type="date"
@@ -136,7 +138,7 @@ function CreateExamenModal({
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
-                Date fin *
+                {t("endDate")}
               </label>
               <input
                 type="date"
@@ -149,10 +151,10 @@ function CreateExamenModal({
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-              Annuler
+              {t("cancel")}
             </Button>
             <Button type="submit" disabled={isPending} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Créer l'examen"}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("createBtn")}
             </Button>
           </div>
         </form>
@@ -172,6 +174,7 @@ function AddSessionModal({
   onClose: () => void;
   onAdded: (session: SessionExamen) => void;
 }) {
+  const t = useTranslations("examens");
   const [form, setForm] = useState({
     matiereNom: matieres[0]?.nom ?? "",
     date: "",
@@ -194,7 +197,7 @@ function AddSessionModal({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         onAdded(data);
-        toast.success("Session ajoutée !");
+        toast.success(t("sessionAdded"));
         onClose();
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : "Erreur");
@@ -206,11 +209,11 @@ function AddSessionModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold">Ajouter une session</h2>
+          <h2 className="text-lg font-semibold">{t("addSessionTitle")}</h2>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Matière *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("matiere")}</label>
             <select
               required
               value={form.matiereNom}
@@ -220,11 +223,11 @@ function AddSessionModal({
               {matieres.map((m) => (
                 <option key={m.id} value={m.nom}>{m.nom} (coeff. {m.coefficient})</option>
               ))}
-              <option value="Autre">Autre matière</option>
+              <option value="Autre">{t("otherSubject")}</option>
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Date *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("date")}</label>
             <input
               type="date"
               required
@@ -235,7 +238,7 @@ function AddSessionModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Heure début *</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("startTime")}</label>
               <input
                 type="time"
                 required
@@ -245,7 +248,7 @@ function AddSessionModal({
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Heure fin *</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("endTime")}</label>
               <input
                 type="time"
                 required
@@ -257,28 +260,28 @@ function AddSessionModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Salle</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("room")}</label>
               <input
                 value={form.salle}
                 onChange={(e) => setForm({ ...form, salle: e.target.value })}
-                placeholder="ex: Salle A1"
+                placeholder={t("roomPlaceholder")}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Niveau</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("level")}</label>
               <input
                 value={form.niveau}
                 onChange={(e) => setForm({ ...form, niveau: e.target.value })}
-                placeholder="ex: Terminale"
+                placeholder={t("levelPlaceholder")}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>{t("cancel")}</Button>
             <Button type="submit" disabled={isPending} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ajouter"}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("addBtn")}
             </Button>
           </div>
         </form>
@@ -296,6 +299,7 @@ function ExamenCard({
   matieres: Matiere[];
   onUpdate: (updated: Examen) => void;
 }) {
+  const t = useTranslations("examens");
   const [expanded, setExpanded] = useState(false);
   const [showAddSession, setShowAddSession] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -312,9 +316,9 @@ function ExamenCard({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         onUpdate({ ...examen, statut });
-        toast.success(`Statut mis à jour : ${STATUT_CONFIG[statut].label}`);
+        toast.success(t("statusUpdated", { status: t(STATUT_CONFIG[statut].labelKey) }));
       } catch {
-        toast.error("Impossible de changer le statut");
+        toast.error(t("statusUpdateError"));
       }
     });
   }
@@ -349,12 +353,12 @@ function ExamenCard({
                 <Badge variant={config.badge as "info" | "warning" | "success" | "destructive"} className="shrink-0">
                   <span className="flex items-center gap-1">
                     {config.icon}
-                    {config.label}
+                    {t(config.labelKey)}
                   </span>
                 </Badge>
               </div>
               {examen.description && (
-                <p className="text-sm text-gray-500 mb-3">{examen.description}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{examen.description}</p>
               )}
               <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
                 <span className="flex items-center gap-1.5">
@@ -363,11 +367,11 @@ function ExamenCard({
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-green-600" />
-                  {duree} jour{duree > 1 ? "s" : ""}
+                  {t("days", { count: duree })}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <BookOpen className="w-4 h-4 text-green-600" />
-                  {examen.sessions.length} session{examen.sessions.length !== 1 ? "s" : ""}
+                  {t("sessionsCount", { count: examen.sessions.length })}
                 </span>
               </div>
             </div>
@@ -383,7 +387,7 @@ function ExamenCard({
                   disabled={isPending}
                 >
                   <PlayCircle className="w-4 h-4" />
-                  Démarrer
+                  {t("start")}
                 </Button>
               )}
               {examen.statut === "EN_COURS" && (
@@ -395,7 +399,7 @@ function ExamenCard({
                   disabled={isPending}
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Terminer
+                  {t("finish")}
                 </Button>
               )}
               <Button
@@ -405,7 +409,7 @@ function ExamenCard({
                 className="gap-1.5"
               >
                 {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                Détails
+                {t("details")}
               </Button>
             </div>
           </div>
@@ -415,7 +419,7 @@ function ExamenCard({
             <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-800">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Sessions d&apos;épreuves
+                  {t("examSessions")}
                 </h4>
                 <Button
                   size="sm"
@@ -425,15 +429,15 @@ function ExamenCard({
                   disabled={examen.statut === "ANNULE" || examen.statut === "TERMINE"}
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Ajouter
+                  {t("addBtn")}
                 </Button>
               </div>
 
               {examen.sessions.length === 0 ? (
                 <div className="text-center py-6 text-gray-400">
                   <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">Aucune session planifiée</p>
-                  <p className="text-xs mt-1">Ajoutez des épreuves par matière</p>
+                  <p className="text-sm">{t("noSessions")}</p>
+                  <p className="text-xs mt-1">{t("addSessionsHint")}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -449,7 +453,7 @@ function ExamenCard({
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {s.matiereNom}
                         </p>
-                        <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
+                        <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {formatDate(s.date, "dd/MM/yyyy")}
@@ -481,7 +485,7 @@ function ExamenCard({
               {examen.statut === "TERMINE" && (
                 <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Délibération
+                    {t("deliberation")}
                   </h4>
                   <DeliberationPanel examId={examen.id} />
                 </div>
@@ -504,6 +508,7 @@ function ExamenCard({
 }
 
 function DeliberationPanel({ examId }: { examId: string }) {
+  const t = useTranslations("examens");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
@@ -518,9 +523,9 @@ function DeliberationPanel({ examId }: { examId: string }) {
         });
         if (!res.ok) throw new Error();
         setSubmitted(true);
-        toast.success("Délibération enregistrée !");
+        toast.success(t("deliberationSuccess"));
       } catch {
-        toast.error("Erreur lors de la délibération");
+        toast.error(t("deliberationError"));
       }
     });
   }
@@ -529,15 +534,15 @@ function DeliberationPanel({ examId }: { examId: string }) {
     return (
       <div className="flex items-center gap-3 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 rounded-lg px-4 py-3 text-sm">
         <CheckCircle2 className="w-5 h-5 shrink-0" />
-        <span>Délibération enregistrée avec succès. Les résultats peuvent être publiés.</span>
+        <span>{t("deliberationSuccessMsg")}</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-gray-500">
-        Saisissez les notes finales par matière, puis validez la délibération pour générer les attestations de résultats.
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        {t("deliberationInstructions")}
       </p>
       <Button
         size="sm"
@@ -550,7 +555,7 @@ function DeliberationPanel({ examId }: { examId: string }) {
         ) : (
           <CheckCircle2 className="w-4 h-4" />
         )}
-        Valider la délibération
+        {t("validateDeliberation")}
       </Button>
     </div>
   );
@@ -566,6 +571,7 @@ export function ExamensManager({
   matieres: Matiere[];
   tenantId: string;
 }) {
+  const t = useTranslations("examens");
   const [examens, setExamens] = useState<Examen[]>(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [filterStatut, setFilterStatut] = useState<StatutExamen | "ALL">("ALL");
@@ -592,14 +598,14 @@ export function ExamensManager({
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total examens", value: stats.total, color: "text-gray-700 dark:text-gray-300", bg: "bg-gray-50 dark:bg-gray-800" },
-          { label: "Programmés", value: stats.programmes, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
-          { label: "En cours", value: stats.enCours, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950/20" },
-          { label: "Terminés", value: stats.termines, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/20" },
+          { label: t("statTotal"), value: stats.total, color: "text-gray-700 dark:text-gray-300", bg: "bg-gray-50 dark:bg-gray-800" },
+          { label: t("statProgrammed"), value: stats.programmes, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
+          { label: t("statInProgress"), value: stats.enCours, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950/20" },
+          { label: t("statCompleted"), value: stats.termines, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/20" },
         ].map((s) => (
           <div key={s.label} className={cn("rounded-xl p-4 text-center", s.bg)}>
             <p className={cn("text-3xl font-black", s.color)}>{s.value}</p>
-            <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -618,7 +624,7 @@ export function ExamensManager({
                   : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               )}
             >
-              {s === "ALL" ? "Tous" : STATUT_CONFIG[s].label}
+              {s === "ALL" ? t("all") : t(STATUT_CONFIG[s].labelKey)}
             </button>
           ))}
         </div>
@@ -627,7 +633,7 @@ export function ExamensManager({
           className="gap-2 bg-green-600 hover:bg-green-700 text-white"
         >
           <Plus className="w-4 h-4" />
-          Nouvel examen
+          {t("newExam")}
         </Button>
       </div>
 
@@ -636,11 +642,11 @@ export function ExamensManager({
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Calendar className="w-12 h-12 text-gray-300 mb-4" />
-            <p className="text-gray-500 font-medium">Aucun examen trouvé</p>
-            <p className="text-sm text-gray-400 mt-1">Créez votre premier examen officiel</p>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">{t("noExams")}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t("createFirstExam")}</p>
             <Button className="mt-4 gap-2 bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4" />
-              Créer un examen
+              {t("createExamBtn")}
             </Button>
           </CardContent>
         </Card>

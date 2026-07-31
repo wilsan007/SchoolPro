@@ -2,18 +2,21 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { InventaireView } from "@/components/inventaire/InventaireView";
+import { getTranslations } from "next-intl/server";
 
 export const metadata = { title: "Inventaire — Matériel scolaire | EcolPro" };
 
 export default async function InventairePage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("inventaire"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
-
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Inventaire & Ressources"
-        subtitle="Gestion du matériel scolaire, mobilier, équipements et bibliothèque"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

@@ -11,34 +11,35 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 type TypeIncident = "RETARD" | "BAVARDAGE" | "INSOLENCE" | "BAGARRE" | "TRICHE" | "VANDALISM" | "ABSENTEISME" | "AUTRE";
 type StatutIncident = "OUVERT" | "EN_TRAITEMENT" | "RESOLU" | "CLASSE";
 type TypeSanction = "AVERTISSEMENT" | "BLAME" | "EXCLUSION_COURS" | "EXCLUSION_TEMP" | "CONVOCATION_PARENTS" | "TRAVAUX_INTERET_GENERAL" | "AUTRE";
 
-const TYPE_LABELS: Record<TypeIncident, string> = {
-  RETARD: "Retard", BAVARDAGE: "Bavardage", INSOLENCE: "Insolence",
-  BAGARRE: "Bagarre", TRICHE: "Triche", VANDALISM: "Vandalisme",
-  ABSENTEISME: "Absentéisme", AUTRE: "Autre",
+const TYPE_KEYS: Record<TypeIncident, string> = {
+  RETARD: "typeRetard", BAVARDAGE: "typeBavardage", INSOLENCE: "typeInsolence",
+  BAGARRE: "typeBagarre", TRICHE: "typeTriche", VANDALISM: "typeVandalism",
+  ABSENTEISME: "typeAbsentéisme", AUTRE: "typeAutre",
 };
 
-const STATUT_CONFIG: Record<StatutIncident, { label: string; variant: string; icon: React.ReactNode }> = {
-  OUVERT: { label: "Ouvert", variant: "destructive", icon: <AlertTriangle className="w-3 h-3" /> },
-  EN_TRAITEMENT: { label: "En traitement", variant: "warning", icon: <Clock className="w-3 h-3" /> },
-  RESOLU: { label: "Résolu", variant: "success", icon: <CheckCircle2 className="w-3 h-3" /> },
-  CLASSE: { label: "Classé", variant: "outline", icon: <FileText className="w-3 h-3" /> },
+const STATUT_CONFIG: Record<StatutIncident, { labelKey: string; variant: string; icon: React.ReactNode }> = {
+  OUVERT: { labelKey: "statutOuvert", variant: "destructive", icon: <AlertTriangle className="w-3 h-3" /> },
+  EN_TRAITEMENT: { labelKey: "statutEnTraitement", variant: "warning", icon: <Clock className="w-3 h-3" /> },
+  RESOLU: { labelKey: "statutResolu", variant: "success", icon: <CheckCircle2 className="w-3 h-3" /> },
+  CLASSE: { labelKey: "statutClasse", variant: "outline", icon: <FileText className="w-3 h-3" /> },
 };
 
 const GRAVITE_CONFIG = [
-  { val: 1, label: "Léger", color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
-  { val: 2, label: "Moyen", color: "text-orange-600 bg-orange-50 border-orange-200" },
-  { val: 3, label: "Grave", color: "text-red-600 bg-red-50 border-red-200" },
+  { val: 1, labelKey: "low", color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
+  { val: 2, labelKey: "medium", color: "text-orange-600 bg-orange-50 border-orange-200" },
+  { val: 3, labelKey: "high", color: "text-red-600 bg-red-50 border-red-200" },
 ];
 
-const SANCTION_LABELS: Record<TypeSanction, string> = {
-  AVERTISSEMENT: "Avertissement", BLAME: "Blâme", EXCLUSION_COURS: "Exclusion cours",
-  EXCLUSION_TEMP: "Exclusion temporaire", CONVOCATION_PARENTS: "Conv. parents",
-  TRAVAUX_INTERET_GENERAL: "TIG", AUTRE: "Autre",
+const SANCTION_KEYS: Record<TypeSanction, string> = {
+  AVERTISSEMENT: "sanctionAvertissement", BLAME: "sanctionBlame", EXCLUSION_COURS: "sanctionExclusionCours",
+  EXCLUSION_TEMP: "sanctionExclusionTemp", CONVOCATION_PARENTS: "sanctionConvocationParents",
+  TRAVAUX_INTERET_GENERAL: "sanctionTIG", AUTRE: "sanctionAutre",
 };
 
 interface Eleve { id: string; nom: string; prenom: string; matricule: string; classe: { nom: string } | null }
@@ -68,6 +69,7 @@ function CreateIncidentModal({
   onClose: () => void;
   onCreated: (inc: Incident) => void;
 }) {
+  const t = useTranslations("vieScolaire");
   const [form, setForm] = useState({
     eleveId: eleves[0]?.id ?? "",
     type: "AUTRE" as TypeIncident,
@@ -91,7 +93,7 @@ function CreateIncidentModal({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         onCreated(data);
-        toast.success("Incident signalé !");
+        toast.success(t("incidentReported"));
         onClose();
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : "Erreur");
@@ -101,13 +103,13 @@ function CreateIncidentModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold">Signaler un incident</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <h2 className="text-lg font-semibold">{t("reportIncident")}</h2>
         </div>
-        <form onSubmit={submit} className="p-6 space-y-4">
+        <form onSubmit={submit} className="p-6 space-y-4 overflow-y-auto">
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Élève *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("student")}</label>
             <select
               required
               value={form.eleveId}
@@ -116,38 +118,38 @@ function CreateIncidentModal({
             >
               {eleves.map((el) => (
                 <option key={el.id} value={el.id}>
-                  {el.nom} {el.prenom} — {el.classe?.nom ?? "Sans classe"}
+                  {el.nom} {el.prenom} — {el.classe?.nom ?? t("noClass")}
                 </option>
               ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Type *</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("type")}</label>
               <select
                 required
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value as TypeIncident })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {Object.entries(TYPE_KEYS).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Gravité *</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("gravity")} *</label>
               <select
                 required
                 value={form.gravite}
                 onChange={(e) => setForm({ ...form, gravite: Number(e.target.value) })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {GRAVITE_CONFIG.map((g) => <option key={g.val} value={g.val}>{g.val} — {g.label}</option>)}
+                {GRAVITE_CONFIG.map((g) => <option key={g.val} value={g.val}>{g.val} — {t(g.labelKey)}</option>)}
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Date *</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("date")} *</label>
               <input
                 type="date"
                 required
@@ -157,40 +159,40 @@ function CreateIncidentModal({
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Lieu</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("lieu")}</label>
               <input
                 value={form.lieu}
                 onChange={(e) => setForm({ ...form, lieu: e.target.value })}
-                placeholder="ex: Cour de récréation"
+                placeholder={t("lieuPlaceholder")}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Description *</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("description")} *</label>
             <textarea
               required
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              placeholder="Décrivez l'incident..."
+              placeholder={t("descriptionPlaceholder")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Notes internes</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("internalNotes")}</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               rows={2}
-              placeholder="Notes visibles par l'administration uniquement..."
+              placeholder={t("internalNotesPlaceholder")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>{t("cancel")}</Button>
             <Button type="submit" disabled={isPending} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Signaler l'incident"}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("signalIncident")}
             </Button>
           </div>
         </form>
@@ -200,6 +202,7 @@ function CreateIncidentModal({
 }
 
 function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i: Incident) => void }) {
+  const t = useTranslations("vieScolaire");
   const [expanded, setExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const statut = STATUT_CONFIG[incident.statut];
@@ -215,8 +218,8 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
         });
         if (!res.ok) throw new Error();
         onUpdate({ ...incident, statut });
-        toast.success("Statut mis à jour");
-      } catch { toast.error("Erreur"); }
+        toast.success(t("statusUpdated"));
+      } catch { toast.error(t("error")); }
     });
   }
 
@@ -228,13 +231,13 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border", graviteInfo.color)}>
-                Gravité {graviteInfo.val} — {graviteInfo.label}
+                {t("gravityLevel", { val: graviteInfo.val, label: t(graviteInfo.labelKey) })}
               </span>
               <Badge variant={statut.variant as never} className="flex items-center gap-1">
-                {statut.icon}{statut.label}
+                {statut.icon}{t(statut.labelKey)}
               </Badge>
               <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
-                {TYPE_LABELS[incident.type]}
+                {t(TYPE_KEYS[incident.type])}
               </span>
             </div>
 
@@ -272,7 +275,7 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
               {incident.sanctions.length > 0 && (
                 <span className="flex items-center gap-1 text-orange-500">
                   <Shield className="w-3 h-3" />
-                  {incident.sanctions.length} sanction{incident.sanctions.length > 1 ? "s" : ""}
+                  {t("sanctionsCount", { count: incident.sanctions.length, s: incident.sanctions.length > 1 ? "s" : "" })}
                 </span>
               )}
             </div>
@@ -281,12 +284,12 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
           <div className="flex items-center gap-2 shrink-0">
             {incident.statut === "OUVERT" && (
               <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatut("EN_TRAITEMENT")} disabled={isPending}>
-                Traiter
+                {t("process")}
               </Button>
             )}
             {incident.statut === "EN_TRAITEMENT" && (
               <Button size="sm" variant="outline" className="text-xs text-green-700 border-green-200" onClick={() => updateStatut("RESOLU")} disabled={isPending}>
-                Résoudre
+                {t("resolve")}
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>
@@ -299,21 +302,21 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
           <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
             {incident.notes && (
               <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-400">
-                <p className="text-xs font-medium mb-1">Notes internes</p>
+                <p className="text-xs font-medium mb-1">{t("internalNotes")}</p>
                 <p>{incident.notes}</p>
               </div>
             )}
             {incident.sanctions.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Sanctions appliquées</p>
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">{t("appliedSanctions")}</p>
                 <div className="space-y-1.5">
                   {incident.sanctions.map((s) => (
                     <div key={s.id} className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
                       <Shield className="w-4 h-4 text-orange-500 shrink-0" />
-                      <span className="font-medium">{SANCTION_LABELS[s.type]}</span>
+                      <span className="font-medium">{t(SANCTION_KEYS[s.type])}</span>
                       {s.description && <span className="text-gray-500">— {s.description}</span>}
                       <span className="ml-auto text-xs text-gray-400">{formatDate(s.dateDebut, "dd/MM/yyyy")}</span>
-                      {s.parentNotifie && <Badge variant="success" className="text-xs">Parents notifiés</Badge>}
+                      {s.parentNotifie && <Badge variant="success" className="text-xs">{t("parentsNotified")}</Badge>}
                     </div>
                   ))}
                 </div>
@@ -338,6 +341,7 @@ export function VieScolaireView({
   currentUserId: string;
   tenantId: string;
 }) {
+  const t = useTranslations("vieScolaire");
   const [incidents, setIncidents] = useState<Incident[]>(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [filterStatut, setFilterStatut] = useState<StatutIncident | "ALL">("ALL");
@@ -378,10 +382,10 @@ export function VieScolaireView({
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total incidents", value: stats.total, color: "text-gray-700 dark:text-gray-300", bg: "bg-gray-50 dark:bg-gray-800" },
-          { label: "Ouverts", value: stats.ouverts, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/20" },
-          { label: "En traitement", value: stats.enTraitement, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-950/20" },
-          { label: "Graves (niv. 3)", value: stats.graves, color: "text-red-700 font-bold", bg: "bg-red-100 dark:bg-red-950/30" },
+          { label: t("statTotal"), value: stats.total, color: "text-gray-700 dark:text-gray-300", bg: "bg-gray-50 dark:bg-gray-800" },
+          { label: t("statOpen"), value: stats.ouverts, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/20" },
+          { label: t("statProcessing"), value: stats.enTraitement, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-950/20" },
+          { label: t("statGraves"), value: stats.graves, color: "text-red-700 font-bold", bg: "bg-red-100 dark:bg-red-950/30" },
         ].map((s) => (
           <div key={s.label} className={cn("rounded-xl p-4 text-center", s.bg)}>
             <p className={cn("text-3xl font-black", s.color)}>{s.value}</p>
@@ -395,7 +399,7 @@ export function VieScolaireView({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher un élève ou incident..."
+          placeholder={t("searchPlaceholder")}
           className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 flex-1"
         />
         <select
@@ -403,9 +407,9 @@ export function VieScolaireView({
           onChange={(e) => setFilterStatut(e.target.value as StatutIncident | "ALL")}
           className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none"
         >
-          <option value="ALL">Tous statuts</option>
+          <option value="ALL">{t("allStatuses")}</option>
           {(["OUVERT", "EN_TRAITEMENT", "RESOLU", "CLASSE"] as StatutIncident[]).map((s) => (
-            <option key={s} value={s}>{STATUT_CONFIG[s].label}</option>
+            <option key={s} value={s}>{t(STATUT_CONFIG[s].labelKey)}</option>
           ))}
         </select>
         <select
@@ -413,7 +417,7 @@ export function VieScolaireView({
           onChange={(e) => setFilterClasse(e.target.value)}
           className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none"
         >
-          <option value="ALL">Toutes classes</option>
+          <option value="ALL">{t("allClasses")}</option>
           {classes.map((c) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
         </select>
         <Button
@@ -421,7 +425,7 @@ export function VieScolaireView({
           className="gap-2 bg-red-600 hover:bg-red-700 text-white shrink-0"
         >
           <Plus className="w-4 h-4" />
-          Signaler
+          {t("report")}
         </Button>
       </div>
 
@@ -430,8 +434,8 @@ export function VieScolaireView({
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-gray-400">
             <Shield className="w-12 h-12 mb-4 opacity-30" />
-            <p className="font-medium text-gray-500">Aucun incident enregistré</p>
-            <p className="text-sm mt-1">La vie scolaire est tranquille !</p>
+            <p className="font-medium text-gray-500">{t("noIncidents")}</p>
+            <p className="text-sm mt-1">{t("noIncidentsHint")}</p>
           </CardContent>
         </Card>
       ) : (

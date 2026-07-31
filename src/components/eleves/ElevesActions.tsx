@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 
@@ -26,6 +27,8 @@ interface ElevesActionsProps {
 }
 
 export function ElevesActions({ q, classeId, statut }: ElevesActionsProps) {
+  const t = useTranslations("eleves");
+  const tCommon = useTranslations("common");
   const [loading, setLoading] = useState(false);
 
   async function exportCSV() {
@@ -37,7 +40,7 @@ export function ElevesActions({ q, classeId, statut }: ElevesActionsProps) {
       if (statut) params.set("statut", statut);
 
       const res = await fetch(`/api/eleves?${params.toString()}`);
-      if (!res.ok) throw new Error("Échec de l'export");
+      if (!res.ok) throw new Error(t("exportFailed"));
       const { eleves }: { eleves: Eleve[] } = await res.json();
 
       const headers = ["#", "Prénom", "Nom", "Matricule", "Classe", "Niveau", "Naissance", "Parent", "Téléphone", "Statut", "Sexe", "Régime"];
@@ -84,7 +87,7 @@ export function ElevesActions({ q, classeId, statut }: ElevesActionsProps) {
   return (
     <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV} disabled={loading}>
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-      Exporter
+      {tCommon("export")}
     </Button>
   );
 }

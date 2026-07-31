@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { MessagerieView } from "@/components/messages/MessagerieView";
+import { getTranslations } from "next-intl/server";
 
 async function getMessagesData(tenantId: string, userId: string) {
   const users = await prisma.user.findMany({
@@ -15,7 +16,10 @@ async function getMessagesData(tenantId: string, userId: string) {
 }
 
 export default async function MessagesPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("messages"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const { users } = await getMessagesData(session.user.tenantId, session.user.id);
@@ -23,8 +27,8 @@ export default async function MessagesPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Messagerie"
-        subtitle="Communication sécurisée entre enseignants, parents et administration"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

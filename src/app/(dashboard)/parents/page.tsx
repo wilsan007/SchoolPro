@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { ParentsView } from "@/components/parents/ParentsView";
+import { getTranslations } from "next-intl/server";
 
 async function getParentsData(tenantId: string) {
   const parents = await prisma.parent.findMany({
@@ -34,7 +35,10 @@ async function getParentsData(tenantId: string) {
 }
 
 export default async function ParentsPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("parents"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const { parents: rawParents } = await getParentsData(session.user.tenantId);
@@ -48,8 +52,8 @@ export default async function ParentsPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Espace Parents (ENT)"
-        subtitle="Gestion des comptes parents, accès ENT, communication famille"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

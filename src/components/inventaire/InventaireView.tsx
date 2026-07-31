@@ -7,6 +7,7 @@ import {
   Edit3, Trash2, X, Monitor, Armchair, Dumbbell, BookOpen,
   Tv, Wind, Shield, MoreHorizontal
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type Categorie = "INFORMATIQUE" | "MOBILIER" | "SPORTIF" | "PEDAGOGIQUE" | "AUDIOVISUEL" | "ENTRETIEN" | "SECURITE" | "AUTRE";
 type Etat = "NEUF" | "BON" | "USE" | "ENDOMMAGE" | "HORS_SERVICE";
@@ -36,23 +37,23 @@ interface Stats {
   parCategorie: Record<string, number>;
 }
 
-const CAT_CONFIG: Record<Categorie, { label: string; color: string }> = {
-  INFORMATIQUE: { label: "Informatique",   color: "bg-blue-100 text-blue-700" },
-  MOBILIER:     { label: "Mobilier",        color: "bg-amber-100 text-amber-700" },
-  SPORTIF:      { label: "Sportif",         color: "bg-green-100 text-green-700" },
-  PEDAGOGIQUE:  { label: "Pédagogique",     color: "bg-indigo-100 text-indigo-700" },
-  AUDIOVISUEL:  { label: "Audiovisuel",     color: "bg-pink-100 text-pink-700" },
-  ENTRETIEN:    { label: "Entretien",       color: "bg-orange-100 text-orange-700" },
-  SECURITE:     { label: "Sécurité",        color: "bg-red-100 text-red-700" },
-  AUTRE:        { label: "Autre",           color: "bg-gray-100 text-gray-600" },
+const CAT_CONFIG: Record<Categorie, { labelKey: string; color: string }> = {
+  INFORMATIQUE: { labelKey: "catInformatique",   color: "bg-blue-100 text-blue-700" },
+  MOBILIER:     { labelKey: "catMobilier",        color: "bg-amber-100 text-amber-700" },
+  SPORTIF:      { labelKey: "catSportif",         color: "bg-green-100 text-green-700" },
+  PEDAGOGIQUE:  { labelKey: "catPedagogique",     color: "bg-indigo-100 text-indigo-700" },
+  AUDIOVISUEL:  { labelKey: "catAudiovisuel",     color: "bg-pink-100 text-pink-700" },
+  ENTRETIEN:    { labelKey: "catEntretien",       color: "bg-orange-100 text-orange-700" },
+  SECURITE:     { labelKey: "catSecurite",        color: "bg-red-100 text-red-700" },
+  AUTRE:        { labelKey: "catAutre",           color: "bg-gray-100 text-gray-600" },
 };
 
-const ETAT_CONFIG: Record<Etat, { label: string; dot: string }> = {
-  NEUF:          { label: "Neuf",          dot: "bg-emerald-500" },
-  BON:           { label: "Bon état",      dot: "bg-green-500" },
-  USE:           { label: "Usé",           dot: "bg-yellow-500" },
-  ENDOMMAGE:     { label: "Endommagé",     dot: "bg-orange-500" },
-  HORS_SERVICE:  { label: "Hors service",  dot: "bg-red-500" },
+const ETAT_CONFIG: Record<Etat, { labelKey: string; dot: string }> = {
+  NEUF:          { labelKey: "etatNeuf",          dot: "bg-emerald-500" },
+  BON:           { labelKey: "etatBon",           dot: "bg-green-500" },
+  USE:           { labelKey: "etatUse",           dot: "bg-yellow-500" },
+  ENDOMMAGE:     { labelKey: "etatEndommage",     dot: "bg-orange-500" },
+  HORS_SERVICE:  { labelKey: "etatHorsService",  dot: "bg-red-500" },
 };
 
 const EMPTY_FORM = {
@@ -63,6 +64,7 @@ const EMPTY_FORM = {
 };
 
 export function InventaireView() {
+  const t = useTranslations("inventaire");
   const [items, setItems] = useState<Item[]>([]);
   const [stats, setStats] = useState<Stats>({
     total: 0, valeurTotale: 0, alertes: 0, horsService: 0, parCategorie: {}
@@ -126,19 +128,19 @@ export function InventaireView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { toast.error("Erreur lors de l'enregistrement"); return; }
-      toast.success(editing ? "Article modifié" : "Article ajouté");
+      if (!res.ok) { toast.error(t("saveError")); return; }
+      toast.success(editing ? t("itemModified") : t("itemAdded"));
       setShowForm(false);
       load();
     });
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Supprimer cet article ?")) return;
+    if (!confirm(t("confirmDelete"))) return;
     startTransition(async () => {
       const res = await fetch(`/api/inventaire/${id}`, { method: "DELETE" });
-      if (!res.ok) { toast.error("Erreur suppression"); return; }
-      toast.success("Article supprimé");
+      if (!res.ok) { toast.error(t("deleteError")); return; }
+      toast.success(t("itemDeleted"));
       load();
     });
   };
@@ -153,35 +155,35 @@ export function InventaireView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventaire</h1>
-          <p className="text-gray-500 text-sm mt-1">Matériel et ressources de l'établissement</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
+          <p className="text-gray-500 text-sm mt-1">{t("subtitle")}</p>
         </div>
         <button
           onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
         >
-          <Plus className="w-4 h-4" /> Ajouter un article
+          <Plus className="w-4 h-4" /> {t("addItem")}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total articles", value: stats.total, icon: Package, color: "text-indigo-600" },
-          { label: "Valeur totale", value: `${stats.valeurTotale.toLocaleString("fr-FR")} FDJ`, icon: DollarSign, color: "text-green-600", small: true },
-          { label: "Alertes stock", value: stats.alertes, icon: AlertTriangle, color: "text-yellow-600",
+          { label: t("totalItems"), value: stats.total, icon: Package, color: "text-indigo-600" },
+          { label: t("totalValue"), value: `${stats.valeurTotale.toLocaleString("fr-FR")} FDJ`, icon: DollarSign, color: "text-green-600", small: true },
+          { label: t("stockAlerts"), value: stats.alertes, icon: AlertTriangle, color: "text-yellow-600",
             onClick: () => setShowAlerte(!showAlerte) },
-          { label: "Hors service", value: stats.horsService, icon: XCircle, color: "text-red-600" },
+          { label: t("outOfService"), value: stats.horsService, icon: XCircle, color: "text-red-600" },
         ].map((s) => (
           <div key={s.label}
-            className={`bg-white rounded-2xl border shadow-sm p-4 transition-all ${s.onClick ? "cursor-pointer hover:shadow-md " : ""}${showAlerte && s.label === "Alertes stock" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-gray-100"}`}
+            className={`bg-white dark:bg-gray-900 rounded-2xl border shadow-sm p-4 transition-all ${s.onClick ? "cursor-pointer hover:shadow-md " : ""}${showAlerte && s.label === "Alertes stock" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-gray-100 dark:border-gray-800"}`}
             onClick={s.onClick}
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500 font-medium">{s.label}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{s.label}</p>
               <s.icon className={`w-4 h-4 ${s.color}`} />
             </div>
-            <p className={`font-bold text-gray-900 mt-2 ${s.small ? "text-lg" : "text-2xl"}`}>{s.value}</p>
+            <p className={`font-bold text-gray-900 dark:text-gray-100 mt-2 ${s.small ? "text-lg" : "text-2xl"}`}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -193,7 +195,7 @@ export function InventaireView() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Nom, référence, localisation..."
+            placeholder={t("searchPlaceholder")}
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           />
         </div>
@@ -202,9 +204,9 @@ export function InventaireView() {
           onChange={(e) => setFilterCat(e.target.value)}
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
         >
-          <option value="all">Toutes catégories</option>
+          <option value="all">{t("allCategories")}</option>
           {Object.entries(CAT_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
+            <option key={k} value={k}>{t(v.labelKey)}</option>
           ))}
         </select>
         <select
@@ -212,9 +214,9 @@ export function InventaireView() {
           onChange={(e) => setFilterEtat(e.target.value)}
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
         >
-          <option value="all">Tous états</option>
+          <option value="all">{t("allConditions")}</option>
           {Object.entries(ETAT_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
+            <option key={k} value={k}>{t(v.labelKey)}</option>
           ))}
         </select>
       </div>
@@ -227,27 +229,27 @@ export function InventaireView() {
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>Aucun article trouvé</p>
+          <p>{t("noItems")}</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Article</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Catégorie</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">État</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">Qté</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Localisation</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">Prix unit.</th>
+              <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("item")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("category")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("condition")}</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("quantity")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("location")}</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("unitPrice")}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {items.map((item) => {
                 const isAlerte = item.quantite <= item.quantiteMin;
                 return (
-                  <tr key={item.id} className={`hover:bg-gray-50/50 transition-colors ${isAlerte ? "bg-yellow-50/30" : ""}`}>
+                  <tr key={item.id} className={`hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${isAlerte ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}`}>
                     <td className="px-4 py-3">
                       <div>
                         <p className="font-medium text-gray-900">{item.nom}</p>
@@ -256,13 +258,13 @@ export function InventaireView() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${CAT_CONFIG[item.categorie].color}`}>
-                        {CAT_CONFIG[item.categorie].label}
+                        {t(CAT_CONFIG[item.categorie].labelKey)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full ${ETAT_CONFIG[item.etat].dot}`} />
-                        <span className="text-gray-600">{ETAT_CONFIG[item.etat].label}</span>
+                        <span className="text-gray-600">{t(ETAT_CONFIG[item.etat].labelKey)}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -318,22 +320,23 @@ function ItemForm({
   isPending: boolean;
   isEdit: boolean;
 }) {
+  const t = useTranslations("inventaire");
   const f = (k: keyof typeof EMPTY_FORM, v: string | number) =>
     setForm({ ...form, [k]: v });
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">{isEdit ? "Modifier un article" : "Ajouter un article"}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{isEdit ? t("editItem") : t("addItemTitle")}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 dark:text-gray-500">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="overflow-y-auto p-5 space-y-4">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Nom de l'article *</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t("itemName")}</label>
             <input value={form.nom} onChange={(e) => f("nom", e.target.value)}
               placeholder="Ordinateur portable Dell"
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
@@ -341,20 +344,20 @@ function ItemForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Catégorie</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("category")}</label>
               <select value={form.categorie} onChange={(e) => f("categorie", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none">
                 {Object.entries(CAT_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
+                  <option key={k} value={k}>{t(v.labelKey)}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">État</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("condition")}</label>
               <select value={form.etat} onChange={(e) => f("etat", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none">
                 {Object.entries(ETAT_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
+                  <option key={k} value={k}>{t(v.labelKey)}</option>
                 ))}
               </select>
             </div>
@@ -362,12 +365,12 @@ function ItemForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Quantité</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("quantity")}</label>
               <input type="number" min="0" value={form.quantite} onChange={(e) => f("quantite", Number(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Seuil alerte</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("stockThreshold")}</label>
               <input type="number" min="0" value={form.quantiteMin} onChange={(e) => f("quantiteMin", Number(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
@@ -375,13 +378,13 @@ function ItemForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Référence</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("referenceLabel")}</label>
               <input value={form.reference} onChange={(e) => f("reference", e.target.value)}
                 placeholder="SN-2024-001"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Localisation</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("location")}</label>
               <input value={form.localisation} onChange={(e) => f("localisation", e.target.value)}
                 placeholder="Salle informatique A"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
@@ -390,13 +393,13 @@ function ItemForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Prix unitaire</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("unitPrice")}</label>
               <input type="number" value={form.prixUnitaire} onChange={(e) => f("prixUnitaire", e.target.value)}
                 placeholder="0"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Fournisseur</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("supplier")}</label>
               <input value={form.fournisseur} onChange={(e) => f("fournisseur", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
@@ -404,12 +407,12 @@ function ItemForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Date d'achat</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("purchaseDate")}</label>
               <input type="date" value={form.dateAchat} onChange={(e) => f("dateAchat", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Prochaine révision</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t("nextRevision")}</label>
               <input type="date" value={form.dateRevision} onChange={(e) => f("dateRevision", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
             </div>
@@ -419,11 +422,11 @@ function ItemForm({
         <div className="p-5 border-t border-gray-100 flex gap-3">
           <button onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-            Annuler
+            {t("cancel")}
           </button>
           <button onClick={onSubmit} disabled={isPending || !form.nom}
             className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors">
-            {isPending ? "Enregistrement..." : isEdit ? "Modifier" : "Ajouter"}
+            {isPending ? t("saving") : isEdit ? t("edit") : t("add")}
           </button>
         </div>
       </div>

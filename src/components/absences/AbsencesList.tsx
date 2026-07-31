@@ -10,6 +10,7 @@ import { getInitials, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 import { Search, CheckCircle, XCircle, Clock } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Absence {
   id: string;
@@ -49,6 +50,8 @@ const motifLabels: Record<string, string> = {
 };
 
 export function AbsencesList({ absences }: { absences: Absence[] }) {
+  const t = useTranslations("absences");
+  const tCommon = useTranslations("common");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "EN_ATTENTE" | "INJUSTIFIEE" | "JUSTIFIEE">("all");
   const [activeGroup, setActiveGroup] = useState<SchoolGroup | null>(null);
@@ -88,10 +91,10 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
   }).filter((g) => g.classesByNiveau.length > 0);
 
   const tabs = [
-    { key: "all", label: "Toutes", count: absences.length },
-    { key: "EN_ATTENTE", label: "En attente", count: absences.filter((a) => a.statut === "EN_ATTENTE").length },
-    { key: "INJUSTIFIEE", label: "Injustifiées", count: absences.filter((a) => a.statut === "INJUSTIFIEE").length },
-    { key: "JUSTIFIEE", label: "Justifiées", count: absences.filter((a) => a.statut === "JUSTIFIEE").length },
+    { key: "all", label: tCommon("all"), count: absences.length },
+    { key: "EN_ATTENTE", label: t("pending"), count: absences.filter((a) => a.statut === "EN_ATTENTE").length },
+    { key: "INJUSTIFIEE", label: t("unjustified"), count: absences.filter((a) => a.statut === "INJUSTIFIEE").length },
+    { key: "JUSTIFIEE", label: t("justified"), count: absences.filter((a) => a.statut === "JUSTIFIEE").length },
   ] as const;
 
   function renderAbsenceRow(absence: Absence) {
@@ -110,7 +113,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
               {absence.eleve.prenom} {absence.eleve.nom}
             </p>
             {absence.isRetard && (
-              <Badge variant="warning" className="text-[10px] px-1.5 py-0">Retard</Badge>
+              <Badge variant="warning" className="text-[10px] px-1.5 py-0">{t("late")}</Badge>
             )}
           </div>
           <div className="flex items-center gap-3 mt-0.5">
@@ -133,19 +136,19 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
           <div className="flex items-center gap-1.5">
             {statutIcons[absence.statut as keyof typeof statutIcons]}
             <Badge variant={statutVariants[absence.statut as keyof typeof statutVariants] ?? "secondary"} className="text-xs">
-              {absence.statut === "JUSTIFIEE" ? "Justifiée"
-                : absence.statut === "INJUSTIFIEE" ? "Injustifiée"
-                : "En attente"}
+              {absence.statut === "JUSTIFIEE" ? t("justified")
+                : absence.statut === "INJUSTIFIEE" ? t("unjustified")
+                : t("pending")}
             </Badge>
           </div>
           <div className="flex gap-1">
             {absence.statut === "EN_ATTENTE" && (
               <>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700 hover:bg-green-50">
-                  Justifier
+                  {t("justify")}
                 </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
-                  Refuser
+                  {t("refuse")}
                 </Button>
               </>
             )}
@@ -162,7 +165,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher élève..."
+            placeholder={t("searchStudent")}
             className="pl-8 h-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -193,7 +196,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
       {/* Navigation par onglets horizontaux : Primaire | Collège | Lycée */}
       {groupedAbsences.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          Aucune absence trouvée
+          {t("noAbsences")}
         </div>
       ) : (
         <>
@@ -279,8 +282,8 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
           {(!activeGroup || !activeClass) && (
             <div className="text-center py-10 text-muted-foreground text-sm">
               {!activeGroup
-                ? "Sélectionnez un niveau scolaire ci-dessus pour afficher les classes."
-                : "Sélectionnez une classe ci-dessus pour afficher les absences."}
+                ? t("selectLevel")
+                : t("selectClass")}
             </div>
           )}
         </>

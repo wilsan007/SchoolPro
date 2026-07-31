@@ -35,3 +35,21 @@ export async function createTenantClient(tenantId: string) {
 
   return client;
 }
+
+/**
+ * Crée un client Supabase avec tenantId + siteId injectés en session locale.
+ * RLS utilise current_setting('app.tenant_id') ET current_setting('app.site_id')
+ * pour filtrer automatiquement.
+ *
+ * @param tenantId - L'ID du tenant (établissement)
+ * @param siteId - L'ID du site (ou '' / null pour admin = tous les sites)
+ */
+export async function createSiteClient(tenantId: string, siteId: string | null) {
+  const client = await createTenantClient(tenantId);
+
+  // Injecte le siteId dans la session PostgreSQL pour RLS
+  // '' ou null = pas de filtre (TENANT_ADMIN / SUPER_ADMIN)
+  await client.rpc("set_site_context", { p_site_id: siteId ?? "" });
+
+  return client;
+}

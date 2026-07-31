@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate, timeAgo } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,28 +43,28 @@ interface Notification {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const CANAL_CONFIG: Record<Canal, { label: string; icon: React.ReactNode; color: string }> = {
-  IN_APP:  { label: "In-App",  icon: <Bell className="w-3.5 h-3.5" />,        color: "bg-blue-50 text-blue-700 border-blue-200" },
-  EMAIL:   { label: "Email",   icon: <Mail className="w-3.5 h-3.5" />,        color: "bg-purple-50 text-purple-700 border-purple-200" },
-  SMS:     { label: "SMS",     icon: <MessageSquare className="w-3.5 h-3.5" />,color: "bg-green-50 text-green-700 border-green-200" },
-  PUSH:    { label: "Push",    icon: <Smartphone className="w-3.5 h-3.5" />,  color: "bg-orange-50 text-orange-700 border-orange-200" },
+const CANAL_CONFIG: Record<Canal, { labelKey: string; icon: React.ReactNode; color: string }> = {
+  IN_APP:  { labelKey: "canalInApp",  icon: <Bell className="w-3.5 h-3.5" />,        color: "bg-blue-50 text-blue-700 border-blue-200" },
+  EMAIL:   { labelKey: "canalEmail",   icon: <Mail className="w-3.5 h-3.5" />,        color: "bg-purple-50 text-purple-700 border-purple-200" },
+  SMS:     { labelKey: "canalSMS",     icon: <MessageSquare className="w-3.5 h-3.5" />,color: "bg-green-50 text-green-700 border-green-200" },
+  PUSH:    { labelKey: "canalPush",    icon: <Smartphone className="w-3.5 h-3.5" />,  color: "bg-orange-50 text-orange-700 border-orange-200" },
 };
 
-const STATUT_CONFIG: Record<Statut, { label: string; color: string; icon: React.ReactNode }> = {
-  BROUILLON: { label: "Brouillon",  color: "bg-gray-100 text-gray-600 border-gray-200",    icon: <Eye className="w-3 h-3" /> },
-  PLANIFIEE: { label: "Planifiée",  color: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: <CalendarClock className="w-3 h-3" /> },
-  EN_ENVOI:  { label: "En cours",   color: "bg-blue-50 text-blue-700 border-blue-200",      icon: <Loader2 className="w-3 h-3 animate-spin" /> },
-  ENVOYEE:   { label: "Envoyée",    color: "bg-green-50 text-green-700 border-green-200",   icon: <CheckCircle2 className="w-3 h-3" /> },
-  ECHEC:     { label: "Échec",      color: "bg-red-50 text-red-700 border-red-200",         icon: <Trash2 className="w-3 h-3" /> },
+const STATUT_CONFIG: Record<Statut, { labelKey: string; color: string; icon: React.ReactNode }> = {
+  BROUILLON: { labelKey: "statutDraft",  color: "bg-gray-100 text-gray-600 border-gray-200",    icon: <Eye className="w-3 h-3" /> },
+  PLANIFIEE: { labelKey: "statutScheduled",  color: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: <CalendarClock className="w-3 h-3" /> },
+  EN_ENVOI:  { labelKey: "statutSending",   color: "bg-blue-50 text-blue-700 border-blue-200",      icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+  ENVOYEE:   { labelKey: "statutSent",    color: "bg-green-50 text-green-700 border-green-200",   icon: <CheckCircle2 className="w-3 h-3" /> },
+  ECHEC:     { labelKey: "statutFailed",      color: "bg-red-50 text-red-700 border-red-200",         icon: <Trash2 className="w-3 h-3" /> },
 };
 
-const CIBLE_CONFIG: Record<Cible, { label: string; icon: React.ReactNode }> = {
-  TOUS:        { label: "Tout le monde",   icon: <School className="w-3.5 h-3.5" /> },
-  PARENTS:     { label: "Parents",         icon: <UserCheck className="w-3.5 h-3.5" /> },
-  ENSEIGNANTS: { label: "Enseignants",     icon: <GraduationCap className="w-3.5 h-3.5" /> },
-  ELEVES:      { label: "Élèves",          icon: <Users className="w-3.5 h-3.5" /> },
-  CLASSE:      { label: "Une classe",      icon: <BookOpen className="w-3.5 h-3.5" /> },
-  NIVEAU:      { label: "Un niveau",       icon: <BarChart2 className="w-3.5 h-3.5" /> },
+const CIBLE_CONFIG: Record<Cible, { labelKey: string; icon: React.ReactNode }> = {
+  TOUS:        { labelKey: "cibleAll",   icon: <School className="w-3.5 h-3.5" /> },
+  PARENTS:     { labelKey: "cibleParents",         icon: <UserCheck className="w-3.5 h-3.5" /> },
+  ENSEIGNANTS: { labelKey: "cibleTeachers",     icon: <GraduationCap className="w-3.5 h-3.5" /> },
+  ELEVES:      { labelKey: "cibleStudents",          icon: <Users className="w-3.5 h-3.5" /> },
+  CLASSE:      { labelKey: "cibleClass",      icon: <BookOpen className="w-3.5 h-3.5" /> },
+  NIVEAU:      { labelKey: "cibleLevel",       icon: <BarChart2 className="w-3.5 h-3.5" /> },
 };
 
 // ─── Formulaire de création ───────────────────────────────────────────────────
@@ -77,6 +78,7 @@ function ComposeModal({
   onClose: () => void;
   onCreated: (n: Notification) => void;
 }) {
+  const t = useTranslations("communication");
   const niveaux = [...new Set(classes.map((c) => c.niveau))];
   const [form, setForm] = useState({
     titre: "", contenu: "",
@@ -100,53 +102,53 @@ function ComposeModal({
         });
         if (!res.ok) throw new Error();
         const { notification } = await res.json();
-        toast.success(envoyer ? "Notification envoyée !" : "Brouillon sauvegardé");
+        toast.success(envoyer ? t("notificationSent") : t("draftSaved"));
         onCreated(notification);
         onClose();
       } catch {
-        toast.error("Erreur lors de la création");
+        toast.error(t("createError"));
       }
     });
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl">
-        <CardHeader className="pb-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col border-0 shadow-2xl">
+        <CardHeader className="pb-4 flex-shrink-0">
           <CardTitle className="flex items-center gap-2 text-base">
             <Megaphone className="w-5 h-5 text-primary" />
-            Nouvelle notification
+            {t("newNotification")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 overflow-y-auto">
           {/* Titre */}
           <div>
-            <label className="text-xs text-gray-600 mb-1 block font-medium">Titre *</label>
+            <label className="text-xs text-gray-600 mb-1 block font-medium">{t("titleLabel")}</label>
             <Input
               value={form.titre}
               onChange={(e) => set("titre", e.target.value)}
-              placeholder="Ex : Réunion parents-professeurs jeudi"
+              placeholder={t("titlePlaceholder")}
               className="text-sm"
             />
           </div>
 
           {/* Contenu */}
           <div>
-            <label className="text-xs text-gray-600 mb-1 block font-medium">Message *</label>
+            <label className="text-xs text-gray-600 mb-1 block font-medium">{t("messageLabel")}</label>
             <textarea
               value={form.contenu}
               onChange={(e) => set("contenu", e.target.value)}
-              placeholder="Saisissez votre message…"
+              placeholder={t("messagePlaceholder")}
               rows={5}
               className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
             />
-            <p className="text-xs text-gray-400 mt-1 text-right">{form.contenu.length} caractères</p>
+            <p className="text-xs text-gray-400 mt-1 text-right">{t("characters", { count: form.contenu.length })}</p>
           </div>
 
           {/* Canal + Cible */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-600 mb-1 block font-medium">Canal d'envoi</label>
+              <label className="text-xs text-gray-600 mb-1 block font-medium">{t("channelLabel")}</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {(Object.keys(CANAL_CONFIG) as Canal[]).map((c) => (
                   <button
@@ -159,14 +161,14 @@ function ComposeModal({
                         : "border-gray-200 text-gray-500 hover:border-gray-300"
                     )}
                   >
-                    {CANAL_CONFIG[c].icon} {CANAL_CONFIG[c].label}
+                    {CANAL_CONFIG[c].icon} {t(CANAL_CONFIG[c].labelKey)}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="text-xs text-gray-600 mb-1 block font-medium">Destinataires</label>
+              <label className="text-xs text-gray-600 mb-1 block font-medium">{t("recipientsLabel")}</label>
               <div className="space-y-1">
                 {(Object.keys(CIBLE_CONFIG) as Cible[]).map((c) => (
                   <button
@@ -179,7 +181,7 @@ function ComposeModal({
                         : "border-gray-200 text-gray-500 hover:border-gray-300"
                     )}
                   >
-                    {CIBLE_CONFIG[c].icon} {CIBLE_CONFIG[c].label}
+                    {CIBLE_CONFIG[c].icon} {t(CIBLE_CONFIG[c].labelKey)}
                   </button>
                 ))}
               </div>
@@ -189,13 +191,13 @@ function ComposeModal({
           {/* Classe / Niveau selon cible */}
           {form.cible === "CLASSE" && (
             <div>
-              <label className="text-xs text-gray-600 mb-1 block font-medium">Sélectionner la classe</label>
+              <label className="text-xs text-gray-600 mb-1 block font-medium">{t("selectClass")}</label>
               <select
                 value={form.classeId}
                 onChange={(e) => set("classeId", e.target.value)}
                 className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background"
               >
-                <option value="">-- Choisir une classe --</option>
+                <option value="">{t("chooseClass")}</option>
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>{c.nom}</option>
                 ))}
@@ -204,13 +206,13 @@ function ComposeModal({
           )}
           {form.cible === "NIVEAU" && (
             <div>
-              <label className="text-xs text-gray-600 mb-1 block font-medium">Sélectionner le niveau</label>
+              <label className="text-xs text-gray-600 mb-1 block font-medium">{t("selectLevel")}</label>
               <select
                 value={form.niveau}
                 onChange={(e) => set("niveau", e.target.value)}
                 className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background"
               >
-                <option value="">-- Choisir un niveau --</option>
+                <option value="">{t("chooseLevel")}</option>
                 {niveaux.map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
@@ -220,7 +222,7 @@ function ComposeModal({
 
           {/* Envoi différé */}
           <div>
-            <label className="text-xs text-gray-600 mb-1 block font-medium">Envoi planifié (optionnel)</label>
+            <label className="text-xs text-gray-600 mb-1 block font-medium">{t("scheduledSend")}</label>
             <Input
               type="datetime-local"
               value={form.planifieeAt}
@@ -237,7 +239,7 @@ function ComposeModal({
               className="flex-1 gap-2"
             >
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Envoyer maintenant
+              {t("sendNow")}
             </Button>
             <Button
               variant="outline"
@@ -246,9 +248,9 @@ function ComposeModal({
               className="gap-2"
             >
               <Eye className="w-4 h-4" />
-              Brouillon
+              {t("draftBtn")}
             </Button>
-            <Button variant="ghost" onClick={onClose}>Annuler</Button>
+            <Button variant="ghost" onClick={onClose}>{t("cancelBtn")}</Button>
           </div>
         </CardContent>
       </Card>
@@ -263,6 +265,7 @@ function NotifCard({ notif, onSend, onDelete }: {
   onSend: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const t = useTranslations("communication");
   const [expanded, setExpanded] = useState(false);
   const sConfig = STATUT_CONFIG[notif.statut];
   const cConfig = CANAL_CONFIG[notif.canal];
@@ -283,19 +286,19 @@ function NotifCard({ notif, onSend, onDelete }: {
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{notif.titre}</h3>
               <Badge className={cn("text-xs gap-1 flex-shrink-0", sConfig.color)}>
-                {sConfig.icon} {sConfig.label}
+                {sConfig.icon} {t(sConfig.labelKey)}
               </Badge>
             </div>
 
             {/* Meta */}
             <div className="flex flex-wrap gap-2 mt-1.5">
-              <Badge className={cn("text-xs gap-1", cConfig.color)}>{cConfig.icon}{cConfig.label}</Badge>
+              <Badge className={cn("text-xs gap-1", cConfig.color)}>{cConfig.icon}{t(cConfig.labelKey)}</Badge>
               <span className="flex items-center gap-1 text-xs text-gray-500">
                 {cibleConfig.icon}
-                <span>{cibleConfig.label}</span>
+                <span>{t(cibleConfig.labelKey)}</span>
               </span>
               {notif.nbDestinataires > 0 && (
-                <span className="text-xs text-gray-400">{notif.nbDestinataires} destinataires</span>
+                <span className="text-xs text-gray-400">{t("recipients", { count: notif.nbDestinataires })}</span>
               )}
             </div>
 
@@ -313,8 +316,8 @@ function NotifCard({ notif, onSend, onDelete }: {
             {/* Stats envoi */}
             {notif.statut === "ENVOYEE" && notif.nbDestinataires > 0 && (
               <div className="mt-2 flex gap-3 text-xs">
-                <span className="text-blue-600">{notif.nbDelivres} délivrés</span>
-                <span className="text-green-600">{notif.nbLus} lus ({tauxLecture}%)</span>
+                <span className="text-blue-600">{t("delivered", { count: notif.nbDelivres })}</span>
+                <span className="text-green-600">{t("read", { count: notif.nbLus, rate: tauxLecture })}</span>
                 <span className="text-gray-400">{notif.envoyeeAt ? timeAgo(notif.envoyeeAt) : ""}</span>
               </div>
             )}
@@ -323,19 +326,19 @@ function NotifCard({ notif, onSend, onDelete }: {
             {notif.statut === "PLANIFIEE" && notif.planifieeAt && (
               <div className="mt-2 flex items-center gap-1 text-xs text-yellow-600">
                 <CalendarClock className="w-3 h-3" />
-                Planifiée le {formatDate(notif.planifieeAt, "dd/MM/yyyy à HH:mm")}
+                {t("scheduledOn", { date: formatDate(notif.planifieeAt, "dd/MM/yyyy à HH:mm") })}
               </div>
             )}
 
             {/* Expéditeur + date */}
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-400">
-                Par {notif.envoyePar?.name ?? "Système"} · {formatDate(notif.createdAt)}
+                {t("byAuthor", { name: notif.envoyePar?.name ?? t("system"), date: formatDate(notif.createdAt) })}
               </span>
               {notif.statut === "BROUILLON" && (
                 <div className="flex gap-1.5">
                   <Button size="sm" className="h-6 text-xs gap-1 px-2" onClick={() => onSend(notif.id)}>
-                    <Send className="w-3 h-3" /> Envoyer
+                    <Send className="w-3 h-3" /> {t("sendBtn")}
                   </Button>
                   <Button size="sm" variant="ghost" className="h-6 text-xs text-red-500 px-2" onClick={() => onDelete(notif.id)}>
                     <Trash2 className="w-3 h-3" />
@@ -358,6 +361,7 @@ interface CommunicationViewProps {
 }
 
 export function CommunicationView({ notifications: initial, classes }: CommunicationViewProps) {
+  const t = useTranslations("communication");
   const [notifs, setNotifs] = useState<Notification[]>(initial);
   const [showCompose, setShowCompose] = useState(false);
   const [filtreStatut, setFiltreStatut] = useState<Statut | "TOUS">("TOUS");
@@ -391,8 +395,8 @@ export function CommunicationView({ notifications: initial, classes }: Communica
         setNotifs((prev) =>
           prev.map((n) => n.id === id ? { ...n, statut: "ENVOYEE", envoyeeAt: new Date() } : n)
         );
-        toast.success("Notification envoyée !");
-      } catch { toast.error("Erreur lors de l'envoi"); }
+        toast.success(t("notificationSent"));
+      } catch { toast.error(t("sendError")); }
     });
   };
 
@@ -405,8 +409,8 @@ export function CommunicationView({ notifications: initial, classes }: Communica
           body: JSON.stringify({ action: "annuler" }),
         });
         setNotifs((prev) => prev.filter((n) => n.id !== id));
-        toast.success("Brouillon supprimé");
-      } catch { toast.error("Erreur"); }
+        toast.success(t("draftDeleted"));
+      } catch { toast.error(t("genericError")); }
     });
   };
 
@@ -423,21 +427,21 @@ export function CommunicationView({ notifications: initial, classes }: Communica
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Communication École</h2>
-          <p className="text-sm text-gray-500">{stats.envoyees} notification{stats.envoyees !== 1 ? "s" : ""} envoyée{stats.envoyees !== 1 ? "s" : ""}</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("schoolCommunication")}</h2>
+          <p className="text-sm text-gray-500">{t("notificationsSent", { count: stats.envoyees })}</p>
         </div>
         <Button onClick={() => setShowCompose(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Nouveau message
+          <Plus className="w-4 h-4" /> {t("newMessageBtn")}
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total", value: stats.total, color: "bg-blue-100 dark:bg-blue-900/30", icon: <Bell className="w-5 h-5 text-blue-600" /> },
-          { label: "Envoyées", value: stats.envoyees, color: "bg-green-100 dark:bg-green-900/30", icon: <CheckCircle2 className="w-5 h-5 text-green-600" /> },
-          { label: "Brouillons", value: stats.brouillons, color: "bg-gray-100 dark:bg-gray-800", icon: <Eye className="w-5 h-5 text-gray-500" /> },
-          { label: "Destinataires touchés", value: stats.totalDestinataires, color: "bg-purple-100 dark:bg-purple-900/30", icon: <Users className="w-5 h-5 text-purple-600" /> },
+          { label: t("statTotal"), value: stats.total, color: "bg-blue-100 dark:bg-blue-900/30", icon: <Bell className="w-5 h-5 text-blue-600" /> },
+          { label: t("statSent"), value: stats.envoyees, color: "bg-green-100 dark:bg-green-900/30", icon: <CheckCircle2 className="w-5 h-5 text-green-600" /> },
+          { label: t("statDrafts"), value: stats.brouillons, color: "bg-gray-100 dark:bg-gray-800", icon: <Eye className="w-5 h-5 text-gray-500" /> },
+          { label: t("statRecipients"), value: stats.totalDestinataires, color: "bg-purple-100 dark:bg-purple-900/30", icon: <Users className="w-5 h-5 text-purple-600" /> },
         ].map((s) => (
           <Card key={s.label} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
@@ -467,7 +471,7 @@ export function CommunicationView({ notifications: initial, classes }: Communica
                   : "bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200"
               )}
             >
-              {s === "TOUS" ? "Tous" : STATUT_CONFIG[s as Statut].label}
+              {s === "TOUS" ? t("filterAll") : t(STATUT_CONFIG[s as Statut].labelKey)}
             </button>
           ))}
         </div>
@@ -483,7 +487,7 @@ export function CommunicationView({ notifications: initial, classes }: Communica
                   : "bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200"
               )}
             >
-              {c === "TOUS" ? "Tous canaux" : CANAL_CONFIG[c as Canal].label}
+              {c === "TOUS" ? t("filterAllChannels") : t(CANAL_CONFIG[c as Canal].labelKey)}
             </button>
           ))}
         </div>
@@ -494,9 +498,9 @@ export function CommunicationView({ notifications: initial, classes }: Communica
         <Card className="border-0 shadow-sm">
           <CardContent className="py-16 text-center">
             <Megaphone className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Aucune notification</p>
+            <p className="text-sm text-gray-500">{t("noNotifications")}</p>
             <Button onClick={() => setShowCompose(true)} className="mt-3 gap-2" size="sm">
-              <Plus className="w-3.5 h-3.5" /> Créer le premier message
+              <Plus className="w-3.5 h-3.5" /> {t("createFirst")}
             </Button>
           </CardContent>
         </Card>

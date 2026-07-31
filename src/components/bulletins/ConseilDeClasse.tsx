@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 type Decision = "PASSAGE" | "REDOUBLEMENT" | "FELICITATIONS" | "ENCOURAGEMENTS" | "AVERTISSEMENT";
 
@@ -45,6 +46,7 @@ function noteColor(n: number | null): string {
 }
 
 export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, eleves: initial }: Props) {
+  const t = useTranslations("bulletins");
   const [eleves, setEleves] = useState<EleveConseil[]>(initial);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -82,11 +84,11 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
         body: JSON.stringify({ eleveId, periodeId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur IA");
+      if (!res.ok) throw new Error(data.error ?? t("errAi"));
       setAppreciation(eleveId, data.appreciation);
-      toast.success("Suggestion IA générée — relisez avant d'enregistrer");
+      toast.success(t("aiSuccess"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Impossible de générer une suggestion IA");
+      toast.error(err instanceof Error ? err.message : t("errAi"));
     } finally {
       setAiLoadingId(null);
     }
@@ -106,7 +108,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
       })
     );
     setSaved(false);
-    toast.info("Décisions automatiques appliquées selon les moyennes");
+    toast.info(t("autoApplied"));
   }
 
   function handleSave() {
@@ -126,9 +128,9 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
 
         if (!res.ok) throw new Error("Erreur serveur");
         setSaved(true);
-        toast.success("Décisions du conseil enregistrées !");
+        toast.success(t("decisionsSaved"));
       } catch {
-        toast.error("Impossible d'enregistrer les décisions");
+        toast.error(t("errSaveDecisions"));
       }
     });
   }
@@ -139,14 +141,14 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Conseil de classe — {classeNom}
+            {t("conseilClassTitle", { classe: classeNom })}
           </h2>
-          <p className="text-sm text-gray-500">{periodeNom} · {eleves.length} élèves</p>
+          <p className="text-sm text-gray-500">{periodeNom} · {t("students", { count: eleves.length })}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={applyAutoDecisions}>
             <Award className="w-4 h-4 mr-2" />
-            Décisions auto
+            {t("autoDecisions")}
           </Button>
           <Button
             size="sm"
@@ -159,7 +161,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            {saved ? "Enregistré ✓" : "Enregistrer"}
+            {saved ? t("saved") : t("save")}
           </Button>
         </div>
       </div>
@@ -189,11 +191,11 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-8">#</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Élève</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-20">Moy. /20</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-16">Rang</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-52">Décision</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Appréciation conseil</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("student")}</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-20">{t("avgOver20")}</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-16">{t("rankLabel")}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-52">{t("decisionLabel")}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("appreciationCouncil")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -245,14 +247,14 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
                           type="text"
                           value={eleve.appreciation}
                           onChange={(e) => setAppreciation(eleve.id, e.target.value)}
-                          placeholder="Appréciation personnalisée..."
+                          placeholder={t("appreciationPlaceholder")}
                           className="w-full text-xs bg-transparent border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 focus:outline-none focus:border-green-500 text-gray-700 dark:text-gray-300 placeholder-gray-300"
                         />
                         <button
                           type="button"
                           onClick={() => suggererAppreciation(eleve.id)}
                           disabled={aiLoadingId === eleve.id}
-                          title="Suggestion IA"
+                          title={t("aiSuggestion")}
                           className="shrink-0 p-1.5 rounded border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors disabled:opacity-50"
                         >
                           {aiLoadingId === eleve.id ? (
@@ -275,8 +277,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
         <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-lg px-4 py-3">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>
-            {stats.nonRenseignés} élève{stats.nonRenseignés > 1 ? "s" : ""} sans décision renseignée.
-            Utilisez &quot;Décisions auto&quot; ou renseignez-les manuellement avant de publier les bulletins.
+            {t("studentsWithoutDecision", { count: stats.nonRenseignés })}
           </span>
         </div>
       )}

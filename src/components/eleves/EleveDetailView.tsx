@@ -12,8 +12,10 @@ import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Edit, User, Phone, MapPin, BookOpen,
   CalendarX, AlertTriangle, CreditCard, TrendingUp,
-  Clock, CheckCircle2, XCircle, AlertCircle,
+  Clock, CheckCircle2, XCircle, AlertCircle, ShieldOff,
 } from "lucide-react";
+import { DispenseMatiereManager } from "./DispenseMatiereManager";
+import { useTranslations } from "next-intl";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -116,6 +118,19 @@ interface Eleve {
   parcours: ParcoursScolaire[];
 }
 
+interface MatiereInfo {
+  id: string;
+  nom: string;
+  code: string;
+}
+
+interface DispenseInfo {
+  id: string;
+  matiereId: string;
+  matiereNom: string;
+  motif: string | null;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const statutColors: Record<string, string> = {
@@ -124,14 +139,6 @@ const statutColors: Record<string, string> = {
   DIPLOME: "bg-purple-100 text-purple-800",
   EXCLU: "bg-red-100 text-red-800",
   ABANDONNE: "bg-yellow-100 text-yellow-800",
-};
-
-const statutLabels: Record<string, string> = {
-  ACTIF: "Actif",
-  TRANSFERE: "Transféré",
-  DIPLOME: "Diplômé",
-  EXCLU: "Exclu",
-  ABANDONNE: "Abandonné",
 };
 
 const absenceStatutIcon: Record<string, React.ReactNode> = {
@@ -169,7 +176,16 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function EleveDetailView({ eleve }: { eleve: Eleve }) {
+export function EleveDetailView({
+  eleve,
+  matieres = [],
+  dispenses = [],
+}: {
+  eleve: Eleve;
+  matieres?: MatiereInfo[];
+  dispenses?: DispenseInfo[];
+}) {
+  const t = useTranslations("eleveDetail");
   const [tab, setTab] = useState("notes");
 
   const tuteur = eleve.parents.find((p) => p.isGardien) ?? eleve.parents[0];
@@ -205,13 +221,13 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         <Button asChild variant="outline" size="sm" className="gap-2">
           <Link href="/eleves">
             <ArrowLeft className="h-4 w-4" />
-            Retour aux élèves
+            {t("backToList")}
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm" className="gap-2">
           <Link href={`/eleves/${eleve.id}/modifier`}>
             <Edit className="h-4 w-4" />
-            Modifier le profil
+            {t("editProfile")}
           </Link>
         </Button>
       </div>
@@ -244,24 +260,24 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
                   statutColors[eleve.statut] ?? "bg-gray-100 text-gray-600"
                 )}
               >
-                {statutLabels[eleve.statut] ?? eleve.statut}
+                {t.has(`statut${eleve.statut}`) ? t(`statut${eleve.statut}`) : eleve.statut}
               </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
-              <InfoRow label="Matricule" value={eleve.matricule} />
-              <InfoRow label="Classe" value={eleve.classe?.nom ?? "Non affectée"} />
-              <InfoRow label="Niveau" value={eleve.classe?.niveau} />
-              <InfoRow label="Régime" value={eleve.regime ?? "Externe"} />
-              <InfoRow label="Date de naissance" value={formatDate(eleve.dateNaissance)} />
-              <InfoRow label="Lieu de naissance" value={eleve.lieuNaissance} />
-              <InfoRow label="Nationalité" value={eleve.nationalite} />
-              <InfoRow label="Sexe" value={eleve.sexe === "F" ? "Féminin" : "Masculin"} />
-              <InfoRow label="Année d'inscription" value={eleve.anneeInscription} />
-              <InfoRow label="Transport" value={eleve.transport} />
-              <InfoRow label="Groupe sanguin" value={eleve.groupeSanguin} />
-              {eleve.allergies && <InfoRow label="Allergies" value={eleve.allergies} />}
-              {eleve.besoinsSpeciaux && <InfoRow label="Besoins spéciaux" value={eleve.besoinsSpeciaux} />}
+              <InfoRow label={t("matricule")} value={eleve.matricule} />
+              <InfoRow label={t("class")} value={eleve.classe?.nom ?? t("notAssigned")} />
+              <InfoRow label={t("level")} value={eleve.classe?.niveau} />
+              <InfoRow label={t("regime")} value={eleve.regime ?? t("external")} />
+              <InfoRow label={t("birthDate")} value={formatDate(eleve.dateNaissance)} />
+              <InfoRow label={t("placeOfBirth")} value={eleve.lieuNaissance} />
+              <InfoRow label={t("nationality")} value={eleve.nationalite} />
+              <InfoRow label={t("sex")} value={eleve.sexe === "F" ? t("female") : t("male")} />
+              <InfoRow label={t("enrollmentYear")} value={eleve.anneeInscription} />
+              <InfoRow label={t("transport")} value={eleve.transport} />
+              <InfoRow label={t("bloodGroup")} value={eleve.groupeSanguin} />
+              {eleve.allergies && <InfoRow label={t("allergies")} value={eleve.allergies} />}
+              {eleve.besoinsSpeciaux && <InfoRow label={t("specialNeeds")} value={eleve.besoinsSpeciaux} />}
             </div>
           </div>
         </div>
@@ -270,9 +286,9 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
-          label="Moyenne générale"
+          label={t("generalAverage")}
           value={moyenneGenerale ? `${moyenneGenerale}/20` : "—"}
-          sub={`${eleve.notes.length} note(s)`}
+          sub={t("notesCount", { count: eleve.notes.length })}
           color={
             moyenneGenerale
               ? parseFloat(moyenneGenerale) >= 14
@@ -283,12 +299,12 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
               : undefined
           }
         />
-        <StatCard label="Absences" value={totalAbsences} sub={`${totalRetards} retard(s)`} color="text-orange-600" />
-        <StatCard label="Incidents" value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
+        <StatCard label={t("absences")} value={totalAbsences} sub={t("latesCount", { count: totalRetards })} color="text-orange-600" />
+        <StatCard label={t("incidents")} value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
         <StatCard
-          label="Solde dû"
+          label={t("balanceDue")}
           value={`${(totalDu - totalPaye).toLocaleString()} FDJ`}
-          sub={`Payé: ${totalPaye.toLocaleString()} FDJ`}
+          sub={`${t("paid")}: ${totalPaye.toLocaleString()} FDJ`}
           color={totalDu - totalPaye > 0 ? "text-red-600" : "text-green-600"}
         />
       </div>
@@ -298,24 +314,24 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         <Card className="p-5">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />
-            Parent / Tuteur légal
+            {t("legalGuardian")}
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
             <InfoRow
-              label="Nom complet"
+              label={t("fullName")}
               value={`${tuteur.parent.prenom} ${tuteur.parent.nom}`}
             />
-            <InfoRow label="Lien" value={tuteur.lien} />
-            <InfoRow label="Téléphone" value={tuteur.parent.phone} />
-            {tuteur.parent.phone2 && <InfoRow label="Tél. secondaire" value={tuteur.parent.phone2} />}
-            <InfoRow label="Email" value={tuteur.parent.email} />
-            <InfoRow label="Profession" value={tuteur.parent.profession} />
-            <InfoRow label="Adresse" value={tuteur.parent.adresse} />
+            <InfoRow label={t("relationship")} value={tuteur.lien} />
+            <InfoRow label={t("phone")} value={tuteur.parent.phone} />
+            {tuteur.parent.phone2 && <InfoRow label={t("secondaryPhone")} value={tuteur.parent.phone2} />}
+            <InfoRow label={t("email")} value={tuteur.parent.email} />
+            <InfoRow label={t("profession")} value={tuteur.parent.profession} />
+            <InfoRow label={t("address")} value={tuteur.parent.adresse} />
           </div>
           {(eleve.contactUrgenceNom || eleve.contactUrgencePhone) && (
             <div className="mt-4 pt-4 border-t flex gap-6">
-              <InfoRow label="Contact urgence" value={eleve.contactUrgenceNom} />
-              <InfoRow label="Téléphone urgence" value={eleve.contactUrgencePhone} />
+              <InfoRow label={t("emergencyContact")} value={eleve.contactUrgenceNom} />
+              <InfoRow label={t("emergencyPhone")} value={eleve.contactUrgencePhone} />
             </div>
           )}
         </Card>
@@ -326,30 +342,34 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="notes" className="gap-1.5">
             <BookOpen className="h-3.5 w-3.5" />
-            Notes
+            {t("tabNotes")}
           </TabsTrigger>
           <TabsTrigger value="absences" className="gap-1.5">
             <CalendarX className="h-3.5 w-3.5" />
-            Absences
+            {t("tabAbsences")}
           </TabsTrigger>
           <TabsTrigger value="discipline" className="gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Discipline
+            {t("tabDiscipline")}
           </TabsTrigger>
           <TabsTrigger value="facturation" className="gap-1.5">
             <CreditCard className="h-3.5 w-3.5" />
-            Facturation
+            {t("tabBilling")}
           </TabsTrigger>
           <TabsTrigger value="parcours" className="gap-1.5">
             <TrendingUp className="h-3.5 w-3.5" />
-            Parcours
+            {t("tabParcours")}
+          </TabsTrigger>
+          <TabsTrigger value="dispenses" className="gap-1.5">
+            <ShieldOff className="h-3.5 w-3.5" />
+            {t("tabDispenses")}
           </TabsTrigger>
         </TabsList>
 
         {/* ─ Notes ─ */}
         <TabsContent value="notes" className="mt-4">
           {Object.keys(notesByMatiere).length === 0 ? (
-            <EmptyState message="Aucune note enregistrée." />
+            <EmptyState message={t("noNotes")} />
           ) : (
             <div className="space-y-4">
               {Object.values(notesByMatiere).map((m) => {
@@ -377,7 +397,7 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
                             : "text-red-600"
                         )}
                       >
-                        Moy. {avg}/20
+                        {t("avgShort", { avg })}
                       </span>
                     </div>
                     <div className="divide-y">
@@ -417,18 +437,18 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         {/* ─ Absences ─ */}
         <TabsContent value="absences" className="mt-4">
           {eleve.absences.length === 0 ? (
-            <EmptyState message="Aucune absence enregistrée." />
+            <EmptyState message={t("noAbsences")} />
           ) : (
             <Card className="overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Horaire</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Motif</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Statut</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Note</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("date")}</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("schedule")}</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("type")}</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("motif")}</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("status")}</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("note")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -436,11 +456,11 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
                     <tr key={a.id} className={cn("border-b last:border-0", i % 2 === 0 ? "bg-background" : "bg-muted/10")}>
                       <td className="px-4 py-3">{formatDate(a.date)}</td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
-                        {a.heureDebut && a.heureFin ? `${a.heureDebut} – ${a.heureFin}` : "Journée"}
+                        {a.heureDebut && a.heureFin ? `${a.heureDebut} – ${a.heureFin}` : t("allDay")}
                       </td>
                       <td className="px-4 py-3">
                         <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", a.isRetard ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-700")}>
-                          {a.isRetard ? "Retard" : "Absence"}
+                          {a.isRetard ? t("lateBadge") : t("absenceBadge")}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{a.motif}</td>
@@ -462,7 +482,7 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         {/* ─ Discipline ─ */}
         <TabsContent value="discipline" className="mt-4">
           {eleve.incidents.length === 0 ? (
-            <EmptyState message="Aucun incident enregistré." good />
+            <EmptyState message={t("noIncidents")} good />
           ) : (
             <div className="space-y-3">
               {eleve.incidents.map((inc) => (
@@ -509,7 +529,7 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         {/* ─ Facturation ─ */}
         <TabsContent value="facturation" className="mt-4">
           {eleve.factures.length === 0 ? (
-            <EmptyState message="Aucune facture enregistrée." />
+            <EmptyState message={t("noInvoices")} />
           ) : (
             <div className="space-y-3">
               {eleve.factures.map((f) => {
@@ -524,7 +544,7 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
                       </div>
                       <div className="flex items-center gap-3">
                         {f.echeance && (
-                          <span className="text-xs text-muted-foreground">Éch. {formatDate(f.echeance)}</span>
+                          <span className="text-xs text-muted-foreground">{t("dueShort")} {formatDate(f.echeance)}</span>
                         )}
                         <span
                           className={cn(
@@ -538,15 +558,15 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
                     </div>
                     <div className="mt-3 flex gap-6 text-sm">
                       <div>
-                        <p className="text-xs text-muted-foreground">Montant</p>
+                        <p className="text-xs text-muted-foreground">{t("amount")}</p>
                         <p className="font-semibold">{f.montant.toLocaleString()} {f.devise}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Payé</p>
+                        <p className="text-xs text-muted-foreground">{t("paid")}</p>
                         <p className="font-semibold text-green-600">{paye.toLocaleString()} {f.devise}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Restant</p>
+                        <p className="text-xs text-muted-foreground">{t("remaining")}</p>
                         <p className={cn("font-semibold", restant > 0 ? "text-red-600" : "text-green-600")}>
                           {restant.toLocaleString()} {f.devise}
                         </p>
@@ -562,7 +582,7 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
         {/* ─ Parcours ─ */}
         <TabsContent value="parcours" className="mt-4">
           {eleve.parcours.length === 0 ? (
-            <EmptyState message="Aucun parcours scolaire enregistré." />
+            <EmptyState message={t("noParcours")} />
           ) : (
             <div className="space-y-3">
               {eleve.parcours.map((p) => (
@@ -577,7 +597,7 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
                     <div className="flex items-center gap-4">
                       {p.moyenneAnnuelle !== null && (
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Moyenne</p>
+                          <p className="text-xs text-muted-foreground">{t("average")}</p>
                           <p
                             className={cn(
                               "font-bold",
@@ -594,7 +614,7 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
                       )}
                       {p.rang && p.effectif && (
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Rang</p>
+                          <p className="text-xs text-muted-foreground">{t("rank")}</p>
                           <p className="font-bold">{p.rang}/{p.effectif}</p>
                         </div>
                       )}
@@ -612,6 +632,15 @@ export function EleveDetailView({ eleve }: { eleve: Eleve }) {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* ─ Dispenses de matière ─ */}
+        <TabsContent value="dispenses" className="mt-4">
+          <DispenseMatiereManager
+            eleve={{ id: eleve.id, nom: eleve.nom, prenom: eleve.prenom, matricule: eleve.matricule }}
+            matieres={matieres}
+            dispenses={dispenses}
+          />
         </TabsContent>
       </Tabs>
     </div>

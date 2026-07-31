@@ -9,6 +9,7 @@ import { getInitials } from "@/lib/utils";
 import { CheckCircle2, XCircle, Clock, Users, CheckCheck, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 interface Eleve {
   id: string;
@@ -35,6 +36,7 @@ export function AppelInterface({
   classes: Classe[];
   tenantId: string;
 }) {
+  const t = useTranslations("absences");
   const [selectedClasseId, setSelectedClasseId] = useState<string>(
     classes[0]?.id ?? ""
   );
@@ -70,7 +72,7 @@ export function AppelInterface({
 
   async function soumettre() {
     if (stats.nonSaisis > 0) {
-      toast.warning(`${stats.nonSaisis} élève(s) non saisis`);
+      toast.warning(t("appelNotSetWarn", { count: stats.nonSaisis }));
       return;
     }
     startTransition(async () => {
@@ -87,9 +89,9 @@ export function AppelInterface({
         if (!res.ok) throw new Error();
         const data = await res.json();
         setSubmitted(true);
-        toast.success(data.message ?? "Appel enregistré avec succès !");
+        toast.success(data.message ?? t("appelSuccess"));
       } catch {
-        toast.error("Erreur lors de l'enregistrement de l'appel");
+        toast.error(t("appelError"));
       }
     });
   }
@@ -100,7 +102,7 @@ export function AppelInterface({
       <div className="lg:col-span-1">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Classes</CardTitle>
+            <CardTitle className="text-sm font-semibold">{t("appelClasses")}</CardTitle>
           </CardHeader>
           <CardContent className="p-2 pt-0">
             <div className="space-y-1">
@@ -132,13 +134,13 @@ export function AppelInterface({
         {eleves.length > 0 && (
           <Card className="mt-4">
             <CardContent className="p-4 space-y-3">
-              <p className="text-sm font-semibold">Récapitulatif</p>
+              <p className="text-sm font-semibold">{t("appelSummary")}</p>
               {[
-                { label: "Total", value: stats.total, color: "text-foreground" },
-                { label: "Présents", value: stats.presents, color: "text-green-600 dark:text-green-400" },
-                { label: "Absents", value: stats.absents, color: "text-red-500 dark:text-red-400" },
-                { label: "Retards", value: stats.retards, color: "text-yellow-600 dark:text-yellow-400" },
-                { label: "Non saisis", value: stats.nonSaisis, color: "text-muted-foreground" },
+                { label: t("appelTotal"), value: stats.total, color: "text-foreground" },
+                { label: t("appelPresents"), value: stats.presents, color: "text-green-600 dark:text-green-400" },
+                { label: t("appelAbsents"), value: stats.absents, color: "text-red-500 dark:text-red-400" },
+                { label: t("appelRetards"), value: stats.retards, color: "text-yellow-600 dark:text-yellow-400" },
+                { label: t("appelNotSet"), value: stats.nonSaisis, color: "text-muted-foreground" },
               ].map((item) => (
                 <div key={item.label} className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">{item.label}</span>
@@ -154,19 +156,19 @@ export function AppelInterface({
       <div className="lg:col-span-3">
         {!selectedClasse ? (
           <Card className="h-64 flex items-center justify-center">
-            <p className="text-muted-foreground">Sélectionnez une classe</p>
+            <p className="text-muted-foreground">{t("appelSelectClass")}</p>
           </Card>
         ) : submitted ? (
           <Card className="h-64 flex flex-col items-center justify-center gap-4">
             <CheckCheck className="h-12 w-12 text-green-500" />
             <div className="text-center">
-              <p className="text-lg font-semibold">Appel enregistré !</p>
+              <p className="text-lg font-semibold">{t("appelSaved")}</p>
               <p className="text-sm text-muted-foreground">
-                {stats.presents} présents · {stats.absents} absents · {stats.retards} retards
+                {t("appelSummaryLine", { presents: stats.presents, absents: stats.absents, retards: stats.retards })}
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={reset} className="gap-2">
-              <RotateCcw className="h-4 w-4" /> Refaire l'appel
+              <RotateCcw className="h-4 w-4" /> {t("appelRedo")}
             </Button>
           </Card>
         ) : (
@@ -175,12 +177,12 @@ export function AppelInterface({
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <div>
                 <h2 className="font-semibold">{selectedClasse.nom}</h2>
-                <p className="text-sm text-muted-foreground">{eleves.length} élèves</p>
+                <p className="text-sm text-muted-foreground">{t("appelStudents", { count: eleves.length })}</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="gap-2" onClick={marquerTousPresents}>
                   <Users className="h-4 w-4" />
-                  Tous présents
+                  {t("appelAllPresent")}
                 </Button>
                 <Button
                   size="sm"
@@ -189,7 +191,7 @@ export function AppelInterface({
                   disabled={isPending}
                 >
                   <CheckCheck className="h-4 w-4" />
-                  {isPending ? "Enregistrement..." : "Valider l'appel"}
+                  {isPending ? t("appelSubmitting") : t("appelSubmit")}
                 </Button>
               </div>
             </div>
@@ -224,7 +226,7 @@ export function AppelInterface({
                     <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={() => setPresence(eleve.id, "present")}
-                        title="Présent"
+                        title={t("appelPresent")}
                         className={cn(
                           "p-1.5 rounded-lg transition-all",
                           status === "present"
@@ -236,7 +238,7 @@ export function AppelInterface({
                       </button>
                       <button
                         onClick={() => setPresence(eleve.id, "retard")}
-                        title="Retard"
+                        title={t("appelLate")}
                         className={cn(
                           "p-1.5 rounded-lg transition-all",
                           status === "retard"
@@ -248,7 +250,7 @@ export function AppelInterface({
                       </button>
                       <button
                         onClick={() => setPresence(eleve.id, "absent")}
-                        title="Absent"
+                        title={t("appelAbsentTitle")}
                         className={cn(
                           "p-1.5 rounded-lg transition-all",
                           status === "absent"

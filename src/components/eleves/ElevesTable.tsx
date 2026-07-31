@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
+import { useTranslations } from "next-intl";
 
 interface Eleve {
   id: string;
@@ -40,13 +41,7 @@ const statutColors = {
   ABANDONNE: "warning",
 } as const;
 
-const statutLabels = {
-  ACTIF: "Actif",
-  TRANSFERE: "Transféré",
-  DIPLOME: "Diplômé",
-  EXCLU: "Exclu",
-  ABANDONNE: "Abandonné",
-};
+const STATUT_CODES = ["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"] as const;
 
 interface ElevesTableProps {
   eleves: Eleve[];
@@ -60,6 +55,9 @@ interface ElevesTableProps {
 export function ElevesTable({ eleves, total, classes, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("eleves");
+  const tCommon = useTranslations("common");
+  const tStatut = useTranslations("eleveDetail");
 
   const [search, setSearch] = useState(initialQuery);
   const [sortField, setSortField] = useState<"nom" | "classe" | "statut">("nom");
@@ -146,7 +144,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom, matricule, classe..."
+            placeholder={t("search")}
             className="pl-8 h-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -160,43 +158,43 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
           aria-expanded={showFilters}
         >
           <Filter className="h-4 w-4" />
-          Filtres
+          {tCommon("filter")}
           {(initialClasse || initialStatut) && (
             <span className="ml-1 flex h-2 w-2 rounded-full bg-primary" />
           )}
         </Button>
         <p className="text-sm text-muted-foreground ml-auto">
-          {total} résultat{total > 1 ? "s" : ""}
+          {total}
         </p>
       </div>
 
       {showFilters && (
         <div className="flex flex-wrap items-center gap-3 px-4 pb-4 border-b">
           <div className="flex items-center gap-2">
-            <label htmlFor="classe-filter" className="text-sm text-muted-foreground">Classe</label>
+            <label htmlFor="classe-filter" className="text-sm text-muted-foreground">{tCommon("class")}</label>
             <select
               id="classe-filter"
               value={initialClasse}
               onChange={(e) => setFilter("classeId", e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="">Toutes</option>
+              <option value="">{tCommon("all")}</option>
               {classes.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label htmlFor="statut-filter" className="text-sm text-muted-foreground">Statut</label>
+            <label htmlFor="statut-filter" className="text-sm text-muted-foreground">{tCommon("status")}</label>
             <select
               id="statut-filter"
               value={initialStatut}
               onChange={(e) => setFilter("statut", e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="">Tous</option>
-              {Object.entries(statutLabels).map(([s, label]) => (
-                <option key={s} value={s}>{label}</option>
+              <option value="">{tCommon("all")}</option>
+              {STATUT_CODES.map((s) => (
+                <option key={s} value={s}>{tStatut(`statut${s}`)}</option>
               ))}
             </select>
           </div>
@@ -208,7 +206,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
               onClick={resetFilters}
             >
               <X className="h-4 w-4" />
-              Réinitialiser
+              {tCommon("reset")}
             </Button>
           )}
         </div>
@@ -217,7 +215,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
       {/* Navigation par onglets horizontaux : Primaire | Collège | Lycée */}
       {groupedEleves.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          Aucun élève trouvé
+          {t("noStudents")}
         </div>
       ) : (
         <>
@@ -301,15 +299,15 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground w-10">#</th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">
                           <button onClick={() => toggleSort("nom")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                            Élève <SortIcon field="nom" />
+                            {t("etColStudent")} <SortIcon field="nom" />
                           </button>
                         </th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Matricule</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Naissance</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Parent/Tuteur</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColMatricule")}</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColBirth")}</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColParent")}</th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">
                           <button onClick={() => toggleSort("statut")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                            Statut <SortIcon field="statut" />
+                            {t("etColStatus")} <SortIcon field="statut" />
                           </button>
                         </th>
                         <th className="px-4 py-2 w-24" />
@@ -343,7 +341,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
                                 <div>
                                   <p className="font-medium">{eleve.prenom} {eleve.nom}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {eleve.sexe === "F" ? "♀" : "♂"} · {eleve.regime ?? "externe"}
+                                    {eleve.sexe === "F" ? "♀" : "♂"} · {eleve.regime ?? t("etExternal")}
                                   </p>
                                 </div>
                               </div>
@@ -366,7 +364,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
                             </td>
                             <td className="px-4 py-3">
                               <Badge variant={statutColors[eleve.statut as keyof typeof statutColors] ?? "secondary"}>
-                                {statutLabels[eleve.statut as keyof typeof statutLabels] ?? eleve.statut}
+                                {tStatut.has(`statut${eleve.statut}`) ? tStatut(`statut${eleve.statut}`) : eleve.statut}
                               </Badge>
                             </td>
                             <td className="px-4 py-3">
@@ -400,8 +398,8 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
           {(!activeGroup || !activeClass) && (
             <div className="text-center py-10 text-muted-foreground text-sm">
               {!activeGroup
-                ? "Sélectionnez un niveau scolaire ci-dessus pour afficher les classes."
-                : "Sélectionnez une classe ci-dessus pour afficher les élèves."}
+                ? t("selectLevelForClasses")
+                : t("selectClassForStudents")}
             </div>
           )}
         </>

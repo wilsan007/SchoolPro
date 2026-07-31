@@ -7,8 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X } from "lucide-react";
+import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2 } from "lucide-react";
 import { createUser, toggleUserActive, deleteUser, updateUserPhone, type UserFormData } from "@/lib/actions/parametres";
+import { addUserToTenant } from "@/lib/actions/user-tenant";
+import { useTranslations } from "next-intl";
+import type { AvailableTenant } from "@/auth.config";
+import type { Role } from "@prisma/client";
 
 interface UserItem {
   id: string;
@@ -21,24 +25,34 @@ interface UserItem {
   createdAt: Date;
 }
 
-const roleLabels: Record<string, string> = {
-  TENANT_ADMIN: "Administrateur",
-  PRINCIPAL: "Chef d&apos;établissement",
-  SECRETARY: "Secrétariat",
-  TEACHER: "Enseignant",
-  CLASS_TEACHER: "Prof. principal",
-  COUNSELOR: "Conseiller",
-  NURSE: "Infirmier(e)",
-  ACCOUNTANT: "Gestionnaire",
-  PARENT: "Parent",
-  STUDENT: "Élève",
+const roleKeys: Record<string, string> = {
+  TENANT_ADMIN: "roleTenantAdmin",
+  PRINCIPAL: "rolePrincipal",
+  SECRETARY: "roleSecretary",
+  TEACHER: "roleTeacher",
+  CLASS_TEACHER: "roleClassTeacher",
+  COUNSELOR: "roleCounselor",
+  NURSE: "roleNurse",
+  ACCOUNTANT: "roleAccountant",
+  PARENT: "roleParent",
+  STUDENT: "roleStudent",
 };
 
-export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: boolean }) {
+export function UsersTab({ users, canManage, availableTenants = [] }: { users: UserItem[]; canManage: boolean; availableTenants?: AvailableTenant[] }) {
+  const t = useTranslations("parametres");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
   const [phoneValue, setPhoneValue] = useState("");
+
+  // Multi-tenant: modal d'invitation
+  const [showTenantModal, setShowTenantModal] = useState(false);
+  const [tenantForm, setTenantForm] = useState({
+    email: "",
+    tenantId: "",
+    role: "TEACHER" as Role,
+  });
+  const [tenantResult, setTenantResult] = useState<string | null>(null);
   const [form, setForm] = useState<UserFormData>({
     name: "",
     email: "",
@@ -53,11 +67,11 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
     setIsPending(true);
     try {
       await createUser(form);
-      toast.success("Utilisateur créé");
+      toast.success(t("userCreated"));
       setShowForm(false);
       setForm({ name: "", email: "", role: "TEACHER", phone: "", password: "", isActive: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -66,19 +80,19 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
   async function handleToggle(id: string) {
     try {
       await toggleUserActive(id);
-      toast.success("Statut modifié");
+      toast.success(t("userToggled"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer cet utilisateur ?")) return;
+    if (!confirm(t("confirmDeleteUser"))) return;
     try {
       await deleteUser(id);
-      toast.success("Utilisateur supprimé");
+      toast.success(t("userDeleted"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     }
   }
 
@@ -86,65 +100,165 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
     setIsPending(true);
     try {
       await updateUserPhone(id, phoneValue);
-      toast.success("Téléphone mis à jour");
+      toast.success(t("phoneUpdated"));
       setEditingPhoneId(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsPending(false);
     }
   }
 
+  async function handleAddToTenant(e: React.FormEvent) {
+    e.preventDefault();
+    if (!tenantForm.email || !tenantForm.tenantId) return;
+    setIsPending(true);
+    setTenantResult(null);
+    try {
+      const result = await addUserToTenant(tenantForm);
+      setTenantResult(result.message);
+      toast.success(result.message);
+      setTenantForm({ email: "", tenantId: "", role: "TEACHER" });
+      setShowTenantModal(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("genericError"));
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  function openTenantModal(presetEmail?: string) {
+    setTenantForm({ email: presetEmail ?? "", tenantId: "", role: "TEACHER" });
+    setTenantResult(null);
+    setShowTenantModal(true);
+  }
+
   return (
     <div className="space-y-4">
       {canManage && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {availableTenants.length > 1 && (
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => openTenantModal()}>
+              <Building2 className="h-4 w-4" />
+              {t("addToTenant")}
+            </Button>
+          )}
           <Button size="sm" className="gap-2" onClick={() => setShowForm(!showForm)}>
             <Plus className="h-4 w-4" />
-            Ajouter un utilisateur
+            {t("addUser")}
           </Button>
         </div>
+      )}
+
+      {/* Modal: Ajouter un user à un autre tenant */}
+      {showTenantModal && canManage && (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              {t("addToTenantTitle")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAddToTenant} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="tenant-email">{t("colEmail")} *</Label>
+                <Input
+                  id="tenant-email"
+                  type="email"
+                  value={tenantForm.email}
+                  onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })}
+                  placeholder="prof@ecole.com"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tenant-select">{t("selectTenant")}</Label>
+                <select
+                  id="tenant-select"
+                  value={tenantForm.tenantId}
+                  onChange={(e) => setTenantForm({ ...tenantForm, tenantId: e.target.value })}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  required
+                >
+                  <option value="">— Choisir —</option>
+                  {availableTenants.map((at) => (
+                    <option key={at.tenantId} value={at.tenantId}>
+                      {at.tenantName} ({at.tenantSlug})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tenant-role">{t("role")}</Label>
+                <select
+                  id="tenant-role"
+                  value={tenantForm.role}
+                  onChange={(e) => setTenantForm({ ...tenantForm, role: e.target.value as Role })}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {Object.entries(roleKeys).filter(([k]) => k !== "STUDENT").map(([key, labelKey]) => (
+                    <option key={key} value={key}>{t(labelKey)}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-3 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                💡 Si l'email existe déjà, l'utilisateur sera lié au nouvel établissement avec le rôle choisi.
+                Si non, un nouveau compte sera créé avec un mot de passe temporaire.
+              </div>
+              <div className="md:col-span-3 flex gap-2">
+                <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
+                  {t("addToTenant")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowTenantModal(false)}>
+                  {t("cancel")}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
       {showForm && canManage && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Nouvel utilisateur</CardTitle>
+            <CardTitle className="text-sm">{t("newUser")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="name">Nom complet *</Label>
+                <Label htmlFor="name">{t("fullName")}</Label>
                 <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email">{t("colEmail")} *</Label>
                 <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="role">Rôle *</Label>
+                <Label htmlFor="role">{t("role")}</Label>
                 <select id="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserFormData["role"] })}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  {Object.entries(roleLabels).filter(([k]) => k !== "STUDENT").map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
+                  {Object.entries(roleKeys).filter(([k]) => k !== "STUDENT").map(([key, labelKey]) => (
+                    <option key={key} value={key}>{t(labelKey)}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="phone">Téléphone</Label>
+                <Label htmlFor="phone">{t("phone")}</Label>
                 <Input id="phone" value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="password">Mot de passe (laisser vide pour générer)</Label>
-                <Input id="password" type="password" placeholder="Min. 8 caractères" value={form.password ?? ""}
+                <Label htmlFor="password">{t("password")}</Label>
+                <Input id="password" type="password" placeholder={t("passwordPlaceholder")} value={form.password ?? ""}
                   onChange={(e) => setForm({ ...form, password: e.target.value })} />
               </div>
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Créer
+                  {t("create")}
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>{t("cancel")}</Button>
               </div>
             </form>
           </CardContent>
@@ -157,18 +271,18 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium">Nom</th>
-                  <th className="text-left px-4 py-3 font-medium">Email</th>
-                  <th className="text-left px-4 py-3 font-medium">Téléphone</th>
-                  <th className="text-left px-4 py-3 font-medium">Rôle</th>
-                  <th className="text-left px-4 py-3 font-medium">Statut</th>
-                  <th className="text-left px-4 py-3 font-medium">Dernière connexion</th>
-                  {canManage && <th className="text-right px-4 py-3 font-medium">Actions</th>}
+                  <th className="text-left px-4 py-3 font-medium">{t("colName")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colEmail")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colPhone")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colRole")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colStatus")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("colLastLogin")}</th>
+                  {canManage && <th className="text-right px-4 py-3 font-medium">{t("colActions")}</th>}
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Aucun utilisateur</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">{t("noUsers")}</td></tr>
                 ) : (
                   users.map((u) => (
                     <tr key={u.id} className="border-b hover:bg-muted/30">
@@ -180,7 +294,7 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
                             <Input
                               value={phoneValue}
                               onChange={(e) => setPhoneValue(e.target.value)}
-                              placeholder="ex: 253779876543"
+                              placeholder={t("phonePlaceholder")}
                               className="h-8 text-xs w-32"
                             />
                             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleSavePhone(u.id)} disabled={isPending}>
@@ -208,23 +322,34 @@ export function UsersTab({ users, canManage }: { users: UserItem[]; canManage: b
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant="info">{roleLabels[u.role] ?? u.role}</Badge>
+                        <Badge variant="info">{t(roleKeys[u.role] ?? u.role)}</Badge>
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={u.isActive ? "success" : "secondary"}>
-                          {u.isActive ? "Actif" : "Désactivé"}
+                          {u.isActive ? t("active") : t("disabled")}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString("fr-FR") : "Jamais"}
+                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString("fr-FR") : t("never")}
                       </td>
                       {canManage && (
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggle(u.id)} title="Activer/Désactiver">
+                            {availableTenants.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openTenantModal(u.email)}
+                                title={t("addToTenant")}
+                              >
+                                <Building2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggle(u.id)} title={t("toggleTitle")}>
                               <Power className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(u.id)} title="Supprimer">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(u.id)} title={t("deleteTitle")}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>

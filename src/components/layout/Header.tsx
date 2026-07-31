@@ -1,9 +1,10 @@
 "use client";
 
-import { Bell, Search, Moon, Sun, LogOut, User, ChevronDown, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { Bell, Search, Moon, Sun, LogOut, User, ChevronDown, CheckCircle2, AlertCircle, Info, Globe } from "lucide-react";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,15 +31,24 @@ interface HeaderProps {
 export function Header({ title, subtitle, userName = "Admin", userAvatar }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const locale = useLocale();
+  const tCommon = useTranslations("common");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [showLangMenu, setShowLangMenu] = useState(false);
   const [notifications, setNotifications] = useState<NotifItem[]>([]);
   const [notifCount, setNotifCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  function switchLocale(newLocale: string) {
+    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=${60 * 60 * 24 * 365}`;
+    setShowLangMenu(false);
+    router.refresh();
+  }
+
   useEffect(() => {
     const CACHE_KEY = "ecolpro_notif_cache";
-    const CACHE_TTL = 60_000; // 60 seconds
+    const CACHE_TTL = 120_000; // 2 minutes
 
     // Try cache first
     try {
@@ -54,7 +64,8 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
       }
     } catch {}
 
-    fetch("/api/communication?limit=5")
+    const controller = new AbortController();
+    fetch("/api/communication?limit=5", { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         const notifs = (data.notifications ?? []) as NotifItem[];
@@ -65,6 +76,8 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
         } catch {}
       })
       .catch(() => {});
+
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -78,7 +91,7 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-6 bg-background/95 backdrop-blur border-b border-border">
+    <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-6 bg-background border-b border-border">
       {/* Titre de la page */}
       <div>
         <h1 className="text-lg font-semibold text-foreground">{title}</h1>
@@ -93,7 +106,7 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
         <div className="relative hidden md:flex items-center">
           <Search className="absolute left-2.5 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher élève, classe..."
+            placeholder={tCommon("searchPlaceholder")}
             className="pl-8 h-9 w-56 text-sm"
           />
         </div>
@@ -108,6 +121,42 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
         </Button>
+
+        {/* Language selector */}
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 px-2 gap-1 text-sm font-medium"
+            onClick={() => setShowLangMenu(!showLangMenu)}
+          >
+            <Globe className="h-4 w-4" />
+            {locale.toUpperCase()}
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+          {showLangMenu && (
+            <div className="absolute right-0 mt-1 w-32 bg-popover border rounded-lg shadow-lg py-1 z-50">
+              <button
+                onClick={() => switchLocale("fr")}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors ${locale === "fr" ? "font-bold text-primary" : ""}`}
+              >
+                🇫🇷 {tCommon("french")}
+              </button>
+              <button
+                onClick={() => switchLocale("en")}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors ${locale === "en" ? "font-bold text-primary" : ""}`}
+              >
+                🇬🇧 {tCommon("english")}
+              </button>
+              <button
+                onClick={() => switchLocale("so")}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors ${locale === "so" ? "font-bold text-primary" : ""}`}
+              >
+                🇸🇴 {tCommon("somali")}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Notifications */}
         <div ref={notifRef} className="relative">
@@ -127,17 +176,17 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
           {showNotifMenu && (
             <div className="absolute right-0 mt-1 w-80 bg-popover border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
               <div className="px-4 py-3 border-b flex items-center justify-between">
-                <span className="text-sm font-semibold">Notifications</span>
+                <span className="text-sm font-semibold">{tCommon("notifications")}</span>
                 <button
                   onClick={() => { setShowNotifMenu(false); router.push("/communication"); }}
                   className="text-xs text-primary hover:underline"
                 >
-                  Voir tout
+                  {tCommon("viewAll")}
                 </button>
               </div>
               {notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  Aucune notification
+                  {tCommon("noNotifications")}
                 </div>
               ) : (
                 notifications.map((n) => (
@@ -190,7 +239,7 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
             <div className="absolute right-0 mt-1 w-48 bg-popover border rounded-lg shadow-lg py-1 z-50">
               <button className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors">
                 <User className="h-4 w-4" />
-                Mon profil
+                {tCommon("myProfile")}
               </button>
               <div className="border-t my-1" />
               <button
@@ -198,7 +247,7 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-accent transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                Déconnexion
+                {tCommon("logout")}
               </button>
             </div>
           )}

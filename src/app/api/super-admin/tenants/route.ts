@@ -111,6 +111,8 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Le UserTenant est indispensable : c'est lui qui alimente
+      // `availableTenants` dans le JWT et permet le changement d'établissement.
       await tx.user.create({
         data: {
           tenantId: t.id,
@@ -119,6 +121,14 @@ export async function POST(request: NextRequest) {
           password: hashedPassword,
           role: "TENANT_ADMIN",
           isActive: true,
+          userTenants: {
+            create: {
+              tenantId: t.id,
+              role: "TENANT_ADMIN",
+              isActive: true,
+              isDefault: true,
+            },
+          },
         },
       });
 

@@ -69,6 +69,27 @@ export default async function EleveDetailPage({
 
   if (!eleve) notFound();
 
+  // Matières (pour le sélecteur de dispense) + dispenses existantes de l'élève
+  const [matieres, dispensesRaw] = await Promise.all([
+    prisma.matiere.findMany({
+      where: { tenantId: session.user.tenantId },
+      select: { id: true, nom: true, code: true },
+      orderBy: { nom: "asc" },
+    }),
+    prisma.dispenseMatiere.findMany({
+      where: { tenantId: session.user.tenantId, eleveId: id },
+      include: { matiere: { select: { nom: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const dispenses = dispensesRaw.map((d) => ({
+    id: d.id,
+    matiereId: d.matiereId,
+    matiereNom: d.matiere.nom,
+    motif: d.motif,
+  }));
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
@@ -78,7 +99,7 @@ export default async function EleveDetailPage({
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-        <EleveDetailView eleve={eleve} />
+        <EleveDetailView eleve={eleve} matieres={matieres} dispenses={dispenses} />
       </div>
     </div>
   );

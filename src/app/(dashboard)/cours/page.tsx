@@ -2,18 +2,21 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { CoursView } from "@/components/cours/CoursView";
+import { getTranslations } from "next-intl/server";
 
 export const metadata = { title: "Cours en ligne — LMS | EcolPro" };
 
 export default async function CoursPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("cours"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
-
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Cours en ligne — LMS"
-        subtitle="Créez, organisez et partagez des cours pour vos élèves"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

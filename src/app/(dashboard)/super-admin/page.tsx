@@ -2,20 +2,22 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { SuperAdminView } from "@/components/super-admin/SuperAdminView";
+import { getTranslations } from "next-intl/server";
 
 export default async function SuperAdminPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("nav"),
+  ]);
 
-  // Redirection si l'utilisateur n'est pas connecté ou n'est pas un SUPER_ADMIN
   if (!session?.user || session.user.role !== "SUPER_ADMIN") {
     redirect("/login");
   }
-
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Administration Globale (Super Admin)"
-        subtitle="Gestion des locataires (tenants), licences et statistiques globales du SaaS EcolPro."
+        title={t("superAdmin")}
+        subtitle=""
         userName={session.user.name ?? undefined}
         userAvatar={session.user.image ?? undefined}
       />

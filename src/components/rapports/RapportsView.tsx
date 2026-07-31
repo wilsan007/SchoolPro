@@ -11,30 +11,31 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 // ─── Types rapports ───────────────────────────────────────────────────────────
 
 type TypeRapport = "palmares" | "statistiques" | "inspection";
 
-const RAPPORTS: { type: TypeRapport; titre: string; desc: string; icon: React.ReactNode; color: string }[] = [
+const RAPPORTS: { type: TypeRapport; titreKey: string; descKey: string; icon: React.ReactNode; color: string }[] = [
   {
     type: "palmares",
-    titre: "Palmarès des élèves",
-    desc: "Classement des meilleurs élèves par bulletin publié, podium et distinctions",
+    titreKey: "palmaresTitle",
+    descKey: "palmaresDesc",
     icon: <Star className="w-5 h-5 text-yellow-600" />,
     color: "bg-yellow-100 dark:bg-yellow-900/30",
   },
   {
     type: "statistiques",
-    titre: "Statistiques annuelles",
-    desc: "Vue synthétique de l'année : effectifs, moyennes, absences, taux de réussite",
+    titreKey: "statsTitle",
+    descKey: "statsDesc",
     icon: <BarChart3 className="w-5 h-5 text-blue-600" />,
     color: "bg-blue-100 dark:bg-blue-900/30",
   },
   {
     type: "inspection",
-    titre: "Rapport d'inspection",
-    desc: "Rapport complet pour l'autorité de tutelle : classes, matières, corps enseignant",
+    titreKey: "inspectionTitle",
+    descKey: "inspectionDesc",
     icon: <ClipboardList className="w-5 h-5 text-purple-600" />,
     color: "bg-purple-100 dark:bg-purple-900/30",
   },
@@ -43,6 +44,7 @@ const RAPPORTS: { type: TypeRapport; titre: string; desc: string; icon: React.Re
 // ─── Rendu rapport Palmarès ───────────────────────────────────────────────────
 
 function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
+  const t = useTranslations("rapports");
   const top3 = data.slice(0, 3);
   const reste = data.slice(3);
 
@@ -53,14 +55,14 @@ function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
       {/* En-tête */}
       <div className="text-center border-b-2 border-gray-800 pb-6 mb-8">
         <h1 className="text-2xl font-bold uppercase tracking-wide">{tenant?.name}</h1>
-        <p className="text-gray-500 text-sm mt-1">{tenant?.city} · Année {tenant?.currentYear}</p>
-        <h2 className="text-xl font-bold mt-4 text-primary">🏆 PALMARÈS DES ÉLÈVES</h2>
+        <p className="text-gray-500 text-sm mt-1">{tenant?.city} · {t("year")} {tenant?.currentYear}</p>
+        <h2 className="text-xl font-bold mt-4 text-primary">{t("palmaresHeading")}</h2>
       </div>
 
       {/* Podium Top 3 */}
       {top3.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-4">Podium</h3>
+          <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-4">{t("podium")}</h3>
           <div className="grid grid-cols-3 gap-4">
             {top3.map((b: any, i: number) => (
               <div key={b.id} className="text-center p-4 rounded-xl border-2 border-primary/20 bg-primary/5">
@@ -78,16 +80,16 @@ function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
       {/* Tableau complet */}
       {reste.length > 0 && (
         <div>
-          <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">Classement complet</h3>
+          <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">{t("fullRanking")}</h3>
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-gray-100">
-                <th className="text-left p-2 border border-gray-200">Rang</th>
-                <th className="text-left p-2 border border-gray-200">Élève</th>
-                <th className="text-left p-2 border border-gray-200">Classe</th>
-                <th className="text-left p-2 border border-gray-200">Période</th>
-                <th className="text-right p-2 border border-gray-200">Moyenne</th>
-                <th className="text-left p-2 border border-gray-200">Décision</th>
+                <th className="text-left p-2 border border-gray-200">{t("rank")}</th>
+                <th className="text-left p-2 border border-gray-200">{t("student")}</th>
+                <th className="text-left p-2 border border-gray-200">{t("classLabel")}</th>
+                <th className="text-left p-2 border border-gray-200">{t("period")}</th>
+                <th className="text-right p-2 border border-gray-200">{t("average")}</th>
+                <th className="text-left p-2 border border-gray-200">{t("decision")}</th>
               </tr>
             </thead>
             <tbody>
@@ -113,7 +115,7 @@ function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
       )}
 
       <p className="text-xs text-gray-400 mt-8 text-center">
-        Document généré le {new Date().toLocaleDateString("fr-FR")} · EcolPro
+        {t("docGeneratedOn")} {new Date().toLocaleDateString("fr-FR")} · EcolPro
       </p>
     </div>
   );
@@ -122,6 +124,7 @@ function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
 // ─── Rendu rapport Statistiques ───────────────────────────────────────────────
 
 function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
+  const t = useTranslations("rapports");
   const tauxReussite = data.totalNotes > 0
     ? Math.round(((data.moyenneGenerale ?? 0) / 20) * 100)
     : 0;
@@ -130,16 +133,16 @@ function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
     <div className="p-8 bg-white text-gray-900" id="rapport-content">
       <div className="text-center border-b-2 border-gray-800 pb-6 mb-8">
         <h1 className="text-2xl font-bold uppercase">{tenant?.name}</h1>
-        <p className="text-gray-500 text-sm mt-1">{tenant?.city} · Année {tenant?.currentYear}</p>
-        <h2 className="text-xl font-bold mt-4">📊 RAPPORT STATISTIQUE ANNUEL</h2>
+        <p className="text-gray-500 text-sm mt-1">{tenant?.city} · {t("year")} {tenant?.currentYear}</p>
+        <h2 className="text-xl font-bold mt-4">{t("statsHeading")}</h2>
       </div>
 
       <div className="grid grid-cols-2 gap-6 mb-8">
         {[
-          { label: "Élèves inscrits", value: data.totalEleves, icon: <Users className="w-5 h-5" />, color: "text-blue-600" },
-          { label: "Enseignants", value: data.totalEnseignants, icon: <GraduationCap className="w-5 h-5" />, color: "text-green-600" },
-          { label: "Classes", value: data.totalClasses, icon: <BookOpen className="w-5 h-5" />, color: "text-purple-600" },
-          { label: "Notes saisies", value: data.totalNotes, icon: <FileText className="w-5 h-5" />, color: "text-orange-600" },
+          { label: t("enrolledStudents"), value: data.totalEleves, icon: <Users className="w-5 h-5" />, color: "text-blue-600" },
+          { label: t("teachers"), value: data.totalEnseignants, icon: <GraduationCap className="w-5 h-5" />, color: "text-green-600" },
+          { label: t("classes"), value: data.totalClasses, icon: <BookOpen className="w-5 h-5" />, color: "text-purple-600" },
+          { label: t("gradesEntered"), value: data.totalNotes, icon: <FileText className="w-5 h-5" />, color: "text-orange-600" },
         ].map((s) => (
           <div key={s.label} className="border rounded-xl p-5 flex items-center gap-4">
             <div className={cn("w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center", s.color)}>
@@ -154,43 +157,43 @@ function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
       </div>
 
       <div className="border rounded-xl p-5 mb-6">
-        <h3 className="font-bold text-gray-700 mb-3">Résultats académiques</h3>
+        <h3 className="font-bold text-gray-700 mb-3">{t("academicResults")}</h3>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-4xl font-bold text-primary">
               {data.moyenneGenerale?.toFixed(2) ?? "N/A"}/20
             </p>
-            <p className="text-sm text-gray-500 mt-1">Moyenne générale tous niveaux</p>
+            <p className="text-sm text-gray-500 mt-1">{t("overallAverage")}</p>
           </div>
           <div className="text-right">
             <div className="w-24 h-24 rounded-full border-8 border-primary/20 flex items-center justify-center">
               <span className="text-xl font-bold text-primary">{tauxReussite}%</span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Indice de réussite</p>
+            <p className="text-xs text-gray-400 mt-1">{t("successRate")}</p>
           </div>
         </div>
       </div>
 
       <div className="border rounded-xl p-5">
-        <h3 className="font-bold text-gray-700 mb-3">Absences</h3>
+        <h3 className="font-bold text-gray-700 mb-3">{t("absences")}</h3>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="p-3 bg-green-50 rounded-lg">
             <p className="text-2xl font-bold text-green-600">{data.absences?.JUSTIFIEE ?? 0}</p>
-            <p className="text-xs text-green-700 mt-1">Justifiées</p>
+            <p className="text-xs text-green-700 mt-1">{t("justified")}</p>
           </div>
           <div className="p-3 bg-red-50 rounded-lg">
             <p className="text-2xl font-bold text-red-600">{data.absences?.INJUSTIFIEE ?? 0}</p>
-            <p className="text-xs text-red-700 mt-1">Injustifiées</p>
+            <p className="text-xs text-red-700 mt-1">{t("unjustified")}</p>
           </div>
           <div className="p-3 bg-yellow-50 rounded-lg">
             <p className="text-2xl font-bold text-yellow-600">{data.absences?.EN_ATTENTE ?? 0}</p>
-            <p className="text-xs text-yellow-700 mt-1">En attente</p>
+            <p className="text-xs text-yellow-700 mt-1">{t("pending")}</p>
           </div>
         </div>
       </div>
 
       <p className="text-xs text-gray-400 mt-8 text-center">
-        Document généré le {new Date().toLocaleDateString("fr-FR")} · EcolPro
+        {t("docGeneratedOn")} {new Date().toLocaleDateString("fr-FR")} · EcolPro
       </p>
     </div>
   );
@@ -199,28 +202,29 @@ function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
 // ─── Rendu rapport Inspection ─────────────────────────────────────────────────
 
 function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
+  const t = useTranslations("rapports");
   return (
     <div className="p-8 bg-white text-gray-900" id="rapport-content">
       <div className="text-center border-b-2 border-gray-800 pb-6 mb-8">
         <h1 className="text-2xl font-bold uppercase">{tenant?.name}</h1>
-        <p className="text-gray-500 text-sm mt-1">{tenant?.city} · Année {tenant?.currentYear}</p>
-        <h2 className="text-xl font-bold mt-4">📋 RAPPORT D'INSPECTION</h2>
-        <p className="text-xs text-gray-400 mt-2">Confidentiel — Usage administratif</p>
+        <p className="text-gray-500 text-sm mt-1">{tenant?.city} · {t("year")} {tenant?.currentYear}</p>
+        <h2 className="text-xl font-bold mt-4">{t("inspectionHeading")}</h2>
+        <p className="text-xs text-gray-400 mt-2">{t("confidential")}</p>
       </div>
 
       {/* Classes */}
       <section className="mb-8">
         <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-2 mb-4 uppercase text-sm tracking-wide">
-          I. Structure pédagogique — Classes
+          {t("structureClasses")}
         </h3>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              <th className="text-left p-2 border border-gray-200">Classe</th>
-              <th className="text-left p-2 border border-gray-200">Niveau</th>
-              <th className="text-left p-2 border border-gray-200">Filière</th>
-              <th className="text-right p-2 border border-gray-200">Effectif</th>
-              <th className="text-right p-2 border border-gray-200">Capacité</th>
+              <th className="text-left p-2 border border-gray-200">{t("classLabel")}</th>
+              <th className="text-left p-2 border border-gray-200">{t("level")}</th>
+              <th className="text-left p-2 border border-gray-200">{t("track")}</th>
+              <th className="text-right p-2 border border-gray-200">{t("headcount")}</th>
+              <th className="text-right p-2 border border-gray-200">{t("capacity")}</th>
             </tr>
           </thead>
           <tbody>
@@ -240,14 +244,14 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
       {/* Corps enseignant */}
       <section className="mb-8">
         <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-2 mb-4 uppercase text-sm tracking-wide">
-          II. Corps enseignant
+          {t("teachingStaff")}
         </h3>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              <th className="text-left p-2 border border-gray-200">Nom</th>
-              <th className="text-left p-2 border border-gray-200">Spécialité</th>
-              <th className="text-left p-2 border border-gray-200">Type contrat</th>
+              <th className="text-left p-2 border border-gray-200">{t("name")}</th>
+              <th className="text-left p-2 border border-gray-200">{t("specialty")}</th>
+              <th className="text-left p-2 border border-gray-200">{t("contractType")}</th>
             </tr>
           </thead>
           <tbody>
@@ -265,20 +269,20 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
       {/* Matières */}
       <section>
         <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-2 mb-4 uppercase text-sm tracking-wide">
-          III. Matières enseignées
+          {t("taughtSubjects")}
         </h3>
         <div className="grid grid-cols-3 gap-2">
           {data.matieres?.map((m: any, i: number) => (
             <div key={i} className="border rounded-lg p-2 text-sm">
               <p className="font-medium">{m.nom}</p>
-              <p className="text-xs text-gray-400">Coeff. {m.coefficient}</p>
+              <p className="text-xs text-gray-400">{t("coeff")} {m.coefficient}</p>
             </div>
           ))}
         </div>
       </section>
 
       <p className="text-xs text-gray-400 mt-8 text-center">
-        Document généré le {new Date().toLocaleDateString("fr-FR")} · EcolPro
+        {t("docGeneratedOn")} {new Date().toLocaleDateString("fr-FR")} · EcolPro
       </p>
     </div>
   );
@@ -287,6 +291,7 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export function RapportsView() {
+  const t = useTranslations("rapports");
   const [selected, setSelected] = useState<TypeRapport | null>(null);
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -301,7 +306,7 @@ export function RapportsView() {
       const json = await res.json();
       setReportData(json);
     } catch {
-      toast.error("Erreur lors de la génération du rapport");
+      toast.error(t("reportError"));
     } finally {
       setLoading(false);
     }
@@ -326,8 +331,8 @@ export function RapportsView() {
       {!selected && (
         <div>
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Rapports officiels</h2>
-            <p className="text-sm text-gray-500">Générez des rapports PDF pour l'administration, les inspections et les archives</p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("officialReports")}</h2>
+            <p className="text-sm text-gray-500">{t("reportsDesc")}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {RAPPORTS.map((r) => (
@@ -341,11 +346,11 @@ export function RapportsView() {
                     {r.icon}
                   </div>
                   <h3 className="font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors">
-                    {r.titre}
+                    {t(r.titreKey)}
                   </h3>
-                  <p className="text-sm text-gray-500">{r.desc}</p>
+                  <p className="text-sm text-gray-500">{t(r.descKey)}</p>
                   <Button className="w-full mt-4 gap-2" variant="outline" size="sm">
-                    <FileText className="w-4 h-4" /> Générer
+                    <FileText className="w-4 h-4" /> {t("generate")}
                   </Button>
                 </CardContent>
               </Card>
@@ -361,19 +366,19 @@ export function RapportsView() {
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" onClick={() => { setSelected(null); setReportData(null); }}>
-                ← Retour
+                ← {t("back")}
               </Button>
               <h2 className="font-semibold text-gray-900 dark:text-white">
-                {RAPPORTS.find((r) => r.type === selected)?.titre}
+                {t(RAPPORTS.find((r) => r.type === selected)?.titreKey ?? "")}
               </h2>
             </div>
             {reportData && (
               <div className="flex gap-2">
                 <Button onClick={handlePrint} className="gap-2">
-                  <Printer className="w-4 h-4" /> Imprimer / PDF
+                  <Printer className="w-4 h-4" /> {t("printPdf")}
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2" onClick={() => handleGenerate(selected)}>
-                  <FileText className="w-4 h-4" /> Régénérer
+                  <FileText className="w-4 h-4" /> {t("regenerate")}
                 </Button>
               </div>
             )}
@@ -385,7 +390,7 @@ export function RapportsView() {
               <Card className="border-0 shadow-sm">
                 <CardContent className="py-20 text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">Génération du rapport en cours…</p>
+                  <p className="text-sm text-gray-500">{t("generatingReport")}</p>
                 </CardContent>
               </Card>
             )}

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { School, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const LoginSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -23,6 +24,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const t = useTranslations("login");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,10 +48,10 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        toast.error("Email ou mot de passe incorrect");
+        toast.error(t("title") === "Sign In" ? "Invalid email or password" : "Email ou mot de passe incorrect");
       } else {
-        toast.success("Connexion réussie !");
-        router.push(callbackUrl);
+        toast.success(t("title") === "Sign In" ? "Signed in!" : "Connexion réussie !");
+        router.push("/select-tenant");
         router.refresh();
       }
     });
@@ -66,9 +68,9 @@ function LoginForm() {
       </div>
 
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Connexion</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Entrez vos identifiants pour accéder à votre espace
+          {t("subtitle")}
         </p>
       </div>
 
@@ -76,7 +78,7 @@ function LoginForm() {
         {/* Email */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium" htmlFor="email">
-            Adresse email
+            {t("email")}
           </label>
           <Input
             id="email"
@@ -97,7 +99,7 @@ function LoginForm() {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium" htmlFor="password">
-              Mot de passe
+              {t("password")}
             </label>
           </div>
           <div className="relative">
@@ -132,10 +134,10 @@ function LoginForm() {
           {isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Connexion en cours...
+              {t("signingIn")}
             </>
           ) : (
-            "Se connecter"
+            t("signIn")
           )}
         </Button>
       </form>
@@ -145,14 +147,14 @@ function LoginForm() {
         <p className="text-xs font-semibold text-foreground mb-2">🎓 Comptes de test disponibles</p>
         <div className="space-y-2 text-xs text-muted-foreground">
           <div className="font-mono space-y-0.5">
-            <p className="font-semibold text-foreground">Directeur (Lycée Mohamed Hashim Ledi) :</p>
-            <p>admin@lycee-djibouti.ecolpro.app</p>
+            <p className="font-semibold text-foreground">Directeur (Ilyas Aden) :</p>
+            <p>admin@lycee-demo.ecolpro.app</p>
             <p>Demo@2026!</p>
           </div>
           <div className="font-mono space-y-0.5 border-t pt-2">
-            <p className="font-semibold text-foreground">Super Admin :</p>
-            <p>super.admin@test.com</p>
-            <p>super.admin</p>
+            <p className="font-semibold text-foreground">Super Admin (Mariam) :</p>
+            <p>superadmin@ecolpro.app</p>
+            <p>Demo@2026!</p>
           </div>
         </div>
         <div className="flex gap-2 mt-3">
@@ -160,7 +162,7 @@ function LoginForm() {
             variant="outline"
             size="sm"
             className="flex-1 h-8 text-xs"
-            onClick={() => setForm({ email: "admin@lycee-djibouti.ecolpro.app", password: "Demo@2026!" })}
+            onClick={() => setForm({ email: "admin@lycee-demo.ecolpro.app", password: "Demo@2026!" })}
           >
             Directeur
           </Button>
@@ -168,7 +170,7 @@ function LoginForm() {
             variant="outline"
             size="sm"
             className="flex-1 h-8 text-xs"
-            onClick={() => setForm({ email: "super.admin@test.com", password: "super.admin" })}
+            onClick={() => setForm({ email: "superadmin@ecolpro.app", password: "Demo@2026!" })}
           >
             Super Admin
           </Button>

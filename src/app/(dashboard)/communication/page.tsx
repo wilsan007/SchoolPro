@@ -3,9 +3,13 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { CommunicationView } from "@/components/communication/CommunicationView";
+import { getTranslations } from "next-intl/server";
 
 export default async function CommunicationPage() {
-  const session = await auth();
+  const [session, t] = await Promise.all([
+    auth(),
+    getTranslations("communication"),
+  ]);
   if (!session?.user?.tenantId) redirect("/login");
 
   const [notifications, classes] = await Promise.all([
@@ -25,8 +29,8 @@ export default async function CommunicationPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Communication & Marketing École"
-        subtitle="Envoi de notifications groupées aux parents, élèves et enseignants"
+        title={t("title")}
+        subtitle={t("subtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

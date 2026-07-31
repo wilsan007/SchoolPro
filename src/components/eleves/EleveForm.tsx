@@ -12,6 +12,7 @@ import { ArrowLeft, Loader2, Save, Upload, X, User } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface Classe {
   id: string;
@@ -69,6 +70,7 @@ const FormSchema = z.object({
 });
 
 export function EleveForm({ classes, initialData, submitAction, submitLabel, title, backHref }: EleveFormProps) {
+  const t = useTranslations("eleves");
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [form, setForm] = useState<EleveFormData>({
@@ -120,18 +122,18 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
         next[issue.path[0]] = issue.message;
       });
       setErrors(next);
-      toast.error("Veuillez corriger les erreurs du formulaire");
+      toast.error(t("formErrors"));
       return;
     }
 
     setIsPending(true);
     try {
       const result = await submitAction(form);
-      toast.success(submitLabel === "Créer" ? "Élève inscrit avec succès" : "Élève mis à jour");
+      toast.success(submitLabel === "Créer" ? t("enrollSuccess") : t("updateSuccess"));
       router.push(`/eleves/${result.id}`);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -148,11 +150,11 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
       fd.append("photo", file);
       const res = await fetch("/api/eleves/upload-photo", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur upload");
+      if (!res.ok) throw new Error(data.error ?? t("uploadError"));
       updateField("photoUrl", data.photoUrl);
-      toast.success("Photo téléchargée");
+      toast.success(t("photoUploaded"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur upload");
+      toast.error(err instanceof Error ? err.message : t("uploadError"));
     } finally {
       setUploading(false);
     }
@@ -164,7 +166,7 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
         <Button asChild variant="outline" size="sm" className="gap-2">
           <Link href={backHref}>
             <ArrowLeft className="h-4 w-4" />
-            Retour
+            {t("back")}
           </Link>
         </Button>
         <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
@@ -175,14 +177,14 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
 
       <Card>
         <CardHeader>
-          <CardTitle>Informations de l&apos;élève</CardTitle>
+          <CardTitle>{t("studentInfo")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Photo upload */}
           <div className="flex items-center gap-4">
             <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
               {form.photoUrl ? (
-                <Image src={form.photoUrl} alt="Photo élève" fill className="object-cover" unoptimized />
+                <Image src={form.photoUrl} alt={t("studentPhoto")} fill className="object-cover" unoptimized />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <User className="w-10 h-10 text-gray-300" />
@@ -192,7 +194,7 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
             <div className="flex flex-col gap-2">
               <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-sm rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-fit">
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                {uploading ? "Téléchargement..." : "Télécharger une photo"}
+                {uploading ? t("uploading") : t("uploadPhoto")}
                 <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading} />
               </label>
               {form.photoUrl && (
@@ -201,100 +203,100 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
                   onClick={() => updateField("photoUrl", null)}
                   className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-600 w-fit"
                 >
-                  <X className="w-3 h-3" /> Retirer la photo
+                  <X className="w-3 h-3" /> {t("removePhoto")}
                 </button>
               )}
-              <p className="text-xs text-gray-400">JPG, PNG. 2 Mo max.</p>
+              <p className="text-xs text-gray-400">{t("photoHint")}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="prenom">Prénom *</Label>
+            <Label htmlFor="prenom">{t("firstNameRequired")}</Label>
             <Input id="prenom" value={form.prenom} onChange={(e) => updateField("prenom", e.target.value)} className={inputClass("prenom")} />
             {errors.prenom && <p className="text-xs text-destructive">{errors.prenom}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="nom">Nom *</Label>
+            <Label htmlFor="nom">{t("lastNameRequired")}</Label>
             <Input id="nom" value={form.nom} onChange={(e) => updateField("nom", e.target.value)} className={inputClass("nom")} />
             {errors.nom && <p className="text-xs text-destructive">{errors.nom}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="matricule">Matricule (laisser vide pour auto-générer)</Label>
+            <Label htmlFor="matricule">{t("matriculeHint")}</Label>
             <Input id="matricule" value={form.matricule} onChange={(e) => updateField("matricule", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="dateNaissance">Date de naissance *</Label>
+            <Label htmlFor="dateNaissance">{t("birthDateRequired")}</Label>
             <Input id="dateNaissance" type="date" value={form.dateNaissance} onChange={(e) => updateField("dateNaissance", e.target.value)} className={inputClass("dateNaissance")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="lieuNaissance">Lieu de naissance</Label>
+            <Label htmlFor="lieuNaissance">{t("birthPlace")}</Label>
             <Input id="lieuNaissance" value={form.lieuNaissance} onChange={(e) => updateField("lieuNaissance", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="nationalite">Nationalité</Label>
+            <Label htmlFor="nationalite">{t("nationality")}</Label>
             <Input id="nationalite" value={form.nationalite} onChange={(e) => updateField("nationalite", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sexe">Sexe *</Label>
+            <Label htmlFor="sexe">{t("sexRequired")}</Label>
             <select id="sexe" value={form.sexe} onChange={(e) => updateField("sexe", e.target.value as "M" | "F")} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="M">Masculin</option>
-              <option value="F">Féminin</option>
+              <option value="M">{t("masculin")}</option>
+              <option value="F">{t("feminin")}</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="classeId">Classe</Label>
+            <Label htmlFor="classeId">{t("classLabel")}</Label>
             <select id="classeId" value={form.classeId} onChange={(e) => updateField("classeId", e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">Non affecté</option>
+              <option value="">{t("unassigned")}</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>{c.nom} — {c.niveau}</option>
               ))}
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="statut">Statut</Label>
+            <Label htmlFor="statut">{t("status")}</Label>
             <select id="statut" value={form.statut} onChange={(e) => updateField("statut", e.target.value as EleveFormData["statut"])} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="ACTIF">Actif</option>
-              <option value="TRANSFERE">Transféré</option>
-              <option value="DIPLOME">Diplômé</option>
-              <option value="EXCLU">Exclu</option>
-              <option value="ABANDONNE">Abandonné</option>
+              <option value="ACTIF">{t("statusActive")}</option>
+              <option value="TRANSFERE">{t("statusTransferred")}</option>
+              <option value="DIPLOME">{t("statusGraduated")}</option>
+              <option value="EXCLU">{t("statusExcluded")}</option>
+              <option value="ABANDONNE">{t("statusDropped")}</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="regime">Régime</Label>
+            <Label htmlFor="regime">{t("regime")}</Label>
             <select id="regime" value={form.regime} onChange={(e) => updateField("regime", e.target.value as EleveFormData["regime"])} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="externe">Externe</option>
-              <option value="demi-pensionnaire">Demi-pensionnaire</option>
-              <option value="interne">Interne</option>
+              <option value="externe">{t("external")}</option>
+              <option value="demi-pensionnaire">{t("halfBoarding")}</option>
+              <option value="interne">{t("boarding")}</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="transport">Transport</Label>
+            <Label htmlFor="transport">{t("transport")}</Label>
             <Input id="transport" value={form.transport} onChange={(e) => updateField("transport", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="groupeSanguin">Groupe sanguin</Label>
+            <Label htmlFor="groupeSanguin">{t("bloodGroup")}</Label>
             <Input id="groupeSanguin" value={form.groupeSanguin} onChange={(e) => updateField("groupeSanguin", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="contactUrgenceNom">Contact d&apos;urgence</Label>
-            <Input id="contactUrgenceNom" placeholder="Nom" value={form.contactUrgenceNom} onChange={(e) => updateField("contactUrgenceNom", e.target.value)} />
+            <Label htmlFor="contactUrgenceNom">{t("emergencyContact")}</Label>
+            <Input id="contactUrgenceNom" placeholder={t("lastName")} value={form.contactUrgenceNom} onChange={(e) => updateField("contactUrgenceNom", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="contactUrgencePhone">Téléphone d&apos;urgence</Label>
+            <Label htmlFor="contactUrgencePhone">{t("emergencyPhone")}</Label>
             <Input id="contactUrgencePhone" value={form.contactUrgencePhone} onChange={(e) => updateField("contactUrgencePhone", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="numeroBoursier">Numéro boursier</Label>
+            <Label htmlFor="numeroBoursier">{t("scholarshipNumber")}</Label>
             <Input id="numeroBoursier" value={form.numeroBoursier} onChange={(e) => updateField("numeroBoursier", e.target.value)} />
           </div>
           <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-            <Label htmlFor="allergies">Allergies</Label>
+            <Label htmlFor="allergies">{t("allergies")}</Label>
             <Input id="allergies" value={form.allergies} onChange={(e) => updateField("allergies", e.target.value)} />
           </div>
           <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-            <Label htmlFor="besoinsSpeciaux">Besoins spéciaux</Label>
+            <Label htmlFor="besoinsSpeciaux">{t("specialNeeds")}</Label>
             <Input id="besoinsSpeciaux" value={form.besoinsSpeciaux} onChange={(e) => updateField("besoinsSpeciaux", e.target.value)} />
           </div>
           </div>
@@ -303,41 +305,41 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
 
       <Card>
         <CardHeader>
-          <CardTitle>Parent / Tuteur</CardTitle>
+          <CardTitle>{t("parentGuardian")}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="parentPrenom">Prénom</Label>
+            <Label htmlFor="parentPrenom">{t("firstName")}</Label>
             <Input id="parentPrenom" value={form.parentPrenom} onChange={(e) => updateField("parentPrenom", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="parentNom">Nom</Label>
+            <Label htmlFor="parentNom">{t("lastName")}</Label>
             <Input id="parentNom" value={form.parentNom} onChange={(e) => updateField("parentNom", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="parentLien">Lien de parenté</Label>
+            <Label htmlFor="parentLien">{t("relationship")}</Label>
             <select id="parentLien" value={form.parentLien} onChange={(e) => updateField("parentLien", e.target.value as EleveFormData["parentLien"])} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="PERE">Père</option>
-              <option value="MERE">Mère</option>
-              <option value="TUTEUR">Tuteur</option>
-              <option value="AUTRE">Autre</option>
+              <option value="PERE">{t("father")}</option>
+              <option value="MERE">{t("mother")}</option>
+              <option value="TUTEUR">{t("guardian")}</option>
+              <option value="AUTRE">{t("other")}</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="parentPhone">Téléphone</Label>
+            <Label htmlFor="parentPhone">{t("phone")}</Label>
             <Input id="parentPhone" value={form.parentPhone} onChange={(e) => updateField("parentPhone", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="parentEmail">Email</Label>
+            <Label htmlFor="parentEmail">{t("email")}</Label>
             <Input id="parentEmail" type="email" value={form.parentEmail} onChange={(e) => updateField("parentEmail", e.target.value)} className={inputClass("parentEmail")} />
             {errors.parentEmail && <p className="text-xs text-destructive">{errors.parentEmail}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="parentProfession">Profession</Label>
+            <Label htmlFor="parentProfession">{t("profession")}</Label>
             <Input id="parentProfession" value={form.parentProfession} onChange={(e) => updateField("parentProfession", e.target.value)} />
           </div>
           <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-            <Label htmlFor="parentAdresse">Adresse</Label>
+            <Label htmlFor="parentAdresse">{t("address")}</Label>
             <Input id="parentAdresse" value={form.parentAdresse} onChange={(e) => updateField("parentAdresse", e.target.value)} />
           </div>
           <div className="flex items-center gap-2 md:col-span-2 lg:col-span-3">
@@ -348,7 +350,7 @@ export function EleveForm({ classes, initialData, submitAction, submitLabel, tit
               onChange={(e) => updateField("parentIsGardien", e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <Label htmlFor="parentIsGardien" className="font-normal">Tuteur légal principal</Label>
+            <Label htmlFor="parentIsGardien" className="font-normal">{t("primaryGuardian")}</Label>
           </div>
         </CardContent>
       </Card>
