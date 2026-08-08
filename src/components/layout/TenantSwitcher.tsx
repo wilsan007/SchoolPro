@@ -82,7 +82,7 @@ export function TenantSwitcher({ currentTenantName, currentTenantId, availableTe
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-64 bg-slate-900 border border-slate-700/60 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute left-0 top-full mt-1 w-64 bg-slate-900 border border-slate-700/60 rounded-xl shadow-2xl z-[100] overflow-hidden">
           <div className="px-3 py-2 border-b border-slate-800">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
               {t("switchTenant")}

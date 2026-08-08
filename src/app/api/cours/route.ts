@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
 
 const CoursSchema = z.object({
   titre: z.string().min(1).max(200),
@@ -25,9 +26,13 @@ export async function GET(req: NextRequest) {
   const statut = searchParams.get("statut");
   const niveau = searchParams.get("niveau");
 
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+
+  const siteFilter = siteFilterForModel("cours", session.user);
   const cours = await prisma.cours.findMany({
     where: {
       tenantId: session.user.tenantId,
+      ...siteFilter,
       ...(statut && { statut: statut as "BROUILLON" | "PUBLIE" | "ARCHIVE" }),
       ...(niveau && { niveau: niveau as "DEBUTANT" | "INTERMEDIAIRE" | "AVANCE" }),
     },
@@ -46,12 +51,18 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "cours:write");
   if (denied) return denied;
 
+  const siteError = requireSiteIdForCreate(session.user);
+  if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
+
   const body = await req.json();
   const data = CoursSchema.parse(body);
+
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
 
   const cours = await prisma.cours.create({
     data: {
       tenantId: session.user.tenantId,
+      siteId: siteId || null,
       ...data,
       auteurNom: session.user.name,
     },

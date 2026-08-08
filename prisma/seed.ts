@@ -75,15 +75,16 @@ async function main() {
   console.log("✅ Utilisateurs créés");
 
   // --- Enseignant ---
-  const enseignant = await prisma.enseignant.upsert({
-    where: { userId: enseignantUser.id },
-    update: {},
-    create: {
-      tenantId: tenant.id,
-      userId: enseignantUser.id,
-      specialite: "Mathématiques",
-      typeContrat: "CDI",
-    },
+  const existingEnseignant = await prisma.enseignant.findFirst({
+    where: { userId: enseignantUser.id, tenantId: tenant.id },
+  });
+  const enseignant = existingEnseignant ?? await prisma.enseignant.create({
+      data: {
+        tenantId: tenant.id,
+        userId: enseignantUser.id,
+        specialite: "Mathématiques",
+        typeContrat: "CDI",
+      },
   });
 
   // --- Matières ---
@@ -241,10 +242,11 @@ async function main() {
   console.log("✅ Classe créée");
 
   // --- Parent ---
-  const parent = await prisma.parent.upsert({
-    where: { userId: parentUser.id },
-    update: {},
-    create: {
+  const existingParent = await prisma.parent.findFirst({
+    where: { userId: parentUser.id, tenantId: tenant.id },
+  });
+  const parent = existingParent ?? await prisma.parent.create({
+    data: {
       tenantId: tenant.id,
       userId: parentUser.id,
       nom: "Sow",

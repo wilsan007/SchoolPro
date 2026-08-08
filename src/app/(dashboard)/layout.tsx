@@ -50,6 +50,33 @@ export default async function DashboardLayout({
     ? await getTenantName(session.user.tenantId)
     : "Mon École";
 
+  // Fetch sites for the current tenant
+  // TENANT_ADMIN / SUPER_ADMIN see all sites; other roles see only their assigned sites
+  const role = session.user.role;
+  const isSiteAdmin = role === "TENANT_ADMIN" || role === "SUPER_ADMIN";
+  const sites = session.user.tenantId
+    ? isSiteAdmin
+      ? await prisma.site.findMany({
+          where: { tenantId: session.user.tenantId, actif: true },
+          select: { id: true, nom: true, code: true },
+          orderBy: { nom: "asc" },
+        })
+      : await prisma.site.findMany({
+          where: {
+            tenantId: session.user.tenantId,
+            actif: true,
+            OR: [
+              { userSites: { some: { userId: session.user.id } } },
+              { enseignantSites: { some: { enseignant: { userId: session.user.id, tenantId: session.user.tenantId } } } },
+            ],
+          },
+          select: { id: true, nom: true, code: true },
+          orderBy: { nom: "asc" },
+        })
+    : [];
+
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+
   const roleLabels: Record<string, string> = {
     SUPER_ADMIN: tRoles("SUPER_ADMIN"),
     TENANT_ADMIN: tRoles("TENANT_ADMIN"),
@@ -73,7 +100,11 @@ export default async function DashboardLayout({
         tenantName={tenantName}
         tenantId={session.user.tenantId}
         isSuperAdmin={session.user.role === "SUPER_ADMIN"}
+        roleKey={session.user.role}
         availableTenants={session.user.availableTenants}
+        sites={sites}
+        currentSiteId={siteId}
+        isSiteAdmin={isSiteAdmin}
       />
       <main className="flex-1 flex flex-col overflow-hidden bg-background">
         {children}

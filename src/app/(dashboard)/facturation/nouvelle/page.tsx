@@ -3,13 +3,16 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { FactureForm } from "@/components/facturation/FactureForm";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export default async function NouvelleFacturePage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+
+  const siteFilter = siteFilterForModel("eleve", session.user);
   const eleves = await prisma.eleve.findMany({
-    where: { tenantId: session.user.tenantId, statut: "ACTIF" },
+    where: { tenantId: session.user.tenantId, ...siteFilter, statut: "ACTIF" },
     select: {
       id: true,
       nom: true,

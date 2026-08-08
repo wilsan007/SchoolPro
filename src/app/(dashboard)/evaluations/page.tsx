@@ -9,6 +9,7 @@ import { Eye, Edit, Star, PenLine } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "next-intl/server";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export const metadata = {
   title: "Liste des examens | EcolPro",
@@ -29,10 +30,15 @@ export default async function EvaluationsPage({
   const tenantId = session.user.tenantId;
   const { matiereId } = sp;
 
+  const evalFilter = siteFilterForModel("evaluation", session.user);
+  const classeFilter = siteFilterForModel("classe", session.user);
+  const matiereFilter = siteFilterForModel("matiere", session.user);
+
   const [evaluations, classes, matieres, periodes] = await Promise.all([
     prisma.evaluation.findMany({
       where: {
         tenantId,
+        ...evalFilter,
         ...(matiereId ? { matiereId } : {}),
       },
       include: {
@@ -43,8 +49,8 @@ export default async function EvaluationsPage({
       },
       orderBy: { date: "desc" }
     }),
-    prisma.classe.findMany({ where: { tenantId }, select: { id: true, nom: true } }),
-    prisma.matiere.findMany({ where: { tenantId }, select: { id: true, nom: true } }),
+    prisma.classe.findMany({ where: { tenantId, ...classeFilter }, select: { id: true, nom: true } }),
+    prisma.matiere.findMany({ where: { tenantId, ...matiereFilter }, select: { id: true, nom: true } }),
     prisma.periode.findMany({ where: { annee: { tenantId } }, select: { id: true, nom: true } }),
   ]);
 

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const LinkSchema = z.object({
   eleveId: z.string().min(1),
@@ -28,8 +29,9 @@ export async function POST(req: NextRequest) {
   const { eleveId, parentId, lien, isGardien } = parsed.data;
   const tenantId = session.user.tenantId;
 
-  // Verify both belong to tenant
-  const eleve = await prisma.eleve.findFirst({ where: { id: eleveId, tenantId } });
+  // Verify both belong to tenant and site
+  const siteFilter = siteFilterForModel("eleve", session.user);
+  const eleve = await prisma.eleve.findFirst({ where: { id: eleveId, tenantId, ...siteFilter } });
   if (!eleve) return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
 
   const parent = await prisma.parent.findFirst({ where: { id: parentId, tenantId } });
@@ -68,8 +70,10 @@ export async function GET(req: NextRequest) {
   }
 
   // List all links with eleve and parent info
+  const siteFilterGet = siteFilterForModel("eleveParent", session.user);
+
   const links = await prisma.eleveParent.findMany({
-    where: { eleve: { tenantId: session.user.tenantId } },
+    where: { eleve: { tenantId: session.user.tenantId, ...siteFilterForModel("eleveParent", session.user) } },
     include: {
       eleve: { select: { id: true, nom: true, prenom: true, matricule: true } },
       parent: { select: { id: true, nom: true, prenom: true, phone: true, email: true } },

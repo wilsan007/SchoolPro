@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Loader2, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, MapPin } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface ImportSummary {
@@ -17,20 +18,44 @@ interface ImportSummary {
   errors?: string[];
 }
 
-export function ImportElevesDialog({ onClose }: { onClose: () => void }) {
+interface Site {
+  id: string;
+  nom: string;
+  code?: string | null;
+}
+
+interface ImportElevesDialogProps {
+  onClose: () => void;
+  sites?: Site[];
+  currentSiteId?: string | null;
+  tenantHasSites?: boolean;
+}
+
+export function ImportElevesDialog({ onClose, sites = [], currentSiteId = null, tenantHasSites = false }: ImportElevesDialogProps) {
   const t = useTranslations("import");
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportSummary | null>(null);
+  const [selectedSiteId, setSelectedSiteId] = useState<string>(currentSiteId ?? "");
+
+  const needsSiteSelection = tenantHasSites && sites.length > 0 && !currentSiteId;
+  const siteBlocked = tenantHasSites && sites.length > 0 && !selectedSiteId;
 
   async function handleImport() {
     if (!file) return;
+    if (siteBlocked) {
+      toast.error("Veuillez sélectionner un site avant d'importer");
+      return;
+    }
     setImporting(true);
     setResult(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
+      if (selectedSiteId) {
+        formData.append("siteId", selectedSiteId);
+      }
       const res = await fetch("/api/import/eleves", {
         method: "POST",
         body: formData,
@@ -75,6 +100,30 @@ export function ImportElevesDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <p className="text-sm text-muted-foreground">{t("description")}</p>
+
+          {/* Sélecteur de site */}
+          {tenantHasSites && sites.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="importSiteId" className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                Site de rattachement
+              </Label>
+              <select
+                id="importSiteId"
+                value={selectedSiteId}
+                onChange={(e) => setSelectedSiteId(e.target.value)}
+                className={`h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring ${!selectedSiteId ? "border-destructive" : ""}`}
+              >
+                <option value="">— Sélectionner un site —</option>
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nom}{s.code ? ` (${s.code})` : ""}</option>
+                ))}
+              </select>
+              {!selectedSiteId && (
+                <p className="text-xs text-destructive">Veuillez sélectionner un site pour cet import</p>
+              )}
+            </div>
+          )}
 
           {/* Format attendu */}
           <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
@@ -161,7 +210,7 @@ export function ImportElevesDialog({ onClose }: { onClose: () => void }) {
               size="sm"
               className="gap-2"
               onClick={handleImport}
-              disabled={!file || importing}
+              disabled={!file || importing || siteBlocked}
             >
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {t("importButton")}

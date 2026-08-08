@@ -7,6 +7,7 @@
 
 import prisma from "@/lib/prisma";
 import { fuzzyFind } from "@/lib/text-match";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -63,8 +64,8 @@ export async function suggestSlots(opts: {
 }): Promise<SuggestSlotsResult> {
   const { tenantId, classeId, matiereId, enseignantId, duree = 60 } = opts;
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
-  const annee = tenant?.currentYear ?? "2025-2026";
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  if (!annee) throw new Error("Aucune année scolaire active pour ce tenant");
 
   const [classCreneaux, allCreneaux, allEnseignants, salles, disponibilites, matiere] = await Promise.all([
     prisma.emploiTemps.findMany({ where: { tenantId, classeId, annee } }),
@@ -72,7 +73,7 @@ export async function suggestSlots(opts: {
     prisma.enseignant.findMany({ where: { tenantId }, include: { user: { select: { name: true } } } }),
     prisma.salle.findMany({ where: { tenantId } }),
     prisma.disponibiliteEnseignant.findMany({ where: { tenantId } }),
-    prisma.matiere.findUnique({ where: { id: matiereId }, select: { nom: true } }),
+    prisma.matiere.findFirst({ where: { id: matiereId, tenantId }, select: { nom: true } }),
   ]);
 
   // Il n'existe pas de relation Enseignant <-> Matiere en base : on se base

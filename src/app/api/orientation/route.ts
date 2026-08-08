@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 // GET — liste des élèves avec leur parcours et recommandation
 export async function GET(req: NextRequest) {
@@ -14,11 +15,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const eleveId = searchParams.get("eleveId");
 
+
+  const siteFilter = siteFilterForModel("eleve", session.user);
   if (eleveId) {
     // Parcours complet d'un élève
     const [eleve, parcours, notes, absences, incidents] = await Promise.all([
       prisma.eleve.findFirst({
-        where: { id: eleveId, tenantId: session.user.tenantId },
+        where: { id: eleveId, tenantId: session.user.tenantId, ...siteFilter },
         include: {
           classe: { select: { nom: true, niveau: true, filiere: true } },
           parents: { include: { parent: { select: { nom: true, prenom: true, phone: true } } } },
@@ -42,7 +45,7 @@ export async function GET(req: NextRequest) {
 
   // Liste élèves avec résumé parcours
   const eleves = await prisma.eleve.findMany({
-    where: { tenantId: session.user.tenantId, statut: "ACTIF" },
+    where: { tenantId: session.user.tenantId, ...siteFilter, statut: "ACTIF" },
     include: {
       classe: { select: { nom: true, niveau: true } },
       parcours: { orderBy: { annee: "desc" }, take: 1 },

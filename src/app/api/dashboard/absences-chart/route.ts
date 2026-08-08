@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { siteFilterForRelation } from "@/lib/site-filter";
 
 export async function GET() {
   const session = await auth();
@@ -9,6 +10,7 @@ export async function GET() {
   }
 
   const tenantId = session.user.tenantId;
+  const siteFilter = siteFilterForRelation(session.user, "eleve");
 
   // Calculer la date d'il y a 8 semaines
   const now = new Date();
@@ -18,6 +20,7 @@ export async function GET() {
   const absences = await prisma.absence.findMany({
     where: {
       tenantId,
+      ...siteFilter,
       date: { gte: eightWeeksAgo },
     },
     select: {

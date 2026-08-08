@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
+import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
-  const user = await verifyMobileToken(req);
+  const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
   if (!user.tenantId) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });

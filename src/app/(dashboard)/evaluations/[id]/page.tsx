@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { siteFilterForRelation } from "@/lib/site-filter";
 import Link from "next/link";
 import { ArrowLeft, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,8 +16,10 @@ export default async function SaisieNotesPage({
   if (!session?.user?.tenantId) redirect("/login");
 
   const { id: evaluationId } = await params;
-  const evaluation = await prisma.evaluation.findUnique({
-    where: { id: evaluationId, tenantId: session.user.tenantId },
+  const siteFilter = siteFilterForRelation(session.user, "classe");
+
+  const evaluation = await prisma.evaluation.findFirst({
+    where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter },
     include: {
       classe: { include: { eleves: { orderBy: { nom: 'asc' } } } },
       matiere: true,

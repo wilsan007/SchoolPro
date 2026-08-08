@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
+import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import prisma from "@/lib/prisma";
 import { sendAbsenceAlert } from "@/lib/sms/africasTalking";
 import { sendEmail, renderNotificationEmail } from "@/lib/notifications/email";
 import { sendAbsenceWhatsApp } from "@/lib/notifications/whatsapp";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function POST(req: NextRequest) {
-  const user = await verifyMobileToken(req);
+  const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
   if (!user.tenantId) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
@@ -26,13 +27,40 @@ export async function POST(req: NextRequest) {
   const appelDate = new Date(date);
   const dateStr = appelDate.toISOString().split("T")[0];
 
+  // La classe doit appartenir au tenant ET au périmètre de sites de l'appelant.
   const classe = await prisma.classe.findFirst({
-    where: { id: classeId, tenantId: user.tenantId },
+    where: { id: classeId, tenantId: user.tenantId, ...siteFilterForModel("classe", user) },
     select: { id: true, nom: true },
   });
 
   if (!classe) {
-    return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Classe introuvable ou hors de votre périmètre" },
+      { status: 404 }
+    );
+  }
+
+  // Les identifiants d'élèves proviennent du corps de la requête et n'étaient
+  // pas vérifiés : on pouvait créer des absences — et déclencher les SMS,
+  // WhatsApp et e-mails aux parents — pour des élèves d'un autre site, voire
+  // d'un autre établissement. Chaque élève doit appartenir à cette classe.
+  const eleveIdsSaisis = Object.keys(presences as Record<string, string>);
+  if (eleveIdsSaisis.length > 0) {
+    const elevesValides = await prisma.eleve.findMany({
+      where: {
+        id: { in: eleveIdsSaisis },
+        tenantId: user.tenantId,
+        classeId: classe.id,
+        ...siteFilterForModel("eleve", user),
+      },
+      select: { id: true },
+    });
+    if (elevesValides.length !== eleveIdsSaisis.length) {
+      return NextResponse.json(
+        { error: "Un ou plusieurs élèves n'appartiennent pas à cette classe" },
+        { status: 403 }
+      );
+    }
   }
 
   const tenant = await prisma.tenant.findUnique({

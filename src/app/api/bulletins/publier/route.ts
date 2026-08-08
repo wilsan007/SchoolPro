@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const Schema = z.object({
   classeId: z.string().min(1),
@@ -36,8 +37,7 @@ export async function POST(req: NextRequest) {
     const eleveIds = eleves.map((e) => e.id);
 
     const result = await prisma.bulletin.updateMany({
-      where: {
-        tenantId,
+      where: { tenantId, ...siteFilterForModel("bulletin", session.user),
         periodeId,
         eleveId: { in: eleveIds },
         isPublie: false,

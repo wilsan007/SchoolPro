@@ -291,7 +291,7 @@ export async function getBulletinAnnuelData(
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) return null;
 
-  const annee = await prisma.anneesScolaires.findUnique({ where: { id: anneeId } });
+  const annee = await prisma.anneesScolaires.findFirst({ where: { id: anneeId, tenantId } });
   if (!annee) return null;
 
   // Récupérer les 3 périodes de l'année

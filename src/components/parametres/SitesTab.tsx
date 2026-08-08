@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Building2, MapPin, Phone, Mail, Edit3, X, Check } from "lucide-react";
-import { createSite, updateSite, deleteSite, type SiteFormData } from "@/lib/actions/parametres";
+import { Loader2, Plus, Trash2, Building2, MapPin, Phone, Mail, Edit3, Check, RotateCcw, Clock, AlertTriangle } from "lucide-react";
+import { createSite, updateSite, restoreSite, getDeletedSites, type SiteFormData } from "@/lib/actions/parametres";
+import { DeleteSiteDialog } from "./DeleteSiteDialog";
 import { useTranslations } from "next-intl";
 
 interface SiteItem {
@@ -24,7 +25,7 @@ interface SiteItem {
     classes: number;
     eleves: number;
     salles: number;
-    users: number;
+    userSites: number;
     factures: number;
   };
 }
@@ -39,12 +40,45 @@ const EMPTY_FORM: SiteFormData = {
   actif: true,
 };
 
+interface DeletedSite {
+  id: string;
+  nom: string;
+  code: string | null;
+  deletedAt: Date | string;
+  deletedReason: string | null;
+  scheduledPurgeAt: Date | string;
+  _count: {
+    classes: number;
+    eleves: number;
+    salles: number;
+  };
+}
+
 export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: boolean }) {
   const t = useTranslations("parametres");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SiteFormData>(EMPTY_FORM);
+  const [deleteTarget, setDeleteTarget] = useState<SiteItem | null>(null);
+  const [deletedSites, setDeletedSites] = useState<DeletedSite[]>([]);
+  const [showDeletedSection, setShowDeletedSection] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+
+  const refreshDeletedSites = useCallback(async () => {
+    try {
+      const result = await getDeletedSites();
+      setDeletedSites(result as DeletedSite[]);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canManage) {
+      refreshDeletedSites();
+    }
+  }, [canManage, refreshDeletedSites]);
 
   function resetForm() {
     setForm(EMPTY_FORM);
@@ -85,14 +119,28 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
     setShowForm(true);
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Supprimer le site "${name}" ?`)) return;
+  async function handleRestore(siteId: string, siteNom: string) {
+    if (!confirm(`Restaurer le site « ${siteNom} » ?`)) return;
+    setRestoringId(siteId);
     try {
-      await deleteSite(id);
-      toast.success("Site supprimé");
+      await restoreSite(siteId);
+      toast.success(`Site « ${siteNom} » restauré avec succès`);
+      await refreshDeletedSites();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression");
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la restauration");
+    } finally {
+      setRestoringId(null);
     }
+  }
+
+  function formatDate(d: Date | string): string {
+    return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+  }
+
+  function getDaysUntilPurge(d: Date | string): number {
+    const purge = new Date(d);
+    const now = new Date();
+    return Math.ceil((purge.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   }
 
   const f = (k: keyof SiteFormData, v: string | boolean) => setForm({ ...form, [k]: v });
@@ -239,7 +287,7 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
                   <Badge variant="info" className="text-[10px]">{site._count.classes} classes</Badge>
                   <Badge variant="info" className="text-[10px]">{site._count.eleves} élèves</Badge>
                   <Badge variant="info" className="text-[10px]">{site._count.salles} salles</Badge>
-                  <Badge variant="info" className="text-[10px]">{site._count.users} users</Badge>
+                  <Badge variant="info" className="text-[10px]">{site._count.userSites} users</Badge>
                 </div>
 
                 {canManage && (
@@ -248,7 +296,7 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
                       <Edit3 className="h-3 w-3" /> Modifier
                     </Button>
                     <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-7 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(site.id, site.nom)}>
+                      onClick={() => setDeleteTarget(site)}>
                       <Trash2 className="h-3 w-3" /> Supprimer
                     </Button>
                   </div>
@@ -258,6 +306,70 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
           ))
         )}
       </div>
+
+      {/* Section: sites supprimés (soft-delete) */}
+      {canManage && deletedSites.length > 0 && (
+        <div className="pt-4 border-t">
+          <button
+            className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setShowDeletedSection(!showDeletedSection)}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {deletedSites.length} site{deletedSites.length > 1 ? "s" : ""} supprimé{deletedSites.length > 1 ? "s" : ""} en attente de purge
+            <span className="text-[10px]">({showDeletedSection ? "masquer" : "afficher"})</span>
+          </button>
+
+          {showDeletedSection && (
+            <div className="mt-3 space-y-2">
+              {deletedSites.map((site) => {
+                const daysLeft = getDaysUntilPurge(site.scheduledPurgeAt);
+                const isUrgent = daysLeft <= 7;
+                return (
+                  <Card key={site.id} className="border-red-200 dark:border-red-900/40 bg-red-50/30 dark:bg-red-950/10">
+                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className={`h-3.5 w-3.5 ${isUrgent ? "text-red-500" : "text-amber-500"}`} />
+                          <p className="font-semibold text-sm">{site.nom}</p>
+                          {site.code && <Badge variant="secondary" className="text-[10px]">{site.code}</Badge>}
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          <p>Supprimé le {formatDate(site.deletedAt)} — Raison : {site.deletedReason ?? "Non précisée"}</p>
+                          <p className={isUrgent ? "text-red-500 font-medium" : ""}>
+                            Purge définitive dans {daysLeft} jour{daysLeft > 1 ? "s" : ""} ({formatDate(site.scheduledPurgeAt)})
+                          </p>
+                          <p>{site._count.classes} classes, {site._count.eleves} élèves, {site._count.salles} salles seront détruits</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs h-7 shrink-0"
+                        disabled={restoringId === site.id}
+                        onClick={() => handleRestore(site.id, site.nom)}
+                      >
+                        {restoringId === site.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                        Restaurer
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal de suppression */}
+      {deleteTarget && (
+        <DeleteSiteDialog
+          siteId={deleteTarget.id}
+          siteNom={deleteTarget.nom}
+          open={!!deleteTarget}
+          onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+          onDeleted={refreshDeletedSites}
+        />
+      )}
     </div>
   );
 }

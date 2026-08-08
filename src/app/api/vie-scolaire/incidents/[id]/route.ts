@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const PatchSchema = z.object({
   statut: z.enum(["OUVERT", "EN_TRAITEMENT", "RESOLU", "CLASSE"]).optional(),

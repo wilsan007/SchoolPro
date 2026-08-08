@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { calculerMoyenne } from "@/lib/utils";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const Schema = z.object({
   classeId: z.string().min(1),
@@ -76,14 +77,16 @@ export async function POST(req: NextRequest) {
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
     console.log("[generer] step 2: classe found", classe.nom, "eleves:", classe.eleves.length);
 
-    const periode = await prisma.periode.findUnique({ where: { id: periodeId } });
+    const periode = await prisma.periode.findFirst({
+      where: { id: periodeId, annee: { tenantId } },
+    });
     if (!periode) return NextResponse.json({ error: "Période introuvable" }, { status: 404 });
     console.log("[generer] step 3: periode found", periode.nom);
 
     // Règles d'appréciation configurées pour ce tenant (repli sur les seuils par défaut si vide)
     console.log("[generer] step 4: fetching reglesAppreciation");
     const reglesAppreciation = await prisma.reglesAppreciation.findMany({
-      where: { tenantId, contexte: { in: ["NOTE_MATIERE", "BULLETIN_PERIODE"] } },
+      where: { tenantId, ...siteFilterForModel("reglesAppreciation", session.user), contexte: { in: ["NOTE_MATIERE", "BULLETIN_PERIODE"] } },
       select: { contexte: true, seuilMin: true, seuilMax: true, libelle: true },
     }).catch((e: unknown) => {
       console.log("[generer] reglesAppreciation error (non-fatal):", e instanceof Error ? e.message : e);
@@ -93,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     console.log("[generer] step 6: fetching notes");
     const allNotes = await prisma.note.findMany({
-      where: { tenantId, classeId, periodeId, isPubliee: true },
+      where: { tenantId, ...siteFilterForModel("note", session.user), classeId, periodeId, isPubliee: true },
       include: { matiere: true },
     });
     console.log("[generer] step 7: notes fetched", allNotes.length);
@@ -102,8 +105,7 @@ export async function POST(req: NextRequest) {
     // Une dispense sans période (periodeId null) s'applique à toutes les périodes.
     console.log("[generer] step 8: fetching dispenses");
     const dispenses = await prisma.dispenseMatiere.findMany({
-      where: {
-        tenantId,
+      where: { tenantId, ...siteFilterForModel("dispenseMatiere", session.user),
         eleveId: { in: classe.eleves.map((e) => e.id) },
         OR: [{ periodeId }, { periodeId: null }],
       },
@@ -117,8 +119,7 @@ export async function POST(req: NextRequest) {
 
     console.log("[generer] step 10: fetching absences");
     const absences = await prisma.absence.findMany({
-      where: {
-        tenantId,
+      where: { tenantId, ...siteFilterForModel("absence", session.user),
         eleveId: { in: classe.eleves.map(e => e.id) },
         date: { gte: periode.dateDebut, lte: periode.dateFin }
       }

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 // ============================================================
 // ÉTABLISSEMENT
@@ -106,8 +107,21 @@ export async function getUsersForTenant() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
+  const isAdmin = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const siteIds = (session.user as { siteIds?: string[] }).siteIds;
+
   return prisma.user.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: isAdmin
+      ? { tenantId: session.user.tenantId }
+      : {
+          tenantId: session.user.tenantId,
+          OR: [
+            { siteId: siteId ?? undefined },
+            ...(siteIds && siteIds.length > 0 ? [{ siteId: { in: siteIds } }] : []),
+            { userSites: { some: { siteId: siteId ?? "" } } },
+          ],
+        },
     select: {
       id: true,
       name: true,
@@ -191,7 +205,7 @@ export async function createUser(data: UserFormData) {
   }
 
   revalidatePath("/parametres");
-  return { success: true };
+  return { success: true, userId: newUser.id };
 }
 
 export async function toggleUserActive(userId: string) {
@@ -229,6 +243,12 @@ export async function deleteUser(userId: string) {
   });
   if (!user) throw new Error("Utilisateur non trouvé");
 
+  // Supprimer les enregistrements liés pour éviter les violations de clés étrangères
+  await prisma.enseignant.deleteMany({ where: { userId, tenantId: session.user.tenantId } }).catch(() => {});
+  await prisma.parent.deleteMany({ where: { userId, tenantId: session.user.tenantId } }).catch(() => {});
+  await prisma.userSite.deleteMany({ where: { userId } }).catch(() => {});
+  await prisma.userTenant.deleteMany({ where: { userId } }).catch(() => {});
+
   await prisma.user.delete({ where: { id: userId } });
 
   revalidatePath("/parametres");
@@ -254,8 +274,12 @@ export async function getClassesForSettings() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const siteIds = (session.user as { siteIds?: string[] }).siteIds;
+
+  const siteFilter = siteFilterForModel("classe", session.user);
   return prisma.classe.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, ...siteFilter },
     include: {
       _count: { select: { eleves: true } },
       profPrincipal: { select: { user: { select: { name: true } } } },
@@ -393,8 +417,11 @@ export async function getParentsForSettings() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const siteIds = (session.user as { siteIds?: string[] }).siteIds;
+
   return prisma.parent.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, enfants: { some: { eleve: { ...siteFilterForModel("parent", session.user) } } } },
     include: {
       enfants: {
         include: {
@@ -413,8 +440,10 @@ export async function getElevesForLinking() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
+  const siteFilter = siteFilterForModel("eleve", session.user);
+
   return prisma.eleve.findMany({
-    where: { tenantId: session.user.tenantId, statut: "ACTIF" },
+    where: { tenantId: session.user.tenantId, statut: "ACTIF", ...siteFilter },
     select: {
       id: true,
       nom: true,
@@ -633,15 +662,23 @@ export async function getSitesForSettings() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
+  const isAdmin = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
+
   return prisma.site.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: isAdmin
+      ? { tenantId: session.user.tenantId, deletedAt: null }
+      : {
+          tenantId: session.user.tenantId,
+          deletedAt: null,
+          userSites: { some: { userId: session.user.id } },
+        },
     include: {
       _count: {
         select: {
           classes: true,
           eleves: true,
           salles: true,
-          users: true,
+          userSites: true,
           factures: true,
         },
       },
@@ -715,7 +752,80 @@ export async function updateSite(siteId: string, data: Partial<SiteFormData>) {
   return { success: true };
 }
 
-export async function deleteSite(siteId: string) {
+const PURGE_DELAY_DAYS = 90;
+
+const DeleteSiteSchema = z.object({
+  reason: z.enum(["FERMETURE", "FUSION", "ERREUR", "AUTRE"], {
+    errorMap: () => ({ message: "Veuillez sélectionner une raison" }),
+  }),
+  customReason: z.string().optional(),
+  confirmName1: z.string().min(1, "Veuillez saisir le nom du site"),
+  confirmName2: z.string().min(1, "Veuillez confirmer le nom du site"),
+  acknowledgeIrreversible: z.boolean().refine((v) => v === true, {
+    message: "Vous devez cocher la case de confirmation",
+  }),
+});
+
+export type DeleteSiteFormData = z.infer<typeof DeleteSiteSchema>;
+
+export async function deleteSite(siteId: string, data: DeleteSiteFormData) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const parsed = DeleteSiteSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const site = await prisma.site.findFirst({
+    where: { id: siteId, tenantId: session.user.tenantId, deletedAt: null },
+  });
+  if (!site) throw new Error("Site non trouvé ou déjà supprimé");
+
+  if (parsed.data.confirmName1 !== site.nom || parsed.data.confirmName2 !== site.nom) {
+    throw new Error("Le nom saisi ne correspond pas au nom du site");
+  }
+
+  const reasonLabel = parsed.data.reason === "AUTRE" && parsed.data.customReason
+    ? parsed.data.customReason
+    : parsed.data.reason;
+
+  const now = new Date();
+  const scheduledPurgeAt = new Date(now.getTime() + PURGE_DELAY_DAYS * 24 * 60 * 60 * 1000);
+
+  await prisma.$transaction([
+    prisma.site.update({
+      where: { id: siteId },
+      data: {
+        deletedAt: now,
+        deletedBy: session.user.id,
+        deletedReason: reasonLabel,
+        scheduledPurgeAt,
+        actif: false,
+      },
+    }),
+    prisma.siteDeletionLog.create({
+      data: {
+        tenantId: session.user.tenantId,
+        siteId: site.id,
+        siteNom: site.nom,
+        action: "SOFT_DELETE",
+        reason: reasonLabel,
+        performedBy: session.user.id,
+        performedByName: session.user.name ?? null,
+        metadata: { scheduledPurgeAt: scheduledPurgeAt.toISOString(), confirmName1: parsed.data.confirmName1, confirmName2: parsed.data.confirmName2 },
+      },
+    }),
+  ]);
+
+  revalidatePath("/parametres");
+  return { success: true, scheduledPurgeAt: scheduledPurgeAt.toISOString() };
+}
+
+export async function restoreSite(siteId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
   if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
@@ -723,29 +833,66 @@ export async function deleteSite(siteId: string) {
   }
 
   const site = await prisma.site.findFirst({
-    where: { id: siteId, tenantId: session.user.tenantId },
-    include: {
-      _count: {
-        select: {
-          classes: true,
-          eleves: true,
-          users: true,
-        },
-      },
-    },
+    where: { id: siteId, tenantId: session.user.tenantId, deletedAt: { not: null } },
   });
-  if (!site) throw new Error("Site non trouvé");
-  if (site._count.classes > 0 || site._count.eleves > 0) {
-    throw new Error("Impossible de supprimer un site contenant des classes ou des élèves");
-  }
+  if (!site) throw new Error("Site supprimé non trouvé");
 
-  await prisma.site.delete({ where: { id: siteId } });
+  await prisma.$transaction([
+    prisma.site.update({
+      where: { id: siteId },
+      data: {
+        deletedAt: null,
+        deletedBy: null,
+        deletedReason: null,
+        scheduledPurgeAt: null,
+      },
+    }),
+    prisma.siteDeletionLog.create({
+      data: {
+        tenantId: session.user.tenantId,
+        siteId: site.id,
+        siteNom: site.nom,
+        action: "RESTORE",
+        performedBy: session.user.id,
+        performedByName: session.user.name ?? null,
+      },
+    }),
+  ]);
 
   revalidatePath("/parametres");
   return { success: true };
 }
 
-export async function assignUserToSite(userId: string, siteId: string | null) {
+export async function getDeletedSites() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") return [];
+
+  return prisma.site.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      deletedAt: { not: null },
+    },
+    select: {
+      id: true,
+      nom: true,
+      code: true,
+      deletedAt: true,
+      deletedReason: true,
+      scheduledPurgeAt: true,
+      _count: {
+        select: {
+          classes: true,
+          eleves: true,
+          salles: true,
+        },
+      },
+    },
+    orderBy: { deletedAt: "desc" },
+  });
+}
+
+export async function assignUserSites(userId: string, siteIds: string[]) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
   if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
@@ -757,18 +904,62 @@ export async function assignUserToSite(userId: string, siteId: string | null) {
   });
   if (!user) throw new Error("Utilisateur non trouvé");
 
-  if (siteId) {
-    const site = await prisma.site.findFirst({
-      where: { id: siteId, tenantId: session.user.tenantId },
+  // Vérifier que tous les sites appartiennent au tenant
+  if (siteIds.length > 0) {
+    const validSites = await prisma.site.findMany({
+      where: { id: { in: siteIds }, tenantId: session.user.tenantId },
+      select: { id: true },
     });
-    if (!site) throw new Error("Site non trouvé");
+    if (validSites.length !== siteIds.length) {
+      throw new Error("Un ou plusieurs sites sont invalides");
+    }
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { siteId },
+  // Supprimer les anciennes associations
+  await prisma.userSite.deleteMany({
+    where: { userId },
   });
+
+  // Si aucun site sélectionné → siteId = null (accès tous sites)
+  if (siteIds.length === 0) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { siteId: null },
+    });
+  } else {
+    // Si un seul site, on garde aussi siteId pour compatibilité
+    if (siteIds.length === 1) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { siteId: siteIds[0] },
+      });
+    } else {
+      // Multi-sites: siteId principal = null (le filtrage se fera via UserSite)
+      await prisma.user.update({
+        where: { id: userId },
+        data: { siteId: null },
+      });
+    }
+
+    // Créer les nouvelles associations
+    await prisma.userSite.createMany({
+      data: siteIds.map((siteId) => ({ userId, siteId })),
+      skipDuplicates: true,
+    });
+  }
 
   revalidatePath("/parametres");
   return { success: true };
+}
+
+export async function getUserSites(userId: string): Promise<string[]> {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const userSites = await prisma.userSite.findMany({
+    where: { userId },
+    select: { siteId: true },
+  });
+
+  return userSites.map((us) => us.siteId);
 }

@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const CreateSchema = z.object({
   classeId: z.string().min(1),
@@ -26,14 +28,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
     const tenantId = session.user.tenantId;
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const siteIds = (session.user as { siteIds?: string[] }).siteIds;
+  const classeFilter = siteFilterForModel("classe", session.user);
+  const emploiFilter = siteFilterForRelation(session.user, "classe");
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
+    const annee = await getAnneeCouranteLibelle(tenantId);
 
     const emplois = await prisma.emploiTemps.findMany({
-      where: {
-        tenantId,
+      where: { tenantId, ...emploiFilter,
         ...(classeId ? { classeId } : {}),
-        ...(tenant ? { annee: tenant.currentYear } : {}),
+        ...(annee ? { annee } : {}),
       },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },
@@ -64,17 +69,21 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = session.user.tenantId;
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
+    const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+    const siteIds = (session.user as { siteIds?: string[] }).siteIds;
+    const classeFilter = siteFilterForModel("classe", session.user);
+    const emploiFilter = siteFilterForRelation(session.user, "classe");
+    const annee = await getAnneeCouranteLibelle(tenantId);
+    if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
 
     const { classeId, matiereId, enseignantId, jour, heureDebut, heureFin, salle } = parsed.data;
 
     // Vérifier chevauchement pour la classe
     const overlap = await prisma.emploiTemps.findFirst({
-      where: {
-        tenantId,
+      where: { tenantId, ...emploiFilter,
         classeId,
         jour,
-        annee: tenant?.currentYear ?? "2025-2026",
+        annee,
         OR: [
           // Cas 1 : le nouveau créneau commence dans un existant
           { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
@@ -93,11 +102,10 @@ export async function POST(req: NextRequest) {
     // Vérifier conflit enseignant
     if (enseignantId) {
       const teacherConflict = await prisma.emploiTemps.findFirst({
-        where: {
-          tenantId,
+        where: { tenantId, ...emploiFilter,
           enseignantId,
           jour: jour as never,
-          annee: tenant?.currentYear ?? "2025-2026",
+          annee,
           OR: [
             { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
             { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
@@ -113,11 +121,10 @@ export async function POST(req: NextRequest) {
     // Vérifier conflit salle
     if (salle) {
       const roomConflict = await prisma.emploiTemps.findFirst({
-        where: {
-          tenantId,
+        where: { tenantId, ...emploiFilter,
           salle,
           jour: jour as never,
-          annee: tenant?.currentYear ?? "2025-2026",
+          annee,
           OR: [
             { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
             { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
@@ -140,7 +147,7 @@ export async function POST(req: NextRequest) {
         heureDebut,
         heureFin,
         salle: salle ?? null,
-        annee: tenant?.currentYear ?? "2025-2026",
+        annee,
       },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },

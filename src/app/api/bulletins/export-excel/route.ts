@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 import ExcelJS from "exceljs";
 
 export async function GET(req: NextRequest) {
@@ -12,6 +13,7 @@ export async function GET(req: NextRequest) {
     }
     const denied = checkPermission(session.user.role, "bulletins:read");
     if (denied) return denied;
+    const siteFilter = siteFilterForModel("classe", session.user);
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
@@ -21,9 +23,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "classeId et periodeId sont requis" }, { status: 400 });
     }
 
+    const bulletinFilter = siteFilterForRelation(session.user, "eleve");
+
     // Récupérer la classe et les élèves
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId: session.user.tenantId },
+      where: { id: classeId, tenantId: session.user.tenantId, ...siteFilter },
       select: { nom: true },
     });
     if (!classe) {
@@ -41,14 +45,14 @@ export async function GET(req: NextRequest) {
     // Récupérer tous les bulletins de la classe pour cette période
     const bulletins = await prisma.bulletin.findMany({
       where: {
-        eleve: { classeId, tenantId: session.user.tenantId, statut: "ACTIF" },
+        eleve: { classeId, tenantId: session.user.tenantId, ...siteFilterForModel("bulletin", session.user), statut: "ACTIF" },
         periodeId,
       },
       include: {
         eleve: { select: { id: true, nom: true, prenom: true, matricule: true } },
         matieres: { include: { matiere: { select: { nom: true, code: true } } } },
       },
-      orderBy: { eleve: { nom: "asc" } },
+      orderBy: { eleve: { prenom: "asc" } },
     });
 
     if (bulletins.length === 0) {

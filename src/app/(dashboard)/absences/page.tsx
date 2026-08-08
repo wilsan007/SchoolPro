@@ -9,37 +9,12 @@ import Link from "next/link";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { getTranslations } from "next-intl/server";
-
-async function getTeacherClassIds(tenantId: string, userId: string): Promise<{ classeIds: string[]; isRestricted: boolean }> {
-  const enseignant = await prisma.enseignant.findUnique({
-    where: { userId },
-    select: { id: true },
-  });
-
-  if (!enseignant) return { classeIds: [], isRestricted: false };
-
-  const [emploiClasses, principalClasses] = await Promise.all([
-    prisma.emploiTemps.findMany({
-      where: { enseignantId: enseignant.id, tenantId },
-      select: { classeId: true },
-      distinct: ["classeId"],
-    }),
-    prisma.classe.findMany({
-      where: { profPrincipalId: enseignant.id, tenantId },
-      select: { id: true },
-    }),
-  ]);
-
-  const classeIds = Array.from(new Set([
-    ...emploiClasses.map((e) => e.classeId),
-    ...principalClasses.map((c) => c.id),
-  ]));
-
-  return { classeIds, isRestricted: true };
-}
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 async function getAbsencesData(
   tenantId: string,
+  siteFilter: Record<string, unknown>,
   classeFilter?: { classeIds: string[]; isRestricted: boolean }
 ) {
   const today = new Date();
@@ -47,6 +22,7 @@ async function getAbsencesData(
 
   const absenceWhere = {
     tenantId,
+    ...siteFilter,
     ...(classeFilter?.isRestricted && classeFilter.classeIds.length > 0
       ? { eleve: { classeId: { in: classeFilter.classeIds } } }
       : classeFilter?.isRestricted
@@ -98,12 +74,13 @@ export default async function AbsencesPage() {
     getTranslations("absences"),
   ]);
   if (!session?.user?.tenantId) redirect("/login");
-  const isTeacher = session.user.role === "TEACHER" || session.user.role === "CLASS_TEACHER";
-  const classeFilter = isTeacher
-    ? await getTeacherClassIds(session.user.tenantId, session.user.id)
+
+  const siteFilter = siteFilterForModel("absence", session.user);
+  const classeFilter = isTeacherRole(session.user.role)
+    ? await getTeacherScope(session.user.tenantId, session.user.id, session.user.role)
     : undefined;
 
-  const data = await getAbsencesData(session.user.tenantId, classeFilter);
+  const data = await getAbsencesData(session.user.tenantId, siteFilter, classeFilter);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

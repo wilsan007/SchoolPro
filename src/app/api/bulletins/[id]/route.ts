@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForRelation } from "@/lib/site-filter";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -16,11 +17,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
     const { appreciation, decision, moyenneGenerale, rang } = body;
 
+    const siteFilter = siteFilterForRelation(session.user, "eleve");
+
+    const existing = await prisma.bulletin.findFirst({
+      where: { id, tenantId: session.user.tenantId, ...siteFilter },
+    });
+    if (!existing) return NextResponse.json({ error: "Bulletin introuvable" }, { status: 404 });
+
     const updated = await prisma.bulletin.update({
-      where: {
-        id,
-        tenantId: session.user.tenantId,
-      },
+      where: { id },
       data: {
         appreciation: appreciation !== undefined ? appreciation : undefined,
         decision: decision !== undefined ? decision : undefined,
@@ -47,12 +52,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const { id } = await params;
 
-    await prisma.bulletin.delete({
-      where: {
-        id,
-        tenantId: session.user.tenantId,
-      },
+    const siteFilter2 = siteFilterForRelation(session.user, "eleve");
+
+    const existing = await prisma.bulletin.findFirst({
+      where: { id, tenantId: session.user.tenantId, ...siteFilter2 },
     });
+    if (!existing) return NextResponse.json({ error: "Bulletin introuvable" }, { status: 404 });
+
+    await prisma.bulletin.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

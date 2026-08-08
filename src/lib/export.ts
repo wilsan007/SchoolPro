@@ -61,6 +61,80 @@ export async function exportExcelBuffer<T extends Record<string, any>>(
 }
 
 /**
+ * Génère un buffer Excel multi-feuilles — une feuille par groupe.
+ * Chaque groupe est identifié par sa clé `groupKey` (ex: nom de la classe).
+ */
+export async function exportExcelMultiSheetBuffer<T extends Record<string, any>>(
+  rows: T[],
+  columns: ExportColumn<T>[],
+  groupKey: keyof T & string,
+  options?: { sheetNameLabel?: (value: any, row: T) => string }
+): Promise<ArrayBuffer> {
+  const workbook = new ExcelJS.Workbook();
+
+  // Grouper les lignes par valeur de groupKey
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const rawValue = row[groupKey];
+    const label = options?.sheetNameLabel ? options.sheetNameLabel(rawValue, row) : String(rawValue ?? "Sans classe");
+    const safeName = sanitizeSheetName(label);
+    if (!groups.has(safeName)) {
+      groups.set(safeName, []);
+    }
+    groups.get(safeName)!.push(row);
+  }
+
+  // Si un seul groupe ou aucun, créer au moins une feuille
+  if (groups.size === 0) {
+    const sheet = workbook.addWorksheet("Aucune donnée");
+    sheet.getCell("A1").value = "Aucune donnée à exporter";
+  }
+
+  for (const [sheetName, groupRows] of groups) {
+    const sheet = workbook.addWorksheet(sheetName);
+
+    sheet.columns = columns.map((col) => ({
+      header: col.header,
+      key: col.key,
+      width: col.width ?? 18,
+    }));
+
+    // En-tête en gras
+    sheet.getRow(1).font = { bold: true };
+    sheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
+
+    for (const row of groupRows) {
+      const excelRow = sheet.addRow({});
+      for (const col of columns) {
+        const rawValue = row[col.key];
+        excelRow.getCell(col.key).value = col.format ? col.format(rawValue, row) : (rawValue ?? "");
+      }
+    }
+
+    // Auto-filtre sur l'en-tête
+    sheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: columns.length },
+    };
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return buffer;
+}
+
+/**
+ * Nettoie un nom pour qu'il soit valide comme nom de feuille Excel.
+ * Excel limite à 31 caractères et interdit : \ / ? * [ ] :
+ */
+function sanitizeSheetName(name: string): string {
+  let cleaned = name.replace(/[/\\?*[\]:]/g, "-").trim();
+  if (cleaned.length > 31) {
+    cleaned = cleaned.substring(0, 31);
+  }
+  return cleaned || "Sans nom";
+}
+
+/**
  * Exporte en CSV (côté navigateur).
  */
 export function exportToCsv<T extends Record<string, any>>(

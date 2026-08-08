@@ -141,41 +141,6 @@ function LoginForm() {
           )}
         </Button>
       </form>
-
-      {/* Démo */}
-      <div className="mt-6 p-4 rounded-xl bg-muted border border-border">
-        <p className="text-xs font-semibold text-foreground mb-2">🎓 Comptes de test disponibles</p>
-        <div className="space-y-2 text-xs text-muted-foreground">
-          <div className="font-mono space-y-0.5">
-            <p className="font-semibold text-foreground">Directeur (Ilyas Aden) :</p>
-            <p>admin@lycee-demo.ecolpro.app</p>
-            <p>Demo@2026!</p>
-          </div>
-          <div className="font-mono space-y-0.5 border-t pt-2">
-            <p className="font-semibold text-foreground">Super Admin (Mariam) :</p>
-            <p>superadmin@ecolpro.app</p>
-            <p>Demo@2026!</p>
-          </div>
-        </div>
-        <div className="flex gap-2 mt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 h-8 text-xs"
-            onClick={() => setForm({ email: "admin@lycee-demo.ecolpro.app", password: "Demo@2026!" })}
-          >
-            Directeur
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 h-8 text-xs"
-            onClick={() => setForm({ email: "superadmin@ecolpro.app", password: "Demo@2026!" })}
-          >
-            Super Admin
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

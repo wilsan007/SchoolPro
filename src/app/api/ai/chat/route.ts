@@ -36,6 +36,7 @@ import {
 } from "@/lib/ai/schedule-tool";
 import type { BulkCreneauProposal } from "@/lib/emploi-du-temps/bulk-generate";
 import type { Role } from "@prisma/client";
+import { siteFilterForModel, siteFilterForRelation, type SessionSiteClaims } from "@/lib/site-scope";
 
 type PendingAction = CreneauProposal & { type: "create_emploi_du_temps" };
 
@@ -50,12 +51,13 @@ interface BulkPlan {
 
 async function executeScheduleTool(
   call: ToolCall,
-  tenantId: string
+  tenantId: string,
+  siteClaims: SessionSiteClaims
 ): Promise<{ payload: unknown; pendingAction?: PendingAction; suggestedActions?: PendingAction[]; bulkPlan?: BulkPlan }> {
   if (call.name === "proposer_creneau_emploi_du_temps") {
     try {
       const args = CreneauArgsSchema.parse(JSON.parse(call.arguments));
-      const resolution = await resolveCreneauProposal(tenantId, args);
+      const resolution = await resolveCreneauProposal(tenantId, args, siteClaims);
       if (resolution.ok) {
         return {
           payload: { ok: true, proposal: resolution.proposal },
@@ -71,7 +73,7 @@ async function executeScheduleTool(
   if (call.name === "lister_creneaux_emploi_du_temps") {
     try {
       const args = ListerArgsSchema.parse(JSON.parse(call.arguments));
-      const result = await listCreneaux(tenantId, args);
+      const result = await listCreneaux(tenantId, args, siteClaims);
       return { payload: result };
     } catch {
       return { payload: { ok: false, message: "Arguments invalides fournis pour la consultation de l'emploi du temps." } };
@@ -81,7 +83,7 @@ async function executeScheduleTool(
   if (call.name === "lister_classes") {
     try {
       const args = ListerClassesArgsSchema.parse(JSON.parse(call.arguments || "{}"));
-      return { payload: await listClasses(tenantId, args) };
+      return { payload: await listClasses(tenantId, args, siteClaims) };
     } catch {
       return { payload: { ok: false, message: "Arguments invalides fournis pour lister les classes." } };
     }
@@ -90,20 +92,20 @@ async function executeScheduleTool(
   if (call.name === "lister_enseignants") {
     try {
       const args = ListerEnseignantsArgsSchema.parse(JSON.parse(call.arguments || "{}"));
-      return { payload: await listEnseignants(tenantId, args) };
+      return { payload: await listEnseignants(tenantId, args, siteClaims) };
     } catch {
       return { payload: { ok: false, message: "Arguments invalides fournis pour lister les enseignants." } };
     }
   }
 
   if (call.name === "lister_salles") {
-    return { payload: await listSalles(tenantId) };
+    return { payload: await listSalles(tenantId, siteClaims) };
   }
 
   if (call.name === "suggerer_creneaux_emploi_du_temps") {
     try {
       const args = SuggererArgsSchema.parse(JSON.parse(call.arguments));
-      const result = await suggererCreneaux(tenantId, args);
+      const result = await suggererCreneaux(tenantId, args, siteClaims);
       if (!result.ok) {
         return { payload: result };
       }
@@ -131,7 +133,7 @@ async function executeScheduleTool(
   if (call.name === "restructurer_emploi_du_temps") {
     try {
       const args = RestructurerArgsSchema.parse(JSON.parse(call.arguments));
-      const result = await resolveRestructuration(tenantId, args);
+      const result = await resolveRestructuration(tenantId, args, siteClaims);
       if (!result.ok) {
         return { payload: result };
       }
@@ -191,7 +193,7 @@ function scopeForRole(role: Role): AiScope | null {
   return null;
 }
 
-async function buildSystemPrompt(scope: AiScope, tenantId: string, userId: string, ecoleNom: string): Promise<string> {
+async function buildSystemPrompt(scope: AiScope, tenantId: string, userId: string, ecoleNom: string, siteFilter: Record<string, unknown>, absenceFilter: Record<string, unknown>): Promise<string> {
   const base = `Tu es l'assistant IA intégré à EcolPro, le logiciel de gestion scolaire de "${ecoleNom}". Réponds toujours en français, de façon concise, concrète et actionnable. Si tu n'as pas une information précise, dis-le clairement plutôt que d'inventer des chiffres ou des noms.`;
 
   if (scope === "ai:admin") {
@@ -201,9 +203,10 @@ async function buildSystemPrompt(scope: AiScope, tenantId: string, userId: strin
     finJour.setHours(23, 59, 59, 999);
 
     const [nbEleves, nbClasses, nbAbsencesAujourdhui] = await Promise.all([
-      prisma.eleve.count({ where: { tenantId, statut: "ACTIF" } }),
-      prisma.classe.count({ where: { tenantId } }),
-      prisma.absence.count({ where: { tenantId, date: { gte: debutJour, lte: finJour } } }),
+      prisma.eleve.count({ where: { tenantId, ...siteFilter, statut: "ACTIF" } }),
+      prisma.classe.count({ where: { tenantId, ...siteFilter } }),
+      // eslint-disable-next-line ecolpro/require-site-filter -- absenceFilter = siteFilterForRelation(session.user, "eleve"), spread sous un nom de variable
+      prisma.absence.count({ where: { tenantId, ...absenceFilter, date: { gte: debutJour, lte: finJour } } }),
     ]);
 
     return `${base}
@@ -232,11 +235,13 @@ Pour toute question sur l'emploi du temps, les classes, les enseignants ou les s
   }
 
   // ai:parent — grounded strictly on this parent's own linked children.
+  // eslint-disable-next-line ecolpro/require-site-filter -- parent scoping via userId (personal scope), not site-based access
   const parent = await prisma.parent.findFirst({
     where: { userId, tenantId },
     include: {
       enfants: {
         include: {
+          // eslint-disable-next-line ecolpro/require-site-filter -- eleve scoping via parent.userId (personal scope)
           eleve: {
             select: {
               nom: true,
@@ -298,8 +303,10 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = session.user.tenantId;
+    const siteFilter = siteFilterForModel("eleve", session.user);
+    const absenceFilter = siteFilterForRelation(session.user, "eleve");
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
-    const systemPrompt = await buildSystemPrompt(scope, tenantId, session.user.id, tenant?.name ?? "votre établissement");
+    const systemPrompt = await buildSystemPrompt(scope, tenantId, session.user.id, tenant?.name ?? "votre établissement", siteFilter, absenceFilter);
 
     const recentMessages = parsed.data.messages.slice(-MAX_CONTEXT_MESSAGES);
     const messages: ChatMessage[] = [
@@ -359,7 +366,7 @@ export async function POST(req: NextRequest) {
           pendingAction: actionFromCall,
           suggestedActions: suggestionsFromCall,
           bulkPlan: bulkPlanFromCall,
-        } = await executeScheduleTool(call, tenantId);
+        } = await executeScheduleTool(call, tenantId, session.user as SessionSiteClaims);
         if (actionFromCall) {
           pendingAction = actionFromCall;
           writeProposed = true;

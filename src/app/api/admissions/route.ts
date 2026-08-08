@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const CandidatureSchema = z.object({
   nom: z.string().min(1),
@@ -35,9 +36,12 @@ export async function GET(req: NextRequest) {
   const statut = searchParams.get("statut");
   const annee = searchParams.get("annee");
 
+
+  const siteFilter = siteFilterForModel("candidature", session.user);
   const candidatures = await prisma.candidature.findMany({
     where: {
       tenantId: session.user.tenantId,
+      ...siteFilter,
       ...(statut ? { statut: statut as never } : {}),
       ...(annee ? { annee } : {}),
     },

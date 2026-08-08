@@ -1,16 +1,16 @@
 import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { FacturesTable } from "@/components/facturation/FacturesTable";
 import { getFacturesForTenant } from "@/lib/actions/facture";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function FacturationPage() {
   const [session, t] = await Promise.all([
     auth(),
     getTranslations("facturation"),
   ]);
-  if (!session?.user?.tenantId) redirect("/login");
+  guardPage(session, "finance:read");
 
   const factures = await getFacturesForTenant();
 
@@ -26,8 +26,8 @@ export default async function FacturationPage() {
       <Header
         title={t("title")}
         subtitle={t("subtitle")}
-        userName={session.user.name}
-        userAvatar={session.user.image ?? undefined}
+        userName={session!.user.name}
+        userAvatar={session!.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
         <FacturesTable factures={factures} />

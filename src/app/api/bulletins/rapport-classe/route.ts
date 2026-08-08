@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -16,9 +17,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "classeId et periodeId requis" }, { status: 400 });
   }
 
+
   const bulletins = await prisma.bulletin.findMany({
     where: {
-      eleve: { classeId, tenantId: session.user.tenantId },
+      eleve: { classeId, tenantId: session.user.tenantId, ...siteFilterForModel("bulletin", session.user) },
       periodeId,
     },
     include: {

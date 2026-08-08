@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: [{ nom: "asc" }, { prenom: "asc" }],
+      orderBy: [{ prenom: "asc" }, { nom: "asc" }],
     });
 
     const result = eleves.map((e) => {

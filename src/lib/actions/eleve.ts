@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-filter";
 import { z } from "zod";
 
 const LienParente = z.enum(["PERE", "MERE", "TUTEUR", "AUTRE"]);
@@ -15,6 +17,7 @@ const EleveFormSchema = z.object({
   nationalite: z.string().optional(),
   sexe: z.enum(["M", "F"]),
   classeId: z.string().optional(),
+  siteId: z.string().optional(),
   statut: z.enum(["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
   groupeSanguin: z.string().optional(),
   allergies: z.string().optional(),
@@ -43,7 +46,29 @@ export async function getClassesForTenant() {
   if (!session?.user?.tenantId) return [];
 
   return prisma.classe.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, ...siteFilterForModel("classe", session.user) },
+    orderBy: { nom: "asc" },
+  });
+}
+
+export async function getSitesForUser() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  const isSiteAdmin = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
+  return prisma.site.findMany({
+    where: isSiteAdmin
+      ? { tenantId: session.user.tenantId, actif: true, deletedAt: null }
+      : {
+          tenantId: session.user.tenantId,
+          actif: true,
+          deletedAt: null,
+          OR: [
+            { userSites: { some: { userId: session.user.id } } },
+            { enseignantSites: { some: { enseignant: { userId: session.user.id, tenantId: session.user.tenantId } } } },
+          ],
+        },
+    select: { id: true, nom: true, code: true },
     orderBy: { nom: "asc" },
   });
 }
@@ -53,7 +78,7 @@ export async function getEleveForEdit(id: string) {
   if (!session?.user?.tenantId) return null;
 
   const eleve = await prisma.eleve.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) },
     include: {
       classe: true,
       parents: {
@@ -97,24 +122,25 @@ export async function createEleve(data: EleveFormData) {
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
   const tenantId = session.user.tenantId;
+  const siteError = requireSiteIdForCreate(session.user);
+  if (siteError) throw new Error(siteError);
+
   const parsed = EleveFormSchema.safeParse(data);
   if (!parsed.success) {
     throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
   }
 
   const values = parsed.data;
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { currentYear: true },
-  });
-  const anneeInscription = tenant?.currentYear ?? "2025-2026";
+  const anneeInscription = await getAnneeCouranteLibelle(tenantId);
+  if (!anneeInscription) throw new Error("Aucune année scolaire active pour ce tenant");
 
   let matricule = values.matricule?.trim();
   if (!matricule) {
-    const count = await prisma.eleve.count({ where: { tenantId } });
+    const count = await prisma.eleve.count({ where: { tenantId, ...siteFilterForModel("eleve", session.user) } });
     matricule = `ECL-${anneeInscription}-${String(count + 1).padStart(4, "0")}`;
   }
 
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- findUnique sur contrainte unique tenantId_matricule, le tenantId est dans la clé composite
   const existing = await prisma.eleve.findUnique({
     where: { tenantId_matricule: { tenantId, matricule } },
   });
@@ -123,6 +149,7 @@ export async function createEleve(data: EleveFormData) {
   const eleve = await prisma.eleve.create({
     data: {
       tenantId,
+      siteId: (values.siteId || (session.user.siteId ?? null)),
       matricule,
       nom: values.nom,
       prenom: values.prenom,
@@ -185,11 +212,12 @@ export async function updateEleve(id: string, data: EleveFormData) {
   const values = parsed.data;
 
   const existing = await prisma.eleve.findFirst({
-    where: { id, tenantId },
+    where: { id, tenantId, ...siteFilterForModel("eleve", session.user) },
     include: { parents: { include: { parent: true } } },
   });
   if (!existing) throw new Error("Élève non trouvé");
 
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId + siteFilter ci-dessus
   await prisma.eleve.update({
     where: { id },
     data: {
@@ -216,6 +244,7 @@ export async function updateEleve(id: string, data: EleveFormData) {
   const tuteurLink = existing.parents[0];
   if (values.parentNom && values.parentPrenom && values.parentPhone) {
     if (tuteurLink) {
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- tuteurLink.parentId vérifié via existing (tenantId + siteFilter)
       await prisma.parent.update({
         where: { id: tuteurLink.parentId },
         data: {

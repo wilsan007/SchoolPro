@@ -23,9 +23,10 @@ async function handler(req: NextRequest) {
 
   // Verrou léger : on passe les notifications dues en EN_ENVOI d'abord,
   // pour éviter qu'un second tick ne les reprenne en parallèle.
+  // eslint-disable-next-line ecolpro/require-tenant-id -- cron cross-tenant : traite toutes les notifications dues, protégé par CRON_SECRET
   const due = await prisma.notification.findMany({
     where: { statut: "PLANIFIEE", planifieeAt: { lte: now } },
-    select: { id: true },
+    select: { id: true, tenantId: true },
     take: 100,
   });
 
@@ -33,6 +34,7 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ processed: 0, results: [] });
   }
 
+  // eslint-disable-next-line ecolpro/require-tenant-id -- cron cross-tenant : ids proviennent de la requête ci-dessus
   await prisma.notification.updateMany({
     where: { id: { in: due.map((d) => d.id) } },
     data: { statut: "EN_ENVOI" },
@@ -41,10 +43,11 @@ async function handler(req: NextRequest) {
   const results = [];
   for (const n of due) {
     try {
-      const r = await dispatchNotification(n.id);
+      const r = await dispatchNotification(n.id, n.tenantId);
       results.push({ id: n.id, ...r });
     } catch (e) {
       console.error(`[Cron] Échec dispatch ${n.id}:`, e);
+      // eslint-disable-next-line ecolpro/require-tenant-id -- id provient de la requête ci-dessus, tenantId déjà passé à dispatchNotification
       await prisma.notification.update({
         where: { id: n.id },
         data: { statut: "ECHEC" },

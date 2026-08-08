@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForRelation, requireSiteIdForCreate } from "@/lib/site-filter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,9 +17,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
 
+    const siteFilter = siteFilterForRelation(session.user, "classe");
+
     const evaluations = await prisma.evaluation.findMany({
       where: {
         tenantId: session.user.tenantId,
+        ...siteFilter,
         ...(classeId ? { classeId } : {}),
       },
       include: {
@@ -57,6 +61,9 @@ export async function POST(req: NextRequest) {
     }
     const denied = checkPermission(session.user.role, "evaluations:write");
     if (denied) return denied;
+
+    const siteError = requireSiteIdForCreate(session.user);
+    if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
 
     const body = await req.json();
     const parsed = CreateSchema.safeParse(body);

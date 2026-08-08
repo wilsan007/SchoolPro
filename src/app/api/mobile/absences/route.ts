@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
+import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
+import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
 
 export async function GET(req: NextRequest) {
-  const user = await verifyMobileToken(req);
+  const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
   if (!user.tenantId) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
@@ -13,12 +14,19 @@ export async function GET(req: NextRequest) {
   const eleveId = searchParams.get("eleveId");
   const date = searchParams.get("date");
 
+  // `Absence` n'a pas de colonne `siteId` : filtrage via la relation `eleve`,
+  // plus périmètre personnel pour les comptes parent/élève.
+  const scopeFilter = eleveScopeFilter(user, "eleve");
+
   const absences = await prisma.absence.findMany({
-    where: {
-      tenantId: user.tenantId,
-      ...(eleveId ? { eleveId } : {}),
-      ...(date ? { date: { gte: new Date(date) } } : {}),
-    },
+    where: mergeFilters(
+      {
+        tenantId: user.tenantId,
+        ...(eleveId ? { eleveId } : {}),
+        ...(date ? { date: { gte: new Date(date) } } : {}),
+      },
+      scopeFilter
+    ),
     select: {
       id: true,
       date: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
   const tenantId = session.user.tenantId;
 
   // Données agrégées en parallèle
+  const eleveFilter = siteFilterForModel("eleve", session.user);
+  const classeFilter = siteFilterForModel("classe", session.user);
+  const examenFilter = siteFilterForModel("examen", session.user);
   const [
     totalEleves,
     elevesParClasse,
@@ -24,11 +28,11 @@ export async function GET(req: NextRequest) {
     examens,
   ] = await Promise.all([
     // Total élèves actifs
-    prisma.eleve.count({ where: { tenantId, statut: "ACTIF" } }),
+    prisma.eleve.count({ where: { tenantId, ...eleveFilter, statut: "ACTIF" } }),
 
     // Élèves par classe
     prisma.classe.findMany({
-      where: { tenantId },
+      where: { tenantId, ...classeFilter },
       select: {
         nom: true, niveau: true,
         _count: { select: { eleves: { where: { statut: "ACTIF" } } } },
@@ -37,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     // Toutes les notes publiées pour calcul de moyennes
     prisma.note.findMany({
-      where: { tenantId, isPubliee: true },
+      where: { tenantId, ...siteFilterForModel("note", session.user), isPubliee: true },
       select: {
         valeur: true, noteMax: true, coefficient: true,
         eleve: { select: { id: true, nom: true, prenom: true, classeId: true } },
@@ -50,8 +54,7 @@ export async function GET(req: NextRequest) {
     // Absences des 30 derniers jours
     prisma.absence.groupBy({
       by: ["statut", "date"],
-      where: {
-        tenantId,
+      where: { tenantId, ...siteFilterForModel("absence", session.user),
         date: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
       },
       _count: { id: true },
@@ -60,7 +63,7 @@ export async function GET(req: NextRequest) {
 
     // Bulletins publiés
     prisma.bulletin.findMany({
-      where: { tenantId, isPublie: true },
+      where: { tenantId, ...siteFilterForModel("bulletin", session.user), isPublie: true },
       select: {
         moyenneGenerale: true, rang: true, decision: true,
         eleve: { select: { id: true, nom: true, prenom: true, classeId: true } },
@@ -71,8 +74,7 @@ export async function GET(req: NextRequest) {
     // Incidents par mois (6 derniers mois)
     prisma.incident.groupBy({
       by: ["type", "statut"],
-      where: {
-        tenantId,
+      where: { tenantId, ...siteFilterForModel("incident", session.user),
         date: { gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) },
       },
       _count: { id: true },
@@ -80,7 +82,7 @@ export async function GET(req: NextRequest) {
 
     // Examens
     prisma.examen.findMany({
-      where: { tenantId },
+      where: { tenantId, ...examenFilter },
       select: { intitule: true, statut: true, dateDebut: true },
     }),
   ]);
@@ -133,7 +135,7 @@ export async function GET(req: NextRequest) {
   const absencesParEleve: Record<string, number> = {};
   const allAbsences = await prisma.absence.groupBy({
     by: ["eleveId", "statut"],
-    where: { tenantId, statut: "INJUSTIFIEE" },
+    where: { tenantId, ...siteFilterForModel("absence", session.user), statut: "INJUSTIFIEE" },
     _count: { id: true },
   });
   for (const a of allAbsences) {
@@ -203,8 +205,8 @@ export async function GET(req: NextRequest) {
 
   // Gender distribution
   const [garcons, filles] = await Promise.all([
-    prisma.eleve.count({ where: { tenantId, statut: "ACTIF", sexe: "M" } }),
-    prisma.eleve.count({ where: { tenantId, statut: "ACTIF", sexe: "F" } }),
+    prisma.eleve.count({ where: { tenantId, ...eleveFilter, statut: "ACTIF", sexe: "M" } }),
+    prisma.eleve.count({ where: { tenantId, ...eleveFilter, statut: "ACTIF", sexe: "F" } }),
   ]);
 
   // Revenue (last 6 months)
@@ -224,7 +226,7 @@ export async function GET(req: NextRequest) {
   // Absence rate by class
   const absencesByClasse: Record<string, number> = {};
   const allAbsencesWithEleve = await prisma.absence.findMany({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("absence", session.user) },
     select: { eleve: { select: { classeId: true, classe: { select: { nom: true } } } } },
   });
   for (const a of allAbsencesWithEleve) {

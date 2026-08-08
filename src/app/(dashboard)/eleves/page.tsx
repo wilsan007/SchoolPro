@@ -11,27 +11,36 @@ import { Plus, Upload } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
 import { ImportElevesButton } from "@/components/eleves/ImportElevesButton";
+import { siteFilterForModel } from "@/lib/site-scope";
+import { getSitesForUser } from "@/lib/actions/eleve";
+import type { Prisma } from "@prisma/client";
 
 const getElevesStats = unstable_cache(
-  async (tenantId: string) => {
+  async (tenantId: string, siteFilter: Record<string, unknown>) => {
+    const where = { tenantId, ...siteFilter } as Prisma.EleveWhereInput;
     const [byStatut, bySexe, byRegime, totalTenant] = await Promise.all([
+      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
       prisma.eleve.groupBy({
         by: ["statut"],
-        where: { tenantId },
+        where,
         _count: true,
       }),
+      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
       prisma.eleve.groupBy({
         by: ["sexe"],
-        where: { tenantId },
+        where,
         _count: true,
       }),
+      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
       prisma.eleve.groupBy({
         by: ["regime"],
-        where: { tenantId },
+        where,
         _count: true,
       }),
-      prisma.eleve.count({ where: { tenantId } }),
+      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
+      prisma.eleve.count({ where }),
     ]);
+
 
     const statutMap = Object.fromEntries(byStatut.map((s) => [s.statut, s._count]));
     const sexeMap = Object.fromEntries(bySexe.map((s) => [s.sexe, s._count]));
@@ -50,9 +59,10 @@ const getElevesStats = unstable_cache(
 );
 
 const getClassesList = unstable_cache(
-  async (tenantId: string) => {
+  async (tenantId: string, siteFilter: Record<string, unknown>) => {
+    // eslint-disable-next-line ecolpro/require-site-filter -- where includes ...siteFilter spread, not detectable inside unstable_cache
     const classes = await prisma.classe.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilter } as Prisma.ClasseWhereInput,
       select: { nom: true },
       orderBy: { nom: "asc" },
     });
@@ -64,10 +74,12 @@ const getClassesList = unstable_cache(
 
 async function getElevesData(
   tenantId: string,
+  siteFilter: Record<string, unknown>,
   filters: { q?: string; classeId?: string; statut?: string }
 ) {
   const where = {
     tenantId,
+    ...siteFilter,
     ...(filters.classeId && { classeId: filters.classeId }),
     ...(filters.statut && { statut: filters.statut as "ACTIF" }),
     ...(filters.q && {
@@ -77,25 +89,29 @@ async function getElevesData(
         { matricule: { contains: filters.q, mode: "insensitive" as const } },
       ],
     }),
-  };
+  } as Prisma.EleveWhereInput;
 
   const [eleves, total, stats, classeNoms] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.findMany({
       where,
       include: {
+        // eslint-disable-next-line ecolpro/require-site-filter -- classe is a 1:1 relation, site filter applied at parent query level
         classe: { select: { nom: true, niveau: true } },
         parents: {
+          // eslint-disable-next-line ecolpro/require-site-filter -- parent site filter applied via eleve-level where
           include: { parent: { select: { nom: true, prenom: true, phone: true } } },
           where: { isGardien: true },
           take: 1,
         },
       },
-      orderBy: [{ classe: { nom: "asc" } }, { nom: "asc" }],
+      orderBy: [{ classe: { nom: "asc" } }, { prenom: "asc" }],
       take: 200,
     }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.count({ where }),
-    getElevesStats(tenantId),
-    getClassesList(tenantId),
+    getElevesStats(tenantId, siteFilter),
+    getClassesList(tenantId, siteFilter),
   ]);
 
   return { eleves, total, stats, classeNoms };
@@ -115,7 +131,11 @@ export default async function ElevesPage({
 
   const { q, classeId, statut } = sp;
 
-  const { eleves, total, stats, classeNoms } = await getElevesData(session.user.tenantId, {
+  const siteFilter = siteFilterForModel("eleve", session.user);
+  const sites = await getSitesForUser();
+  const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const tenantHasSites = (session.user as { tenantHasSites?: boolean }).tenantHasSites ?? false;
+  const { eleves, total, stats, classeNoms } = await getElevesData(session.user.tenantId, siteFilter, {
     q,
     classeId,
     statut,
@@ -136,7 +156,7 @@ export default async function ElevesPage({
           <ElevesStats stats={stats} />
           <div className="flex gap-2">
             <ElevesActions q={q} classeId={classeId} statut={statut} />
-            <ImportElevesButton />
+            <ImportElevesButton sites={sites} currentSiteId={currentSiteId} tenantHasSites={tenantHasSites} />
             <Button asChild size="sm" className="gap-2">
               <Link href="/eleves/nouveau">
                 <Plus className="h-4 w-4" />

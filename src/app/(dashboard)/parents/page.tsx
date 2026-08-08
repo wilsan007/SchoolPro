@@ -4,10 +4,11 @@ import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { ParentsView } from "@/components/parents/ParentsView";
 import { getTranslations } from "next-intl/server";
+import { siteFilterForModel } from "@/lib/site-filter";
 
-async function getParentsData(tenantId: string) {
+async function getParentsData(tenantId: string, siteFilter: Record<string, unknown>) {
   const parents = await prisma.parent.findMany({
-    where: { tenantId },
+    where: { tenantId, enfants: { some: { eleve: { ...siteFilter } } } },
     include: {
       user: { select: { id: true, name: true, email: true, avatarUrl: true, lastLoginAt: true } },
       enfants: {
@@ -41,7 +42,9 @@ export default async function ParentsPage() {
   ]);
   if (!session?.user?.tenantId) redirect("/login");
 
-  const { parents: rawParents } = await getParentsData(session.user.tenantId);
+  // `Parent` n'a pas de colonne `siteId` : le rattachement passe par l'utilisateur.
+  const siteFilter = siteFilterForModel("parent", session.user);
+  const { parents: rawParents } = await getParentsData(session.user.tenantId, siteFilter);
 
   // Mapper 'enfants' (relation Prisma) → 'eleves' (prop attendue par ParentsView)
   const parents = rawParents.map((p) => ({

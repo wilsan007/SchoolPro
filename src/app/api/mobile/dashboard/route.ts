@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
+import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
+import { eleveScopeFilter, siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
-  const user = await verifyMobileToken(req);
+  const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
   if (!user.tenantId) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
@@ -11,22 +12,29 @@ export async function GET(req: NextRequest) {
 
   const tenantId = user.tenantId;
 
+  // Les compteurs eux-mêmes fuitaient : ils révélaient les volumes de
+  // l'ensemble de l'établissement, tous sites confondus.
+  const eleveRelFilter = eleveScopeFilter(user, "eleve");
+  const classeRelFilter = siteFilterForRelation(user, "classe");
+
+  const classeFilter = siteFilterForModel("classe", user);
+  const eleveFilter = siteFilterForModel("eleve", user);
   const [totalEleves, totalClasses, totalNotes] = await Promise.all([
-    prisma.eleve.count({ where: { tenantId, statut: "ACTIF" } }),
-    prisma.classe.count({ where: { tenantId } }),
-    prisma.note.count({ where: { tenantId } }),
+    prisma.eleve.count({ where: { tenantId, statut: "ACTIF", ...eleveFilter } }),
+    prisma.classe.count({ where: { tenantId, ...classeFilter } }),
+    prisma.note.count({ where: { tenantId, ...eleveRelFilter } }),
   ]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const totalAbsencesToday = await prisma.absence.count({
-    where: { tenantId, date: { gte: today } },
+    where: { tenantId, date: { gte: today }, ...eleveRelFilter },
   });
 
   const [absencesRecentes, notesRecentes, prochainsExamens] = await Promise.all([
     prisma.absence.findMany({
-      where: { tenantId },
+      where: { tenantId, ...eleveRelFilter },
       select: {
         id: true,
         date: true,
@@ -39,7 +47,7 @@ export async function GET(req: NextRequest) {
       take: 5,
     }),
     prisma.note.findMany({
-      where: { tenantId },
+      where: { tenantId, ...eleveRelFilter },
       select: {
         id: true,
         valeur: true,
@@ -53,7 +61,7 @@ export async function GET(req: NextRequest) {
       take: 5,
     }),
     prisma.evaluation.findMany({
-      where: { tenantId, statut: "PLANIFIE" },
+      where: { tenantId, statut: "PLANIFIE", ...classeRelFilter },
       select: {
         id: true,
         titre: true,

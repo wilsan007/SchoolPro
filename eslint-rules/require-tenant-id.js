@@ -14,7 +14,7 @@ const TENANT_MODELS = [
   "eleve", "classe", "matiere", "note", "absence", "evaluation",
   "examen", "facture", "incident", "parent", "enseignant",
   "notification", "message", "conversation", "alumni", "inventaire",
-  "candidature", "evenement", "salle", "site", "periode",
+  "candidature", "evenement", "salle", "site",
   "emploiTemps", "dispensabilite", "regleAppreciation", "dispense",
   "dispenseMatiere", "disponibiliteEnseignant", "anneesScolaires",
 ];

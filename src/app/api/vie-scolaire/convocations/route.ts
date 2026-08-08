@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -17,8 +18,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eleveId requis" }, { status: 400 });
   }
 
+
+  const siteFilter = siteFilterForModel("eleve", session.user);
   const eleve = await prisma.eleve.findFirst({
-    where: { id: eleveId, tenantId: session.user.tenantId },
+    where: { id: eleveId, tenantId: session.user.tenantId, ...siteFilter },
     include: {
       classe: true,
       parents: { include: { parent: true } },

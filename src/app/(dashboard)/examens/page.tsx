@@ -3,21 +3,27 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { ExamensManager } from "@/components/examens/ExamensManager";
+import { siteFilterForModel } from "@/lib/site-scope";
 
-async function getExamensData(tenantId: string) {
+async function getExamensData(
+  tenantId: string,
+  examenFilter: Record<string, unknown>,
+  classeFilter: Record<string, unknown>,
+  matiereFilter: Record<string, unknown>
+) {
   const [examens, classes, matieres] = await Promise.all([
     prisma.examen.findMany({
-      where: { tenantId },
+      where: { tenantId, ...examenFilter },
       include: { sessions: { orderBy: { date: "asc" } } },
       orderBy: { dateDebut: "desc" },
     }),
     prisma.classe.findMany({
-      where: { tenantId },
+      where: { tenantId, ...classeFilter },
       select: { id: true, nom: true, niveau: true },
       orderBy: { nom: "asc" },
     }),
     prisma.matiere.findMany({
-      where: { tenantId },
+      where: { tenantId, ...matiereFilter },
       select: { id: true, nom: true, code: true, coefficient: true },
       orderBy: { nom: "asc" },
     }),
@@ -29,7 +35,8 @@ export default async function ExamensPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
-  const { examens, classes, matieres } = await getExamensData(session.user.tenantId);
+  const f = (m: string) => siteFilterForModel(m, session.user);
+  const { examens, classes, matieres } = await getExamensData(session.user.tenantId, f("examen"), f("classe"), f("matiere"));
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { EleveDetailView } from "@/components/eleves/EleveDetailView";
 
-async function getEleveDetail(id: string, tenantId: string) {
+async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<string, unknown>) {
   const eleve = await prisma.eleve.findFirst({
-    where: { id, tenantId },
+    where: { id, tenantId, ...siteFilter },
     include: {
       classe: { select: { id: true, nom: true, niveau: true } },
       parents: {
@@ -64,20 +65,23 @@ export default async function EleveDetailPage({
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+  const eleveFilter = siteFilterForModel("eleve", session.user);
+  const matiereFilter = siteFilterForModel("matiere", session.user);
+  const dispenseFilter = siteFilterForModel("dispenseMatiere", session.user);
   const { id } = await params;
-  const eleve = await getEleveDetail(id, session.user.tenantId);
+  const eleve = await getEleveDetail(id, session.user.tenantId, eleveFilter);
 
   if (!eleve) notFound();
 
   // Matières (pour le sélecteur de dispense) + dispenses existantes de l'élève
   const [matieres, dispensesRaw] = await Promise.all([
     prisma.matiere.findMany({
-      where: { tenantId: session.user.tenantId },
+      where: { tenantId: session.user.tenantId, ...matiereFilter },
       select: { id: true, nom: true, code: true },
       orderBy: { nom: "asc" },
     }),
     prisma.dispenseMatiere.findMany({
-      where: { tenantId: session.user.tenantId, eleveId: id },
+      where: { tenantId: session.user.tenantId, eleveId: id, ...dispenseFilter },
       include: { matiere: { select: { nom: true } } },
       orderBy: { createdAt: "desc" },
     }),

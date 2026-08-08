@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sendSMS } from "@/lib/sms/africasTalking";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const SendSchema = z.object({
   destinataires: z.enum(["tous_parents", "classe", "eleve"]),
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
 
   const tenantId = session.user.tenantId;
 
+  const siteFilter = siteFilterForModel("eleve", session.user);
   try {
     const json = await request.json();
     const data = SendSchema.parse(json);
@@ -31,13 +33,13 @@ export async function POST(request: NextRequest) {
 
     if (data.destinataires === "tous_parents") {
       const parents = await prisma.parent.findMany({
-        where: { tenantId },
+        where: { tenantId, ...siteFilterForModel("parent", session.user) },
         select: { phone: true },
       });
       phones = parents.map((p) => p.phone).filter(Boolean);
     } else if (data.destinataires === "classe" && data.classeId) {
       const eleves = await prisma.eleve.findMany({
-        where: { tenantId, classeId: data.classeId },
+        where: { tenantId, ...siteFilter, classeId: data.classeId },
         include: {
           parents: {
             include: { parent: { select: { phone: true } } },

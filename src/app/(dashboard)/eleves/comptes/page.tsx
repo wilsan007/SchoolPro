@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { GenerationComptesForm } from "@/components/eleves/GenerationComptesForm";
 
@@ -8,8 +9,10 @@ export default async function ComptesElevesPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+
+  const siteFilter = siteFilterForModel("classe", session.user);
   const classes = await prisma.classe.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, ...siteFilter },
     select: { id: true, nom: true, niveau: true },
     orderBy: { nom: "asc" },
   });

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForRelation } from "@/lib/site-filter";
 
 // GET : Récupérer la grille de notes (élèves de la classe + leurs notes actuelles pour cette évaluation)
 export async function GET(
@@ -18,10 +19,12 @@ export async function GET(
     if (denied) return denied;
 
     const evaluationId = (await params).id;
-    const evaluation = await prisma.evaluation.findUnique({
-      where: { id: evaluationId, tenantId: session.user.tenantId },
+    const siteFilter = siteFilterForRelation(session.user, "classe");
+
+    const evaluation = await prisma.evaluation.findFirst({
+      where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter },
       include: {
-        classe: { include: { eleves: { orderBy: { nom: 'asc' } } } },
+        classe: { include: { eleves: { orderBy: { prenom: 'asc' } } } },
         notes: true,
       }
     });
@@ -75,8 +78,10 @@ export async function PUT(
     if (denied) return denied;
 
     const evaluationId = (await params).id;
-    const evaluation = await prisma.evaluation.findUnique({
-      where: { id: evaluationId, tenantId: session.user.tenantId }
+    const siteFilter2 = siteFilterForRelation(session.user, "classe");
+
+    const evaluation = await prisma.evaluation.findFirst({
+      where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter2 }
     });
 
     if (!evaluation) {

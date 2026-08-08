@@ -28,16 +28,12 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Lint
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Type-check
-        run: npx tsc --noEmit
-        continue-on-error: true
+      - name: Verify (Lint + Type-check)
+        run: npm run verify:ci
 
       - name: Build
         run: npm run build
+        if: success()
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}

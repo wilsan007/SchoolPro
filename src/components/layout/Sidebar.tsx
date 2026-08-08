@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TenantSwitcher } from "./TenantSwitcher";
+import { SiteSwitcher } from "./SiteSwitcher";
 import {
   LayoutDashboard,
   Users,
@@ -42,6 +43,7 @@ type NavItem = {
   icon: LucideIcon;
   href: string;
   color: string;
+  roles?: string[];
 };
 
 type NavGroup = {
@@ -70,33 +72,33 @@ const navGroups: NavGroup[] = [
     groupKey: "groupVieScolaire",
     items: [
       { labelKey: "absences", icon: ClipboardList, href: "/absences", color: "text-orange-500" },
-      { labelKey: "vieScolaire", icon: Shield, href: "/vie-scolaire", color: "text-red-500" },
-      { labelKey: "parents", icon: UserCheck, href: "/parents", color: "text-pink-500" },
+      { labelKey: "vieScolaire", icon: Shield, href: "/vie-scolaire", color: "text-red-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "COUNSELOR", "CLASS_TEACHER"] },
+      { labelKey: "parents", icon: UserCheck, href: "/parents", color: "text-pink-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER", "CLASS_TEACHER"] },
     ],
   },
   {
     groupKey: "groupGestion",
     items: [
-      { labelKey: "admissions", icon: UserPlus, href: "/admissions", color: "text-teal-500" },
-      { labelKey: "facturation", icon: Receipt, href: "/facturation", color: "text-emerald-500" },
-      { labelKey: "rh", icon: Briefcase, href: "/rh", color: "text-amber-500" },
-      { labelKey: "inventaire", icon: Package, href: "/inventaire", color: "text-stone-500" },
+      { labelKey: "admissions", icon: UserPlus, href: "/admissions", color: "text-teal-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY"] },
+      { labelKey: "facturation", icon: Receipt, href: "/facturation", color: "text-emerald-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "ACCOUNTANT"] },
+      { labelKey: "rh", icon: Briefcase, href: "/rh", color: "text-amber-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "ACCOUNTANT"] },
+      { labelKey: "inventaire", icon: Package, href: "/inventaire", color: "text-stone-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "ACCOUNTANT"] },
     ],
   },
   {
     groupKey: "groupCommunication",
     items: [
       { labelKey: "messages", icon: MessageSquare, href: "/messages", color: "text-indigo-500" },
-      { labelKey: "communication", icon: Bell, href: "/communication", color: "text-sky-500" },
+      { labelKey: "communication", icon: Bell, href: "/communication", color: "text-sky-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY"] },
     ],
   },
   {
     groupKey: "groupRapports",
     items: [
-      { labelKey: "rapports", icon: FileText, href: "/rapports", color: "text-slate-500" },
-      { labelKey: "analytics", icon: BarChart3, href: "/analytics", color: "text-red-500" },
-      { labelKey: "orientation", icon: Compass, href: "/orientation", color: "text-lime-600" },
-      { labelKey: "alumni", icon: Archive, href: "/alumni", color: "text-purple-500" },
+      { labelKey: "rapports", icon: FileText, href: "/rapports", color: "text-slate-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "ACCOUNTANT"] },
+      { labelKey: "analytics", icon: BarChart3, href: "/analytics", color: "text-red-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
+      { labelKey: "orientation", icon: Compass, href: "/orientation", color: "text-lime-600", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "COUNSELOR", "CLASS_TEACHER"] },
+      { labelKey: "alumni", icon: Archive, href: "/alumni", color: "text-purple-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY"] },
     ],
   },
   {
@@ -114,10 +116,14 @@ interface SidebarProps {
   tenantName?: string;
   tenantId?: string | null;
   isSuperAdmin?: boolean;
+  roleKey?: string;
   availableTenants?: import("@/auth.config").AvailableTenant[];
+  sites?: { id: string; nom: string; code?: string | null }[];
+  currentSiteId?: string | null;
+  isSiteAdmin?: boolean;
 }
 
-export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École", tenantId, isSuperAdmin = false, availableTenants = [] }: SidebarProps) {
+export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École", tenantId, isSuperAdmin = false, roleKey = "TENANT_ADMIN", availableTenants = [], sites = [], currentSiteId = null, isSiteAdmin = false }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [collapsed, setCollapsed] = useState(false);
@@ -135,10 +141,14 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
     navGroups
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => item.href !== "/super-admin" || isSuperAdmin),
+        items: group.items.filter((item) => {
+          if (item.href === "/super-admin") return isSuperAdmin;
+          if (!item.roles) return true;
+          return item.roles.includes(roleKey);
+        }),
       }))
       .filter((group) => group.items.length > 0),
-    [isSuperAdmin]
+    [isSuperAdmin, roleKey]
   );
 
   const isItemActive = (href: string) =>
@@ -172,11 +182,12 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
           <School className="w-6 h-6 text-white animate-pulse" />
         </div>
         {!collapsed && (
-          <div className="overflow-hidden animate-fade-in">
+          <div className="overflow-visible animate-fade-in">
             <p className="text-base font-extrabold bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200 bg-clip-text text-transparent tracking-wide leading-none">
               EcolPro
             </p>
             <TenantSwitcher currentTenantName={tenantName} currentTenantId={tenantId} availableTenants={availableTenants} />
+            <SiteSwitcher currentSiteId={currentSiteId} sites={sites} isAdmin={isSiteAdmin} />
           </div>
         )}
       </div>

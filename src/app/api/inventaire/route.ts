@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const ItemSchema = z.object({
   nom: z.string().min(1),
@@ -37,9 +38,13 @@ export async function GET(request: NextRequest) {
   const etat = searchParams.get("etat");
   const alerte = searchParams.get("alerte") === "true"; // items en rupture
 
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+
+  const siteFilter = siteFilterForModel("itemInventaire", session.user);
   const items = await prisma.itemInventaire.findMany({
     where: {
       tenantId: session.user.tenantId,
+      ...siteFilter,
       ...(categorie ? { categorie: categorie as any } : {}),
       ...(etat ? { etat: etat as any } : {}),
       ...(alerte
@@ -93,10 +98,13 @@ export async function POST(request: NextRequest) {
     const json = await request.json();
     const data = ItemSchema.parse(json);
 
+    const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+
     const item = await prisma.itemInventaire.create({
       data: {
         ...data,
         tenantId: session.user.tenantId,
+        siteId: siteId || null,
         dateAchat: data.dateAchat ? new Date(data.dateAchat) : null,
         dateGarantie: data.dateGarantie ? new Date(data.dateGarantie) : null,
         dateRevision: data.dateRevision ? new Date(data.dateRevision) : null,

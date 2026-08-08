@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -10,6 +11,7 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
+  const eleveFilter = siteFilterForRelation(session.user, "eleve");
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") ?? "palmares";
 
@@ -21,7 +23,7 @@ export async function GET(req: NextRequest) {
   if (type === "palmares") {
     // Palmarès : top élèves avec bulletins publiés
     const bulletins = await prisma.bulletin.findMany({
-      where: { tenantId, isPublie: true, moyenneGenerale: { not: null } },
+      where: { tenantId, ...siteFilterForModel("bulletin", session.user), isPublie: true, moyenneGenerale: { not: null } },
       include: {
         eleve: {
           select: { nom: true, prenom: true, matricule: true, classe: { select: { nom: true, niveau: true } } },
@@ -34,22 +36,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ type, tenant, data: bulletins });
   }
 
+  const siteFilter = siteFilterForModel("eleve", session.user);
   if (type === "statistiques") {
     const [totalEleves, totalEnseignants, totalClasses, notesStats, absencesStats] = await Promise.all([
-      prisma.eleve.count({ where: { tenantId, statut: "ACTIF" } }),
+      prisma.eleve.count({ where: { tenantId, ...siteFilter, statut: "ACTIF" } }),
       prisma.enseignant.count({ where: { tenantId } }),
-      prisma.classe.count({ where: { tenantId } }),
+      prisma.classe.count({ where: { tenantId, ...siteFilter } }),
       prisma.note.aggregate({
-        where: { tenantId, isPubliee: true },
+        where: { tenantId, ...eleveFilter, isPubliee: true },
         _avg: { valeur: true },
         _count: { id: true },
       }),
       prisma.absence.groupBy({
         by: ["statut"],
-        where: { tenantId },
+        where: { tenantId, ...eleveFilter },
         _count: { id: true },
       }),
-      prisma.eleve.count({ where: { tenantId, statut: "ACTIF" } }),
+      prisma.eleve.count({ where: { tenantId, ...siteFilter, statut: "ACTIF" } }),
     ]);
 
     const absMap = Object.fromEntries(absencesStats.map((a) => [a.statut, a._count.id]));
@@ -69,7 +72,7 @@ export async function GET(req: NextRequest) {
     // Rapport d'inspection : données complètes de l'établissement
     const [classes, matieres, enseignants, eleves] = await Promise.all([
       prisma.classe.findMany({
-        where: { tenantId },
+        where: { tenantId, ...siteFilter },
         select: { nom: true, niveau: true, filiere: true, effectifMax: true, _count: { select: { eleves: { where: { statut: "ACTIF" } } } } },
       }),
       prisma.matiere.findMany({ where: { tenantId }, select: { nom: true, code: true, coefficient: true } }),
@@ -77,7 +80,7 @@ export async function GET(req: NextRequest) {
         where: { tenantId },
         select: { specialite: true, typeContrat: true, user: { select: { name: true } } },
       }),
-      prisma.eleve.groupBy({ by: ["statut"], where: { tenantId }, _count: { id: true } }),
+      prisma.eleve.groupBy({ by: ["statut"], where: { tenantId, ...siteFilter }, _count: { id: true } }),
     ]);
 
     return NextResponse.json({ type, tenant, data: { classes, matieres, enseignants, elevesParStatut: eleves } });

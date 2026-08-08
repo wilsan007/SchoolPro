@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function GET() {
   const session = await auth();
@@ -10,8 +11,9 @@ export async function GET() {
   const tenantId = session.user.tenantId;
 
   // Get first 3 active students
+  const siteFilter = siteFilterForModel("eleve", session.user);
   const eleves = await prisma.eleve.findMany({
-    where: { tenantId, statut: "ACTIF" },
+    where: { tenantId, ...siteFilter, statut: "ACTIF" },
     take: 3,
     orderBy: { nom: "asc" },
     select: { id: true, nom: true, prenom: true, matricule: true },
@@ -19,7 +21,7 @@ export async function GET() {
 
   // Get or create a parent
   let parent = await prisma.parent.findFirst({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("parent", session.user) },
     orderBy: { createdAt: "desc" },
   });
 

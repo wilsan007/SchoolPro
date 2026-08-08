@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
+import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await verifyMobileToken(req);
+  const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
   if (!user.tenantId) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
@@ -14,8 +15,14 @@ export async function GET(
 
   const { id } = await params;
 
+  // Le filtrage par site est indispensable ici : la route expose le dossier
+  // complet de l'élève (santé, allergies, contacts d'urgence, coordonnées des
+  // parents). Bornée au seul tenant, elle permettait à un personnel du site A
+  // de lire le dossier d'un élève du site B.
+
+  const siteFilter = siteFilterForModel("eleve", user);
   const eleve = await prisma.eleve.findFirst({
-    where: { id, tenantId: user.tenantId },
+    where: { id, tenantId: user.tenantId, ...siteFilter },
     select: {
       id: true,
       matricule: true,

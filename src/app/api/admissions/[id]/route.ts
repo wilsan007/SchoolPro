@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const UpdateSchema = z.object({
   statut: z.enum(["SOUMISE", "EN_EXAMEN", "ADMIS", "REFUSE", "INSCRIT", "ANNULE"]).optional(),
@@ -27,8 +28,10 @@ export async function PATCH(
   const body = await req.json();
   const data = UpdateSchema.parse(body);
 
+
+  const siteFilter = siteFilterForModel("candidature", session.user);
   const candidature = await prisma.candidature.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, ...siteFilter },
   });
 
   if (!candidature) {
@@ -64,8 +67,10 @@ export async function DELETE(
 
   const { id } = await params;
 
+  const siteFilter2 = siteFilterForModel("candidature", session.user);
+
   const candidature = await prisma.candidature.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, ...siteFilter2 },
   });
 
   if (!candidature) {

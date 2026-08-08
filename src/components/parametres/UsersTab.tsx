@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2 } from "lucide-react";
-import { createUser, toggleUserActive, deleteUser, updateUserPhone, type UserFormData } from "@/lib/actions/parametres";
+import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin, AlertTriangle } from "lucide-react";
+import { createUser, toggleUserActive, deleteUser, updateUserPhone, assignUserSites, getUserSites, type UserFormData } from "@/lib/actions/parametres";
 import { addUserToTenant } from "@/lib/actions/user-tenant";
 import { useTranslations } from "next-intl";
 import type { AvailableTenant } from "@/auth.config";
@@ -38,7 +38,13 @@ const roleKeys: Record<string, string> = {
   STUDENT: "roleStudent",
 };
 
-export function UsersTab({ users, canManage, availableTenants = [] }: { users: UserItem[]; canManage: boolean; availableTenants?: AvailableTenant[] }) {
+interface SiteItem {
+  id: string;
+  nom: string;
+  code: string | null;
+}
+
+export function UsersTab({ users, canManage, availableTenants = [], sites = [] }: { users: UserItem[]; canManage: boolean; availableTenants?: AvailableTenant[]; sites?: SiteItem[] }) {
   const t = useTranslations("parametres");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -53,6 +59,56 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
     role: "TEACHER" as Role,
   });
   const [tenantResult, setTenantResult] = useState<string | null>(null);
+  // Multi-site: modal d'affectation des sites
+  const [showSiteModal, setShowSiteModal] = useState(false);
+  const [siteModalUserId, setSiteModalUserId] = useState<string | null>(null);
+  const [siteModalUserName, setSiteModalUserName] = useState<string>("");
+  const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>([]);
+  const [siteLoading, setSiteLoading] = useState(false);
+
+  async function openSiteModal(userId: string, userName: string) {
+    setSiteModalUserId(userId);
+    setSiteModalUserName(userName);
+    setSiteLoading(true);
+    setShowSiteModal(true);
+    try {
+      const existingSiteIds = await getUserSites(userId);
+      setSelectedSiteIds(existingSiteIds);
+    } catch {
+      setSelectedSiteIds([]);
+    } finally {
+      setSiteLoading(false);
+    }
+  }
+
+  async function handleSaveSites() {
+    if (!siteModalUserId) return;
+    setSiteLoading(true);
+    try {
+      await assignUserSites(siteModalUserId, selectedSiteIds);
+      toast.success("Accès sites mis à jour");
+      setShowSiteModal(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSiteLoading(false);
+    }
+  }
+
+  function toggleSiteSelection(siteId: string) {
+    setSelectedSiteIds((prev) =>
+      prev.includes(siteId)
+        ? prev.filter((id) => id !== siteId)
+        : [...prev, siteId]
+    );
+  }
+
+  function toggleAllSites() {
+    setSelectedSiteIds((prev) =>
+      prev.length === sites.length ? [] : sites.map((s) => s.id)
+    );
+  }
+
   const [form, setForm] = useState<UserFormData>({
     name: "",
     email: "",
@@ -61,15 +117,40 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
     password: "",
     isActive: true,
   });
+  const [formSiteIds, setFormSiteIds] = useState<string[]>([]);
+
+  function toggleFormSite(siteId: string) {
+    setFormSiteIds((prev) =>
+      prev.includes(siteId)
+        ? prev.filter((id) => id !== siteId)
+        : [...prev, siteId]
+    );
+  }
+
+  function toggleAllFormSites() {
+    setFormSiteIds((prev) =>
+      prev.length === sites.length ? [] : sites.map((s) => s.id)
+    );
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setIsPending(true);
     try {
-      await createUser(form);
+      const result = await createUser(form);
+      // Assigner les sites si des sites sont sélectionnés
+      if (formSiteIds.length > 0 && result?.success) {
+        // Récupérer l'ID du nouvel utilisateur via la liste rafraîchie
+        // Pour l'instant, on assigne après création en cherchant par email
+        const newUserId = (result as { userId?: string }).userId;
+        if (newUserId) {
+          await assignUserSites(newUserId, formSiteIds);
+        }
+      }
       toast.success(t("userCreated"));
       setShowForm(false);
       setForm({ name: "", email: "", role: "TEACHER", phone: "", password: "", isActive: true });
+      setFormSiteIds([]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
@@ -86,13 +167,32 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm(t("confirmDeleteUser"))) return;
+  // Modal de suppression avec confirmation par nom
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [deleteUserName, setDeleteUserName] = useState<string>("");
+  const [deleteConfirmText, setDeleteConfirmText] = useState<string>("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  function openDeleteModal(id: string, name: string) {
+    setDeleteUserId(id);
+    setDeleteUserName(name);
+    setDeleteConfirmText("");
+    setShowDeleteModal(true);
+  }
+
+  async function handleDelete() {
+    if (!deleteUserId) return;
+    if (deleteConfirmText.trim() !== deleteUserName.trim()) return;
+    setDeleteLoading(true);
     try {
-      await deleteUser(id);
+      await deleteUser(deleteUserId);
       toast.success(t("userDeleted"));
+      setShowDeleteModal(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("genericError"));
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -253,6 +353,52 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
                 <Input id="password" type="password" placeholder={t("passwordPlaceholder")} value={form.password ?? ""}
                   onChange={(e) => setForm({ ...form, password: e.target.value })} />
               </div>
+
+              {/* Sélection des sites */}
+              {sites.length > 0 && (
+                <div className="md:col-span-2 space-y-2">
+                  <Label>Accès aux sites</Label>
+                  <label
+                    className="flex items-center gap-3 p-3 rounded-lg border-2 border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formSiteIds.length === sites.length}
+                      onChange={toggleAllFormSites}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <p className="text-sm font-semibold">Accès à tous les sites</p>
+                    </div>
+                  </label>
+                  {sites.map((site) => (
+                    <label
+                      key={site.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formSiteIds.includes(site.id)}
+                        onChange={() => toggleFormSite(site.id)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">{site.nom}</p>
+                          {site.code && <p className="text-xs text-muted-foreground">{site.code}</p>}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                  {formSiteIds.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">
+                      Aucun site sélectionné = accès à tous les sites par défaut.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -275,6 +421,7 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
                   <th className="text-left px-4 py-3 font-medium">{t("colEmail")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colPhone")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colRole")}</th>
+                  <th className="text-left px-4 py-3 font-medium">Sites</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colStatus")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colLastLogin")}</th>
                   {canManage && <th className="text-right px-4 py-3 font-medium">{t("colActions")}</th>}
@@ -282,7 +429,7 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
               </thead>
               <tbody>
                 {users.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">{t("noUsers")}</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">{t("noUsers")}</td></tr>
                 ) : (
                   users.map((u) => (
                     <tr key={u.id} className="border-b hover:bg-muted/30">
@@ -325,6 +472,21 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
                         <Badge variant="info">{t(roleKeys[u.role] ?? u.role)}</Badge>
                       </td>
                       <td className="px-4 py-3">
+                        {canManage ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1.5 text-xs"
+                            onClick={() => openSiteModal(u.id, u.name)}
+                          >
+                            <MapPin className="h-3 w-3" />
+                            Gérer
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         <Badge variant={u.isActive ? "success" : "secondary"}>
                           {u.isActive ? t("active") : t("disabled")}
                         </Badge>
@@ -349,7 +511,7 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggle(u.id)} title={t("toggleTitle")}>
                               <Power className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(u.id)} title={t("deleteTitle")}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDeleteModal(u.id, u.name)} title={t("deleteTitle")}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
@@ -363,6 +525,146 @@ export function UsersTab({ users, canManage, availableTenants = [] }: { users: U
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal: Gérer les accès sites */}
+      {showSiteModal && canManage && (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              Accès aux sites — {siteModalUserName}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {siteLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : sites.length === 0 ? (
+              <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
+                Aucun site n'a été configuré. Allez dans l'onglet « Sites » pour créer des sites, puis revenez ici pour assigner les utilisateurs.
+              </p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {/* Option "Tous les sites" */}
+                  <label
+                    className="flex items-center gap-3 p-3 rounded-lg border-2 border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedSiteIds.length === sites.length}
+                      onChange={toggleAllSites}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <div>
+                        <p className="text-sm font-semibold">Accès à tous les sites</p>
+                        <p className="text-xs text-muted-foreground">Cocher pour donner accès à tous les sites de l'établissement</p>
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Liste des sites individuels */}
+                  {sites.map((site) => (
+                    <label
+                      key={site.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSiteIds.includes(site.id)}
+                        onChange={() => toggleSiteSelection(site.id)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">{site.nom}</p>
+                          {site.code && (
+                            <p className="text-xs text-muted-foreground">{site.code}</p>
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                  {selectedSiteIds.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">
+                      Sélectionnez au moins un site.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleSaveSites}
+                    disabled={siteLoading || selectedSiteIds.length === 0}
+                  >
+                    {siteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    Enregistrer
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowSiteModal(false)}>
+                    Annuler
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Modal: Confirmation de suppression */}
+      {showDeleteModal && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Confirmer la suppression
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Vous êtes sur le point de supprimer <strong className="text-foreground">{deleteUserName}</strong>.
+              Cette action est irréversible et supprimera toutes les données associées (enseignant, sites, etc.).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirm">
+                Pour confirmer, tapez le nom exact de l'utilisateur : <strong className="text-foreground">{deleteUserName}</strong>
+              </Label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={deleteUserName}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-2"
+                onClick={handleDelete}
+                disabled={deleteLoading || deleteConfirmText.trim() !== deleteUserName.trim()}
+              >
+                {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Supprimer définitivement
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Annuler
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -116,8 +116,13 @@ export interface DispatchResult {
  * Envoie effectivement une notification déjà enregistrée en base.
  * Met à jour son statut et ses compteurs.
  */
-export async function dispatchNotification(notificationId: string): Promise<DispatchResult> {
-  const notif = await prisma.notification.findUnique({ where: { id: notificationId } });
+export async function dispatchNotification(
+  notificationId: string,
+  tenantId: string
+): Promise<DispatchResult> {
+  const notif = await prisma.notification.findFirst({
+    where: { id: notificationId, tenantId },
+  });
   if (!notif) throw new Error("Notification introuvable");
 
   const tenant = await prisma.tenant.findUnique({
@@ -186,6 +191,7 @@ export async function dispatchNotification(notificationId: string): Promise<Disp
     }
   }
 
+  // eslint-disable-next-line ecolpro/require-tenant-id -- notif.id vérifié par findFirst avec tenantId (ligne 123-125)
   await prisma.notification.update({
     where: { id: notif.id },
     data: {

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
+import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
+import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
 
 export async function GET(req: NextRequest) {
-  const user = await verifyMobileToken(req);
+  const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
   if (!user.tenantId) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
@@ -14,20 +15,28 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get("q");
   const classeId = searchParams.get("classeId");
 
+  // Isolation par site + périmètre personnel, appliquée directement sur `Eleve`.
+  // `mergeFilters` est indispensable : le `OR` de recherche ci-dessous écraserait
+  // un fragment étalé naïvement.
+  const scopeFilter = eleveScopeFilter(user, null);
+
   const eleves = await prisma.eleve.findMany({
-    where: {
-      tenantId,
-      ...(classeId ? { classeId } : {}),
-      ...(q
-        ? {
-            OR: [
-              { nom: { contains: q, mode: "insensitive" } },
-              { prenom: { contains: q, mode: "insensitive" } },
-              { matricule: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
+    where: mergeFilters(
+      {
+        tenantId,
+        ...(classeId ? { classeId } : {}),
+        ...(q
+          ? {
+              OR: [
+                { nom: { contains: q, mode: "insensitive" as const } },
+                { prenom: { contains: q, mode: "insensitive" as const } },
+                { matricule: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
+      scopeFilter
+    ),
     select: {
       id: true,
       matricule: true,
@@ -39,7 +48,7 @@ export async function GET(req: NextRequest) {
       photoUrl: true,
       classe: { select: { id: true, nom: true, niveau: true } },
     },
-    orderBy: { nom: "asc" },
+    orderBy: { prenom: "asc" },
     take: 100,
   });
 

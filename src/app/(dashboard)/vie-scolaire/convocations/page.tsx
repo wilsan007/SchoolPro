@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { ConvocationForm } from "@/components/vie-scolaire/ConvocationForm";
 
@@ -8,9 +9,11 @@ export default async function ConvocationsPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+
+  const siteFilter = siteFilterForModel("classe", session.user);
   const [classes, tenant] = await Promise.all([
     prisma.classe.findMany({
-      where: { tenantId: session.user.tenantId },
+      where: { tenantId: session.user.tenantId, ...siteFilter },
       include: {
         eleves: {
           where: { statut: "ACTIF" },

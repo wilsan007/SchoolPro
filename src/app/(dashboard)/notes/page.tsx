@@ -10,19 +10,33 @@ import { SaisieNotesSelectors } from "@/components/notes/SaisieNotesSelectors";
 import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const getNotesData = unstable_cache(
-  async (tenantId: string, classeId?: string) => {
-    const noteWhere = classeId ? { tenantId, classeId } : { tenantId };
+  async (
+    tenantId: string,
+    siteFilter: Record<string, unknown>,
+    eleveFilter: Record<string, unknown>,
+    classeId?: string,
+    scope?: { classeIds: string[]; matiereIds: string[]; isRestricted: boolean }
+  ) => {
+    const classeWhere = { tenantId, ...siteFilter, ...(scope?.isRestricted && scope.classeIds.length > 0 ? { id: { in: scope.classeIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
+    const matiereWhere = { tenantId, ...(scope?.isRestricted && scope.matiereIds.length > 0 ? { id: { in: scope.matiereIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
+    const noteWhere = {
+      ...(classeId ? { tenantId, classeId } : { tenantId, ...eleveFilter }),
+      ...(scope?.isRestricted && scope.classeIds.length > 0 ? { eleve: { classeId: { in: scope.classeIds } } } : scope?.isRestricted ? { id: "__none__" } : {}),
+    };
 
     const [classes, matieres, statsNotes] = await Promise.all([
       prisma.classe.findMany({
-        where: { tenantId },
+        where: classeWhere,
         select: { id: true, nom: true, niveau: true },
         orderBy: { nom: "asc" },
       }),
       prisma.matiere.findMany({
-        where: { tenantId },
+        where: matiereWhere,
         select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
         orderBy: { nom: "asc" },
       }),
@@ -54,16 +68,28 @@ export default async function NotesPage({
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const siteFilter = siteFilterForModel("classe", session.user);
+  const eleveFilter = siteFilterForModel("note", session.user);
+  const evalFilter = siteFilterForModel("evaluation", session.user);
   const { classeId, matiereId, evaluationId } = sp;
 
-  // Récupérer les classes et matières
-  const { classes, matieres, statsNotes } = await getNotesData(tenantId, classeId);
+  // Filtrer par classes/matières de l'enseignant si applicable
+  const scope = isTeacherRole(session.user.role as Role)
+    ? await getTeacherScope(tenantId, session.user.id, session.user.role as Role)
+    : undefined;
+
+  // Récupérer les classes et matières (filtrées pour les enseignants)
+  const { classes, matieres, statsNotes } = await getNotesData(tenantId, siteFilter, eleveFilter, classeId, scope);
 
   // Si classe et matière sont sélectionnées, on récupère les évaluations correspondantes
   let evaluations: any[] = [];
   if (classeId && matiereId) {
+    // Vérifier que l'enseignant a accès à cette classe/matière
+    if (scope?.isRestricted && !scope.classeIds.includes(classeId)) {
+      redirect("/notes");
+    }
     evaluations = await prisma.evaluation.findMany({
-      where: { tenantId, classeId, matiereId },
+      where: { tenantId, ...evalFilter, classeId, matiereId },
       select: { id: true, titre: true, type: true },
       orderBy: { date: "desc" },
     });
@@ -76,7 +102,7 @@ export default async function NotesPage({
     evaluation = await prisma.evaluation.findUnique({
       where: { id: evaluationId, tenantId },
       include: {
-        classe: { include: { eleves: { orderBy: { nom: 'asc' } } } },
+        classe: { include: { eleves: { orderBy: { prenom: 'asc' } } } },
         matiere: true,
         notes: true,
       }

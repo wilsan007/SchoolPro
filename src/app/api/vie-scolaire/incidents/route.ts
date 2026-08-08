@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
 
 const CreateSchema = z.object({
   eleveId: z.string().min(1),
@@ -27,8 +28,7 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId;
 
     const incidents = await prisma.incident.findMany({
-      where: {
-        tenantId,
+      where: { tenantId, ...siteFilterForModel("incident", session.user),
         ...(eleveId ? { eleveId } : {}),
         ...(statut ? { statut: statut as never } : {}),
       },
@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "vie-scolaire:write");
     if (denied) return denied;
+
+    const siteError = requireSiteIdForCreate(session.user);
+    if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
 
     const body = await req.json();
     const parsed = CreateSchema.safeParse(body);

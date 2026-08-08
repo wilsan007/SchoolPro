@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import type { StructureType } from "@prisma/client";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const STRUCTURE_TYPES: StructureType[] = ["MATERNELLE", "PRIMAIRE", "COLLEGE", "LYCEE"];
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     // Récupérer les structures déjà existantes pour ne pas les recréer
     const existing = await prisma.structure.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilterForModel("structure", session.user) },
       select: { type: true },
     });
     const existingTypes = new Set(existing.map((s) => s.type));
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     const all = await prisma.structure.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilterForModel("structure", session.user) },
       include: { _count: { select: { classes: true } } },
       orderBy: [{ type: "asc" }],
     });

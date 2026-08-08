@@ -6,7 +6,19 @@ import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ImportElevesDialog } from "./ImportElevesDialog";
 
-export function ImportElevesButton() {
+interface Site {
+  id: string;
+  nom: string;
+  code?: string | null;
+}
+
+interface ImportElevesButtonProps {
+  sites?: Site[];
+  currentSiteId?: string | null;
+  tenantHasSites?: boolean;
+}
+
+export function ImportElevesButton({ sites = [], currentSiteId = null, tenantHasSites = false }: ImportElevesButtonProps) {
   const t = useTranslations("import");
   const [open, setOpen] = useState(false);
 
@@ -16,7 +28,14 @@ export function ImportElevesButton() {
         <Upload className="h-4 w-4" />
         {t("button")}
       </Button>
-      {open && <ImportElevesDialog onClose={() => setOpen(false)} />}
+      {open && (
+        <ImportElevesDialog
+          onClose={() => setOpen(false)}
+          sites={sites}
+          currentSiteId={currentSiteId}
+          tenantHasSites={tenantHasSites}
+        />
+      )}
     </>
   );
 }

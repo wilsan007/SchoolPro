@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,14 +18,20 @@ export async function GET(req: NextRequest) {
     const periodeId = searchParams.get("periodeId");
     const eleveId = searchParams.get("eleveId");
 
-    const where: any = { tenantId: session.user.tenantId };
-    
-    if (periodeId) where.periodeId = periodeId;
-    if (eleveId) {
-      where.eleveId = eleveId;
-    } else if (classeId) {
-      where.eleve = { classeId };
-    }
+    // Isolation par site ET périmètre personnel : le rôle PARENT dispose de
+    // `bulletins:read` et pouvait, sans ce filtre, lister les bulletins de tous
+    // les élèves du tenant — ou cibler n'importe quel `eleveId`.
+    const scopeFilter = eleveScopeFilter(session.user, "eleve");
+
+    const where: any = mergeFilters(
+      {
+        tenantId: session.user.tenantId,
+        ...(periodeId ? { periodeId } : {}),
+        ...(eleveId ? { eleveId } : {}),
+        ...(!eleveId && classeId ? { eleve: { classeId } } : {}),
+      },
+      scopeFilter
+    );
 
     const bulletins = await prisma.bulletin.findMany({
       where,

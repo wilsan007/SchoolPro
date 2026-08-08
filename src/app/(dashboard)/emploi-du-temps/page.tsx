@@ -6,26 +6,27 @@ import { Header } from "@/components/layout/Header";
 import { EmploiDuTempsView } from "@/components/emploi-du-temps/EmploiDuTempsView";
 import { fuzzyFind } from "@/lib/text-match";
 import { getTranslations } from "next-intl/server";
+import { siteFilterForModel } from "@/lib/site-scope";
 
-async function getEmploiData(tenantId: string) {
+async function getEmploiData(tenantId: string, classeFilter: Record<string, unknown>, matiereFilter: Record<string, unknown>, ensFilter: Record<string, unknown>, emploiFilter: Record<string, unknown>, salleFilter: Record<string, unknown>, dispoFilter: Record<string, unknown>) {
   const [classes, matieres, enseignants, emplois, salles, disponibilites] = await Promise.all([
     prisma.classe.findMany({
-      where: { tenantId },
+      where: { tenantId, ...classeFilter },
       select: { id: true, nom: true, niveau: true },
       orderBy: { nom: "asc" },
     }),
     prisma.matiere.findMany({
-      where: { tenantId },
+      where: { tenantId, ...matiereFilter },
       select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
       orderBy: { nom: "asc" },
     }),
     prisma.enseignant.findMany({
-      where: { tenantId },
+      where: { tenantId, ...ensFilter },
       include: { user: { select: { name: true } } },
       orderBy: { user: { name: "asc" } },
     }),
     prisma.emploiTemps.findMany({
-      where: { tenantId },
+      where: { tenantId, ...emploiFilter },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },
         classe: { select: { nom: true } },
@@ -34,18 +35,15 @@ async function getEmploiData(tenantId: string) {
       orderBy: [{ jour: "asc" }, { heureDebut: "asc" }],
     }),
     prisma.salle.findMany({
-      where: { tenantId },
+      where: { tenantId, ...salleFilter },
       select: { id: true, nom: true, capacite: true, type: true },
       orderBy: { nom: "asc" },
     }),
     prisma.disponibiliteEnseignant.findMany({
-      where: { tenantId },
+      where: { tenantId, ...dispoFilter },
       select: { id: true, enseignantId: true, jour: true, heureDebut: true, heureFin: true },
     }),
   ]);
-
-  // Build matiereId → enseignants[] map : union des affectations existantes
-  // (créneaux déjà planifiés) et des spécialités déclarées (même appariement
   // flou que le moteur de génération — teacherPoolFor). Sans la spécialité,
   // une matière jamais planifiée n'offrirait aucun enseignant dans les
   // listes déroulantes. Volontairement PAS de repli sur "tous les
@@ -85,8 +83,9 @@ export default async function EmploiDuTempsPage() {
   ]);
   if (!session?.user?.tenantId) redirect("/login");
 
+  const f = (m: string) => siteFilterForModel(m, session.user);
   const { classes, matieres, enseignants, emplois, matiereToEnseignants, salles, disponibilites } = await getEmploiData(
-    session.user.tenantId
+    session.user.tenantId, f("classe"), f("matiere"), f("enseignant"), f("emploiTemps"), f("salle"), f("disponibiliteEnseignant")
   );
 
   return (

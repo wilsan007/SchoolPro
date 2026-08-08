@@ -1,15 +1,16 @@
 import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { AdmissionsView } from "@/components/admissions/AdmissionsView";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
+import { siteFilterForModel } from "@/lib/site-scope";
 
-async function getCandidatures(tenantId: string) {
+async function getCandidatures(tenantId: string, siteFilter: Record<string, unknown>) {
   const anneeActuelle = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
 
   const candidatures = await prisma.candidature.findMany({
-    where: { tenantId, annee: anneeActuelle },
+    where: { tenantId, annee: anneeActuelle, ...siteFilter },
     orderBy: { createdAt: "desc" },
   });
 
@@ -21,17 +22,18 @@ export default async function AdmissionsPage() {
     auth(),
     getTranslations("admissions"),
   ]);
-  if (!session?.user?.tenantId) redirect("/login");
+  guardPage(session, "admissions:read");
 
-  const { candidatures } = await getCandidatures(session.user.tenantId);
+  const siteFilter = siteFilterForModel("candidature", session!.user);
+  const { candidatures } = await getCandidatures(session!.user.tenantId!, siteFilter);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
         title={t("title")}
         subtitle={t("subtitle")}
-        userName={session.user.name}
-        userAvatar={session.user.image ?? undefined}
+        userName={session!.user.name}
+        userAvatar={session!.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
         <AdmissionsView candidatures={candidatures} />

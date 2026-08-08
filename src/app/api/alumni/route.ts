@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const AlumniSchema = z.object({
   nom: z.string().min(1),
@@ -39,9 +40,13 @@ export async function GET(request: NextRequest) {
   const statut = searchParams.get("statut");
   const annee = searchParams.get("annee");
 
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+
+  const siteFilter = siteFilterForModel("alumni", session.user);
   const alumni = await prisma.alumni.findMany({
     where: {
       tenantId: session.user.tenantId,
+      ...siteFilter,
       ...(statut ? { statut: statut as any } : {}),
       ...(annee ? { anneeDiplome: annee } : {}),
       ...(search
@@ -82,10 +87,13 @@ export async function POST(request: NextRequest) {
     const json = await request.json();
     const data = AlumniSchema.parse(json);
 
+    const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+
     const alumni = await prisma.alumni.create({
       data: {
         ...data,
         tenantId: session.user.tenantId,
+        siteId: siteId || null,
         dateNaissance: data.dateNaissance ? new Date(data.dateNaissance) : null,
       },
     });

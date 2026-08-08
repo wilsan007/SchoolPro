@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
     }
     const denied = checkPermission(session.user.role, "bulletins:read");
     if (denied) return denied;
+    const siteFilter = siteFilterForModel("eleve", session.user);
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
@@ -19,9 +21,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "classeId est requis" }, { status: 400 });
     }
 
+
     // Récupérer les élèves de la classe
     const eleves = await prisma.eleve.findMany({
-      where: { classeId, tenantId: session.user.tenantId, statut: "ACTIF" },
+      where: { classeId, tenantId: session.user.tenantId, ...siteFilter, statut: "ACTIF" },
       select: {
         id: true,
         nom: true,
@@ -34,7 +37,7 @@ export async function GET(req: NextRequest) {
           }
         }
       },
-      orderBy: { nom: "asc" }
+      orderBy: { prenom: "asc" }
     });
 
     // Calcul de la moyenne annuelle (moyenne des moyennes des bulletins existants)

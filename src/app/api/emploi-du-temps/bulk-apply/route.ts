@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { overlaps } from "@/lib/emploi-du-temps/suggest";
+import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const CreneauSchema = z.object({
   matiereId: z.string().min(1),
@@ -34,6 +36,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "emploi-du-temps:write");
     if (denied) return denied;
+    const siteFilter = siteFilterForModel("classe", session.user);
 
     const body = await req.json();
     const parsed = Schema.safeParse(body);
@@ -61,17 +64,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
-    const annee = tenant?.currentYear ?? "2025-2026";
+    const annee = await getAnneeCouranteLibelle(tenantId);
+    if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
 
     const result = await prisma.$transaction(async (tx) => {
-      const deleted = await tx.emploiTemps.deleteMany({ where: { tenantId, classeId, annee } });
+      const deleted = await tx.emploiTemps.deleteMany({ where: { tenantId, ...siteFilter, classeId, annee } });
 
       // Revalidation contre les engagements des AUTRES classes (enseignants,
       // salles) — l'unique source de vérité au moment de l'écriture, pas au
       // moment où le plan a été généré.
       const autres = await tx.emploiTemps.findMany({
-        where: { tenantId, annee, classeId: { not: classeId } },
+        where: { tenantId, ...siteFilter, annee, classeId: { not: classeId } },
         select: { jour: true, heureDebut: true, heureFin: true, enseignantId: true, salle: true },
       });
 

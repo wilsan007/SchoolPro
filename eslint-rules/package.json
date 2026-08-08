@@ -1,0 +1,9 @@
+{
+  "name": "eslint-plugin-ecolpro",
+  "version": "1.0.0",
+  "description": "ESLint plugin for EcolPro tenant isolation rules",
+  "main": "index.js",
+  "peerDependencies": {
+    "eslint": ">=8"
+  }
+}

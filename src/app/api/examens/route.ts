@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
 
 const CreateSchema = z.object({
   intitule: z.string().min(2).max(200),
@@ -17,14 +18,14 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "examens:read");
     if (denied) return denied;
+    const siteFilter = siteFilterForModel("examen", session.user);
 
     const { searchParams } = new URL(req.url);
     const statut = searchParams.get("statut");
     const tenantId = session.user.tenantId;
 
     const examens = await prisma.examen.findMany({
-      where: {
-        tenantId,
+      where: { tenantId, ...siteFilter,
         ...(statut ? { statut: statut as never } : {}),
       },
       include: { sessions: { orderBy: { date: "asc" } } },
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "examens:write");
     if (denied) return denied;
+
+    const siteError = requireSiteIdForCreate(session.user);
+    if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
 
     const body = await req.json();
     const parsed = CreateSchema.safeParse(body);

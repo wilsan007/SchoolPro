@@ -7,6 +7,7 @@ import { sendAbsenceAlert } from "@/lib/sms/africasTalking";
 import { sendEmail, renderNotificationEmail } from "@/lib/notifications/email";
 import { sendAbsenceWhatsApp, sendRetardWhatsApp } from "@/lib/notifications/whatsapp";
 import { sendAbsenceTelegram, sendRetardTelegram } from "@/lib/notifications/telegram";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const AppelSchema = z.object({
   classeId: z.string().min(1),

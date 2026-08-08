@@ -5,6 +5,8 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 import { authConfig, type AvailableTenant } from "@/auth.config";
+import { deriveClaims, CLAIMS_VERSION } from "@/lib/tenant-claims";
+import { auditFire } from "@/lib/audit";
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -31,37 +33,46 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         if (result) token = result;
       }
 
-      if (trigger === "update" && token.id) {
-        const userTenants = await prisma.userTenant.findMany({
-          where: { userId: token.id as string, isActive: true },
-          select: {
-            tenantId: true,
-            role: true,
-            isDefault: true,
-            tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
-          },
-        });
+      // Ré-hydratation depuis la base — la base est la seule source de vérité
+      // pour le périmètre d'accès. Déclenchée :
+      //  - par `unstable_update()` après un changement de tenant ou de site ;
+      //  - dès qu'un JWT porte une version de revendications périmée, afin que
+      //    les jetons émis avant ce durcissement soient corrigés sans exiger
+      //    une reconnexion (et ne conservent pas un périmètre trop large).
+      const isStale = token.claimsVersion !== CLAIMS_VERSION;
 
-        const activeUt = userTenants.find((ut) => ut.isDefault) ?? userTenants[0];
-        if (activeUt) {
-          token.tenantId = activeUt.tenantId;
-          token.role = activeUt.role;
-          token.availableTenants = userTenants.map((ut) => ({
-            tenantId: ut.tenantId,
-            tenantName: ut.tenant.name,
-            tenantSlug: ut.tenant.slug,
-            tenantLogo: ut.tenant.logoUrl,
-            role: ut.role,
-            isDefault: ut.isDefault,
-          }));
+      if (token.id && (trigger === "update" || isStale)) {
+        // Tenant demandé par `unstable_update({ user: { tenantId } })`. Ce n'est
+        // qu'une *préférence* : `deriveClaims` ne la retient que si
+        // l'utilisateur possède une adhésion active à ce tenant. Une valeur
+        // arbitraire ne peut donc pas faire franchir la frontière tenant.
+        const requestedTenantId =
+          (session as { tenantId?: string | null } | undefined)?.tenantId ??
+          (session as { user?: { tenantId?: string | null } } | undefined)?.user?.tenantId ??
+          (token.tenantId as string | null) ??
+          null;
+
+        const claims = await deriveClaims(token.id as string, requestedTenantId);
+
+        if (!claims) {
+          // Compte désactivé ou supprimé : on vide le périmètre plutôt que de
+          // laisser un jeton porter des droits obsolètes.
+          token.tenantId = null;
+          token.siteId = null;
+          token.siteIds = [];
+          token.tenantHasSites = true;
+          token.availableTenants = [];
+          token.claimsVersion = CLAIMS_VERSION;
+          return token;
         }
 
-        // Rafraîchir aussi le siteId depuis la base
-        const freshUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { siteId: true },
-        });
-        token.siteId = freshUser?.siteId ?? null;
+        token.tenantId = claims.tenantId;
+        token.role = claims.role;
+        token.siteId = claims.siteId;
+        token.siteIds = claims.siteIds;
+        token.tenantHasSites = claims.tenantHasSites;
+        token.availableTenants = claims.availableTenants;
+        token.claimsVersion = claims.claimsVersion;
       }
 
       return token;
@@ -86,27 +97,36 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             email: true,
             name: true,
             password: true,
-            role: true,
-            tenantId: true,
-            siteId: true,
             avatarUrl: true,
             isActive: true,
-            userTenants: {
-              where: { isActive: true },
-              select: {
-                tenantId: true,
-                role: true,
-                isDefault: true,
-                tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
-              },
-            },
           },
         });
 
-        if (!user || !user.password || !user.isActive) return null;
+        if (!user || !user.password || !user.isActive) {
+          auditFire({
+            action: "auth:login",
+            verdict: "DENIED",
+            resource: "user",
+            resourceId: user?.id,
+            reason: !user ? "Utilisateur introuvable" : !user.password ? "Compte sans mot de passe" : "Compte désactivé",
+            metadata: { email },
+          });
+          return null;
+        }
 
         const passwordMatch = await bcrypt.compare(password, user.password);
-        if (!passwordMatch) return null;
+        if (!passwordMatch) {
+          auditFire({
+            userId: user.id,
+            action: "auth:login",
+            verdict: "DENIED",
+            resource: "user",
+            resourceId: user.id,
+            reason: "Mot de passe incorrect",
+            metadata: { email },
+          });
+          return null;
+        }
 
         // Mettre à jour lastLoginAt
         await prisma.user.update({
@@ -114,16 +134,22 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           data: { lastLoginAt: new Date() },
         });
 
-        // Multi-tenant: déterminer le tenant actif
-        const tenants = user.userTenants;
-        let activeTenantId = user.tenantId;
-        let activeRole = user.role;
-
-        if (tenants.length > 0) {
-          // Chercher le tenant par défaut, sinon le premier
-          const defaultUt = tenants.find((ut) => ut.isDefault) ?? tenants[0];
-          activeTenantId = defaultUt.tenantId;
-          activeRole = defaultUt.role;
+        // Le périmètre (tenant, sites, rôle) est dérivé par la même fonction
+        // qu'au changement de tenant/site : une seule logique, donc pas de
+        // divergence possible entre la connexion et les bascules ultérieures.
+        // L'ancienne version calculait `siteIds` à partir des seules lignes
+        // `UserSite`, sans les affectations d'enseignants et sans borner au
+        // tenant actif : un enseignant se connectait avec `siteIds` vide et
+        // échappait donc au filtrage par site.
+        const claims = await deriveClaims(user.id);
+        if (!claims) {
+          auditFire({
+            userId: user.id,
+            action: "auth:login",
+            verdict: "DENIED",
+            reason: "deriveClaims a retourné null lors de la connexion",
+          });
+          return null;
         }
 
         return {
@@ -131,17 +157,13 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           email: user.email,
           name: user.name,
           image: user.avatarUrl,
-          role: activeRole,
-          tenantId: activeTenantId,
-          siteId: user.siteId,
-          availableTenants: tenants.map((ut) => ({
-            tenantId: ut.tenantId,
-            tenantName: ut.tenant.name,
-            tenantSlug: ut.tenant.slug,
-            tenantLogo: ut.tenant.logoUrl,
-            role: ut.role,
-            isDefault: ut.isDefault,
-          })),
+          role: claims.role,
+          tenantId: claims.tenantId,
+          siteId: claims.siteId,
+          siteIds: claims.siteIds,
+          tenantHasSites: claims.tenantHasSites,
+          availableTenants: claims.availableTenants,
+          claimsVersion: claims.claimsVersion,
         };
       },
     }),
@@ -158,6 +180,12 @@ declare module "next-auth" {
       image?: string | null;
       role: Role;
       tenantId: string | null;
+      /** Site sélectionné, garanti appartenir au tenant actif. */
+      siteId?: string | null;
+      /** Sites du tenant actif auxquels l'utilisateur est rattaché. */
+      siteIds?: string[];
+      /** Le tenant actif possède-t-il au moins un site ? */
+      tenantHasSites?: boolean;
       availableTenants?: AvailableTenant[];
     };
   }

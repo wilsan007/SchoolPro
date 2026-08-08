@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const UpdateSchema = z.object({
   nom: z.string().min(1).optional(),
@@ -32,12 +33,19 @@ export async function PATCH(
 
   const { id } = await params;
 
+  const siteFilter = siteFilterForModel("itemInventaire", session.user);
   try {
     const json = await request.json();
     const data = UpdateSchema.parse(json);
 
+
+    const existing = await prisma.itemInventaire.findFirst({
+      where: { id, tenantId: session.user.tenantId, ...siteFilter },
+    });
+    if (!existing) return NextResponse.json({ error: "Item introuvable" }, { status: 404 });
+
     const item = await prisma.itemInventaire.update({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       data: {
         ...data,
         dateRevision: data.dateRevision ? new Date(data.dateRevision) : undefined,
@@ -66,9 +74,14 @@ export async function DELETE(
 
   const { id } = await params;
 
-  await prisma.itemInventaire.delete({
-    where: { id, tenantId: session.user.tenantId },
+  const siteFilter2 = siteFilterForModel("itemInventaire", session.user);
+
+  const existing = await prisma.itemInventaire.findFirst({
+    where: { id, tenantId: session.user.tenantId, ...siteFilter2 },
   });
+  if (!existing) return NextResponse.json({ error: "Item introuvable" }, { status: 404 });
+
+  await prisma.itemInventaire.delete({ where: { id } });
 
   return NextResponse.json({ ok: true });
 }

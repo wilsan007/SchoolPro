@@ -8,13 +8,27 @@ import { BilanAnnuelManager } from "@/components/bulletins/BilanAnnuelManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, List, Award } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
-async function getBulletinsData(tenantId: string) {
+async function getBulletinsData(
+  tenantId: string,
+  scope?: { classeIds: string[]; isRestricted: boolean }
+) {
+  const classeWhere = {
+    tenantId,
+    ...(scope?.isRestricted && scope.classeIds.length > 0
+      ? { id: { in: scope.classeIds } }
+      : scope?.isRestricted
+        ? { id: "__none__" }
+        : {}),
+  };
+
   const [classes, periodes] = await Promise.all([
     prisma.classe.findMany({
-      where: { tenantId },
+      where: classeWhere,
       include: {
-        eleves: { where: { statut: "ACTIF" }, select: { id: true, nom: true, prenom: true, matricule: true } },
+        eleves: { where: { statut: "ACTIF" }, select: { id: true, nom: true, prenom: true, matricule: true }, orderBy: { prenom: "asc" } },
         profPrincipal: { include: { user: { select: { name: true } } } },
       },
       orderBy: { nom: "asc" },
@@ -35,7 +49,13 @@ export default async function BulletinsPage() {
     getTranslations("bulletins"),
   ]);
   if (!session?.user?.tenantId) redirect("/login");
-  const { classes, periodes, anneeId } = await getBulletinsData(session.user.tenantId);
+
+  // Filtrer par classes de l'enseignant si applicable
+  const scope = isTeacherRole(session.user.role as Role)
+    ? await getTeacherScope(session.user.tenantId, session.user.id, session.user.role as Role)
+    : undefined;
+
+  const { classes, periodes, anneeId } = await getBulletinsData(session.user.tenantId, scope);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

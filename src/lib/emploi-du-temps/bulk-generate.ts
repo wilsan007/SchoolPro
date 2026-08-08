@@ -32,6 +32,7 @@
 import prisma from "@/lib/prisma";
 import { fuzzyFind } from "@/lib/text-match";
 import { ALL_DAYS, timeToMinutes, minutesToTime, overlaps, type Jour } from "@/lib/emploi-du-temps/suggest";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export interface BulkCreneauProposal {
   jour: Jour;
@@ -111,8 +112,8 @@ export async function generateBulkPlan(opts: BulkGenerateOptions): Promise<BulkG
     return { ok: false, message: "La plage horaire quotidienne est trop courte pour caser une session d'1h." };
   }
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
-  const annee = tenant?.currentYear ?? "2025-2026";
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  if (!annee) throw new Error("Aucune année scolaire active pour ce tenant");
 
   const [classeExistants, autresCreneaux, allEnseignants, salles, disponibilites] = await Promise.all([
     prisma.emploiTemps.findMany({

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForRelation } from "@/lib/site-filter";
 
 const FicheRHSchema = z.object({
   typeContrat: z.enum(["CDI", "CDD", "VACATAIRE", "FONCTIONNAIRE", "STAGIAIRE"]).optional(),
@@ -36,9 +37,11 @@ export async function PATCH(
   const body = await req.json();
   const data = FicheRHSchema.parse(body);
 
-  // Vérifier que l'enseignant appartient au tenant
+  const siteFilter = siteFilterForRelation(session.user, "user");
+
+  // Vérifier que l'enseignant appartient au tenant et au site
   const enseignant = await prisma.enseignant.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, ...siteFilter },
   });
 
   if (!enseignant) {
@@ -81,8 +84,10 @@ export async function POST(
   const body = await req.json();
   const { mois, annee } = z.object({ mois: z.number(), annee: z.number() }).parse(body);
 
+  const siteFilter2 = siteFilterForRelation(session.user, "user");
+
   const ficheRH = await prisma.ficheRH.findFirst({
-    where: { enseignantId: id, tenantId: session.user.tenantId },
+    where: { enseignantId: id, tenantId: session.user.tenantId, enseignant: { ...(siteFilter2 as any).user ? { user: (siteFilter2 as any).user } : {} } },
     include: {
       enseignant: {
         include: {

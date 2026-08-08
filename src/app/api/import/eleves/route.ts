@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import ExcelJS from "exceljs";
 import { getSchoolGroup } from "@/lib/school-groups";
 import type { StructureType, Sexe } from "@prisma/client";
+import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // Mapping: nom du groupe scolaire → StructureType
 const GROUP_TO_STRUCTURE: Record<string, StructureType> = {
@@ -38,6 +40,10 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
+    const siteFilter = siteFilterForModel("eleve", session.user);
+
+    const siteError = requireSiteIdForCreate(session.user);
+    if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
 
     if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Permissions insuffisantes" }, { status: 403 });
@@ -50,6 +56,9 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
+
+    const formSiteId = formData.get("siteId") as string | null;
+    const targetSiteId = formSiteId || (session.user.siteId ?? null);
 
     // ── 1. Parse Excel ──────────────────────────────────────────
     const buffer = await file.arrayBuffer();
@@ -139,7 +148,7 @@ export async function POST(req: NextRequest) {
 
     // ── 3. Créer ou récupérer les structures ────────────────────
     const existingStructures = await prisma.structure.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilterForModel("structure", session.user) },
     });
     const structureByType = new Map<string, string>(existingStructures.map((s) => [s.type, s.id]));
 
@@ -161,22 +170,22 @@ export async function POST(req: NextRequest) {
         })),
       });
       const created = await prisma.structure.findMany({
-        where: { tenantId, type: { in: structuresToCreate } },
+        where: { tenantId, ...siteFilterForModel("structure", session.user), type: { in: structuresToCreate } },
       });
       for (const s of created) structureByType.set(s.type, s.id);
     }
 
     // ── 4. Créer ou récupérer les classes ───────────────────────
     const existingClasses = await prisma.classe.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilter },
       select: { id: true, nom: true, structureId: true },
     });
     const classByName = new Map<string, { id: string; structureId: string | null }>(
       existingClasses.map((c) => [c.nom, { id: c.id, structureId: c.structureId }])
     );
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    const annee = tenant?.currentYear ?? "2025-2026";
+    const annee = await getAnneeCouranteLibelle(tenantId);
+    if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
 
     const classesToCreate: { nom: string; niveau: string; structureId: string | null }[] = [];
     const classNameToNiveau = new Map<string, string>();
@@ -210,7 +219,7 @@ export async function POST(req: NextRequest) {
         })),
       });
       const created = await prisma.classe.findMany({
-        where: { tenantId, nom: { in: classesToCreate.map((c) => c.nom) } },
+        where: { tenantId, ...siteFilter, nom: { in: classesToCreate.map((c) => c.nom) } },
         select: { id: true, nom: true, structureId: true },
       });
       for (const c of created) {
@@ -220,13 +229,13 @@ export async function POST(req: NextRequest) {
 
     // ── 5. Créer les élèves ─────────────────────────────────────
     const existingEleves = await prisma.eleve.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilter },
       select: { matricule: true },
     });
     const existingMatricules = new Set(existingEleves.map((e) => e.matricule));
 
     // Générer matricules auto si non fournis
-    let matriculeCounter = await prisma.eleve.count({ where: { tenantId } });
+    let matriculeCounter = await prisma.eleve.count({ where: { tenantId, ...siteFilter } });
 
     const elevesToCreate: any[] = [];
     let imported = 0;
@@ -262,6 +271,7 @@ export async function POST(req: NextRequest) {
 
       elevesToCreate.push({
         tenantId,
+        siteId: targetSiteId,
         matricule,
         nom: row.nom,
         prenom: row.prenom,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -15,8 +16,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eleveId et matiereId requis" }, { status: 400 });
   }
 
+
+  const siteFilter = siteFilterForModel("eleve", session.user);
   const eleve = await prisma.eleve.findFirst({
-    where: { id: eleveId, tenantId: session.user.tenantId },
+    where: { id: eleveId, tenantId: session.user.tenantId, ...siteFilter },
   });
   if (!eleve) {
     return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });

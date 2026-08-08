@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const UpdateSchema = z.object({
   email: z.string().email().optional().nullable(),
@@ -32,12 +33,19 @@ export async function PATCH(
 
   const { id } = await params;
 
+  const siteFilter = siteFilterForModel("alumni", session.user);
   try {
     const json = await request.json();
     const data = UpdateSchema.parse(json);
 
+
+    const existing = await prisma.alumni.findFirst({
+      where: { id, tenantId: session.user.tenantId, ...siteFilter },
+    });
+    if (!existing) return NextResponse.json({ error: "Alumni introuvable" }, { status: 404 });
+
     const alumni = await prisma.alumni.update({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       data,
     });
 
@@ -63,9 +71,14 @@ export async function DELETE(
 
   const { id } = await params;
 
-  await prisma.alumni.delete({
-    where: { id, tenantId: session.user.tenantId },
+  const siteFilter2 = siteFilterForModel("alumni", session.user);
+
+  const existing = await prisma.alumni.findFirst({
+    where: { id, tenantId: session.user.tenantId, ...siteFilter2 },
   });
+  if (!existing) return NextResponse.json({ error: "Alumni introuvable" }, { status: 404 });
+
+  await prisma.alumni.delete({ where: { id } });
 
   return NextResponse.json({ ok: true });
 }

@@ -107,6 +107,9 @@ model Tenant {
   structures     Structure[]
   reglesAppreciation ReglesAppreciation[]
   dispenses          DispenseMatiere[]
+  absencesPersonnel  AbsencePersonnel[]
+  congesPersonnel    CongePersonnel[]
+  conversations      Conversation[]
 
   @@map("tenants")
 }
@@ -140,15 +143,68 @@ model Site {
   alumni       Alumni[]
   inventaire   ItemInventaire[]
   cours        Cours[]
+  matieres     Matiere[]
+  structures   Structure[]
+  disponibilitesEnseignant DisponibiliteEnseignant[]
 
   // Enseignants multi-sites
   enseignantSites EnseignantSite[]
+
+  // Users multi-sites
+  userSites UserSite[]
+
+  // Soft-delete / purge planifiée (Option B — industry standard)
+  deletedAt        DateTime?
+  deletedBy        String?
+  deletedReason    String?
+  scheduledPurgeAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@map("sites")
+}
+
+// ============================================================
+// JOURNAL D'AUDIT — SUPPRESSION DE SITES
+// Conserve une trace permanente même après purge définitive.
+// ============================================================
+
+model SiteDeletionLog {
+  id             String   @id @default(cuid())
+  tenantId       String
+  siteId         String
+  siteNom        String
+  action         String   // "SOFT_DELETE" | "RESTORE" | "PURGE"
+  reason         String?
+  performedBy    String
+  performedByName String?
+  performedAt    DateTime @default(now())
+  metadata       Json?
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@map("site_deletion_logs")
+}
+
+// Table de liaison User ↔ Site (accès multi-sites pour tout utilisateur)
+model UserSite {
+  id        String @id @default(cuid())
+  userId    String
+  siteId    String
+  role      Role   @default(TEACHER)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime?
+
+  @@unique([userId, siteId])
+  @@index([userId])
+  @@index([siteId])
+  @@map("user_sites")
 }
 
 // Table de liaison pour les enseignants qui travaillent sur plusieurs sites
@@ -264,8 +320,8 @@ model User {
   sessions Session[]
 
   // Relations métier
-  enseignant Enseignant?
-  parent     Parent?
+  enseignants Enseignant[]
+  parents     Parent[]
   eleve      Eleve?
 
   // Messagerie
@@ -283,6 +339,18 @@ model User {
 
   // Multi-tenant: liste des tenants accessibles
   userTenants UserTenant[]
+
+  // Multi-site: liste des sites accessibles
+  userSites UserSite[]
+
+  // Factures & paiements créés par cet utilisateur
+  facturesCrees    Facture[]  @relation("FactureCreePar")
+  paiementsEnregistres Paiement[] @relation("PaiementEnregistrePar")
+
+  // Absences & congés du personnel saisis par cet utilisateur
+  absencesPersonnelSaisies AbsencePersonnel[] @relation("AbsencePersonnelSaisiePar")
+  congesDemandes           CongePersonnel[]   @relation("CongeDemandePar")
+  congesApprouves          CongePersonnel[]   @relation("CongeApprouvePar")
 
   @@index([tenantId])
   @@index([siteId])
@@ -368,6 +436,9 @@ model Structure {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = structure partagée entre tous les sites
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   type     StructureType // MATERNELLE, PRIMAIRE, COLLEGE, LYCEE
   nom      String   // "Maternelle", "Primaire", etc.
   actif    Boolean  @default(true)
@@ -378,6 +449,7 @@ model Structure {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([siteId])
   @@unique([tenantId, type])
   @@map("structures")
 }
@@ -418,6 +490,9 @@ model Matiere {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  siteId String? // null = matière partagée entre tous les sites
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   nom         String // "Mathématiques"
   code        String // "MATH"
   coefficient Float   @default(1)
@@ -431,6 +506,7 @@ model Matiere {
   dispenses        DispenseMatiere[]
 
   @@index([tenantId])
+  @@index([siteId])
   @@map("matieres")
 }
 
@@ -474,7 +550,7 @@ model Eleve {
 
   // Compte de connexion élève (optionnel — généré en masse depuis Paramètres/Élèves)
   userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // Santé
   groupeSanguin   String?
@@ -528,8 +604,8 @@ model Parent {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id])
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   nom            String
   prenom         String
@@ -547,6 +623,7 @@ model Parent {
   enfants EleveParent[]
 
   @@index([tenantId])
+  @@index([userId])
   @@map("parents")
 }
 
@@ -573,8 +650,8 @@ model Enseignant {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   matricule   String?
   specialite  String?
@@ -586,8 +663,11 @@ model Enseignant {
   disponibilites     DisponibiliteEnseignant[]
   ficheRH            FicheRH?
   sites              EnseignantSite[]
+  absencesPersonnel  AbsencePersonnel[]
+  conges             CongePersonnel[]
 
   @@index([tenantId])
+  @@index([userId])
   @@map("enseignants")
 }
 
@@ -633,6 +713,8 @@ model DisponibiliteEnseignant {
   id           String     @id @default(cuid())
   tenantId     String
   tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId       String?    // null = disponibilité sur tous les sites
+  site         Site?      @relation(fields: [siteId], references: [id], onDelete: SetNull)
   enseignantId String
   enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
   jour         Jour
@@ -640,6 +722,7 @@ model DisponibiliteEnseignant {
   heureFin     String // "12:00"
 
   @@index([tenantId])
+  @@index([siteId])
   @@index([enseignantId])
   @@map("disponibilites_enseignants")
 }
@@ -787,7 +870,7 @@ model Note {
   isPubliee    Boolean @default(false)
 
   evaluationId String?
-  evaluation   Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  evaluation   Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -945,6 +1028,9 @@ model Facture {
 
   paiements Paiement[]
 
+  createdById String? // User who created the invoice
+  createdBy   User?   @relation("FactureCreePar", fields: [createdById], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -962,10 +1048,13 @@ model Paiement {
 
   montant   Float
   devise    String   @default("DJF")
-  methode   String // "espèces", "wave", "orange_money", "carte", "virement"
+  methode   String // "espèces", "waffi", "cac_pay", "dahab_plus", "saba_pay", "faida", "virement"
   reference String?
   date      DateTime @default(now())
   recu      String? // URL reçu PDF
+
+  enregistreParId String? // User who recorded the payment
+  enregistrePar   User?   @relation("PaiementEnregistrePar", fields: [enregistreParId], references: [id], onDelete: SetNull)
 
   @@index([factureId])
   @@map("paiements")
@@ -1280,6 +1369,109 @@ model BulletinPaie {
 }
 
 // ============================================================
+// ABSENCES & CONGÉS DU PERSONNEL
+// ============================================================
+
+enum TypeAbsencePersonnel {
+  ABSENCE
+  RETARD
+  MISSION
+  FORMATION
+  MALADIE
+  AUTRE
+}
+
+enum StatutAbsencePersonnel {
+  EN_ATTENTE
+  JUSTIFIEE
+  INJUSTIFIEE
+}
+
+model AbsencePersonnel {
+  id           String @id @default(cuid())
+  tenantId     String
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enseignantId String
+  enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
+
+  date       DateTime
+  heureDebut String? // null = journée entière
+  heureFin   String?
+
+  type        TypeAbsencePersonnel @default(ABSENCE)
+  statut      StatutAbsencePersonnel @default(EN_ATTENTE)
+  motif       String?
+  justificatif String? // URL document
+  commentaire  String?
+
+  saisieParId String? // userId
+  saisiePar   User?   @relation("AbsencePersonnelSaisiePar", fields: [saisieParId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([enseignantId])
+  @@index([tenantId, date])
+  @@map("absences_personnel")
+}
+
+enum StatutConge {
+  DEMANDE // En attente d'approbation
+  APPROUVE
+  REFUSE
+  EN_COURS
+  TERMINE
+  ANNULE
+}
+
+enum TypeConge {
+  ANNUEL
+  MALADIE
+  SPECIAL
+  MATERNITE
+  PATERNITE
+  SANS_SOLDE
+  AUTRE
+}
+
+model CongePersonnel {
+  id           String @id @default(cuid())
+  tenantId     String
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enseignantId String
+  enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
+
+  type      TypeConge @default(ANNUEL)
+  statut    StatutConge @default(DEMANDE)
+
+  dateDebut DateTime
+  dateFin   DateTime
+  nbJours   Float // calculé ou saisi
+
+  motif     String?
+  justificatif String? // URL document
+
+  demandeParId  String? // userId
+  demandePar    User?   @relation("CongeDemandePar", fields: [demandeParId], references: [id], onDelete: SetNull)
+  approuveParId String? // userId
+  approuvePar   User?   @relation("CongeApprouvePar", fields: [approuveParId], references: [id], onDelete: SetNull)
+  approuveAt    DateTime?
+
+  commentaire String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([enseignantId])
+  @@index([tenantId, statut])
+  @@map("conges_personnel")
+}
+
+// ============================================================
 // ADMISSIONS & INSCRIPTIONS
 // ============================================================
 
@@ -1462,6 +1654,7 @@ model ItemInventaire {
 model Conversation {
   id       String  @id @default(cuid())
   tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   subject  String?
   isGroup  Boolean @default(false)
 
@@ -1690,4 +1883,37 @@ model DispenseMatiere {
   @@index([tenantId])
   @@index([eleveId])
   @@map("dispenses_matiere")
+}
+
+// ============================================================
+// AUDIT & TRAÇABILITÉ
+// ============================================================
+
+enum AuditVerdict {
+  ALLOWED
+  DENIED
+}
+
+model AuditLog {
+  id         String       @id @default(cuid())
+  tenantId   String?
+  userId     String?
+  action     String
+  verdict    AuditVerdict
+  resource   String?
+  resourceId String?
+  reason     String?
+  metadata   Json?
+
+  ip        String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([verdict])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

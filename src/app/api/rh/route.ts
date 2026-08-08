@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForRelation } from "@/lib/site-filter";
 
 // GET — liste des enseignants avec fiche RH
 export async function GET(req: NextRequest) {
@@ -12,8 +13,10 @@ export async function GET(req: NextRequest) {
   const denied = checkPermission(session.user.role, "rh:read");
   if (denied) return denied;
 
+  const siteFilter = siteFilterForRelation(session.user, "user");
+
   const enseignants = await prisma.enseignant.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, ...siteFilter },
     include: {
       user: {
         select: {

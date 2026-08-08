@@ -8,9 +8,24 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AbsenceChart } from "@/components/dashboard/AbsenceChart";
 import { getTranslations, getLocale } from "next-intl/server";
 import { unstable_cache } from "next/cache";
+import { siteFilterForModel } from "@/lib/site-scope";
+import type { Prisma } from "@prisma/client";
 
 const getDashboardData = unstable_cache(
-  async (tenantId: string) => {
+  async (
+    tenantId: string,
+    eleveFilter: Record<string, unknown>,
+    classeFilter: Record<string, unknown>,
+    absenceFilter: Record<string, unknown>,
+    noteFilter: Record<string, unknown>,
+    examenFilter: Record<string, unknown>
+  ) => {
+    const baseWhere = { tenantId, ...eleveFilter } as Prisma.EleveWhereInput;
+    const classeWhere = { tenantId, ...classeFilter } as Prisma.ClasseWhereInput;
+    const absenceWhere = { tenantId, ...absenceFilter } as Prisma.AbsenceWhereInput;
+    const noteWhere = { tenantId, ...noteFilter } as Prisma.NoteWhereInput;
+    const examenWhere = { tenantId, ...examenFilter } as Prisma.ExamenWhereInput;
+
     const [
       eleveStats,
       totalClasses,
@@ -21,13 +36,13 @@ const getDashboardData = unstable_cache(
     ] = await Promise.all([
       prisma.eleve.groupBy({
         by: ["statut"],
-        where: { tenantId },
+        where: baseWhere,
         _count: true,
       }),
-      prisma.classe.count({ where: { tenantId } }),
+      prisma.classe.count({ where: classeWhere }),
       prisma.absence.count({
         where: {
-          tenantId,
+          ...absenceWhere,
           date: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
             lt: new Date(new Date().setHours(23, 59, 59, 999)),
@@ -35,10 +50,10 @@ const getDashboardData = unstable_cache(
         },
       }),
       prisma.absence.count({
-        where: { tenantId, statut: "INJUSTIFIEE" },
+        where: { ...absenceWhere, statut: "INJUSTIFIEE" },
       }),
       prisma.note.findMany({
-        where: { tenantId },
+        where: noteWhere,
         orderBy: { createdAt: "desc" },
         take: 5,
         include: {
@@ -47,7 +62,7 @@ const getDashboardData = unstable_cache(
         },
       }),
       prisma.examen.findFirst({
-        where: { tenantId, statut: "PROGRAMME", dateDebut: { gte: new Date() } },
+        where: { ...examenWhere, statut: "PROGRAMME", dateDebut: { gte: new Date() } },
         orderBy: { dateDebut: "asc" },
       }),
     ]);
@@ -82,7 +97,13 @@ export default async function DashboardPage() {
 
   if (!session?.user?.tenantId) redirect("/login");
 
-  const data = await getDashboardData(session.user.tenantId);
+  const eleveFilter = siteFilterForModel("eleve", session.user);
+  const classeFilter = siteFilterForModel("classe", session.user);
+  const absenceFilter = siteFilterForModel("absence", session.user);
+  const noteFilter = siteFilterForModel("note", session.user);
+  const examenFilter = siteFilterForModel("examen", session.user);
+
+  const data = await getDashboardData(session.user.tenantId, eleveFilter, classeFilter, absenceFilter, noteFilter, examenFilter);
 
   const stats = [
     {
@@ -137,7 +158,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Graphique absences */}
           <div className="lg:col-span-2">
-            <AbsenceChart tenantId={session.user.tenantId} />
+            <AbsenceChart tenantId={session.user.tenantId} siteFilter={eleveFilter} />
           </div>
 
           {/* Actions rapides */}

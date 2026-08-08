@@ -19,6 +19,7 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { Role } from "@prisma/client";
 import type { Session } from "next-auth";
+import { auditFire } from "@/lib/audit";
 
 export type Permission = string;
 
@@ -36,7 +37,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
     "admissions:*", "rh:*", "finance:*", "inventaire:*", "alumni:*",
     "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
-    "ai:*",
+    "ai:*", "audit:read",
   ],
 
   // Chef d'établissement — pédagogie & vie scolaire complètes, pas la finance/RH en écriture
@@ -99,9 +100,12 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "emploi-du-temps:read", "ai:parent",
   ],
 
-  // Élève — consultation de son périmètre (lecture seule + messagerie)
+  // Élève — consultation de son périmètre (lecture seule + messagerie limitée)
+  // Un élève peut lire et répondre dans une conversation où il est déjà participant,
+  // mais ne peut pas initier de nouvelle conversation (règle École360).
   STUDENT: [
-    "bulletins:read", "absences:read", "notes:read", "messages:*",
+    "bulletins:read", "absences:read", "notes:read",
+    "messages:read", "messages:reply",
     "communication:read", "cours:*", "emploi-du-temps:read",
   ],
 };
@@ -147,6 +151,11 @@ export async function authorize(
   const session = await auth();
 
   if (!session?.user?.id) {
+    auditFire({
+      action: "auth:check",
+      verdict: "DENIED",
+      reason: "Non authentifié",
+    });
     return {
       ok: false,
       response: NextResponse.json({ error: "Non authentifié" }, { status: 401 }),
@@ -158,6 +167,13 @@ export async function authorize(
   const requireTenant = opts.requireTenant ?? true;
 
   if (requireTenant && !tenantId && role !== "SUPER_ADMIN") {
+    auditFire({
+      userId: session.user.id,
+      action: "auth:check",
+      verdict: "DENIED",
+      reason: "Aucun établissement associé au compte",
+      metadata: { requiredPermissions: opts.permission },
+    });
     return {
       ok: false,
       response: NextResponse.json(
@@ -173,6 +189,15 @@ export async function authorize(
       : [opts.permission];
     const allowed = needed.some((p) => roleHasPermission(role, p));
     if (!allowed) {
+      auditFire({
+        userId: session.user.id,
+        tenantId: tenantId ?? null,
+        action: "auth:check",
+        verdict: "DENIED",
+        resource: needed.join(","),
+        reason: "Privilèges insuffisants",
+        metadata: { role, requiredPermissions: needed },
+      });
       return {
         ok: false,
         response: NextResponse.json(
@@ -204,6 +229,13 @@ export function checkPermission(
   permission: Permission
 ): NextResponse | null {
   if (!roleHasPermission(role, permission)) {
+    auditFire({
+      action: "auth:check",
+      verdict: "DENIED",
+      resource: permission,
+      reason: "Privilèges insuffisants",
+      metadata: { role },
+    });
     return NextResponse.json(
       { error: "Accès refusé : privilèges insuffisants" },
       { status: 403 }
@@ -222,6 +254,13 @@ export async function authorizeSuperAdmin(): Promise<AuthSuccess | AuthFailure> 
     };
   }
   if (session.user.role !== "SUPER_ADMIN") {
+    auditFire({
+      userId: session.user.id,
+      action: "auth:super-admin",
+      verdict: "DENIED",
+      reason: "Rôle non super-admin",
+      metadata: { role: session.user.role },
+    });
     return {
       ok: false,
       response: NextResponse.json({ error: "Accès refusé" }, { status: 403 }),

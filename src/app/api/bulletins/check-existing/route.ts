@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { siteFilterForRelation } from "@/lib/site-filter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,9 +18,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
+    const siteFilter = siteFilterForRelation(session.user, "eleve");
+
     const count = await prisma.bulletin.count({
       where: {
-        eleve: { classeId },
+        eleve: { classeId, ...((siteFilter as any).eleve || {}) },
         periodeId,
         tenantId: session.user.tenantId,
       },
@@ -31,7 +34,7 @@ export async function GET(req: NextRequest) {
 
     const publishedCount = await prisma.bulletin.count({
       where: {
-        eleve: { classeId },
+        eleve: { classeId, ...((siteFilter as any).eleve || {}) },
         periodeId,
         tenantId: session.user.tenantId,
         isPublie: true,

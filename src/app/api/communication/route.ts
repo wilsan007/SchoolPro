@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { siteFilterForModel } from "@/lib/site-filter";
 
 const NotifSchema = z.object({
   titre: z.string().min(1).max(200),
@@ -23,8 +24,9 @@ export async function GET(req: NextRequest) {
   const denied = checkPermission(session.user.role, "communication:read");
   if (denied) return denied;
 
+  const siteFilter = siteFilterForModel("notification", session.user);
   const notifications = await prisma.notification.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, ...siteFilter },
     include: { envoyePar: { select: { name: true, avatarUrl: true } } },
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -55,32 +57,39 @@ export async function POST(req: NextRequest) {
   // Calculer le nombre de destinataires selon la cible
   let nbDestinataires = 0;
   const tenantId = session.user.tenantId;
+  // Chaque modèle emprunte son propre chemin vers le site : `User` et `Eleve`
+  // portent la colonne, `Parent` et `Enseignant` non. Les compteurs PARENTS et
+  // ENSEIGNANTS n'étaient pas filtrés du tout et révélaient les effectifs des
+  // autres sites.
+  const userFilter = siteFilterForModel("user", session.user);
+  const eleveFilter = siteFilterForModel("eleve", session.user);
+  const parentFilter = siteFilterForModel("parent", session.user);
+  const enseignantFilter = siteFilterForModel("enseignant", session.user);
 
   switch (data.cible) {
     case "TOUS":
-      nbDestinataires = await prisma.user.count({ where: { tenantId, isActive: true } });
+      nbDestinataires = await prisma.user.count({ where: { tenantId, ...userFilter, isActive: true } });
       break;
     case "PARENTS":
-      nbDestinataires = await prisma.parent.count({ where: { tenantId } });
+      nbDestinataires = await prisma.parent.count({ where: { tenantId, ...parentFilter } });
       break;
     case "ENSEIGNANTS":
-      nbDestinataires = await prisma.enseignant.count({ where: { tenantId } });
+      nbDestinataires = await prisma.enseignant.count({ where: { tenantId, ...enseignantFilter } });
       break;
     case "ELEVES":
-      nbDestinataires = await prisma.eleve.count({ where: { tenantId, statut: "ACTIF" } });
+      nbDestinataires = await prisma.eleve.count({ where: { tenantId, ...eleveFilter, statut: "ACTIF" } });
       break;
     case "CLASSE":
       if (data.classeId) {
         nbDestinataires = await prisma.eleve.count({
-          where: { tenantId, classeId: data.classeId, statut: "ACTIF" },
+          where: { tenantId, ...eleveFilter, classeId: data.classeId, statut: "ACTIF" },
         });
       }
       break;
     case "NIVEAU":
       if (data.niveau) {
         nbDestinataires = await prisma.eleve.count({
-          where: {
-            tenantId, statut: "ACTIF",
+          where: { tenantId, ...eleveFilter, statut: "ACTIF",
             classe: { niveau: data.niveau },
           },
         });
@@ -111,10 +120,11 @@ export async function POST(req: NextRequest) {
   // Envoi réel immédiat (EMAIL / SMS / PUSH / IN_APP) via le dispatcher.
   if (data.envoyer) {
     try {
-      const result = await dispatchNotification(notification.id);
+      const result = await dispatchNotification(notification.id, tenantId);
       return NextResponse.json({ notification, envoi: result }, { status: 201 });
     } catch (e) {
       console.error("[Communication] Échec dispatch:", e);
+      // eslint-disable-next-line ecolpro/require-tenant-id -- notification.id vient d'être créé avec tenantId (ligne 105)
       await prisma.notification.update({
         where: { id: notification.id },
         data: { statut: "ECHEC" },

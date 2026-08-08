@@ -15,7 +15,7 @@ interface WeekData {
   retards: number;
 }
 
-export function AbsenceChart({ tenantId }: { tenantId: string }) {
+export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteFilter?: Record<string, unknown> }) {
   const t = useTranslations("dashboard");
   const [data, setData] = useState<WeekData[]>([]);
   const [loading, setLoading] = useState(true);

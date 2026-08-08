@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -20,14 +21,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "classeId requis" }, { status: 400 });
   }
 
+
+  const siteFilter = siteFilterForModel("eleve", session.user);
   const eleves = await prisma.eleve.findMany({
     where: {
       classeId,
       tenantId: session.user.tenantId,
+      ...siteFilter,
       statut: "ACTIF",
       userId: null,
     },
-    orderBy: { nom: "asc" },
+    orderBy: { prenom: "asc" },
   });
 
   if (eleves.length === 0) {

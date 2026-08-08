@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 const UpdateSchema = z.object({
   titre: z.string().min(1).max(200).optional(),
@@ -35,8 +36,10 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
 
+
+  const siteFilter = siteFilterForModel("cours", session.user);
   const cours = await prisma.cours.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, ...siteFilter },
     include: {
       contenus: { orderBy: { ordre: "asc" } },
       progressions: true,
@@ -62,8 +65,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const body = await req.json();
 
   // Vérifier que le cours existe
+  const siteFilter1 = siteFilterForModel("cours", session.user);
+
   const existing = await prisma.cours.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, ...siteFilter1 },
   });
   if (!existing) return NextResponse.json({ error: "Cours introuvable" }, { status: 404 });
 
@@ -106,8 +111,10 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
 
+  const siteFilter2 = siteFilterForModel("cours", session.user);
+
   const existing = await prisma.cours.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, ...siteFilter2 },
   });
   if (!existing) return NextResponse.json({ error: "Cours introuvable" }, { status: 404 });
 

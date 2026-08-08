@@ -1,0 +1,17 @@
+{
+  "extends": "next/core-web-vitals",
+  "plugins": ["ecolpro"],
+  "rules": {
+    "ecolpro/require-tenant-id": "off",
+    "ecolpro/require-site-filter": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/lib/**/*.{ts,tsx}", "src/app/api/**/*.{ts,tsx}", "src/app/(dashboard)/**/*.{ts,tsx}"],
+      "rules": {
+        "ecolpro/require-tenant-id": "error",
+        "ecolpro/require-site-filter": "error"
+      }
+    }
+  ]
+}

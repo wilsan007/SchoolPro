@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -18,8 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eleveIds et nouvelleClasseId requis" }, { status: 400 });
   }
 
+
+  const classeFilter = siteFilterForModel("classe", session.user);
+  const eleveFilter = siteFilterForModel("eleve", session.user);
   const targetClasse = await prisma.classe.findFirst({
-    where: { id: nouvelleClasseId, tenantId: session.user.tenantId },
+    where: { id: nouvelleClasseId, tenantId: session.user.tenantId, ...classeFilter },
   });
 
   if (!targetClasse) {
@@ -30,6 +34,7 @@ export async function POST(req: NextRequest) {
     where: {
       id: { in: eleveIds },
       tenantId: session.user.tenantId,
+      ...eleveFilter,
     },
     data: { classeId: nouvelleClasseId },
   });

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus, FileText, CreditCard } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus, FileText, Printer, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { enregistrerPaiement, annulerFacture, type PaiementFormData } from "@/lib/actions/facture";
 import { useTranslations } from "next-intl";
@@ -21,6 +21,7 @@ interface Paiement {
   reference: string | null;
   date: Date;
   recu?: string | null;
+  enregistrePar?: { id: string; name: string } | null;
 }
 
 interface FactureDetailProps {
@@ -42,6 +43,7 @@ interface FactureDetailProps {
       parents: { parent: { nom: string; prenom: string; phone: string | null; email: string | null } }[];
     };
     paiements: Paiement[];
+    createdBy?: { id: string; name: string } | null;
   };
 }
 
@@ -68,6 +70,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
     methode: "espèces",
     reference: "",
   });
+  const [lastPaiementId, setLastPaiementId] = useState<string | null>(null);
 
   const totalPaye = facture.paiements.reduce((sum, p) => sum + p.montant, 0);
   const restant = facture.montant - totalPaye;
@@ -82,31 +85,14 @@ export function FactureDetail({ facture }: FactureDetailProps) {
     }
     setIsPending(true);
     try {
-      await enregistrerPaiement(facture.id, paiement);
+      const result = await enregistrerPaiement(facture.id, paiement);
       toast.success(t("paymentSuccess"));
       setShowPaiement(false);
       setPaiement({ montant: 0, methode: "espèces", reference: "" });
+      if (result?.id) setLastPaiementId(result.id);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("genericError"));
-    } finally {
-      setIsPending(false);
-    }
-  }
-
-  async function handleStripeCheckout() {
-    setIsPending(true);
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ factureId: facture.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur");
-      if (data.url) window.location.href = data.url;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("onlineUnavailable"));
     } finally {
       setIsPending(false);
     }
@@ -148,16 +134,6 @@ export function FactureDetail({ facture }: FactureDetailProps) {
               {t("cancel")}
             </Button>
             <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={handleStripeCheckout}
-              disabled={isPending}
-            >
-              <CreditCard className="h-4 w-4" />
-              {t("payOnline")}
-            </Button>
-            <Button
               size="sm"
               className="gap-2"
               onClick={() => setShowPaiement(!showPaiement)}
@@ -167,6 +143,14 @@ export function FactureDetail({ facture }: FactureDetailProps) {
               {t("collectPayment")}
             </Button>
           </div>
+        )}
+        {facture.statut === "PAYEE" && facture.paiements.length > 0 && (
+          <Button asChild size="sm" variant="outline" className="gap-2">
+            <a href={`/api/paiements/${facture.paiements[0].id}/recu`} target="_blank" rel="noopener noreferrer">
+              <Printer className="h-4 w-4" />
+              {t("printReceipt")}
+            </a>
+          </Button>
         )}
       </div>
 
@@ -184,6 +168,11 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                 {t("createdOn")} {new Date(facture.createdAt).toLocaleDateString("fr-FR")}
                 {facture.echeance && ` · ${t("dueOn")}: ${new Date(facture.echeance).toLocaleDateString("fr-FR")}`}
               </p>
+              {facture.createdBy && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("recordedBy")}: <span className="font-medium text-gray-600 dark:text-gray-300">{facture.createdBy.name}</span>
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground">{t("amount")}</p>
@@ -279,9 +268,11 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
                   <option value="espèces">{t("cash")}</option>
-                  <option value="wave">{t("wave")}</option>
-                  <option value="orange_money">{t("orangeMoney")}</option>
-                  <option value="carte">{t("card")}</option>
+                  <option value="waffi">{t("waffi")}</option>
+                  <option value="cac_pay">{t("cacPay")}</option>
+                  <option value="dahab_plus">{t("dahabPlus")}</option>
+                  <option value="saba_pay">{t("sabaPay")}</option>
+                  <option value="faida">{t("faida")}</option>
                   <option value="virement">{t("transfer")}</option>
                 </select>
               </div>
@@ -308,6 +299,24 @@ export function FactureDetail({ facture }: FactureDetailProps) {
         </Card>
       )}
 
+      {/* Confirmation de paiement avec impression reçu */}
+      {lastPaiementId && (
+        <Card className="border-green-200 bg-green-50 dark:bg-green-950/20">
+          <CardContent className="pt-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+              <CheckCircle className="h-5 w-5" />
+              <span>{t("paymentRecordedPrintReceipt")}</span>
+            </div>
+            <Button asChild size="sm" className="gap-2">
+              <a href={`/api/paiements/${lastPaiementId}/recu`} target="_blank" rel="noopener noreferrer">
+                <Printer className="h-4 w-4" />
+                {t("printReceipt")}
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Historique des paiements */}
       <Card>
         <CardHeader>
@@ -325,6 +334,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                     <th className="text-right px-4 py-2 font-medium">{t("amount")}</th>
                     <th className="text-left px-4 py-2 font-medium">{t("method")}</th>
                     <th className="text-left px-4 py-2 font-medium">{t("reference")}</th>
+                    <th className="text-left px-4 py-2 font-medium">{t("recordedBy")}</th>
                     <th className="text-center px-4 py-2 font-medium">{t("receipt")}</th>
                   </tr>
                 </thead>
@@ -335,6 +345,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                       <td className="px-4 py-2 text-right font-medium text-green-600">{formatMoney(p.montant, p.devise)}</td>
                       <td className="px-4 py-2 capitalize">{p.methode}</td>
                       <td className="px-4 py-2 text-muted-foreground">{p.reference ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{p.enregistrePar?.name ?? "—"}</td>
                       <td className="px-4 py-2 text-center">
                         <a
                           href={`/api/paiements/${p.id}/recu`}

@@ -60,7 +60,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
   const tStatut = useTranslations("eleveDetail");
 
   const [search, setSearch] = useState(initialQuery);
-  const [sortField, setSortField] = useState<"nom" | "classe" | "statut">("nom");
+  const [sortField, setSortField] = useState<"prenom" | "classe" | "statut">("prenom");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showFilters, setShowFilters] = useState(Boolean(initialClasse || initialStatut));
   const [activeGroup, setActiveGroup] = useState<SchoolGroup | null>(null);
@@ -95,7 +95,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
 
   const sorted = [...eleves].sort((a, b) => {
     let va = "", vb = "";
-    if (sortField === "nom") { va = a.nom; vb = b.nom; }
+    if (sortField === "prenom") { va = a.prenom; vb = b.prenom; }
     else if (sortField === "classe") { va = a.classe?.nom ?? ""; vb = b.classe?.nom ?? ""; }
     else { va = a.statut; vb = b.statut; }
     return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
@@ -298,8 +298,8 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
                       <tr className="border-b bg-muted/40">
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground w-10">#</th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">
-                          <button onClick={() => toggleSort("nom")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                            {t("etColStudent")} <SortIcon field="nom" />
+                          <button onClick={() => toggleSort("prenom")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                            {t("etColStudent")} <SortIcon field="prenom" />
                           </button>
                         </th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColMatricule")}</th>

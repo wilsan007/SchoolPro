@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { checkPermission } from "@/lib/rbac";
+
 
 const CreateSchema = z.object({
   participantIds: z.array(z.string().min(1)).min(1).max(20),
@@ -13,11 +15,16 @@ export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const denied = checkPermission(session.user.role, "messages:read");
+    if (denied) return denied;
 
     const userId = session.user.id;
+    const tenantId = session.user.tenantId;
+    if (!tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const conversations = await prisma.conversation.findMany({
       where: {
+        tenantId,
         participants: { some: { userId } },
       },
       include: {
@@ -75,6 +82,9 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.id || !session.user.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
+    // La création de conversation exige messages:write — les élèves n'ont que messages:reply
+    const denied = checkPermission(session.user.role, "messages:write");
+    if (denied) return denied;
 
     const body = await req.json();
     const parsed = CreateSchema.safeParse(body);

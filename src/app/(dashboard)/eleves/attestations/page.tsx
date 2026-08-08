@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { AttestationForm } from "@/components/eleves/AttestationForm";
 
@@ -8,14 +9,16 @@ export default async function AttestationsPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+
+  const siteFilter = siteFilterForModel("classe", session.user);
   const [classes, tenant] = await Promise.all([
     prisma.classe.findMany({
-      where: { tenantId: session.user.tenantId },
+      where: { tenantId: session.user.tenantId, ...siteFilter },
       include: {
         eleves: {
           where: { statut: "ACTIF" },
           select: { id: true, nom: true, prenom: true, matricule: true, sexe: true, dateNaissance: true },
-          orderBy: { nom: "asc" },
+          orderBy: { prenom: "asc" },
         },
       },
       orderBy: { nom: "asc" },

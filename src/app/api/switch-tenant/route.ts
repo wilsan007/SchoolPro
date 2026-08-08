@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
 import { auth, unstable_update } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { z } from "zod";
+import { deriveClaims } from "@/lib/tenant-claims";
+import { auditFire } from "@/lib/audit";
 
+const BodySchema = z.object({
+  tenantId: z.string().min(1),
+});
+
+/**
+ * POST /api/switch-tenant — bascule l'établissement actif.
+ *
+ * L'accès est prouvé par une adhésion `UserTenant` active. Le rôle appliqué est
+ * celui porté par cette adhésion : jamais celui d'un autre établissement.
+ */
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -9,75 +22,72 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const { tenantId } = await req.json();
-    if (!tenantId || typeof tenantId !== "string") {
+    let parsed;
+    try {
+      parsed = BodySchema.safeParse(await req.json());
+    } catch {
+      return NextResponse.json({ error: "Corps de requête invalide" }, { status: 400 });
+    }
+    if (!parsed.success) {
       return NextResponse.json({ error: "tenantId requis" }, { status: 400 });
     }
 
-    // Vérifier que l'utilisateur a bien accès à ce tenant
+    const { tenantId } = parsed.data;
+    const userId = session.user.id;
+
+    // Vérifier que l'utilisateur a bien une adhésion ACTIVE à ce tenant.
     const userTenant = await prisma.userTenant.findFirst({
-      where: {
-        userId: session.user.id,
-        tenantId,
-        isActive: true,
-      },
+      where: { userId, tenantId, isActive: true },
       select: {
         role: true,
-        isDefault: true,
-        tenant: {
-          select: { id: true, name: true, slug: true, logoUrl: true },
-        },
+        tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
       },
     });
 
     if (!userTenant) {
-      return NextResponse.json(
-        { error: "Accès refusé à ce tenant" },
-        { status: 403 }
-      );
+      auditFire({
+        userId,
+        action: "switch-tenant",
+        verdict: "DENIED",
+        resource: "tenant",
+        resourceId: tenantId,
+        reason: "Aucune adhésion active à ce tenant",
+      });
+      return NextResponse.json({ error: "Accès refusé à ce tenant" }, { status: 403 });
     }
 
-    // Mettre à jour le tenant par défaut de l'utilisateur
     await prisma.$transaction([
-      // Retirer le flag isDefault sur tous les autres tenants
       prisma.userTenant.updateMany({
-        where: { userId: session.user.id, isDefault: true },
+        where: { userId, isDefault: true },
         data: { isDefault: false },
       }),
-      // Marquer le nouveau tenant comme défaut
       prisma.userTenant.update({
-        where: {
-          userId_tenantId: { userId: session.user.id, tenantId },
-        },
+        where: { userId_tenantId: { userId, tenantId } },
         data: { isDefault: true },
       }),
-      // Mettre à jour le tenantId dénormalisé sur User
+      // `siteId` est remis à null : les sites appartiennent à un tenant, en
+      // conserver un d'un autre établissement produirait un périmètre incohérent.
       prisma.user.update({
-        where: { id: session.user.id },
-        data: { tenantId, role: userTenant.role },
+        where: { id: userId },
+        data: { tenantId, role: userTenant.role, siteId: null },
       }),
     ]);
 
-    // Régénérer le JWT : déclenche le callback `jwt` avec trigger === "update",
-    // qui relit le tenant actif depuis la base. Sans cela, le cookie de session
-    // conserverait l'ancien tenantId et le changement n'aurait aucun effet.
-    await unstable_update({
-      user: {
-        tenantId: userTenant.tenant.id,
-        role: userTenant.role,
-      },
-    } as never);
+    // Régénérer le JWT : le callback `jwt` relit le périmètre complet depuis la
+    // base pour le tenant demandé (sites autorisés, rôle, drapeau multi-sites).
+    await unstable_update({ user: { tenantId } } as never);
 
-    // Recharger la liste complète des tenants pour la réponse
-    const allTenants = await prisma.userTenant.findMany({
-      where: { userId: session.user.id, isActive: true },
-      select: {
-        tenantId: true,
-        role: true,
-        isDefault: true,
-        tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
-      },
-    });
+    const claims = await deriveClaims(userId, tenantId);
+    if (!claims) {
+      auditFire({
+        userId,
+        tenantId,
+        action: "switch-tenant",
+        verdict: "DENIED",
+        reason: "deriveClaims a retourné null après bascule",
+      });
+      return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+    }
 
     return NextResponse.json({
       success: true,
@@ -86,16 +96,9 @@ export async function POST(req: Request) {
         tenantName: userTenant.tenant.name,
         tenantSlug: userTenant.tenant.slug,
         tenantLogo: userTenant.tenant.logoUrl,
-        role: userTenant.role,
+        role: claims.role,
       },
-      availableTenants: allTenants.map((ut) => ({
-        tenantId: ut.tenantId,
-        tenantName: ut.tenant.name,
-        tenantSlug: ut.tenant.slug,
-        tenantLogo: ut.tenant.logoUrl,
-        role: ut.role,
-        isDefault: ut.isDefault,
-      })),
+      availableTenants: claims.availableTenants,
     });
   } catch (error) {
     console.error("Erreur switch tenant:", error);

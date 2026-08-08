@@ -26,6 +26,7 @@ interface FactureWithRelations {
     classe: { nom: string } | null;
   };
   paiements: { montant: number }[];
+  createdBy?: { id: string; name: string } | null;
 }
 
 interface FacturesTableProps {
@@ -190,13 +191,14 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                   <th className="text-right px-4 py-3 font-medium">{t("colPaid")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colDueDate")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colStatus")}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t("recordedBy")}</th>
                   <th className="text-right px-4 py-3 font-medium">{t("colActions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={9} className="text-center py-8 text-muted-foreground">
                       {t("noInvoices")}
                     </td>
                   </tr>
@@ -219,6 +221,9 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={cfg.variant}>{t(cfg.labelKey)}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {f.createdBy?.name ?? "—"}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Button asChild variant="ghost" size="sm" className="gap-1">

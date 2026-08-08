@@ -12,9 +12,11 @@
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import type { ToolDefinition } from "@/lib/ai/glm-client";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { fuzzyFind, normalizeHeure } from "@/lib/text-match";
 import { suggestSlots, ALL_DAYS, type CreneauSuggestion, type Jour } from "@/lib/emploi-du-temps/suggest";
 import { generateBulkPlan, type MatiereCible, type PaireCible } from "@/lib/emploi-du-temps/bulk-generate";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-filter";
 
 export const CRENEAU_TOOL: ToolDefinition = {
   type: "function",
@@ -253,7 +255,8 @@ type Resolution = { ok: true; proposal: CreneauProposal } | { ok: false; message
 
 export async function resolveCreneauProposal(
   tenantId: string,
-  rawArgs: z.infer<typeof CreneauArgsSchema>
+  rawArgs: z.infer<typeof CreneauArgsSchema>,
+  siteClaims?: SessionSiteClaims
 ): Promise<Resolution> {
   const heureDebut = normalizeHeure(rawArgs.heureDebut);
   const heureFin = normalizeHeure(rawArgs.heureFin);
@@ -271,7 +274,7 @@ export async function resolveCreneauProposal(
   // Recherche floue en mémoire (plutôt qu'un simple ILIKE en base) : le modèle
   // écrit souvent des abréviations sans accent ("maths", "1ere L") qui ne sont
   // pas des sous-chaînes littérales du nom réel ("Mathématiques", "1ère L").
-  const allClasses = await prisma.classe.findMany({ where: { tenantId }, select: { id: true, nom: true } });
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) {
     return { ok: false, message: `Aucune classe ne correspond à "${args.classeNom}".` };
@@ -284,7 +287,7 @@ export async function resolveCreneauProposal(
   }
   const classe = classes[0];
 
-  const allMatieres = await prisma.matiere.findMany({ where: { tenantId }, select: { id: true, nom: true } });
+  const allMatieres = await prisma.matiere.findMany({ where: { tenantId, ...siteFilterForModel("matiere", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const matieres = fuzzyFind(allMatieres, args.matiereNom);
   if (matieres.length === 0) {
     return { ok: false, message: `Aucune matière ne correspond à "${args.matiereNom}".` };
@@ -300,7 +303,7 @@ export async function resolveCreneauProposal(
   let enseignant: { id: string; nom: string } | null = null;
   if (args.enseignantNom) {
     const allEnseignants = await prisma.enseignant.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilterForModel("enseignant", siteClaims ?? {}) },
       select: { id: true, user: { select: { name: true } } },
     });
     const enseignants = fuzzyFind(
@@ -321,8 +324,8 @@ export async function resolveCreneauProposal(
     enseignant = enseignants[0];
   }
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
-  const annee = tenant?.currentYear ?? "2025-2026";
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  if (!annee) return { ok: false, message: "Aucune année scolaire active pour ce tenant" };
 
   const overlapConditions = {
     OR: [
@@ -333,7 +336,7 @@ export async function resolveCreneauProposal(
   };
 
   const classOverlap = await prisma.emploiTemps.findFirst({
-    where: { tenantId, classeId: classe.id, jour: args.jour, annee, ...overlapConditions },
+    where: { tenantId, ...siteFilterForModel("emploiTemps", siteClaims ?? {}), classeId: classe.id, jour: args.jour, annee, ...overlapConditions },
   });
   if (classOverlap) {
     return { ok: false, message: `Ce créneau chevauche un cours déjà existant pour la classe ${classe.nom}.` };
@@ -341,7 +344,7 @@ export async function resolveCreneauProposal(
 
   if (enseignant) {
     const teacherConflict = await prisma.emploiTemps.findFirst({
-      where: { tenantId, enseignantId: enseignant.id, jour: args.jour, annee, ...overlapConditions },
+      where: { tenantId, ...siteFilterForModel("emploiTemps", siteClaims ?? {}), enseignantId: enseignant.id, jour: args.jour, annee, ...overlapConditions },
     });
     if (teacherConflict) {
       return { ok: false, message: `${enseignant.nom} est déjà assigné(e) à un autre cours à cet horaire.` };
@@ -350,7 +353,7 @@ export async function resolveCreneauProposal(
 
   if (args.salle) {
     const roomConflict = await prisma.emploiTemps.findFirst({
-      where: { tenantId, salle: args.salle, jour: args.jour, annee, ...overlapConditions },
+      where: { tenantId, ...siteFilterForModel("emploiTemps", siteClaims ?? {}), salle: args.salle, jour: args.jour, annee, ...overlapConditions },
     });
     if (roomConflict) {
       return { ok: false, message: `La salle ${args.salle} est déjà occupée à cet horaire.` };
@@ -394,9 +397,10 @@ type ListerResult =
  */
 export async function listCreneaux(
   tenantId: string,
-  args: z.infer<typeof ListerArgsSchema>
+  args: z.infer<typeof ListerArgsSchema>,
+  siteClaims?: SessionSiteClaims
 ): Promise<ListerResult> {
-  const allClasses = await prisma.classe.findMany({ where: { tenantId }, select: { id: true, nom: true } });
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) {
     return { ok: false, message: `Aucune classe ne correspond à "${args.classeNom}".` };
@@ -409,12 +413,22 @@ export async function listCreneaux(
   }
   const classe = classes[0];
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
-  const annee = tenant?.currentYear ?? "2025-2026";
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  if (!annee) return { ok: false, message: "Aucune année scolaire active pour ce tenant" };
 
   const emplois = await prisma.emploiTemps.findMany({
-    where: { tenantId, classeId: classe.id, annee, ...(args.jour ? { jour: args.jour } : {}) },
-    include: { matiere: { select: { nom: true } }, enseignant: { include: { user: { select: { name: true } } } } },
+    where: { tenantId, ...siteFilterForModel("emploiTemps", siteClaims ?? {}), classeId: classe.id, annee, ...(args.jour ? { jour: args.jour } : {}) },
+    include: {
+      // eslint-disable-next-line ecolpro/require-site-filter -- relation to-one depuis emploiTemps déjà filtré par site au niveau parent
+      matiere: { select: { nom: true } },
+      // eslint-disable-next-line ecolpro/require-site-filter -- relation to-one depuis emploiTemps déjà filtré par site au niveau parent
+      enseignant: {
+        include: {
+          // eslint-disable-next-line ecolpro/require-site-filter -- user est un modèle d'auth, pas de données tenant
+          user: { select: { name: true } },
+        },
+      },
+    },
     orderBy: [{ jour: "asc" }, { heureDebut: "asc" }],
   });
 
@@ -432,9 +446,9 @@ export async function listCreneaux(
   };
 }
 
-export async function listClasses(tenantId: string, args: z.infer<typeof ListerClassesArgsSchema>) {
+export async function listClasses(tenantId: string, args: z.infer<typeof ListerClassesArgsSchema>, siteClaims?: SessionSiteClaims) {
   const allClasses = await prisma.classe.findMany({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) },
     select: { nom: true, niveau: true, effectifMax: true },
     orderBy: { nom: "asc" },
   });
@@ -450,9 +464,9 @@ export async function listClasses(tenantId: string, args: z.infer<typeof ListerC
   return { ok: true as const, classes: allClasses.filter((c) => matchedNiveaux.has(c.niveau)) };
 }
 
-export async function listEnseignants(tenantId: string, args: z.infer<typeof ListerEnseignantsArgsSchema>) {
+export async function listEnseignants(tenantId: string, args: z.infer<typeof ListerEnseignantsArgsSchema>, siteClaims?: SessionSiteClaims) {
   const allEnseignants = await prisma.enseignant.findMany({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("enseignant", siteClaims ?? {}) },
     select: { specialite: true, user: { select: { name: true } } },
     orderBy: { user: { name: "asc" } },
   });
@@ -469,17 +483,17 @@ export async function listEnseignants(tenantId: string, args: z.infer<typeof Lis
   return { ok: true as const, enseignants, aucuneCorrespondanceSpecialite: enseignants.length === 0 };
 }
 
-export async function listSalles(tenantId: string) {
+export async function listSalles(tenantId: string, siteClaims?: SessionSiteClaims) {
   const salles = await prisma.salle.findMany({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("salle", siteClaims ?? {}) },
     select: { nom: true, capacite: true, type: true, batiment: true },
     orderBy: { nom: "asc" },
   });
   return { ok: true as const, salles };
 }
 
-export async function suggererCreneaux(tenantId: string, args: z.infer<typeof SuggererArgsSchema>) {
-  const allClasses = await prisma.classe.findMany({ where: { tenantId }, select: { id: true, nom: true } });
+export async function suggererCreneaux(tenantId: string, args: z.infer<typeof SuggererArgsSchema>, siteClaims?: SessionSiteClaims) {
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) return { ok: false as const, message: `Aucune classe ne correspond à "${args.classeNom}".` };
   if (classes.length > 1) {
@@ -489,7 +503,7 @@ export async function suggererCreneaux(tenantId: string, args: z.infer<typeof Su
     };
   }
 
-  const allMatieres = await prisma.matiere.findMany({ where: { tenantId }, select: { id: true, nom: true } });
+  const allMatieres = await prisma.matiere.findMany({ where: { tenantId, ...siteFilterForModel("matiere", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const matieres = fuzzyFind(allMatieres, args.matiereNom);
   if (matieres.length === 0) return { ok: false as const, message: `Aucune matière ne correspond à "${args.matiereNom}".` };
   if (matieres.length > 1) {
@@ -502,7 +516,7 @@ export async function suggererCreneaux(tenantId: string, args: z.infer<typeof Su
   let enseignantId: string | undefined;
   if (args.enseignantNom) {
     const allEnseignants = await prisma.enseignant.findMany({
-      where: { tenantId },
+      where: { tenantId, ...siteFilterForModel("enseignant", siteClaims ?? {}) },
       select: { id: true, user: { select: { name: true } } },
     });
     const enseignants = fuzzyFind(allEnseignants.map((e) => ({ id: e.id, nom: e.user.name })), args.enseignantNom);
@@ -535,8 +549,8 @@ export async function suggererCreneaux(tenantId: string, args: z.infer<typeof Su
   };
 }
 
-export async function resolveRestructuration(tenantId: string, args: z.infer<typeof RestructurerArgsSchema>) {
-  const allClasses = await prisma.classe.findMany({ where: { tenantId }, select: { id: true, nom: true } });
+export async function resolveRestructuration(tenantId: string, args: z.infer<typeof RestructurerArgsSchema>, siteClaims?: SessionSiteClaims) {
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) return { ok: false as const, message: `Aucune classe ne correspond à "${args.classeNom}".` };
   if (classes.length > 1) {
@@ -559,7 +573,7 @@ export async function resolveRestructuration(tenantId: string, args: z.infer<typ
   const hasPaires = (args.paires?.length ?? 0) > 0;
   const allMatieres =
     hasMatieres || hasPaires
-      ? await prisma.matiere.findMany({ where: { tenantId }, select: { id: true, nom: true } })
+      ? await prisma.matiere.findMany({ where: { tenantId, ...siteFilterForModel("matiere", siteClaims ?? {}) }, select: { id: true, nom: true } })
       : [];
 
   // Résout un nom de matière en une entrée {id, nom} unique, sinon renvoie un message d'erreur.

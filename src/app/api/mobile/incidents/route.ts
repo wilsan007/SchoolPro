@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyMobileToken, mobileUnauthorized } from "@/lib/mobile-auth";
+import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
+import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
 
 export async function GET(req: NextRequest) {
-  const user = await verifyMobileToken(req);
+  const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
   if (!user.tenantId) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
@@ -13,11 +14,18 @@ export async function GET(req: NextRequest) {
   const eleveId = searchParams.get("eleveId");
   const limit = parseInt(searchParams.get("limit") ?? "50");
 
+  // Les incidents de vie scolaire sont des données sensibles : filtrage par site
+  // via l'élève, et périmètre personnel pour les comptes parent/élève.
+  const scopeFilter = eleveScopeFilter(user, "eleve");
+
   const incidents = await prisma.incident.findMany({
-    where: {
-      tenantId: user.tenantId,
-      ...(eleveId ? { eleveId } : {}),
-    },
+    where: mergeFilters(
+      {
+        tenantId: user.tenantId,
+        ...(eleveId ? { eleveId } : {}),
+      },
+      scopeFilter
+    ),
     select: {
       id: true,
       type: true,

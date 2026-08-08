@@ -9,11 +9,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Briefcase, Search, Users, Clock, DollarSign,
   BookOpen, Star, ChevronDown, ChevronUp, Calendar,
-  Loader2, CheckCircle2, FileText, Edit2,
+  Loader2, CheckCircle2, FileText, Edit2, CalendarX, Plane,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getInitials, formatCurrency } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { PersonnelAbsencesConges } from "./PersonnelAbsencesConges";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -306,15 +307,44 @@ function EnseignantRHCard({
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
-interface RHViewProps {
-  enseignants: EnseignantRH[];
+interface AbsencePersonnelItem {
+  id: string;
+  date: Date;
+  heureDebut: string | null;
+  heureFin: string | null;
+  type: string;
+  statut: string;
+  motif: string | null;
+  commentaire: string | null;
+  enseignant: { id: string; user: { name: string } };
+  saisiePar: { name: string } | null;
 }
 
-export function RHView({ enseignants: initial }: RHViewProps) {
+interface CongePersonnelItem {
+  id: string;
+  type: string;
+  statut: string;
+  dateDebut: Date;
+  dateFin: Date;
+  nbJours: number;
+  motif: string | null;
+  enseignant: { id: string; user: { name: string } };
+  demandePar: { name: string } | null;
+  approuvePar: { name: string } | null;
+}
+
+interface RHViewProps {
+  enseignants: EnseignantRH[];
+  absencesPersonnel?: AbsencePersonnelItem[];
+  congesPersonnel?: CongePersonnelItem[];
+}
+
+export function RHView({ enseignants: initial, absencesPersonnel, congesPersonnel }: RHViewProps) {
   const t = useTranslations("rh");
   const [enseignants, setEnseignants] = useState<EnseignantRH[]>(initial);
   const [search, setSearch] = useState("");
   const [filtreContrat, setFiltreContrat] = useState<TypeContrat | "TOUS">("TOUS");
+  const [activeTab, setActiveTab] = useState<"personnel" | "absences" | "conges">("personnel");
 
   const stats = useMemo(() => {
     const totalHeures = enseignants.reduce((s, e) => s + calcHeuresHebdo(e.emploiTemps), 0);
@@ -455,20 +485,86 @@ export function RHView({ enseignants: initial }: RHViewProps) {
         </CardContent>
       </Card>
 
-      {/* Liste */}
-      {filtered.length === 0 ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="py-16 text-center">
-            <Briefcase className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">{t("noTeacherFound")}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((e) => (
-            <EnseignantRHCard key={e.id} enseignant={e} onUpdate={handleUpdate} />
-          ))}
-        </div>
+      {/* Onglets */}
+      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveTab("personnel")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+            activeTab === "personnel"
+              ? "border-primary text-primary"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Users className="h-4 w-4 inline mr-1" />
+          {t("teachers")}
+        </button>
+        <button
+          onClick={() => setActiveTab("absences")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+            activeTab === "absences"
+              ? "border-primary text-primary"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <CalendarX className="h-4 w-4 inline mr-1" />
+          {t("staffAbsences")}
+          {absencesPersonnel && absencesPersonnel.length > 0 && (
+            <Badge variant="secondary" className="ml-1 text-xs">{absencesPersonnel.length}</Badge>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("conges")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+            activeTab === "conges"
+              ? "border-primary text-primary"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Plane className="h-4 w-4 inline mr-1" />
+          {t("staffLeaves")}
+          {congesPersonnel && congesPersonnel.length > 0 && (
+            <Badge variant="secondary" className="ml-1 text-xs">{congesPersonnel.length}</Badge>
+          )}
+        </button>
+      </div>
+
+      {/* Contenu des onglets */}
+      {activeTab === "personnel" && (
+        <>
+          {filtered.length === 0 ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="py-16 text-center">
+                <Briefcase className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">{t("noTeacherFound")}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filtered.map((e) => (
+                <EnseignantRHCard key={e.id} enseignant={e} onUpdate={handleUpdate} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === "absences" && (
+        <PersonnelAbsencesConges
+          absences={absencesPersonnel ?? []}
+          conges={[]}
+          enseignants={enseignants.map((e) => ({ id: e.id, user: { name: e.user.name } }))}
+        />
+      )}
+
+      {activeTab === "conges" && (
+        <PersonnelAbsencesConges
+          absences={[]}
+          conges={congesPersonnel ?? []}
+          enseignants={enseignants.map((e) => ({ id: e.id, user: { name: e.user.name } }))}
+        />
       )}
     </div>
   );

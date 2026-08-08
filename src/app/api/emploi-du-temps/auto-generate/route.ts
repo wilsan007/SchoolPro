@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -50,8 +52,12 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "emploi-du-temps:write");
     if (denied) return denied;
+    const classeFilter = siteFilterForModel("classe", session.user);
+    const salleFilter = siteFilterForModel("salle", session.user);
 
     const tenantId = session.user.tenantId;
+  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const emploiFilter = siteFilterForRelation(session.user, "classe");
     const body = await req.json();
     const { classeId, matiereIds, matiereConfigs, heureMin, heureMax, jours } = body as {
       classeId?: string;
@@ -74,8 +80,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "classeId requis" }, { status: 400 });
     }
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { currentYear: true } });
-    const annee = tenant?.currentYear ?? "2025-2026";
+    const annee = await getAnneeCouranteLibelle(tenantId);
+    if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
 
     // Determine which days and time range to use
     const activeDays: Jour[] = (jours && jours.length > 0 ? jours : ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"]) as Jour[];
@@ -92,14 +98,14 @@ export async function POST(req: NextRequest) {
 
     // Fetch all data needed
     const [classe, allMatieres, enseignants, allSalles, existingCreneaux, disponibilites] = await Promise.all([
-      prisma.classe.findFirst({ where: { id: classeId, tenantId }, select: { id: true, nom: true, siteId: true } }),
+      prisma.classe.findFirst({ where: { id: classeId, tenantId, ...classeFilter }, select: { id: true, nom: true, siteId: true } }),
       prisma.matiere.findMany({ where: { tenantId }, orderBy: { coefficient: "desc" } }),
       prisma.enseignant.findMany({
         where: { tenantId },
         include: { user: { select: { name: true } } },
       }),
-      prisma.salle.findMany({ where: { tenantId } }),
-      prisma.emploiTemps.findMany({ where: { tenantId, annee } }),
+      prisma.salle.findMany({ where: { tenantId, ...salleFilter } }),
+      prisma.emploiTemps.findMany({ where: { tenantId, ...emploiFilter, annee } }),
       prisma.disponibiliteEnseignant.findMany({ where: { tenantId } }),
     ]);
 
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
     console.log(`[auto-generate] Deleted ${deleteResult.count} existing creneaux for classe ${classeId}, annee ${annee}`);
 
     // Re-fetch creneaux AFTER deletion to build accurate busy maps
-    const remainingCreneaux = await prisma.emploiTemps.findMany({ where: { tenantId, annee } });
+    const remainingCreneaux = await prisma.emploiTemps.findMany({ where: { tenantId, ...emploiFilter, annee } });
     console.log(`[auto-generate] Remaining creneaux in tenant: ${remainingCreneaux.length}`);
 
     // Build matiere config map from matiereConfigs or fallback to matiereIds

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { canAccessSite } from "@/lib/site-filter";
 
 export async function GET(
   req: NextRequest,
@@ -33,8 +34,10 @@ export async function GET(
               },
             },
             tenant: true,
+            createdBy: { select: { name: true } },
           },
         },
+        enregistrePar: { select: { name: true } },
       },
     });
 
@@ -43,6 +46,13 @@ export async function GET(
     }
 
     if (paiement.facture.tenantId !== session.user.tenantId) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+    }
+
+    // Le contrôle de tenant seul ne suffit pas : un utilisateur rattaché au
+    // site A pouvait imprimer le reçu — donc les données financières, l'élève
+    // et son tuteur — d'un paiement du site B en devinant l'identifiant.
+    if (!canAccessSite(session.user, paiement.facture.siteId)) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
     }
 
@@ -129,6 +139,7 @@ export async function GET(
       <div class="row"><span class="label">Libellé</span><span class="value">${paiement.facture.libelle}</span></div>
       <div class="row"><span class="label">Méthode</span><span class="value" style="text-transform:capitalize">${paiement.methode}</span></div>
       ${paiement.reference ? `<div class="row"><span class="label">Référence</span><span class="value">${paiement.reference}</span></div>` : ""}
+      ${paiement.enregistrePar ? `<div class="row"><span class="label">Enregistré par</span><span class="value">${paiement.enregistrePar.name}</span></div>` : ""}
 
       <div class="amount-box">
         <div class="label">Montant reçu</div>

@@ -35,7 +35,8 @@ export async function getFacturesForTenant(filters?: { statut?: string; eleveId?
     },
     include: {
       eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classeId: true, classe: { select: { nom: true } } } },
-      paiements: true,
+      paiements: { include: { enregistrePar: { select: { id: true, name: true } } } },
+      createdBy: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -58,7 +59,8 @@ export async function getFactureForDetail(id: string) {
           parents: { include: { parent: true }, where: { isGardien: true }, take: 1 },
         },
       },
-      paiements: { orderBy: { date: "desc" } },
+      paiements: { orderBy: { date: "desc" }, include: { enregistrePar: { select: { id: true, name: true } } } },
+      createdBy: { select: { id: true, name: true } },
     },
   });
 
@@ -89,6 +91,7 @@ export async function createFacture(data: FactureFormData) {
       devise: values.devise || "DJF",
       statut: "EN_ATTENTE",
       echeance: values.echeance ? new Date(values.echeance) : null,
+      createdById: session.user.id,
     },
   });
 
@@ -112,12 +115,13 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
   });
   if (!facture) throw new Error("Facture non trouvée");
 
-  await prisma.paiement.create({
+  const paiement = await prisma.paiement.create({
     data: {
       factureId,
       montant: values.montant,
       methode: values.methode,
       reference: values.reference || null,
+      enregistreParId: session.user.id,
     },
   });
 
@@ -137,7 +141,7 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
 
   revalidatePath("/facturation");
   revalidatePath(`/facturation/${factureId}`);
-  return { success: true, id: factureId };
+  return { success: true, id: paiement.id };
 }
 
 export async function annulerFacture(factureId: string) {

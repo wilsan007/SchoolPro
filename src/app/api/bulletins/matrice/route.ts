@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
           id: true, nom: true, prenom: true, matricule: true,
           sexe: true, dateNaissance: true,
         },
-        orderBy: [{ nom: "asc" }, { prenom: "asc" }],
+        orderBy: [{ prenom: "asc" }, { nom: "asc" }],
       }),
       prisma.bulletin.findMany({
         where: { eleve: { classeId, tenantId, statut: "ACTIF" }, periodeId, tenantId },
