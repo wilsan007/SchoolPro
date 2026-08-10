@@ -17,11 +17,18 @@ vi.mock("@/lib/prisma", () => ({
     paiement: {
       create: vi.fn(),
     },
+    // `createFacture` lit le site de l'élève pour rattacher la facture au bon
+    // site — sans ce délégué, l'action échoue avant toute assertion.
+    eleve: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  // Les actions invalident aussi le cache du tableau de bord.
+  revalidateTag: vi.fn(),
 }));
 
 import { auth } from "@/lib/auth";
@@ -46,6 +53,9 @@ const mockPrisma = prisma as unknown as {
   paiement: {
     create: ReturnType<typeof vi.fn>;
   };
+  eleve: {
+    findUnique: ReturnType<typeof vi.fn>;
+  };
 };
 
 describe("facture actions", () => {
@@ -54,6 +64,9 @@ describe("facture actions", () => {
     mockAuth.mockResolvedValue({
       user: { id: "user1", tenantId: "tenant1", name: "Admin" },
     });
+    // Élève rattaché à un site par défaut : les tests qui vérifient le
+    // rattachement le redéfinissent explicitement.
+    mockPrisma.eleve.findUnique.mockResolvedValue({ siteId: "site1" });
   });
 
   describe("getFacturesForTenant", () => {

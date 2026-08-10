@@ -9,7 +9,25 @@ import {
   getTenantParticipants,
   getParticipantRole,
 } from "@/lib/messaging-scope";
+import {
+  canTarget,
+  deriveConversationType,
+  resolveAudience,
+  MAX_AUDIENCE,
+} from "@/lib/messaging-audience";
+import { canAccessSite, mergeFilters, siteFilterForModel } from "@/lib/site-scope";
 import type { ConversationType, ParticipantRole } from "@prisma/client";
+
+const AudienceSchema = z.object({
+  scope: z.union([
+    z.object({ kind: z.literal("TENANT") }),
+    z.object({ kind: z.literal("SITE"), id: z.string().min(1) }),
+    z.object({ kind: z.literal("STRUCTURE"), id: z.string().min(1) }),
+    z.object({ kind: z.literal("NIVEAU"), value: z.string().min(1) }),
+    z.object({ kind: z.literal("CLASSE"), id: z.string().min(1) }),
+  ]),
+  group: z.enum(["ALL", "PARENTS", "ELEVES", "ENSEIGNANTS", "PERSONNEL", "DIRECTION"]),
+});
 
 const CreateSchema = z.object({
   participantIds: z.array(z.string().min(1)).max(50).optional(),
@@ -24,9 +42,16 @@ const CreateSchema = z.object({
     "PARENT_ADMIN",
     "STAFF_GROUP",
     "FREE",
-  ]).default("DIRECT"),
+  ]).optional(),
   classeId: z.string().optional(),
   readOnly: z.boolean().default(false),
+  /**
+   * Nouveau chemin de création : l'interface envoie une intention et une
+   * audience, le type technique en est déduit. `type`/`classeId` restent
+   * acceptés pour les clients existants (application mobile).
+   */
+  intent: z.enum(["MESSAGE", "ANNONCE", "GROUPE"]).optional(),
+  audience: AudienceSchema.optional(),
 });
 
 export async function GET() {
@@ -139,9 +164,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Données invalides" }, { status: 400 });
     }
 
-    const { participantIds, subject, firstMessage, type, classeId, readOnly } = parsed.data;
+    const { participantIds, subject, firstMessage, classeId, readOnly, intent, audience } = parsed.data;
     const userId = session.user.id;
     const tenantId = session.user.tenantId;
+
+    const actor = {
+      id: userId,
+      tenantId,
+      role: session.user.role,
+      siteId: session.user.siteId ?? null,
+      siteIds: session.user.siteIds ?? [],
+      tenantHasSites: session.user.tenantHasSites,
+    };
+
+    // Le type technique est soit fourni directement (clients existants), soit
+    // déduit de l'intention et de l'audience (nouvelle interface).
+    const type: ConversationType =
+      parsed.data.type ??
+      deriveConversationType(intent ?? "MESSAGE", audience ?? null, participantIds?.length ?? 0);
 
     // Vérifier que le rôle de l'utilisateur permet de créer ce type
     const allowedTypes = getAllowedConversationTypes(session.user.role);
@@ -153,14 +193,56 @@ export async function POST(req: NextRequest) {
     let participantsToCreate: { userId: string; role: ParticipantRole; lastReadAt: Date | null }[] = [];
     let resolvedClasseId: string | null = null;
     let resolvedSiteId: string | null = session.user.siteId ?? null;
+    let resolvedSubject: string | null = subject ?? null;
 
-    if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
+    if (audience) {
+      // --- Ciblage par audience ---
+      if (!canTarget(session.user.role, audience)) {
+        return NextResponse.json(
+          { error: "Ce ciblage n'est pas autorisé pour votre rôle" },
+          { status: 403 }
+        );
+      }
+
+      const resolved = await resolveAudience(actor, audience);
+      if (resolved.userIds.length === 0) {
+        return NextResponse.json(
+          { error: "Ce ciblage ne correspond à aucun destinataire joignable" },
+          { status: 400 }
+        );
+      }
+      if (resolved.truncated) {
+        return NextResponse.json(
+          { error: `Ciblage trop large (plus de ${MAX_AUDIENCE} personnes). Affinez la portée.` },
+          { status: 400 }
+        );
+      }
+
+      // Une annonce est descendante : les destinataires lisent, seul
+      // l'émetteur écrit. Un groupe est conversationnel.
+      const memberRole: ParticipantRole = intent === "ANNONCE" ? "READONLY" : "MEMBER";
+      participantsToCreate = [
+        { userId, role: "ADMIN", lastReadAt: new Date() },
+        ...resolved.userIds.map((id) => ({
+          userId: id,
+          role: memberRole,
+          lastReadAt: null,
+        })),
+      ];
+
+      if (audience.scope.kind === "CLASSE") resolvedClasseId = audience.scope.id;
+      if (audience.scope.kind === "SITE") resolvedSiteId = audience.scope.id;
+      resolvedSubject = subject?.trim() || resolved.label;
+    } else if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
       if (!classeId) {
         return NextResponse.json({ error: "classeId requis pour une conversation de classe" }, { status: 400 });
       }
-      // Vérifier que la classe existe et appartient au tenant
+      // Vérifier que la classe existe, appartient au tenant ET au périmètre
+      // de site de l'émetteur. Le contrôle de site manquait : un personnel du
+      // site A pouvait ouvrir une conversation sur une classe du site B en
+      // connaissant son identifiant.
       const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId } });
-      if (!classe) {
+      if (!classe || !canAccessSite(actor, classe.siteId)) {
         return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
       }
       resolvedClasseId = classeId;
@@ -180,13 +262,17 @@ export async function POST(req: NextRequest) {
         lastReadAt: p.userId === userId ? new Date() : null,
       }));
     } else if (type === "STAFF_GROUP") {
-      // Enseignants + personnel du tenant
+      // Personnel du périmètre de l'émetteur — et non du tenant entier, comme
+      // le faisait la version précédente sans aucun filtre de site.
       const staffUsers = await prisma.user.findMany({
-        where: {
-          tenantId,
-          isActive: true,
-          role: { in: ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "COUNSELOR", "TENANT_ADMIN", "SECRETARY", "ACCOUNTANT", "NURSE", "SUPER_ADMIN"] },
-        },
+        where: mergeFilters(
+          {
+            tenantId,
+            isActive: true,
+            role: { in: ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "COUNSELOR", "TENANT_ADMIN", "SECRETARY", "ACCOUNTANT", "NURSE", "SUPER_ADMIN"] },
+          },
+          siteFilterForModel("user", actor)
+        ),
         select: { id: true },
       });
       participantsToCreate = staffUsers.map((u) => ({
@@ -216,13 +302,15 @@ export async function POST(req: NextRequest) {
     const conv = await prisma.conversation.create({
       data: {
         tenantId,
-        subject: subject ?? null,
+        subject: resolvedSubject,
         isGroup,
         type: type as ConversationType,
         classeId: resolvedClasseId,
         siteId: resolvedSiteId,
         createdBy: userId,
-        readOnly,
+        // Une annonce est en lecture seule par nature : l'interface n'a plus
+        // à cocher une case pour obtenir le comportement attendu.
+        readOnly: readOnly || intent === "ANNONCE",
         participants: {
           create: participantsToCreate,
         },

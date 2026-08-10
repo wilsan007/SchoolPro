@@ -16,6 +16,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const type = (searchParams.get("type") ?? "DIRECT") as ConversationType;
     const classeId = searchParams.get("classeId") ?? undefined;
+    // La recherche est faite en base et non plus côté client : l'ancienne
+    // version chargeait l'annuaire entier du tenant à chaque ouverture.
+    const q = searchParams.get("q")?.trim() || undefined;
 
     const recipients = await getPossibleRecipients(
       {
@@ -23,9 +26,12 @@ export async function GET(req: NextRequest) {
         tenantId: session.user.tenantId,
         role: session.user.role,
         siteId: session.user.siteId ?? null,
+        siteIds: session.user.siteIds ?? [],
+        tenantHasSites: session.user.tenantHasSites,
       },
       type,
-      classeId
+      classeId,
+      q
     );
 
     return NextResponse.json({ recipients });

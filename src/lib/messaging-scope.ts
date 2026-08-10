@@ -1,12 +1,33 @@
 import prisma from "@/lib/prisma";
 import type { Role, ConversationType, ParticipantRole } from "@prisma/client";
+import {
+  mergeFilters,
+  resolveSiteScope,
+  siteFilterForModel,
+  type SessionSiteClaims,
+} from "@/lib/site-scope";
 
-interface SessionUser {
+interface SessionUser extends SessionSiteClaims {
   id: string;
   tenantId: string;
   role: Role;
   siteId?: string | null;
 }
+
+/** Nombre maximum de destinataires renvoyés par la recherche. */
+const RECIPIENTS_PAGE_SIZE = 30;
+
+const STAFF_ROLES: Role[] = [
+  "TEACHER",
+  "CLASS_TEACHER",
+  "PRINCIPAL",
+  "SECRETARY",
+  "COUNSELOR",
+  "NURSE",
+  "ACCOUNTANT",
+  "TENANT_ADMIN",
+];
+const DIRECTION_ROLES: Role[] = ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "ACCOUNTANT"];
 
 /**
  * Détermine quels types de conversation un rôle peut créer.
@@ -91,20 +112,74 @@ export function getParticipantRole(
 export async function getPossibleRecipients(
   user: SessionUser,
   type: ConversationType,
-  classeId?: string
+  classeId?: string,
+  query?: string
 ): Promise<{ id: string; name: string | null; role: Role; avatarUrl: string | null }[]> {
   const { id: userId, tenantId, role } = user;
 
-  if (role === "SUPER_ADMIN" || role === "TENANT_ADMIN" || role === "PRINCIPAL" || role === "SECRETARY") {
-    // Admin: tous les utilisateurs du tenant
-    if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
-      // Pour une conversation de classe, on retourne les classes, pas les users
-      return [];
-    }
-    return prisma.user.findMany({
-      where: { tenantId, id: { not: userId }, isActive: true },
+  // Fail-closed : un compte sans périmètre de site exploitable ne se voit
+  // proposer aucun destinataire, plutôt que l'annuaire complet du tenant.
+  if (resolveSiteScope(user).kind === "NONE") return [];
+
+  /**
+   * Socle commun à toutes les recherches d'utilisateurs.
+   *
+   * L'isolation par site manquait totalement ici : la requête ne portait que
+   * sur `tenantId`, si bien qu'un personnel du site A pouvait écrire à
+   * n'importe qui sur le site B. `siteFilterForModel` rétablit la règle
+   * appliquée partout ailleurs dans l'application.
+   */
+  const userBase = (extra: Record<string, unknown> = {}) =>
+    mergeFilters(
+      { tenantId, id: { not: userId }, isActive: true },
+      siteFilterForModel("user", user),
+      // Encapsulé dans `AND` — impératif : `mergeFilters` ne concatène que la
+      // clé `AND`, un `OR` de premier niveau serait écrasé par le fragment
+      // suivant et la recherche par nom disparaîtrait sans erreur visible.
+      query
+        ? {
+            AND: [
+              {
+                OR: [
+                  { name: { contains: query, mode: "insensitive" as const } },
+                  { email: { contains: query, mode: "insensitive" as const } },
+                ],
+              },
+            ],
+          }
+        : {},
+      extra
+    );
+
+  const searchUsers = (extra: Record<string, unknown> = {}) =>
+    prisma.user.findMany({
+      where: userBase(extra),
       select: { id: true, name: true, role: true, avatarUrl: true },
+      orderBy: { name: "asc" },
+      take: RECIPIENTS_PAGE_SIZE,
     });
+
+  if (role === "SUPER_ADMIN" || role === "TENANT_ADMIN" || role === "PRINCIPAL" || role === "SECRETARY") {
+    // Pour une conversation de classe, le ciblage passe par l'audience, pas
+    // par une liste de personnes.
+    if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") return [];
+
+    // Le type demandé restreint l'annuaire : proposer tout le monde sous
+    // l'étiquette « Parent ↔ Enseignant » était trompeur.
+    const roleFilter: Record<string, unknown> =
+      type === "PARENT_TEACHER"
+        ? { role: { in: ["PARENT", "TEACHER", "CLASS_TEACHER"] as Role[] } }
+        : type === "PARENT_ADMIN"
+          ? { role: { in: ["PARENT", ...DIRECTION_ROLES] as Role[] } }
+          : type === "STAFF_GROUP"
+            ? { role: { in: STAFF_ROLES } }
+            : {};
+
+    // Restriction facultative à une classe : `classeId` était déclaré dans la
+    // signature et n'était jamais lu, la fonctionnalité n'existait donc pas.
+    const classFilter = classeId ? await classeUserFilter(tenantId, classeId) : {};
+
+    return searchUsers(mergeFilters(roleFilter, classFilter));
   }
 
   if (role === "TEACHER" || role === "CLASS_TEACHER") {
@@ -113,119 +188,133 @@ export async function getPossibleRecipients(
       return [];
     }
     if (type === "PARENT_TEACHER") {
-      // Parents des élèves de ses classes
+      // Parents des élèves de ses classes.
       const enseignant = await prisma.enseignant.findFirst({
         where: { userId, tenantId },
         select: { id: true },
       });
       if (!enseignant) return [];
 
-      const eleves = await prisma.eleve.findMany({
-        where: {
-          tenantId,
-          deletedAt: null,
-          OR: [
-            { classe: { profPrincipalId: enseignant.id } },
-            // TODO: ajouter les classes où l'enseignant donne cours via EmploiTemps
-          ],
-        },
-        include: {
-          parents: { include: { parent: { include: { user: true } } } },
+      // L'ancienne version ne retenait que les classes dont l'enseignant est
+      // professeur principal (un `OR` à une seule branche, avec un TODO en
+      // commentaire). Un enseignant de matière ne pouvait donc joindre aucun
+      // parent. Les créneaux d'emploi du temps complètent le rattachement.
+      return searchUsers({
+        role: "PARENT",
+        parents: {
+          some: {
+            enfants: {
+              some: {
+                eleve: {
+                  tenantId,
+                  deletedAt: null,
+                  ...(classeId ? { classeId } : {}),
+                  classe: {
+                    OR: [
+                      { profPrincipalId: enseignant.id },
+                      { emploiTemps: { some: { enseignantId: enseignant.id } } },
+                    ],
+                  },
+                },
+              },
+            },
+          },
         },
       });
-
-      const parentUsers = new Map<string, { id: string; name: string | null; role: Role; avatarUrl: string | null }>();
-      for (const eleve of eleves) {
-        for (const ep of eleve.parents) {
-          if (ep.parent.user) {
-            parentUsers.set(ep.parent.user.id, {
-              id: ep.parent.user.id,
-              name: ep.parent.user.name,
-              role: ep.parent.user.role,
-              avatarUrl: ep.parent.user.avatarUrl,
-            });
-          }
-        }
-      }
-      return Array.from(parentUsers.values());
     }
-    // STAFF_GROUP: autres enseignants
+    // STAFF_GROUP : collègues du même périmètre.
     if (type === "STAFF_GROUP") {
-      return prisma.user.findMany({
-        where: {
-          tenantId,
-          id: { not: userId },
-          isActive: true,
-          role: { in: ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "COUNSELOR"] },
-        },
-        select: { id: true, name: true, role: true, avatarUrl: true },
-      });
+      return searchUsers({ role: { in: STAFF_ROLES } });
     }
-    // DIRECT: tous
-    return prisma.user.findMany({
-      where: { tenantId, id: { not: userId }, isActive: true },
-      select: { id: true, name: true, role: true, avatarUrl: true },
-    });
+    // DIRECT : tout le personnel et l'administration du périmètre.
+    return searchUsers();
   }
 
   if (role === "PARENT") {
     if (type === "PARENT_TEACHER") {
-      // Enseignants des enfants du parent
       const parent = await prisma.parent.findFirst({
         where: { userId, tenantId },
         select: { id: true },
       });
       if (!parent) return [];
 
-      const eleves = await prisma.eleve.findMany({
+      // Là aussi, seul le professeur principal était proposé : un parent ne
+      // pouvait pas écrire au professeur de mathématiques de son enfant.
+      const classes = await prisma.classe.findMany({
         where: {
           tenantId,
-          deletedAt: null,
-          parents: { some: { parentId: parent.id } },
+          eleves: { some: { deletedAt: null, parents: { some: { parentId: parent.id } } } },
         },
-        include: {
-          classe: { include: { profPrincipal: { include: { user: true } } } },
-        },
+        select: { id: true, profPrincipal: { select: { userId: true } } },
       });
+      if (classes.length === 0) return [];
 
-      const teacherUsers = new Map<string, { id: string; name: string | null; role: Role; avatarUrl: string | null }>();
-      for (const eleve of eleves) {
-        if (eleve.classe?.profPrincipal?.user) {
-          teacherUsers.set(eleve.classe.profPrincipal.user.id, {
-            id: eleve.classe.profPrincipal.user.id,
-            name: eleve.classe.profPrincipal.user.name,
-            role: eleve.classe.profPrincipal.user.role,
-            avatarUrl: eleve.classe.profPrincipal.user.avatarUrl,
-          });
-        }
-      }
-      return Array.from(teacherUsers.values());
+      const classeIds = classes.map((c) => c.id);
+      const profPrincipauxIds = classes
+        .map((c) => c.profPrincipal?.userId)
+        .filter((id): id is string => !!id);
+
+      return searchUsers({
+        AND: [
+          {
+            OR: [
+              { id: { in: profPrincipauxIds } },
+              { enseignants: { some: { emploiTemps: { some: { classeId: { in: classeIds } } } } } },
+            ],
+          },
+        ],
+      });
     }
     if (type === "PARENT_ADMIN") {
-      // Administration du tenant
-      return prisma.user.findMany({
-        where: {
-          tenantId,
-          id: { not: userId },
-          isActive: true,
-          role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "ACCOUNTANT", "SUPER_ADMIN"] },
-        },
-        select: { id: true, name: true, role: true, avatarUrl: true },
+      return searchUsers({
+        role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "ACCOUNTANT", "SUPER_ADMIN"] },
       });
     }
-    // DIRECT: enseignants + admin
-    return prisma.user.findMany({
-      where: {
-        tenantId,
-        id: { not: userId },
-        isActive: true,
-        role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER", "CLASS_TEACHER", "SUPER_ADMIN"] },
-      },
-      select: { id: true, name: true, role: true, avatarUrl: true },
+    // DIRECT : enseignants des enfants + administration.
+    return searchUsers({
+      role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER", "CLASS_TEACHER", "SUPER_ADMIN"] },
     });
   }
 
-  return [];
+  if (role === "STUDENT") {
+    // Un élève ne crée pas de conversation (`messages:reply` uniquement) mais
+    // l'annuaire lui sert pour la recherche : ses enseignants et la vie
+    // scolaire, jamais les autres familles.
+    return searchUsers({
+      role: { in: ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "COUNSELOR", "NURSE", "SECRETARY"] },
+    });
+  }
+
+  // NURSE, ACCOUNTANT et tout rôle non traité : personnel du périmètre.
+  return searchUsers({ role: { in: STAFF_ROLES } });
+}
+
+/**
+ * Restreint une recherche d'utilisateurs aux personnes rattachées à une
+ * classe : élèves de la classe, leurs parents, et ses enseignants.
+ */
+async function classeUserFilter(
+  tenantId: string,
+  classeId: string
+): Promise<Record<string, unknown>> {
+  const classe = await prisma.classe.findFirst({
+    where: { id: classeId, tenantId },
+    select: { id: true, profPrincipal: { select: { userId: true } } },
+  });
+  if (!classe) return { AND: [{ id: "__ecolpro_no_classe__" }] };
+
+  return {
+    AND: [
+      {
+        OR: [
+          { eleve: { classeId } },
+          { parents: { some: { enfants: { some: { eleve: { classeId } } } } } },
+          { enseignants: { some: { emploiTemps: { some: { classeId } } } } },
+          ...(classe.profPrincipal?.userId ? [{ id: classe.profPrincipal.userId }] : []),
+        ],
+      },
+    ],
+  };
 }
 
 /**

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { NewConversationComposer } from "./NewConversationComposer";
 
 interface Participant {
   id: string;
@@ -254,9 +255,13 @@ export function MessagerieView({ userRole }: { userRole: string }) {
         <div className="p-3 border-b space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-sm">Messagerie</h2>
-            <Button size="sm" variant="ghost" onClick={() => setShowNewModal(true)}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            {/* Un élève n'a que `messages:reply` : lui proposer « nouvelle
+                conversation » ne produirait qu'un 403 à la validation. */}
+            {userRole !== "STUDENT" && (
+              <Button size="sm" variant="ghost" onClick={() => setShowNewModal(true)} title="Nouvelle conversation">
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -442,271 +447,15 @@ export function MessagerieView({ userRole }: { userRole: string }) {
 
       {/* New conversation modal */}
       {showNewModal && (
-        <NewConversationModal
-          userRole={userRole}
+        <NewConversationComposer
           onClose={() => setShowNewModal(false)}
           onCreated={(conv) => {
             setShowNewModal(false);
             fetchConversations();
-            selectConv(conv);
+            selectConv(conv as unknown as Conversation);
           }}
         />
       )}
-    </div>
-  );
-}
-
-// --- New Conversation Modal ---
-function NewConversationModal({
-  userRole,
-  onClose,
-  onCreated,
-}: {
-  userRole: string;
-  onClose: () => void;
-  onCreated: (conv: Conversation) => void;
-}) {
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [type, setType] = useState<ConversationType>("DIRECT");
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
-  const [readOnly, setReadOnly] = useState(false);
-  const [recipientQuery, setRecipientQuery] = useState("");
-  const [recipients, setRecipients] = useState<Participant[]>([]);
-  const [selectedRecipients, setSelectedRecipients] = useState<Participant[]>([]);
-  const [classes, setClasses] = useState<{ id: string; nom: string; niveau: string }[]>([]);
-  const [selectedClasseId, setSelectedClasseId] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  // Fetch recipients based on type
-  useEffect(() => {
-    if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
-      // Fetch classes
-      fetch("/api/classes")
-        .then((r) => r.json())
-        .then((data) => setClasses(data.classes ?? data ?? []))
-        .catch(() => {});
-    } else if (type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") {
-      // Fetch possible recipients
-      fetch(`/api/messages/recipients?type=${type}`)
-        .then((r) => r.json())
-        .then((data) => setRecipients(data.recipients ?? []))
-        .catch(() => {});
-    }
-  }, [type]);
-
-  const allowedTypes: ConversationType[] = (() => {
-    switch (userRole) {
-      case "SUPER_ADMIN":
-      case "TENANT_ADMIN":
-        return ["DIRECT", "CLASS_ANNOUNCEMENT", "CLASS_DISCUSSION", "ADMIN_BROADCAST", "PARENT_TEACHER", "PARENT_ADMIN", "STAFF_GROUP", "FREE"];
-      case "PRINCIPAL":
-        return ["DIRECT", "CLASS_ANNOUNCEMENT", "CLASS_DISCUSSION", "PARENT_TEACHER", "PARENT_ADMIN", "STAFF_GROUP", "FREE"];
-      case "SECRETARY":
-        return ["DIRECT", "CLASS_ANNOUNCEMENT", "PARENT_ADMIN", "FREE"];
-      case "TEACHER":
-      case "CLASS_TEACHER":
-        return ["DIRECT", "CLASS_DISCUSSION", "PARENT_TEACHER", "STAFF_GROUP"];
-      case "COUNSELOR":
-        return ["DIRECT", "PARENT_ADMIN", "STAFF_GROUP"];
-      case "ACCOUNTANT":
-        return ["DIRECT", "PARENT_ADMIN"];
-      case "PARENT":
-        return ["DIRECT", "PARENT_TEACHER", "PARENT_ADMIN"];
-      default:
-        return ["DIRECT"];
-    }
-  })();
-
-  const filteredRecipients = recipients.filter((r) =>
-    r.name?.toLowerCase().includes(recipientQuery.toLowerCase())
-  );
-
-  const handleCreate = async () => {
-    if (!message.trim()) return;
-    if ((type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") && selectedRecipients.length === 0) return;
-    if ((type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") && !selectedClasseId) return;
-
-    setCreating(true);
-    try {
-      const body: Record<string, unknown> = {
-        type,
-        subject: subject || undefined,
-        firstMessage: message,
-        readOnly,
-      };
-      if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
-        body.classeId = selectedClasseId;
-      } else {
-        body.participantIds = selectedRecipients.map((r) => r.id);
-      }
-
-      const res = await fetch("/api/messages/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        setCreateError(err.error ?? "Échec de création");
-      } else {
-        const conv = await res.json();
-        onCreated(conv);
-      }
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div
-        className="bg-background rounded-lg shadow-lg w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="font-semibold text-lg">Nouvelle conversation</h2>
-
-        {/* Type selector */}
-        <div>
-          <label className="text-sm font-medium mb-1 block">Type de conversation</label>
-          <div className="grid grid-cols-2 gap-2">
-            {allowedTypes.map((t) => {
-              const Icon = TYPE_LABELS[t].icon;
-              return (
-                <button
-                  key={t}
-                  onClick={() => setType(t)}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded-lg border text-xs text-left transition-colors",
-                    type === t ? "border-primary bg-primary/5" : "border-border hover:bg-accent"
-                  )}
-                >
-                  <Icon className={cn("h-4 w-4 shrink-0", TYPE_LABELS[t].color)} />
-                  <span>{TYPE_LABELS[t].label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Class selector */}
-        {(type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") && (
-          <div>
-            <label className="text-sm font-medium mb-1 block">Classe destinataire</label>
-            <select
-              value={selectedClasseId}
-              onChange={(e) => setSelectedClasseId(e.target.value)}
-              className="w-full p-2 border rounded-lg text-sm bg-background"
-            >
-              <option value="">Sélectionner une classe...</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nom} — {c.niveau}</option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Tous les élèves, parents et enseignants de cette classe seront automatiquement ajoutés.
-            </p>
-          </div>
-        )}
-
-        {/* Recipient selector (for DIRECT, PARENT_TEACHER, etc.) */}
-        {(type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") && (
-          <div>
-            <label className="text-sm font-medium mb-1 block">Destinataires</label>
-            <Input
-              placeholder="Rechercher un destinataire..."
-              value={recipientQuery}
-              onChange={(e) => setRecipientQuery(e.target.value)}
-              className="mb-2"
-            />
-            <div className="max-h-32 overflow-y-auto space-y-1 border rounded-lg p-2">
-              {filteredRecipients.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">Aucun destinataire trouvé</p>
-              ) : (
-                filteredRecipients.map((r) => {
-                  const selected = selectedRecipients.some((s) => s.id === r.id);
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => {
-                        setSelectedRecipients((prev) =>
-                          selected ? prev.filter((s) => s.id !== r.id) : [...prev, r]
-                        );
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2 p-1.5 rounded text-sm text-left",
-                        selected ? "bg-primary/10" : "hover:bg-accent"
-                      )}
-                    >
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={r.avatarUrl ?? undefined} />
-                        <AvatarFallback className="text-xs">{r.name?.[0] ?? "?"}</AvatarFallback>
-                      </Avatar>
-                      <span className="flex-1 truncate">{r.name}</span>
-                      <Badge variant="outline" className="text-[10px]">{r.role}</Badge>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-            {selectedRecipients.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">{selectedRecipients.length} destinataire(s) sélectionné(s)</p>
-            )}
-          </div>
-        )}
-
-        {/* Subject */}
-        <div>
-          <label className="text-sm font-medium mb-1 block">Sujet (optionnel)</label>
-          <Input
-            placeholder="Objet de la conversation..."
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        </div>
-
-        {/* Read-only toggle for announcements */}
-        {(type === "CLASS_ANNOUNCEMENT" || type === "ADMIN_BROADCAST") && (
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={readOnly}
-              onChange={(e) => setReadOnly(e.target.checked)}
-              className="rounded"
-            />
-            Mode annonce (les participants ne peuvent que lire)
-          </label>
-        )}
-
-        {/* First message */}
-        <div>
-          <label className="text-sm font-medium mb-1 block">Message</label>
-          <textarea
-            placeholder="Votre message..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="w-full p-2 border rounded-lg text-sm min-h-[80px] resize-y bg-background"
-          />
-        </div>
-
-        {/* Error display */}
-        {createError && (
-          <div className="bg-destructive/10 text-destructive text-sm p-2 rounded">
-            {createError}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button
-            onClick={handleCreate}
-            disabled={creating || !message.trim() || ((type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") && selectedRecipients.length === 0) || ((type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") && !selectedClasseId)}
-          >
-            {creating ? "Création..." : "Créer"}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

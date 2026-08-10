@@ -1,0 +1,9 @@
+# Artefacts locaux d'outillage — contiennent des sockets/DB qui cassent l'upload CLI
+.codegraph/
+.gstack/
+.wrangler/
+.open-next/
+.next/
+coverage/
+ios/
+android/

@@ -315,6 +315,13 @@ export const SITE_PATHS: Record<string, SitePath> = {
   matiere: "column",
   structure: "column",
   disponibiliteEnseignant: "column",
+  // Journal de suppression d'un site : rattaché au site qu'il décrit.
+  siteDeletionLog: "column",
+  // Grille tarifaire : `null` = tarif commun à tous les sites du tenant.
+  tarifNiveau: "column",
+  // Une conversation porte `siteId` (`null` = conversation hors site, par
+  // exemple un échange direct entre deux personnes).
+  conversation: "column",
 
   // --- rattachement via l'élève ---
   absence: { one: "eleve" },
@@ -324,6 +331,7 @@ export const SITE_PATHS: Record<string, SitePath> = {
   dispenseMatiere: { one: "eleve" },
   parcoursScolaire: { one: "eleve" },
   eleveParent: { one: "eleve" },
+  exclusionEleve: { one: "eleve" },
   // `ProgressionEleve.eleveId` est un simple champ optionnel, sans relation :
   // le rattachement passe par le cours.
   progressionEleve: { one: "cours" },
@@ -334,7 +342,12 @@ export const SITE_PATHS: Record<string, SitePath> = {
 
   // --- rattachement via la facture / l'examen ---
   paiement: { one: "facture" },
+  relance: { one: "facture" },
   sessionExamen: { one: "examen" },
+
+  // --- rattachement via la conversation ---
+  message: { one: "conversation" },
+  conversationParticipant: { one: "conversation" },
 
   // --- rattachement via l'utilisateur (personnel) ---
   parent: { one: "user" },
@@ -361,9 +374,9 @@ export const SITE_PATHS: Record<string, SitePath> = {
   site: "tenant",
   userTenant: "tenant",
   deviceToken: "tenant",
-  conversation: "tenant",
-  conversationParticipant: "tenant",
-  message: "tenant",
+  // Le journal d'audit est transverse : il trace aussi les actions menées
+  // hors périmètre de site (connexion, changement de tenant).
+  auditLog: "tenant",
   account: "tenant",
   session: "tenant",
   verificationToken: "tenant",
@@ -382,6 +395,12 @@ const SHARED_NULL_MODELS = new Set([
   "matiere",
   "structure",
   "disponibiliteEnseignant",
+  // Tarif applicable à tous les sites faute de site précisé.
+  "tarifNiveau",
+  // Une conversation sans site n'est pas « non assignée » : c'est un échange
+  // qui ne relève d'aucun site (message direct). L'exclure du filtre ferait
+  // disparaître les conversations personnelles de tout compte site-scopé.
+  "conversation",
 ]);
 
 /**

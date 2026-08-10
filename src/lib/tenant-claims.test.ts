@@ -6,7 +6,10 @@ vi.mock("@/lib/prisma", () => ({
     userSite: { findMany: vi.fn(), findFirst: vi.fn() },
     enseignantSite: { findMany: vi.fn(), findFirst: vi.fn() },
     userTenant: { findFirst: vi.fn() },
-    site: { count: vi.fn(), findFirst: vi.fn() },
+    // `deriveClaims` liste les sites du tenant (et non plus seulement leur
+    // nombre) : la sélection d'un site par la direction générale se vérifie
+    // contre cette liste.
+    site: { findMany: vi.fn(), findFirst: vi.fn() },
   },
 }));
 
@@ -18,7 +21,7 @@ const db = prisma as unknown as {
   userSite: { findMany: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn> };
   enseignantSite: { findMany: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn> };
   userTenant: { findFirst: ReturnType<typeof vi.fn> };
-  site: { count: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn> };
+  site: { findMany: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn> };
 };
 
 const TENANT_A = "tenant-a";
@@ -26,11 +29,15 @@ const TENANT_B = "tenant-b";
 const SITE_A1 = "site-a1";
 const SITE_B1 = "site-b1";
 
+/** `n` sites appartenant au tenant actif, `SITE_A1` en tête. */
+const sitesDuTenant = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({ id: i === 0 ? SITE_A1 : `site-a${i + 1}` }));
+
 beforeEach(() => {
   vi.clearAllMocks();
   db.userSite.findMany.mockResolvedValue([]);
   db.enseignantSite.findMany.mockResolvedValue([]);
-  db.site.count.mockResolvedValue(0);
+  db.site.findMany.mockResolvedValue(sitesDuTenant(0));
 });
 
 describe("deriveClaims", () => {
@@ -96,7 +103,7 @@ describe("deriveClaims", () => {
       ],
     });
     db.userSite.findMany.mockResolvedValue([{ siteId: SITE_A1, role: "TEACHER" }]);
-    db.site.count.mockResolvedValue(2);
+    db.site.findMany.mockResolvedValue(sitesDuTenant(2));
 
     const claims = await deriveClaims("u1", TENANT_A);
     expect(claims?.siteIds).toEqual([SITE_A1]);
@@ -123,7 +130,7 @@ describe("deriveClaims", () => {
     });
     db.userSite.findMany.mockResolvedValue([]);
     db.enseignantSite.findMany.mockResolvedValue([{ siteId: SITE_A1 }]);
-    db.site.count.mockResolvedValue(1);
+    db.site.findMany.mockResolvedValue(sitesDuTenant(1));
 
     const claims = await deriveClaims("u1", TENANT_A);
     expect(claims?.siteIds).toEqual([SITE_A1]);
@@ -142,7 +149,7 @@ describe("deriveClaims", () => {
       ],
     });
     db.userSite.findMany.mockResolvedValue([{ siteId: SITE_A1, role: "TEACHER" }]);
-    db.site.count.mockResolvedValue(2);
+    db.site.findMany.mockResolvedValue(sitesDuTenant(2));
 
     const claims = await deriveClaims("u1", TENANT_A);
     expect(claims?.siteId).toBeNull();
@@ -163,7 +170,7 @@ describe("deriveClaims", () => {
     });
     // Dans le tenant A, aucun rattachement de site.
     db.userSite.findMany.mockResolvedValue([]);
-    db.site.count.mockResolvedValue(1);
+    db.site.findMany.mockResolvedValue(sitesDuTenant(1));
 
     const claims = await deriveClaims("u1", TENANT_A);
     expect(claims?.tenantId).toBe(TENANT_A);
@@ -183,7 +190,7 @@ describe("deriveClaims", () => {
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
       ],
     });
-    db.site.count.mockResolvedValue(0);
+    db.site.findMany.mockResolvedValue(sitesDuTenant(0));
 
     const claims = await deriveClaims("u1", TENANT_A);
     expect(claims?.tenantHasSites).toBe(false);
@@ -201,7 +208,7 @@ describe("deriveClaims", () => {
       ],
     });
     db.userSite.findMany.mockResolvedValue([{ siteId: SITE_A1, role: "PRINCIPAL" }]);
-    db.site.count.mockResolvedValue(2);
+    db.site.findMany.mockResolvedValue(sitesDuTenant(2));
 
     const claims = await deriveClaims("u1", TENANT_A);
     expect(claims?.siteId).toBe(SITE_A1);

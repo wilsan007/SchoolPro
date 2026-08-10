@@ -122,22 +122,38 @@ describe("SITE_PATHS — cohérence avec le schéma Prisma", () => {
 describe("siteFilterForModel", () => {
   const scoped = { role: "TEACHER", siteId: null, siteIds: ["s1"] };
 
-  it("filtre sur la colonne pour un modèle qui la porte", () => {
+  // Pour un modèle métier, `siteId: null` signifie « non assigné », et non
+  // « partagé » : ces enregistrements ne doivent PAS remonter à un compte
+  // site-scopé. Seuls les modèles de référence listés dans
+  // `SHARED_NULL_MODELS` (matière, structure, tarif…) font exception — voir
+  // le test « filtre les matières par site » plus bas.
+  it("filtre sur la colonne sans laisser passer les enregistrements non assignés", () => {
     expect(siteFilterForModel("eleve", scoped)).toEqual({
-      AND: [{ OR: [{ siteId: { in: ["s1"] } }, { siteId: null }] }],
+      AND: [{ siteId: { in: ["s1"] } }],
     });
   });
 
   // Régression directe : c'est ici que la 500 se produisait.
   it("filtre via la relation pour un modèle sans colonne siteId", () => {
     expect(siteFilterForModel("incident", scoped)).toEqual({
-      AND: [{ eleve: { OR: [{ siteId: { in: ["s1"] } }, { siteId: null }] } }],
+      AND: [{ eleve: { siteId: { in: ["s1"] } } }],
     });
     expect(siteFilterForModel("note", scoped)).toEqual({
-      AND: [{ eleve: { OR: [{ siteId: { in: ["s1"] } }, { siteId: null }] } }],
+      AND: [{ eleve: { siteId: { in: ["s1"] } } }],
     });
     expect(siteFilterForModel("paiement", scoped)).toEqual({
-      AND: [{ facture: { OR: [{ siteId: { in: ["s1"] } }, { siteId: null }] } }],
+      AND: [{ facture: { siteId: { in: ["s1"] } } }],
+    });
+  });
+
+  // Une conversation sans site est un échange personnel, pas une donnée
+  // orpheline : elle doit rester visible d'un compte site-scopé.
+  it("laisse passer les conversations hors site", () => {
+    expect(siteFilterForModel("conversation", scoped)).toEqual({
+      AND: [{ OR: [{ siteId: { in: ["s1"] } }, { siteId: null }] }],
+    });
+    expect(siteFilterForModel("message", scoped)).toEqual({
+      AND: [{ conversation: { siteId: { in: ["s1"] } } }],
     });
   });
 
