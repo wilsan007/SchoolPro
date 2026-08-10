@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
 const FactureSchema = z.object({
@@ -81,9 +81,18 @@ export async function createFacture(data: FactureFormData) {
   const count = await prisma.facture.count({ where: { tenantId } });
   const numero = `FAC-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
 
+  // Récupérer le siteId de l'élève pour assigner la facture au bon site
+  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- lookup to get siteId for creation
+  const eleve = await prisma.eleve.findUnique({
+    where: { id: values.eleveId },
+    select: { siteId: true },
+  });
+  const factureSiteId = eleve?.siteId ?? null;
+
   const facture = await prisma.facture.create({
     data: {
       tenantId,
+      siteId: factureSiteId,
       eleveId: values.eleveId,
       numero,
       libelle: values.libelle,
@@ -96,6 +105,7 @@ export async function createFacture(data: FactureFormData) {
   });
 
   revalidatePath("/facturation");
+  revalidateTag("dashboard-data");
   return { success: true, id: facture.id };
 }
 
@@ -141,6 +151,7 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
 
   revalidatePath("/facturation");
   revalidatePath(`/facturation/${factureId}`);
+  revalidateTag("dashboard-data");
   return { success: true, id: paiement.id };
 }
 
@@ -160,5 +171,6 @@ export async function annulerFacture(factureId: string) {
 
   revalidatePath("/facturation");
   revalidatePath(`/facturation/${factureId}`);
+  revalidateTag("dashboard-data");
   return { success: true };
 }

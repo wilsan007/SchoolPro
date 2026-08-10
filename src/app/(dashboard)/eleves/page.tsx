@@ -17,7 +17,7 @@ import type { Prisma } from "@prisma/client";
 
 const getElevesStats = unstable_cache(
   async (tenantId: string, siteFilter: Record<string, unknown>) => {
-    const where = { tenantId, ...siteFilter } as Prisma.EleveWhereInput;
+    const where = { tenantId, ...siteFilter, deletedAt: null } as Prisma.EleveWhereInput;
     const [byStatut, bySexe, byRegime, totalTenant] = await Promise.all([
       // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
       prisma.eleve.groupBy({
@@ -75,11 +75,16 @@ const getClassesList = unstable_cache(
 async function getElevesData(
   tenantId: string,
   siteFilter: Record<string, unknown>,
-  filters: { q?: string; classeId?: string; statut?: string }
+  classeSiteFilter: Record<string, unknown>,
+  filters: { q?: string; classeId?: string; statut?: string },
+  userRole?: string,
 ) {
   const where = {
     tenantId,
     ...siteFilter,
+    deletedAt: null, // Exclure les élèves supprimés (soft delete)
+    // Pour les parents: masquer les enfants exclus de la liste
+    ...(userRole === "PARENT" && { statut: { not: "EXCLU" } }),
     ...(filters.classeId && { classeId: filters.classeId }),
     ...(filters.statut && { statut: filters.statut as "ACTIF" }),
     ...(filters.q && {
@@ -106,12 +111,12 @@ async function getElevesData(
         },
       },
       orderBy: [{ classe: { nom: "asc" } }, { prenom: "asc" }],
-      take: 200,
+      take: 500,
     }),
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.count({ where }),
     getElevesStats(tenantId, siteFilter),
-    getClassesList(tenantId, siteFilter),
+    getClassesList(tenantId, classeSiteFilter),
   ]);
 
   return { eleves, total, stats, classeNoms };
@@ -132,14 +137,17 @@ export default async function ElevesPage({
   const { q, classeId, statut } = sp;
 
   const siteFilter = siteFilterForModel("eleve", session.user);
-  const sites = await getSitesForUser();
+  const classeSiteFilter = siteFilterForModel("classe", session.user);
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const tenantHasSites = (session.user as { tenantHasSites?: boolean }).tenantHasSites ?? false;
-  const { eleves, total, stats, classeNoms } = await getElevesData(session.user.tenantId, siteFilter, {
-    q,
-    classeId,
-    statut,
-  });
+  const [sites, { eleves, total, stats, classeNoms }] = await Promise.all([
+    getSitesForUser(),
+    getElevesData(session.user.tenantId, siteFilter, classeSiteFilter, {
+      q,
+      classeId,
+      statut,
+    }, session.user.role),
+  ]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

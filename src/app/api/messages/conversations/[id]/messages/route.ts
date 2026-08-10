@@ -3,9 +3,11 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { canWriteInConversation } from "@/lib/messaging-scope";
 
 const SendSchema = z.object({
   content: z.string().min(1).max(5000),
+  replyToId: z.string().optional(),
 });
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -27,15 +29,30 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         userId,
         conversation: { tenantId },
       },
+      include: { conversation: { select: { readOnly: true, createdBy: true, type: true } } },
     });
     if (!participation) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
+    // Pagination: cursor-based avec paramètres before/after
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 100);
+    const before = searchParams.get("before"); // ISO date — messages avant cette date
+
     // eslint-disable-next-line ecolpro/require-tenant-id -- conversationId vérifiée via participation avec tenantId ci-dessus
     const messages = await prisma.message.findMany({
-      where: { conversationId: id },
+      where: {
+        conversationId: id,
+        deletedAt: null,
+        ...(before ? { createdAt: { lt: new Date(before) } } : {}),
+      },
       include: { sender: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      take: limit + 1, // +1 pour savoir s'il y a plus
     });
+
+    const hasMore = messages.length > limit;
+    const items = hasMore ? messages.slice(0, limit) : messages;
+    items.reverse(); // remettre en ordre chronologique
 
     // Marquer comme lu
     // eslint-disable-next-line ecolpro/require-tenant-id -- participation déjà vérifiée avec tenantId ci-dessus
@@ -44,16 +61,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       data: { lastReadAt: new Date() },
     });
 
-    return NextResponse.json(
-      messages.map((m) => ({
+    return NextResponse.json({
+      messages: items.map((m) => ({
         id: m.id,
         content: m.content,
         senderId: m.senderId,
         senderName: m.sender.name,
         createdAt: m.createdAt,
         readBy: m.readBy,
-      }))
-    );
+        replyToId: m.replyToId,
+        attachmentUrl: m.attachmentUrl,
+        attachmentType: m.attachmentType,
+        editedAt: m.editedAt,
+      })),
+      hasMore,
+      oldestCursor: items.length > 0 ? items[0].createdAt.toISOString() : null,
+      canWrite: canWriteInConversation(
+        participation.role,
+        participation.conversation.readOnly,
+        participation.conversation.createdBy === userId,
+        session.user.role
+      ),
+    });
   } catch (error) {
     console.error("[API/messages/conversations/:id/messages GET]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -79,8 +108,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         userId,
         conversation: { tenantId },
       },
+      include: { conversation: { select: { readOnly: true, createdBy: true, type: true } } },
     });
     if (!participation) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+
+    // Vérifier que l'utilisateur peut écrire dans cette conversation
+    const canWrite = canWriteInConversation(
+      participation.role,
+      participation.conversation.readOnly,
+      participation.conversation.createdBy === userId,
+      session.user.role
+    );
+    if (!canWrite) {
+      return NextResponse.json({ error: "Cette conversation est en mode annonce — vous ne pouvez pas écrire" }, { status: 403 });
+    }
 
     const body = await req.json();
     const parsed = SendSchema.safeParse(body);
@@ -92,6 +133,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         senderId: userId,
         content: parsed.data.content,
         readBy: [userId],
+        replyToId: parsed.data.replyToId ?? null,
       },
       include: { sender: { select: { id: true, name: true } } },
     });
@@ -118,6 +160,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         senderName: message.sender.name,
         createdAt: message.createdAt,
         readBy: message.readBy,
+        replyToId: message.replyToId,
       },
       { status: 201 }
     );

@@ -6,6 +6,7 @@ import { PrintButton } from "@/components/bulletins/PrintButton";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { checkEleveAccess } from "@/lib/financial-guard";
 
 export default async function BulletinPage({
   params,
@@ -16,6 +17,15 @@ export default async function BulletinPage({
   if (!session?.user?.tenantId) redirect("/login");
 
   const { eleveId, periodeId } = await params;
+
+  // Blocage financier : bloquer l'accès aux bulletins pour les élèves exclus
+  if (session.user.role === "PARENT" || session.user.role === "STUDENT") {
+    const access = await checkEleveAccess(eleveId, session.user.tenantId);
+    if (!access.allowed) {
+      redirect("/acces-bloque");
+    }
+  }
+
   const data = await getBulletinData(eleveId, periodeId, session.user.tenantId);
 
   if (!data) {

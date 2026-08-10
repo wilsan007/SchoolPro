@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { createClasse, deleteClasse, type ClasseFormData } from "@/lib/actions/parametres";
+import { createClasse, deleteClasse, getEnseignantsForClasse, type ClasseFormData } from "@/lib/actions/parametres";
+import { niveauRequiresProfPrincipal } from "@/lib/utils-classe";
 import { useTranslations } from "next-intl";
 import { StructureManager } from "./StructureManager";
 
@@ -30,12 +31,19 @@ interface StructureOption {
   nom: string;
 }
 
-export function ClassesTab({ classes, canManage }: { classes: ClasseItem[]; canManage: boolean }) {
+interface SiteItem {
+  id: string;
+  nom: string;
+  code: string | null;
+}
+
+export function ClassesTab({ classes, canManage, sites = [] }: { classes: ClasseItem[]; canManage: boolean; sites?: SiteItem[] }) {
   const t = useTranslations("parametres");
   const tStruct = useTranslations("structures");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [structures, setStructures] = useState<StructureOption[]>([]);
+  const [enseignants, setEnseignants] = useState<{ id: string; user: { name: string } }[]>([]);
   const [form, setForm] = useState<ClasseFormData>({
     nom: "",
     niveau: "",
@@ -43,7 +51,9 @@ export function ClassesTab({ classes, canManage }: { classes: ClasseItem[]; canM
     effectifMax: 40,
     annee: "2025-2026",
     structureId: undefined,
+    profPrincipalId: undefined,
   });
+  const [selectedSiteId, setSelectedSiteId] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/structures")
@@ -52,16 +62,18 @@ export function ClassesTab({ classes, canManage }: { classes: ClasseItem[]; canM
         if (Array.isArray(data)) setStructures(data);
       })
       .catch(() => {});
+    getEnseignantsForClasse().then(setEnseignants).catch(() => {});
   }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setIsPending(true);
     try {
-      await createClasse(form);
+      await createClasse({ ...form, siteId: selectedSiteId || undefined });
       toast.success(t("classCreated"));
       setShowForm(false);
-      setForm({ nom: "", niveau: "", filiere: "", effectifMax: 40, annee: "2025-2026", structureId: undefined });
+      setForm({ nom: "", niveau: "", filiere: "", effectifMax: 40, annee: "2025-2026", structureId: undefined, profPrincipalId: undefined });
+      setSelectedSiteId("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
@@ -99,6 +111,26 @@ export function ClassesTab({ classes, canManage }: { classes: ClasseItem[]; canM
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {sites.length > 1 && (
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="site">
+                    {t("site")}
+                    <span className="text-destructive ml-1">*</span>
+                  </Label>
+                  <select
+                    id="site"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={selectedSiteId}
+                    onChange={(e) => setSelectedSiteId(e.target.value)}
+                    required
+                  >
+                    <option value="">— Sélectionner un site —</option>
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nom}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {structures.length > 0 && (
                 <div className="space-y-1.5 md:col-span-2">
                   <Label htmlFor="structure">{tStruct("title")}</Label>
@@ -131,6 +163,29 @@ export function ClassesTab({ classes, canManage }: { classes: ClasseItem[]; canM
                 <Label htmlFor="effectifMax">{t("maxStudents")}</Label>
                 <Input id="effectifMax" type="number" min="1" value={form.effectifMax}
                   onChange={(e) => setForm({ ...form, effectifMax: parseInt(e.target.value) || 40 })} />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="profPrincipal">
+                  {t("colProfPrincipal")}
+                  {form.niveau && niveauRequiresProfPrincipal(form.niveau) && (
+                    <span className="text-destructive ml-1">*</span>
+                  )}
+                </Label>
+                <select
+                  id="profPrincipal"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={form.profPrincipalId ?? ""}
+                  onChange={(e) => setForm({ ...form, profPrincipalId: e.target.value || undefined })}
+                  required={!!form.niveau && niveauRequiresProfPrincipal(form.niveau)}
+                >
+                  <option value="">— Sélectionner —</option>
+                  {enseignants.map((ens) => (
+                    <option key={ens.id} value={ens.id}>{ens.user.name}</option>
+                  ))}
+                </select>
+                {form.niveau && niveauRequiresProfPrincipal(form.niveau) && (
+                  <p className="text-xs text-muted-foreground">Le professeur principal est obligatoire pour le collège et le lycée.</p>
+                )}
               </div>
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" size="sm" className="gap-2" disabled={isPending}>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { checkEleveAccess } from "@/lib/financial-guard";
 
 export default async function BulletinAnnuelPage({
   params,
@@ -17,6 +18,15 @@ export default async function BulletinAnnuelPage({
   if (!session?.user?.tenantId) redirect("/login");
 
   const { eleveId, anneeId } = await params;
+
+  // Blocage financier : bloquer l'accès aux bulletins annuels pour les élèves exclus
+  if (session.user.role === "PARENT" || session.user.role === "STUDENT") {
+    const access = await checkEleveAccess(eleveId, session.user.tenantId);
+    if (!access.allowed) {
+      redirect("/acces-bloque");
+    }
+  }
+
   const data = await getBulletinAnnuelData(eleveId, anneeId, session.user.tenantId);
 
   if (!data) {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Settings, Users, GraduationCap, BookOpen, UserCog, Settings2, Calendar, Stamp, Building2,
-  School, UsersRound, BookOpenCheck, ChevronDown,
+  School, UsersRound, BookOpenCheck, ChevronDown, DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EtablissementTab } from "./EtablissementTab";
@@ -16,6 +16,7 @@ import { ReglesAppreciationManager } from "./ReglesAppreciationManager";
 import { PeriodesClotureManager } from "./PeriodesClotureManager";
 import { SignatureCachetManager } from "./SignatureCachetManager";
 import { SitesTab } from "./SitesTab";
+import { TarifsTab } from "./TarifsTab";
 
 import type { AvailableTenant } from "@/auth.config";
 
@@ -28,7 +29,8 @@ type Tab =
   | "appreciations"
   | "periodes"
   | "signature"
-  | "sites";
+  | "sites"
+  | "tarifs";
 
 type TabDef = { id: Tab; labelKey: string; icon: typeof Settings };
 
@@ -64,6 +66,13 @@ const tabGroups: TabGroup[] = [
       { id: "matieres", labelKey: "matieres", icon: BookOpen },
       { id: "appreciations", labelKey: "appreciations", icon: Settings2 },
       { id: "periodes", labelKey: "periodes", icon: Calendar },
+    ],
+  },
+  {
+    groupKey: "groupFinance",
+    icon: DollarSign,
+    tabs: [
+      { id: "tarifs", labelKey: "tarifs", icon: DollarSign },
     ],
   },
 ];
@@ -167,7 +176,7 @@ export function ParametresTabs({
         {activeTab === "etablissement" && <EtablissementTab etablissement={etablissement} canManage={canManage} />}
         {activeTab === "utilisateurs" && <UsersTab users={users} canManage={canManage} availableTenants={availableTenants} sites={sites} />}
         {activeTab === "parents" && <ParentsTab parents={parents} eleves={eleves} canManage={canManage} />}
-        {activeTab === "classes" && <ClassesTab classes={classes} canManage={canManage} />}
+        {activeTab === "classes" && <ClassesTab classes={classes} canManage={canManage} sites={sites} />}
         {activeTab === "matieres" && <MatieresTab matieres={matieres} canManage={canManage} />}
         {activeTab === "appreciations" && <ReglesAppreciationManager regles={regles} />}
         {activeTab === "periodes" && (
@@ -196,6 +205,7 @@ export function ParametresTabs({
           />
         )}
         {activeTab === "sites" && <SitesTab sites={sites} canManage={canManage} />}
+        {activeTab === "tarifs" && <TarifsTab />}
       </div>
     </div>
   );

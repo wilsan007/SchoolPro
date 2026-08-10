@@ -9,6 +9,7 @@ export async function checkEvaluationDeletable(
   evaluationId: string,
   tenantId: string
 ): Promise<string | null> {
+  // eslint-disable-next-line ecolpro/require-site-filter -- guard function, caller is responsible for site filtering
   const noteCount = await prisma.note.count({
     where: { evaluationId, tenantId },
   });

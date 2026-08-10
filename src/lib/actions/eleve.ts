@@ -2,9 +2,11 @@
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-filter";
+import { checkPermission } from "@/lib/rbac";
+import { audit } from "@/lib/audit";
 import { z } from "zod";
 
 const LienParente = z.enum(["PERE", "MERE", "TUTEUR", "AUTRE"]);
@@ -146,10 +148,21 @@ export async function createEleve(data: EleveFormData) {
   });
   if (existing) throw new Error("Ce matricule existe déjà");
 
+  // Récupérer le siteId de la classe si non explicitement fourni
+  let resolvedSiteId = values.siteId || (session.user.siteId ?? null);
+  if (!resolvedSiteId && values.classeId) {
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- findUnique pour récupérer le siteId de la classe
+    const classe = await prisma.classe.findUnique({
+      where: { id: values.classeId },
+      select: { siteId: true },
+    });
+    if (classe?.siteId) resolvedSiteId = classe.siteId;
+  }
+
   const eleve = await prisma.eleve.create({
     data: {
       tenantId,
-      siteId: (values.siteId || (session.user.siteId ?? null)),
+      siteId: resolvedSiteId,
       matricule,
       nom: values.nom,
       prenom: values.prenom,
@@ -196,6 +209,8 @@ export async function createEleve(data: EleveFormData) {
   }
 
   revalidatePath("/eleves");
+  revalidateTag("eleves-stats");
+  revalidateTag("dashboard-data");
   return { success: true as boolean, id: eleve.id };
 }
 
@@ -285,5 +300,117 @@ export async function updateEleve(id: string, data: EleveFormData) {
 
   revalidatePath("/eleves");
   revalidatePath(`/eleves/${id}`);
+  revalidateTag("eleves-stats");
+  revalidateTag("dashboard-data");
+  return { success: true as boolean, id };
+}
+
+/**
+ * Suppression d'un élève (soft delete).
+ *
+ * Bonnes pratiques (PowerSchool, Infinite Campus, Eduka, OpenEducat) :
+ * - JAMAIS de hard delete : les données historiques (notes, absences, factures)
+ *   doivent être conservées pour la conformité et l'audit.
+ * - Soft delete : on marque l'élève avec un timestamp `deletedAt`.
+ * - L'élève disparaît des listes actives mais ses données restent en base.
+ * - Désactivation du compte utilisateur lié (userId → null).
+ * - Audit trail obligatoire (qui, quand, pourquoi).
+ * - Restauration possible tant que les données ne sont pas purgées.
+ */
+export async function deleteEleve(id: string, reason?: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const denied = checkPermission(session.user.role, "eleves:delete");
+  if (denied) throw new Error("Permission refusée");
+
+  const tenantId = session.user.tenantId;
+  const existing = await prisma.eleve.findFirst({
+    where: { id, tenantId, ...siteFilterForModel("eleve", session.user) },
+    select: { id: true, nom: true, prenom: true, matricule: true, userId: true, deletedAt: true },
+  });
+
+  if (!existing) throw new Error("Élève non trouvé");
+  if (existing.deletedAt) throw new Error("Cet élève est déjà supprimé");
+
+  // Soft delete : marquer avec un timestamp + désactiver le compte utilisateur
+  await prisma.eleve.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+      statut: "ABANDONNE",
+      userId: null, // Déconnecter le compte élève
+    },
+  });
+
+  // Audit trail
+  await audit({
+    tenantId,
+    userId: session.user.id,
+    action: "eleve.delete",
+    verdict: "ALLOWED",
+    resource: "eleve",
+    resourceId: id,
+    reason: reason ?? "Suppression administrative",
+    metadata: {
+      nom: existing.nom,
+      prenom: existing.prenom,
+      matricule: existing.matricule,
+    },
+  });
+
+  revalidatePath("/eleves");
+  revalidatePath(`/eleves/${id}`);
+  revalidateTag("eleves-stats");
+  revalidateTag("dashboard-data");
+  return { success: true as boolean, id };
+}
+
+/**
+ * Restauration d'un élève supprimé (soft delete).
+ */
+export async function restoreEleve(id: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const denied = checkPermission(session.user.role, "eleves:delete");
+  if (denied) throw new Error("Permission refusée");
+
+  const tenantId = session.user.tenantId;
+  const existing = await prisma.eleve.findFirst({
+    where: { id, tenantId, ...siteFilterForModel("eleve", session.user) },
+    select: { id: true, nom: true, prenom: true, matricule: true, deletedAt: true },
+  });
+
+  if (!existing) throw new Error("Élève non trouvé");
+  if (!existing.deletedAt) throw new Error("Cet élève n'est pas supprimé");
+
+  await prisma.eleve.update({
+    where: { id },
+    data: {
+      deletedAt: null,
+      statut: "ACTIF",
+    },
+  });
+
+  await audit({
+    tenantId,
+    userId: session.user.id,
+    action: "eleve.restore",
+    verdict: "ALLOWED",
+    resource: "eleve",
+    resourceId: id,
+    reason: "Restauration d'élève supprimé",
+    metadata: {
+      nom: existing.nom,
+      prenom: existing.prenom,
+      matricule: existing.matricule,
+    },
+  });
+
+  revalidatePath("/eleves");
+  revalidatePath(`/eleves/${id}`);
+  revalidateTag("eleves-stats");
+  revalidateTag("dashboard-data");
   return { success: true as boolean, id };
 }

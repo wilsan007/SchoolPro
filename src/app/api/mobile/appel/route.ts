@@ -5,6 +5,7 @@ import { sendAbsenceAlert } from "@/lib/sms/africasTalking";
 import { sendEmail, renderNotificationEmail } from "@/lib/notifications/email";
 import { sendAbsenceWhatsApp } from "@/lib/notifications/whatsapp";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { revalidateTag } from "next/cache";
 
 export async function POST(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -161,6 +162,8 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  revalidateTag("dashboard-data");
 
   return NextResponse.json({
     success: true,

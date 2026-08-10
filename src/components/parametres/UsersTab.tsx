@@ -38,6 +38,9 @@ const roleKeys: Record<string, string> = {
   STUDENT: "roleStudent",
 };
 
+// Rôles masqués du sélecteur (le prof principal est défini au niveau de la classe, pas au niveau utilisateur)
+const hiddenRoles = ["CLASS_TEACHER"];
+
 interface SiteItem {
   id: string;
   nom: string;
@@ -73,7 +76,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
     setShowSiteModal(true);
     try {
       const existingSiteIds = await getUserSites(userId);
-      setSelectedSiteIds(existingSiteIds);
+      setSelectedSiteIds(existingSiteIds.map((s) => s.siteId));
     } catch {
       setSelectedSiteIds([]);
     } finally {
@@ -85,7 +88,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
     if (!siteModalUserId) return;
     setSiteLoading(true);
     try {
-      await assignUserSites(siteModalUserId, selectedSiteIds);
+      await assignUserSites(siteModalUserId, selectedSiteIds.map((sid) => ({ siteId: sid, role: null })));
       toast.success("Accès sites mis à jour");
       setShowSiteModal(false);
     } catch (err) {
@@ -144,7 +147,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
         // Pour l'instant, on assigne après création en cherchant par email
         const newUserId = (result as { userId?: string }).userId;
         if (newUserId) {
-          await assignUserSites(newUserId, formSiteIds);
+          await assignUserSites(newUserId, formSiteIds.map((sid) => ({ siteId: sid, role: null })));
         }
       }
       toast.success(t("userCreated"));
@@ -297,7 +300,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                   onChange={(e) => setTenantForm({ ...tenantForm, role: e.target.value as Role })}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  {Object.entries(roleKeys).filter(([k]) => k !== "STUDENT").map(([key, labelKey]) => (
+                  {Object.entries(roleKeys).filter(([k]) => k !== "STUDENT" && !hiddenRoles.includes(k)).map(([key, labelKey]) => (
                     <option key={key} value={key}>{t(labelKey)}</option>
                   ))}
                 </select>
@@ -339,7 +342,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                 <Label htmlFor="role">{t("role")}</Label>
                 <select id="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserFormData["role"] })}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  {Object.entries(roleKeys).filter(([k]) => k !== "STUDENT").map(([key, labelKey]) => (
+                  {Object.entries(roleKeys).filter(([k]) => k !== "STUDENT" && !hiddenRoles.includes(k)).map(([key, labelKey]) => (
                     <option key={key} value={key}>{t(labelKey)}</option>
                   ))}
                 </select>

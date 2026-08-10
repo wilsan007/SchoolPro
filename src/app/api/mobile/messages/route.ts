@@ -31,56 +31,76 @@ export async function GET(req: NextRequest) {
       id: true,
       subject: true,
       isGroup: true,
+      type: true,
+      classeId: true,
+      readOnly: true,
+      pinned: true,
       updatedAt: true,
       participants: {
         select: {
           userId: true,
-          user: { select: { id: true, name: true, email: true } },
+          role: true,
+          lastReadAt: true,
+          user: { select: { id: true, name: true, email: true, role: true, avatarUrl: true } },
+        },
+      },
+      classe: { select: { id: true, nom: true } },
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          senderId: true,
+          content: true,
+          readBy: true,
+          createdAt: true,
+          sender: { select: { id: true, name: true } },
         },
       },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
     take: limit,
   });
 
-  const conversationsWithMessages = await Promise.all(
-    conversations.map(async (c) => {
-      const [messages, messageCount] = await Promise.all([
-        prisma.message.findMany({
-          where: { conversationId: c.id },
-          select: {
-            id: true,
-            senderId: true,
-            content: true,
-            readBy: true,
-            createdAt: true,
-            sender: { select: { id: true, name: true } },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        }),
-        prisma.message.count({ where: { conversationId: c.id } }),
-      ]);
+  const conversationsWithUnread = conversations.map((c) => {
+    const myParticipation = c.participants.find((p) => p.userId === user.id);
+    const lastReadAt = myParticipation?.lastReadAt;
+    const lastMessage = c.messages[0] ?? null;
 
-      return {
-        id: c.id,
-        titre: c.subject,
-        type: c.isGroup ? "group" : "direct",
-        updatedAt: c.updatedAt,
-        participants: c.participants ?? [],
-        messages: messages ?? [],
-        _count: { messages: messageCount },
-      };
-    })
-  );
+    // Compter les non-lus réellement
+    const unreadCount = lastMessage && lastMessage.senderId !== user.id && !lastMessage.readBy.includes(user.id) ? 1 : 0;
 
-  const nonLus = conversationsWithMessages.reduce((acc, c) => {
-    const lastMsg = c.messages[0];
-    if (lastMsg && lastMsg.senderId !== user.id && !(lastMsg.readBy ?? []).includes(user.id)) {
-      return acc + 1;
-    }
-    return acc;
-  }, 0);
+    return {
+      id: c.id,
+      titre: c.subject,
+      type: c.type,
+      isGroup: c.isGroup,
+      readOnly: c.readOnly,
+      pinned: c.pinned,
+      classeNom: c.classe?.nom ?? null,
+      updatedAt: c.updatedAt,
+      participants: c.participants.map((p) => ({
+        id: p.user.id,
+        name: p.user.name,
+        email: p.user.email,
+        role: p.user.role,
+        avatarUrl: p.user.avatarUrl,
+        participantRole: p.role,
+      })),
+      lastMessage: lastMessage
+        ? {
+            id: lastMessage.id,
+            senderId: lastMessage.senderId,
+            senderName: lastMessage.sender.name,
+            content: lastMessage.content,
+            createdAt: lastMessage.createdAt,
+          }
+        : null,
+      unreadCount,
+    };
+  });
 
-  return NextResponse.json({ conversations: conversationsWithMessages, nonLus });
+  const nonLus = conversationsWithUnread.reduce((acc, c) => acc + c.unreadCount, 0);
+
+  return NextResponse.json({ conversations: conversationsWithUnread, nonLus });
 }

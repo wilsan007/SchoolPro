@@ -1,3 +1,23 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "prisma generate && next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm ci",
+  "regions": ["cdg1"],
+  "crons": [
+    {
+      "path": "/api/cron/dispatch-scheduled",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/purge-sites",
+      "schedule": "0 3 * * *"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "https://ecolpro.app",
+    "NEXT_PUBLIC_APP_NAME": "EcolPro",
+    "AUTH_URL": "https://ecolpro.app"
+  }
 }

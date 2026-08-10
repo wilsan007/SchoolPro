@@ -25,7 +25,7 @@ export default async function ParametresPage() {
     redirect(session.user.role === "SUPER_ADMIN" ? "/super-admin" : "/select-tenant");
   }
 
-  const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
+  const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN" || session.user.role === "PRINCIPAL";
 
   const [etablissement, users, parents, eleves, classes, matieres, regles, periodes, sites] = await Promise.all([
     getEtablissementData(),

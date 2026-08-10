@@ -2,10 +2,12 @@
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, siteIdForCreate, requireSiteIdForCreate } from "@/lib/site-scope";
+import { niveauRequiresProfPrincipal } from "@/lib/utils-classe";
+import type { Role } from "@prisma/client";
 
 // ============================================================
 // ÉTABLISSEMENT
@@ -139,7 +141,7 @@ export async function getUsersForTenant() {
 export async function createUser(data: UserFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -161,6 +163,7 @@ export async function createUser(data: UserFormData) {
   const newUser = await prisma.user.create({
     data: {
       tenantId: session.user.tenantId,
+      siteId: siteIdForCreate(session.user),
       name: v.name,
       email: v.email,
       role: v.role,
@@ -211,7 +214,7 @@ export async function createUser(data: UserFormData) {
 export async function toggleUserActive(userId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -232,7 +235,7 @@ export async function toggleUserActive(userId: string) {
 export async function deleteUser(userId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -266,6 +269,8 @@ const ClasseSchema = z.object({
   effectifMax: z.number().min(1).default(40),
   annee: z.string().default("2025-2026"),
   structureId: z.string().optional(),
+  profPrincipalId: z.string().optional(),
+  siteId: z.string().optional(),
 });
 
 export type ClasseFormData = z.infer<typeof ClasseSchema>;
@@ -289,9 +294,23 @@ export async function getClassesForSettings() {
   });
 }
 
+export async function getEnseignantsForClasse() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+  const siteFilter = siteFilterForModel("enseignant", session.user);
+  return prisma.enseignant.findMany({
+    where: { tenantId: session.user.tenantId, ...siteFilter },
+    select: { id: true, user: { select: { name: true } } },
+    orderBy: { user: { name: "asc" } },
+  });
+}
+
 export async function createClasse(data: ClasseFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const siteError = requireSiteIdForCreate(session.user);
+  if (siteError) throw new Error(siteError);
 
   const parsed = ClasseSchema.safeParse(data);
   if (!parsed.success) {
@@ -299,19 +318,40 @@ export async function createClasse(data: ClasseFormData) {
   }
 
   const v = parsed.data;
+
+  // Validation: prof principal obligatoire pour collège/lycée
+  if (niveauRequiresProfPrincipal(v.niveau) && !v.profPrincipalId) {
+    throw new Error("Un professeur principal est obligatoire pour les classes de collège et lycée");
+  }
+
+  // Vérifier que le prof principal existe et appartient au tenant
+  if (v.profPrincipalId) {
+    const ens = await prisma.enseignant.findFirst({
+      where: { id: v.profPrincipalId, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+    if (!ens) throw new Error("Enseignant introuvable dans cet établissement");
+  }
+
   await prisma.classe.create({
     data: {
       tenantId: session.user.tenantId,
+      siteId: v.siteId || siteIdForCreate(session.user),
       nom: v.nom,
       niveau: v.niveau,
       filiere: v.filiere || null,
       effectifMax: v.effectifMax,
       annee: v.annee,
       structureId: v.structureId || null,
+      profPrincipalId: v.profPrincipalId || null,
     },
   });
 
   revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
   return { success: true };
 }
 
@@ -329,6 +369,10 @@ export async function deleteClasse(classeId: string) {
   await prisma.classe.delete({ where: { id: classeId } });
 
   revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
   return { success: true };
 }
 
@@ -458,7 +502,7 @@ export async function getElevesForLinking() {
 export async function createParent(data: ParentFormData & { eleveIds?: string[] }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -503,7 +547,7 @@ export async function createParent(data: ParentFormData & { eleveIds?: string[] 
 export async function linkParentToEleves(parentId: string, eleveIds: string[], lien: string = "TUTEUR") {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -530,7 +574,7 @@ export async function linkParentToEleves(parentId: string, eleveIds: string[], l
 export async function unlinkParentFromEleve(parentId: string, eleveId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -545,7 +589,7 @@ export async function unlinkParentFromEleve(parentId: string, eleveId: string) {
 export async function updateParentPhone(parentId: string, phone: string, telegramChatId?: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -569,7 +613,7 @@ export async function updateParentPhone(parentId: string, phone: string, telegra
 export async function deleteParent(parentId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -587,7 +631,7 @@ export async function deleteParent(parentId: string) {
 export async function updateUserPhone(userId: string, phone: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -892,10 +936,10 @@ export async function getDeletedSites() {
   });
 }
 
-export async function assignUserSites(userId: string, siteIds: string[]) {
+export async function assignUserSites(userId: string, sites: { siteId: string; role?: string | null }[]) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -903,6 +947,8 @@ export async function assignUserSites(userId: string, siteIds: string[]) {
     where: { id: userId, tenantId: session.user.tenantId },
   });
   if (!user) throw new Error("Utilisateur non trouvé");
+
+  const siteIds = sites.map((s) => s.siteId);
 
   // Vérifier que tous les sites appartiennent au tenant
   if (siteIds.length > 0) {
@@ -941,25 +987,30 @@ export async function assignUserSites(userId: string, siteIds: string[]) {
       });
     }
 
-    // Créer les nouvelles associations
-    await prisma.userSite.createMany({
-      data: siteIds.map((siteId) => ({ userId, siteId })),
-      skipDuplicates: true,
-    });
+    // Créer les nouvelles associations avec rôle optionnel par site
+    for (const s of sites) {
+      await prisma.userSite.create({
+        data: {
+          userId,
+          siteId: s.siteId,
+          role: (s.role && s.role !== "INHERIT") ? s.role as Role : null,
+        },
+      });
+    }
   }
 
   revalidatePath("/parametres");
   return { success: true };
 }
 
-export async function getUserSites(userId: string): Promise<string[]> {
+export async function getUserSites(userId: string): Promise<{ siteId: string; role: string | null }[]> {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
   const userSites = await prisma.userSite.findMany({
     where: { userId },
-    select: { siteId: true },
+    select: { siteId: true, role: true },
   });
 
-  return userSites.map((us) => us.siteId);
+  return userSites.map((us) => ({ siteId: us.siteId, role: us.role }));
 }

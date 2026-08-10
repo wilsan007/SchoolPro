@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
+import { revalidateTag } from "next/cache";
 
 const NoteSchema = z.object({
   eleveId: z.string().min(1),
@@ -169,6 +170,8 @@ export async function POST(req: NextRequest) {
         })
       )
     );
+
+    revalidateTag("dashboard-data");
 
     return NextResponse.json({ notes: created, count: created.length }, { status: 201 });
   } catch (error) {

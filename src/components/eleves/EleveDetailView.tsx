@@ -1,21 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getInitials, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Edit, User, Phone, MapPin, BookOpen,
   CalendarX, AlertTriangle, CreditCard, TrendingUp,
-  Clock, CheckCircle2, XCircle, AlertCircle, ShieldOff,
+  Clock, CheckCircle2, XCircle, AlertCircle, ShieldOff, Lock,
+  Trash2, Loader2,
 } from "lucide-react";
 import { DispenseMatiereManager } from "./DispenseMatiereManager";
 import { useTranslations } from "next-intl";
+import { deleteEleve } from "@/lib/actions/eleve";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -180,13 +184,28 @@ export function EleveDetailView({
   eleve,
   matieres = [],
   dispenses = [],
+  situationFinanciere,
 }: {
   eleve: Eleve;
   matieres?: MatiereInfo[];
   dispenses?: DispenseInfo[];
+  situationFinanciere?: {
+    totalFacture: number;
+    totalPaye: number;
+    totalRestant: number;
+    nbFacturesEnRetard: number;
+    nbRelances: number;
+    estExclu: boolean;
+    exclusionId: string | null;
+    exclusionMotif: string | null;
+    exclusionDateDebut: Date | null;
+  };
 }) {
   const t = useTranslations("eleveDetail");
+  const router = useRouter();
   const [tab, setTab] = useState("notes");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const tuteur = eleve.parents.find((p) => p.isGardien) ?? eleve.parents[0];
 
@@ -214,23 +233,78 @@ export function EleveDetailView({
     0
   );
 
+  async function handleDelete() {
+    setIsDeleting(true);
+    try {
+      await deleteEleve(eleve.id);
+      toast.success(t("studentDeleted"));
+      router.push("/eleves");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("deleteError"));
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {/* Back + Edit */}
-      <div className="flex items-center justify-between">
+      {/* Back + Edit + Delete */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button asChild variant="outline" size="sm" className="gap-2">
           <Link href="/eleves">
             <ArrowLeft className="h-4 w-4" />
             {t("backToList")}
           </Link>
         </Button>
-        <Button asChild variant="outline" size="sm" className="gap-2">
-          <Link href={`/eleves/${eleve.id}/modifier`}>
-            <Edit className="h-4 w-4" />
-            {t("editProfile")}
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link href={`/eleves/${eleve.id}/modifier`}>
+              <Edit className="h-4 w-4" />
+              {t("editProfile")}
+            </Link>
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-2"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            {t("deleteStudent")}
+          </Button>
+        </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-destructive">{t("deleteConfirmTitle")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("deleteConfirmDescription", { name: `${eleve.prenom} ${eleve.nom}` })}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t("deleteSoftNote")}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>
+                {t("deleteCancel")}
+              </Button>
+              <Button variant="destructive" size="sm" className="gap-2" onClick={handleDelete} disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {t("deleteConfirm")}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Profile card */}
       <Card className="p-6">
@@ -528,6 +602,62 @@ export function EleveDetailView({
 
         {/* ─ Facturation ─ */}
         <TabsContent value="facturation" className="mt-4">
+          {/* Situation financière résumé */}
+          {situationFinanciere && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <Card className="p-3">
+                <p className="text-xs text-muted-foreground">{t("totalBilled")}</p>
+                <p className="text-lg font-bold">{situationFinanciere.totalFacture.toLocaleString()} DJF</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-xs text-muted-foreground">{t("totalPaid")}</p>
+                <p className="text-lg font-bold text-green-600">{situationFinanciere.totalPaye.toLocaleString()} DJF</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-xs text-muted-foreground">{t("remainingToPay")}</p>
+                <p className={cn("text-lg font-bold", situationFinanciere.totalRestant > 0 ? "text-red-600" : "text-green-600")}>
+                  {situationFinanciere.totalRestant.toLocaleString()} DJF
+                </p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-xs text-muted-foreground">{t("overdue")}</p>
+                <p className={cn("text-lg font-bold", situationFinanciere.nbFacturesEnRetard > 0 ? "text-red-600" : "text-green-600")}>
+                  {t("invoiceCount", { count: situationFinanciere.nbFacturesEnRetard })}
+                </p>
+              </Card>
+            </div>
+          )}
+
+          {/* Alerte exclusion */}
+          {situationFinanciere?.estExclu && (
+            <Card className="p-4 mb-4 border-red-300 bg-red-50">
+              <div className="flex items-center gap-3">
+                <Lock className="h-5 w-5 text-red-600 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-red-800">{t("studentExcluded")}</p>
+                  <p className="text-sm text-red-700">
+                    {t("exclusionReason", { motif: situationFinanciere.exclusionMotif ?? "—", date: situationFinanciere.exclusionDateDebut
+                      ? new Date(situationFinanciere.exclusionDateDebut).toLocaleDateString("fr-FR")
+                      : "N/A" })}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">{t("exclusionAccessBlocked")}</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Alerte retard + relances */}
+          {situationFinanciere && situationFinanciere.nbRelances > 0 && !situationFinanciere.estExclu && (
+            <Card className="p-3 mb-4 border-amber-300 bg-amber-50">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                <p className="text-sm text-amber-800">
+                  {t("relancesSent", { relances: situationFinanciere.nbRelances, retards: situationFinanciere.nbFacturesEnRetard })}
+                </p>
+              </div>
+            </Card>
+          )}
+
           {eleve.factures.length === 0 ? (
             <EmptyState message={t("noInvoices")} />
           ) : (

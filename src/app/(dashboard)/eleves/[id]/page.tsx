@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { EleveDetailView } from "@/components/eleves/EleveDetailView";
+import { getSituationFinanciere, checkEleveAccess } from "@/lib/financial-guard";
 
 async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<string, unknown>) {
   const eleve = await prisma.eleve.findFirst({
@@ -73,6 +74,14 @@ export default async function EleveDetailPage({
 
   if (!eleve) notFound();
 
+  // Blocage financier : si l'élève est exclu, rediriger les parents/élèves
+  if (session.user.role === "PARENT" || session.user.role === "STUDENT") {
+    const access = await checkEleveAccess(id, session.user.tenantId);
+    if (!access.allowed) {
+      redirect("/acces-bloque");
+    }
+  }
+
   // Matières (pour le sélecteur de dispense) + dispenses existantes de l'élève
   const [matieres, dispensesRaw] = await Promise.all([
     prisma.matiere.findMany({
@@ -94,6 +103,8 @@ export default async function EleveDetailPage({
     motif: d.motif,
   }));
 
+  const situationFinanciere = await getSituationFinanciere(id, session.user.tenantId);
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
@@ -103,7 +114,7 @@ export default async function EleveDetailPage({
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-        <EleveDetailView eleve={eleve} matieres={matieres} dispenses={dispenses} />
+        <EleveDetailView eleve={eleve} matieres={matieres} dispenses={dispenses} situationFinanciere={situationFinanciere} />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { generateMatricule } from "@/lib/utils";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, siteIdForCreate, requireSiteIdForCreate } from "@/lib/site-scope";
+import { revalidateTag } from "next/cache";
 
 const EleveSchema = z.object({
   nom: z.string().min(1).max(100),
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
     const where = {
       tenantId: session.user.tenantId,
       ...siteFilter,
+      deletedAt: null, // Exclure les élèves supprimés (soft delete)
       ...(classeId && { classeId }),
       ...(statut && { statut: statut as "ACTIF" }),
       ...(q && {
@@ -150,6 +152,9 @@ export async function POST(req: NextRequest) {
         classe: { select: { nom: true, niveau: true } },
       },
     });
+
+    revalidateTag("eleves-stats");
+    revalidateTag("dashboard-data");
 
     return NextResponse.json({ eleve }, { status: 201 });
   } catch (error) {

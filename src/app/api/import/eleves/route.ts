@@ -6,6 +6,7 @@ import { getSchoolGroup } from "@/lib/school-groups";
 import type { StructureType, Sexe } from "@prisma/client";
 import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { revalidateTag } from "next/cache";
 
 // Mapping: nom du groupe scolaire → StructureType
 const GROUP_TO_STRUCTURE: Record<string, StructureType> = {
@@ -178,10 +179,10 @@ export async function POST(req: NextRequest) {
     // ── 4. Créer ou récupérer les classes ───────────────────────
     const existingClasses = await prisma.classe.findMany({
       where: { tenantId, ...siteFilter },
-      select: { id: true, nom: true, structureId: true },
+      select: { id: true, nom: true, structureId: true, siteId: true },
     });
-    const classByName = new Map<string, { id: string; structureId: string | null }>(
-      existingClasses.map((c) => [c.nom, { id: c.id, structureId: c.structureId }])
+    const classByName = new Map<string, { id: string; structureId: string | null; siteId: string | null }>(
+      existingClasses.map((c) => [c.nom, { id: c.id, structureId: c.structureId, siteId: c.siteId }])
     );
 
     const annee = await getAnneeCouranteLibelle(tenantId);
@@ -216,14 +217,15 @@ export async function POST(req: NextRequest) {
           effectifMax: 40,
           annee,
           structureId: c.structureId,
+          siteId: targetSiteId,
         })),
       });
       const created = await prisma.classe.findMany({
         where: { tenantId, ...siteFilter, nom: { in: classesToCreate.map((c) => c.nom) } },
-        select: { id: true, nom: true, structureId: true },
+        select: { id: true, nom: true, structureId: true, siteId: true },
       });
       for (const c of created) {
-        classByName.set(c.nom, { id: c.id, structureId: c.structureId });
+        classByName.set(c.nom, { id: c.id, structureId: c.structureId, siteId: c.siteId });
       }
     }
 
@@ -271,7 +273,7 @@ export async function POST(req: NextRequest) {
 
       elevesToCreate.push({
         tenantId,
-        siteId: targetSiteId,
+        siteId: targetSiteId || classInfo.siteId,
         matricule,
         nom: row.nom,
         prenom: row.prenom,
@@ -299,6 +301,10 @@ export async function POST(req: NextRequest) {
     // ── 6. Réponse ──────────────────────────────────────────────
     const structuresCreated = structuresToCreate.length;
     const classesCreated = classesToCreate.length;
+
+    revalidateTag("eleves-stats");
+    revalidateTag("dashboard-data");
+    revalidateTag("classes-list");
 
     return NextResponse.json({
       success: true,

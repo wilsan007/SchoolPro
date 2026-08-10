@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { revalidateTag } from "next/cache";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -78,6 +79,9 @@ export async function POST(req: NextRequest) {
     });
     created.push(user.id);
   }
+
+  revalidateTag("eleves-stats");
+  revalidateTag("dashboard-data");
 
   return NextResponse.json({ created: created.length, accounts });
 }

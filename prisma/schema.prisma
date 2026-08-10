@@ -110,6 +110,9 @@ model Tenant {
   absencesPersonnel  AbsencePersonnel[]
   congesPersonnel    CongePersonnel[]
   conversations      Conversation[]
+  tarifsNiveau       TarifNiveau[]
+  relances           Relance[]
+  exclusionsEleve    ExclusionEleve[]
 
   @@map("tenants")
 }
@@ -146,12 +149,16 @@ model Site {
   matieres     Matiere[]
   structures   Structure[]
   disponibilitesEnseignant DisponibiliteEnseignant[]
+  conversations Conversation[] @relation("ConversationSite")
 
   // Enseignants multi-sites
   enseignantSites EnseignantSite[]
 
   // Users multi-sites
   userSites UserSite[]
+
+  // Tarifs par niveau
+  tarifsNiveau TarifNiveau[]
 
   // Soft-delete / purge planifiée (Option B — industry standard)
   deletedAt        DateTime?
@@ -193,7 +200,7 @@ model UserSite {
   id        String @id @default(cuid())
   userId    String
   siteId    String
-  role      Role   @default(TEACHER)
+  role      Role?  // null = hérite du rôle global (User.role)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -327,6 +334,7 @@ model User {
   // Messagerie
   messagesSent        Message[]                 @relation("MessageSender")
   conversationsJoined ConversationParticipant[]
+  conversationsCreated Conversation[]           @relation("ConversationCreator")
 
   // Vie scolaire
   incidentsRapportes Incident[] @relation("IncidentReporter")
@@ -346,6 +354,11 @@ model User {
   // Factures & paiements créés par cet utilisateur
   facturesCrees    Facture[]  @relation("FactureCreePar")
   paiementsEnregistres Paiement[] @relation("PaiementEnregistrePar")
+
+  // Relances envoyées et exclusions décidées/levées
+  relancesEnvoyees   Relance[]       @relation("RelanceEnvoyeePar")
+  exclusionsDecidees ExclusionEleve[] @relation("ExclusionDecideePar")
+  exclusionsLevees   ExclusionEleve[] @relation("ExclusionLeveePar")
 
   // Absences & congés du personnel saisis par cet utilisateur
   absencesPersonnelSaisies AbsencePersonnel[] @relation("AbsencePersonnelSaisiePar")
@@ -478,6 +491,7 @@ model Classe {
   emploiTemps EmploiTemps[]
   notes       Note[]
   evaluations Evaluation[]
+  conversations Conversation[] @relation("ConversationClasse")
 
   @@index([tenantId])
   @@index([siteId])
@@ -570,6 +584,7 @@ model Eleve {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime? // Soft delete — null = actif, date = archivé/supprimé
 
   parents   EleveParent[]
   absences  Absence[]
@@ -580,6 +595,7 @@ model Eleve {
   incidents Incident[]
   parcours  ParcoursScolaire[]
   dispenses DispenseMatiere[]
+  exclusions ExclusionEleve[]
 
   @@unique([tenantId, matricule])
   @@index([tenantId])
@@ -1027,6 +1043,7 @@ model Facture {
   echeance DateTime?
 
   paiements Paiement[]
+  relances  Relance[]
 
   createdById String? // User who created the invoice
   createdBy   User?   @relation("FactureCreePar", fields: [createdById], references: [id], onDelete: SetNull)
@@ -1058,6 +1075,93 @@ model Paiement {
 
   @@index([factureId])
   @@map("paiements")
+}
+
+// ============================================================
+// TARIFICATION PAR NIVEAU
+// ============================================================
+
+model TarifNiveau {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  niveau         String  // "Maternelle", "Primaire", "Collège", "Lycée"
+  annee          String  // "2025-2026"
+  mensualite     Float   // montant mensuel scolarité
+  fraisInscription Float // première inscription
+  fraisRenouvellement Float // renouvellement annuel
+  fraisCantine   Float?  // par mois (optionnel)
+  fraisTransport Float?  // par mois (optionnel)
+  devise         String  @default("DJF")
+  nbMois         Int     @default(10) // nombre de mensualités par an
+  actif          Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, niveau, annee, siteId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@map("tarifs_niveau")
+}
+
+// ============================================================
+// RELANCES (après retard de paiement)
+// ============================================================
+
+model Relance {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  factureId String
+  facture   Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
+
+  niveau    Int     // 1 = première relance, 2 = deuxième, 3 = troisième
+  canal     String  // "sms", "whatsapp", "email", "courrier"
+  message   String
+  envoyeeParId String?
+  envoyeePar   User?   @relation("RelanceEnvoyeePar", fields: [envoyeeParId], references: [id], onDelete: SetNull)
+
+  envoyeeLe DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([factureId])
+  @@map("relances")
+}
+
+// ============================================================
+// EXCLUSION D'ÉLÈVE (pour non-paiement)
+// ============================================================
+
+model ExclusionEleve {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  eleveId   String
+  eleve     Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  motif     String  // "NON_PAIEMENT", "NON_PAIEMENT_REPETE"
+  details   String?
+  dateDebut DateTime
+  dateFin   DateTime? // null = exclusion en cours
+  leveeParId String?
+  leveePar   User?   @relation("ExclusionLeveePar", fields: [leveeParId], references: [id], onDelete: SetNull)
+  leveeLe    DateTime?
+
+  decideeParId String?
+  decideePar   User?   @relation("ExclusionDecideePar", fields: [decideeParId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([eleveId])
+  @@map("exclusions_eleve")
 }
 
 // ============================================================
@@ -1651,12 +1755,38 @@ model ItemInventaire {
 // MESSAGERIE INTERNE
 // ============================================================
 
+enum ConversationType {
+  DIRECT              // 1-to-1 libre
+  CLASS_ANNOUNCEMENT  // Admin/enseignant → classe (lecture seule par défaut)
+  CLASS_DISCUSSION    // Enseignant ↔ classe (élèves/parents peuvent répondre)
+  ADMIN_BROADCAST     // Admin → tout le tenant/site
+  PARENT_TEACHER      // Parent ↔ enseignant (lié via élève)
+  PARENT_ADMIN        // Parent ↔ administration
+  STAFF_GROUP         // Groupe d'enseignants/personnel
+  FREE                // Groupe libre (exception)
+}
+
+enum ParticipantRole {
+  ADMIN     // Modérateur: peut écrire, modérer, supprimer
+  MEMBER    // Participant actif: peut écrire
+  READONLY  // Lecture seule uniquement
+}
+
 model Conversation {
-  id       String  @id @default(cuid())
-  tenantId String
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  subject  String?
-  isGroup  Boolean @default(false)
+  id         String           @id @default(cuid())
+  tenantId   String
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subject    String?
+  isGroup    Boolean          @default(false)
+  type       ConversationType @default(DIRECT)
+  classeId   String?          // lié à une classe (CLASS_ANNOUNCEMENT, CLASS_DISCUSSION)
+  classe     Classe?          @relation("ConversationClasse", fields: [classeId], references: [id], onDelete: SetNull)
+  siteId     String?          // filtrage multi-site
+  site       Site?            @relation("ConversationSite", fields: [siteId], references: [id], onDelete: SetNull)
+  createdBy  String           // userId du créateur
+  creator    User             @relation("ConversationCreator", fields: [createdBy], references: [id])
+  readOnly   Boolean          @default(false)  // annonce: seul l'admin/creator écrit
+  pinned     Boolean          @default(false)  // épinglé en haut de la liste
 
   participants ConversationParticipant[]
   messages     Message[]
@@ -1665,6 +1795,8 @@ model Conversation {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([classeId])
+  @@index([siteId])
   @@map("conversations")
 }
 
@@ -1674,7 +1806,8 @@ model ConversationParticipant {
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  joinedAt   DateTime  @default(now())
+  role      ParticipantRole @default(MEMBER)  // ADMIN, MEMBER, READONLY
+  joinedAt  DateTime        @default(now())
   lastReadAt DateTime?
 
   @@id([conversationId, userId])
@@ -1689,13 +1822,22 @@ model Message {
   senderId       String
   sender         User         @relation("MessageSender", fields: [senderId], references: [id])
 
-  content String
-  readBy  String[] // array of userIds
+  content        String
+  readBy         String[] // array of userIds
+  replyToId      String?  // réponse à un message (thread)
+  replyTo        Message?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[] @relation("MessageReply")
 
-  createdAt DateTime @default(now())
+  attachmentUrl  String?
+  attachmentType String?  // image, file, pdf...
+
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  deletedAt DateTime?
 
   @@index([conversationId])
   @@index([senderId])
+  @@index([replyToId])
   @@map("messages")
 }
 

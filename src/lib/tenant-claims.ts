@@ -47,6 +47,7 @@ export async function deriveClaims(
   userId: string,
   preferredTenantId?: string | null
 ): Promise<TenantSiteClaims | null> {
+  // eslint-disable-next-line ecolpro/require-site-filter -- claims derivation: computing site claims themselves, filtering would be circular
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -116,7 +117,8 @@ export async function deriveClaims(
   // ---- Sites autorisés DANS le tenant actif ------------------------------
   // La jointure sur `site.tenantId` est la garantie anti-fuite : aucun
   // rattachement d'un autre établissement ne peut franchir la frontière.
-  const [userSites, enseignantSites, tenantSiteCount] = await Promise.all([
+  /* eslint-disable ecolpro/require-site-filter -- claims derivation: resolving site assignments, filtering would be circular */
+  const [userSites, enseignantSites, tenantSites] = await Promise.all([
     prisma.userSite.findMany({
       where: { userId, site: { tenantId: activeTenantId } },
       select: { siteId: true, role: true },
@@ -128,8 +130,15 @@ export async function deriveClaims(
       },
       select: { siteId: true },
     }),
-    prisma.site.count({ where: { tenantId: activeTenantId } }),
+    prisma.site.findMany({
+      where: { tenantId: activeTenantId },
+      select: { id: true },
+    }),
   ]);
+  /* eslint-enable ecolpro/require-site-filter */
+
+  const tenantSiteIds = new Set(tenantSites.map((s) => s.id));
+  const tenantSiteCount = tenantSites.length;
 
   const siteIds = Array.from(
     new Set([...userSites.map((s) => s.siteId), ...enseignantSites.map((s) => s.siteId)])
@@ -143,24 +152,20 @@ export async function deriveClaims(
   if (user.siteId) {
     if (siteIds.includes(user.siteId)) {
       selectedSiteId = user.siteId;
-    } else if (isTenantWide(tenantRole)) {
+    } else if (isTenantWide(tenantRole) && tenantSiteIds.has(user.siteId)) {
       // La direction générale peut sélectionner n'importe quel site de SON
       // tenant, même sans ligne UserSite.
-      const site = await prisma.site.findFirst({
-        where: { id: user.siteId, tenantId: activeTenantId },
-        select: { id: true },
-      });
-      selectedSiteId = site?.id ?? null;
+      selectedSiteId = user.siteId;
     }
   }
 
   // ---- Rôle effectif ----------------------------------------------------
-  // Le rôle spécifique au site ne s'applique que si ce site est autorisé dans
-  // le tenant actif — vérifié ci-dessus.
+  // Le rôle spécifique au site ne s'applique que s'il est explicitement
+  // défini (non null). Si role = NULL, l'utilisateur hérite du rôle global.
   let effectiveRole = tenantRole;
   if (selectedSiteId) {
     const match = userSites.find((s) => s.siteId === selectedSiteId);
-    if (match) effectiveRole = match.role;
+    if (match && match.role) effectiveRole = match.role;
   }
 
   return {
@@ -197,32 +202,36 @@ export async function resolveSiteAccess(
   });
   if (!site) return null;
 
-  // 2. Rattachement explicite : le rôle du site fait foi.
-  const userSite = await prisma.userSite.findFirst({
-    where: { userId, siteId },
-    select: { role: true },
-  });
-  if (userSite) return { role: userSite.role };
-
-  // 3. Enseignant affecté à ce site, dans ce tenant.
-  const enseignantSite = await prisma.enseignantSite.findFirst({
-    where: { siteId, enseignant: { userId, tenantId } },
-    select: { id: true },
-  });
-
-  // 4. Rôle porté par l'adhésion au tenant (jamais celui d'un autre tenant).
-  const membership = await prisma.userTenant.findFirst({
-    where: { userId, tenantId, isActive: true },
-    select: { role: true },
-  });
+  // eslint-disable-next-line ecolpro/require-site-filter -- site access resolution, filtering would be circular
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true, tenantId: true },
   });
   if (!user) return null;
 
+  const membership = await prisma.userTenant.findFirst({
+    where: { userId, tenantId, isActive: true },
+    select: { role: true },
+  });
+
   const tenantRole: Role =
     membership?.role ?? (user.tenantId === tenantId ? user.role : ("TEACHER" as Role));
+
+  // 2. Rattachement explicite : le rôle du site fait foi s'il est défini.
+  //    Si role = NULL, on hérite du rôle global (tenantRole).
+  // eslint-disable-next-line ecolpro/require-site-filter -- site access resolution, filtering would be circular
+  const userSite = await prisma.userSite.findFirst({
+    where: { userId, siteId },
+    select: { role: true },
+  });
+  if (userSite) return { role: userSite.role ?? tenantRole };
+
+  // 3. Enseignant affecté à ce site, dans ce tenant.
+  // eslint-disable-next-line ecolpro/require-site-filter -- site access resolution, filtering would be circular
+  const enseignantSite = await prisma.enseignantSite.findFirst({
+    where: { siteId, enseignant: { userId, tenantId } },
+    select: { id: true },
+  });
 
   if (enseignantSite) return { role: tenantRole };
 

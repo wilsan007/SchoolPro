@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { revalidateTag } from "next/cache";
 
 const PatchSchema = z.object({
   intitule: z.string().min(2).max(200).optional(),
@@ -46,6 +47,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       include: { sessions: true },
     });
 
+    revalidateTag("dashboard-data");
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API/examens/:id PATCH]", error);
@@ -67,6 +70,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!existing) return NextResponse.json({ error: "Examen introuvable" }, { status: 404 });
 
     await prisma.examen.delete({ where: { id } });
+
+    revalidateTag("dashboard-data");
 
     return NextResponse.json({ success: true });
   } catch (error) {

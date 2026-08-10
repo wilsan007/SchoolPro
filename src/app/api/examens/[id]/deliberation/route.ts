@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { revalidateTag } from "next/cache";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,6 +32,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         description: `${examen.description ?? ""}\n[DÉLIBÉRÉ le ${new Date().toLocaleDateString("fr-FR")}]`.trim(),
       },
     });
+
+    revalidateTag("dashboard-data");
 
     return NextResponse.json({
       success: true,

@@ -1,33 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef, useTransition } from "react";
-import { Send, Plus, Search, Circle, Check, CheckCheck, MoreVertical, Users, User } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Send, Plus, Search, CheckCheck, MoreVertical, Users, User,
+  Megaphone, School, MessageSquare, Pin, Lock, Paperclip,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner";
-import { cn, getInitials, timeAgo } from "@/lib/utils";
-import { useTranslations } from "next-intl";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-const ROLE_KEYS: Record<string, string> = {
-  SUPER_ADMIN: "roles.SUPER_ADMIN",
-  TENANT_ADMIN: "roles.TENANT_ADMIN",
-  PRINCIPAL: "roles.PRINCIPAL",
-  TEACHER: "roles.TEACHER",
-  STUDENT: "roles.STUDENT",
-  PARENT: "roles.PARENT",
-  ACCOUNTANT: "roles.ACCOUNTANT",
-  LIBRARIAN: "roles.LIBRARIAN",
-  NURSE: "roles.NURSE",
-  GUARD: "roles.GUARD",
-  STAFF: "roles.STAFF",
-};
-
-interface User {
+interface Participant {
   id: string;
   name: string | null;
   role: string;
-  avatarUrl?: string | null;
+  avatarUrl: string | null;
 }
 
 interface Message {
@@ -35,454 +23,690 @@ interface Message {
   content: string;
   senderId: string;
   senderName: string;
-  createdAt: string | Date;
+  createdAt: string;
   readBy: string[];
+  replyToId?: string | null;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
+  editedAt?: string | null;
 }
 
 interface Conversation {
   id: string;
-  participants: User[];
+  subject: string | null;
+  isGroup: boolean;
+  type?: string;
+  classeId?: string | null;
+  classeNom?: string | null;
+  readOnly?: boolean;
+  pinned?: boolean;
+  createdBy?: string;
+  myRole?: string;
+  participants: Participant[];
   messages: Message[];
-  subject?: string;
-  lastMessage?: Message;
+  lastMessage: Message | null;
   unreadCount: number;
 }
 
-function NewConversationModal({
-  allUsers,
-  currentUserId,
-  onClose,
-  onCreated,
-}: {
-  allUsers: User[];
-  currentUserId: string;
-  onClose: () => void;
-  onCreated: (conv: Conversation) => void;
-}) {
-  const t = useTranslations("messages");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [subject, setSubject] = useState("");
-  const [firstMsg, setFirstMsg] = useState("");
-  const [search, setSearch] = useState("");
-  const [isPending, startTransition] = useTransition();
+type ConversationType =
+  | "DIRECT"
+  | "CLASS_ANNOUNCEMENT"
+  | "CLASS_DISCUSSION"
+  | "ADMIN_BROADCAST"
+  | "PARENT_TEACHER"
+  | "PARENT_ADMIN"
+  | "STAFF_GROUP"
+  | "FREE";
 
-  const others = allUsers.filter((u) => u.id !== currentUserId);
-  const filtered = search
-    ? others.filter((u) => u.name?.toLowerCase().includes(search.toLowerCase()) || t(ROLE_KEYS[u.role] ?? u.role)?.toLowerCase().includes(search.toLowerCase()))
-    : others;
+const TYPE_LABELS: Record<ConversationType, { label: string; icon: typeof Megaphone; color: string }> = {
+  DIRECT: { label: "Message direct", icon: User, color: "text-blue-500" },
+  CLASS_ANNOUNCEMENT: { label: "Annonce de classe", icon: Megaphone, color: "text-orange-500" },
+  CLASS_DISCUSSION: { label: "Discussion de classe", icon: School, color: "text-green-500" },
+  ADMIN_BROADCAST: { label: "Annonce générale", icon: Megaphone, color: "text-red-500" },
+  PARENT_TEACHER: { label: "Parent ↔ Enseignant", icon: Users, color: "text-purple-500" },
+  PARENT_ADMIN: { label: "Parent ↔ Administration", icon: Users, color: "text-indigo-500" },
+  STAFF_GROUP: { label: "Groupe du personnel", icon: Users, color: "text-teal-500" },
+  FREE: { label: "Groupe libre", icon: MessageSquare, color: "text-gray-500" },
+};
 
-  function toggle(id: string) {
-    setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  }
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (selected.length === 0 || !firstMsg.trim()) return;
-    startTransition(async () => {
-      try {
-        const res = await fetch("/api/messages/conversations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ participantIds: selected, subject, firstMessage: firstMsg }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        onCreated(data);
-        toast.success(t("conversationCreated"));
-        onClose();
-      } catch (e: unknown) {
-        toast.error(e instanceof Error ? e.message : t("sendError"));
-      }
-    });
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold">{t("newConversation")}</h2>
-        </div>
-        <form onSubmit={submit} className="p-6 space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("searchRecipients")}</label>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("searchPlaceholder")}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-100 dark:border-gray-800 rounded-lg p-2">
-            {filtered.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => toggle(u.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left",
-                  selected.includes(u.id)
-                    ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-                    : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                )}
-              >
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={u.avatarUrl ?? undefined} />
-                  <AvatarFallback className="text-xs bg-green-100 text-green-700">
-                    {getInitials(u.name ?? "?")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{u.name}</p>
-                  <p className="text-xs text-gray-400">{t(ROLE_KEYS[u.role] ?? u.role)}</p>
-                </div>
-                {selected.includes(u.id) && (
-                  <CheckCheck className="w-4 h-4 text-green-600 shrink-0" />
-                )}
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <p className="text-center text-sm text-gray-400 py-4">{t("noUsersFound")}</p>
-            )}
-          </div>
-          {selected.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {selected.map((id) => {
-                const u = allUsers.find((x) => x.id === id);
-                return u ? (
-                  <span key={id} className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                    {u.name}
-                    <button type="button" onClick={() => toggle(id)} className="hover:text-green-900">×</button>
-                  </span>
-                ) : null;
-              })}
-            </div>
-          )}
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("subjectOptional")}</label>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder={t("subjectPlaceholder")}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("messageLabel")}</label>
-            <textarea
-              required
-              value={firstMsg}
-              onChange={(e) => setFirstMsg(e.target.value)}
-              rows={3}
-              placeholder={t("messagePlaceholder")}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>{t("cancel")}</Button>
-            <Button
-              type="submit"
-              disabled={isPending || selected.length === 0 || !firstMsg.trim()}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-            >
-              {isPending ? t("sending") : t("sendBtn")}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-export function MessagerieView({
-  currentUserId,
-  currentUserName,
-  allUsers,
-}: {
-  currentUserId: string;
-  currentUserName: string;
-  tenantId: string;
-  allUsers: User[];
-}) {
-  const t = useTranslations("messages");
+export function MessagerieView({ userRole }: { userRole: string }) {
+  const [error, setError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
-  const [newMsg, setNewMsg] = useState("");
+  const [activeConv, setActiveConv] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
-  const [showNew, setShowNew] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [canWrite, setCanWrite] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [oldestCursor, setOldestCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Charger les conversations
-  useEffect(() => {
-    fetch("/api/messages/conversations")
-      .then((r) => r.json())
-      .then((data) => {
-        setConversations(data.conversations ?? []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  // --- Fetch conversations ---
+  const fetchConversations = useCallback(async () => {
+    try {
+      const res = await fetch("/api/messages/conversations");
+      if (!res.ok) return;
+      const data = await res.json();
+      setConversations(data.conversations ?? []);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Auto-scroll
+  // --- Fetch messages for a conversation ---
+  const fetchMessages = useCallback(async (convId: string) => {
+    try {
+      const res = await fetch(`/api/messages/conversations/${convId}/messages?limit=50`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setMessages(data.messages ?? []);
+      setHasMore(data.hasMore ?? false);
+      setOldestCursor(data.oldestCursor ?? null);
+      setCanWrite(data.canWrite ?? true);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  // --- Load older messages (pagination) ---
+  const loadOlderMessages = useCallback(async () => {
+    if (!activeConv || !hasMore || loadingMore || !oldestCursor) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/messages/conversations/${activeConv.id}/messages?limit=50&before=${oldestCursor}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      setMessages((prev) => [...(data.messages ?? []), ...prev]);
+      setHasMore(data.hasMore ?? false);
+      setOldestCursor(data.oldestCursor ?? null);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [activeConv, hasMore, loadingMore, oldestCursor]);
+
+  // --- Initial load ---
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // --- Polling: refresh conversations every 10s ---
+  useEffect(() => {
+    pollRef.current = setInterval(fetchConversations, 10000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [fetchConversations]);
+
+  // --- Polling: refresh active conversation messages every 5s ---
+  useEffect(() => {
+    if (!activeConv) return;
+    const interval = setInterval(() => fetchMessages(activeConv.id), 5000);
+    return () => clearInterval(interval);
+  }, [activeConv, fetchMessages]);
+
+  // --- Scroll to bottom on new messages ---
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedConv?.messages]);
+  }, [messages.length]);
 
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedConv || !newMsg.trim()) return;
+  // --- Select conversation ---
+  const selectConv = (conv: Conversation) => {
+    setActiveConv(conv);
+    setMessages([]);
+    fetchMessages(conv.id);
+  };
+
+  // --- Send message (with optimistic UI) ---
+  const sendMessage = async () => {
+    if (!input.trim() || !activeConv || !canWrite) return;
+    const content = input.trim();
+    setInput("");
     setSending(true);
+
+    // Optimistic: add message immediately
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      content,
+      senderId: "me",
+      senderName: "Vous",
+      createdAt: new Date().toISOString(),
+      readBy: ["me"],
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
     try {
-      const res = await fetch(`/api/messages/conversations/${selectedConv.id}/messages`, {
+      const res = await fetch(`/api/messages/conversations/${activeConv.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newMsg }),
+        body: JSON.stringify({ content }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      const msg: Message = data;
-      const updated: Conversation = {
-        ...selectedConv,
-        messages: [...selectedConv.messages, msg],
-        lastMessage: msg,
-      };
-      setSelectedConv(updated);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
-      setNewMsg("");
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.error ?? "Échec d'envoi");
+        // Remove optimistic message
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setInput(content); // restore input
+      } else {
+        const data = await res.json();
+        // Replace optimistic with real message
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...data, senderName: "Vous" } : m))
+        );
+        fetchConversations(); // refresh sidebar
+      }
     } catch {
-      toast.error(t("sendError"));
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setInput(content);
     } finally {
       setSending(false);
     }
-  }
+  };
 
-  const filteredConvs = search
-    ? conversations.filter((c) => {
-        const other = c.participants.find((p) => p.id !== currentUserId);
-        return other?.name?.toLowerCase().includes(search.toLowerCase()) ||
-          c.subject?.toLowerCase().includes(search.toLowerCase());
-      })
-    : conversations;
+  // --- Filter conversations by search ---
+  const filteredConvs = conversations.filter((c) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      c.subject?.toLowerCase().includes(q) ||
+      c.lastMessage?.content.toLowerCase().includes(q) ||
+      c.participants.some((p) => p.name?.toLowerCase().includes(q)) ||
+      c.classeNom?.toLowerCase().includes(q)
+    );
+  });
 
-  const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
+  const getConvDisplayName = (conv: Conversation) => {
+    if (conv.subject) return conv.subject;
+    if (conv.classeNom) return `Classe ${conv.classeNom}`;
+    if (conv.type === "ADMIN_BROADCAST") return "Annonce générale";
+    if (conv.type === "STAFF_GROUP") return "Groupe du personnel";
+    const others = conv.participants.filter((p) => p.id !== "me");
+    if (others.length === 1) return others[0].name ?? "—";
+    if (others.length > 1) return `${others.length} participants`;
+    return conv.subject ?? "Conversation";
+  };
+
+  const getConvIcon = (conv: Conversation) => {
+    const type = (conv.type ?? "DIRECT") as ConversationType;
+    return TYPE_LABELS[type]?.icon ?? User;
+  };
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+  };
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar conversations */}
-      <div className="w-80 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-900">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">{t("messagesTitle")}</h2>
-              {totalUnread > 0 && (
-                <p className="text-xs text-green-600">{t("unread", { count: totalUnread })}</p>
-              )}
-            </div>
-            <Button
-              size="icon"
-              className="bg-green-600 hover:bg-green-700 text-white w-8 h-8"
-              onClick={() => setShowNew(true)}
-            >
-              <Plus className="w-4 h-4" />
+    <div className="flex h-[calc(100vh-64px)]">
+      {/* Sidebar: conversations list */}
+      <div className="w-80 border-r flex flex-col bg-muted/30">
+        <div className="p-3 border-b space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-sm">Messagerie</h2>
+            <Button size="sm" variant="ghost" onClick={() => setShowNewModal(true)}>
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("search")}
-              className="w-full pl-9 pr-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 border-0"
+              className="h-8 pl-7 text-xs"
             />
           </div>
         </div>
 
-        {/* Liste */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-32 text-gray-400 text-sm">{t("loading")}</div>
+            <div className="p-4 text-center text-sm text-muted-foreground">Chargement...</div>
           ) : filteredConvs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-gray-400">
-              <Users className="w-8 h-8 mb-2 opacity-40" />
-              <p className="text-sm">{t("noConversations")}</p>
-              <button
-                onClick={() => setShowNew(true)}
-                className="text-xs text-green-600 hover:underline mt-1"
-              >
-                {t("startNew")}
-              </button>
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              Aucune conversation. Cliquez sur + pour démarrer.
             </div>
           ) : (
-            filteredConvs.map((conv) => {
-              const other = conv.participants.find((p) => p.id !== currentUserId) ?? conv.participants[0];
-              const isSelected = selectedConv?.id === conv.id;
-              return (
-                <button
-                  key={conv.id}
-                  onClick={() => setSelectedConv(conv)}
-                  className={cn(
-                    "w-full flex items-start gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left",
-                    isSelected && "bg-green-50 dark:bg-green-900/10 border-l-2 border-l-green-600"
-                  )}
-                >
-                  <div className="relative">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={other?.avatarUrl ?? undefined} />
-                      <AvatarFallback className="bg-green-100 text-green-700 text-sm">
-                        {getInitials(other?.name ?? "?")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <Circle className="absolute bottom-0 right-0 w-3 h-3 text-green-500 fill-current" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className={cn("text-sm font-medium truncate", conv.unreadCount > 0 && "font-bold text-gray-900 dark:text-white")}>
-                        {conv.participants.length > 2 ? (conv.subject ?? t("group")) : (other?.name ?? t("unknown"))}
-                      </p>
-                      <span className="text-xs text-gray-400 shrink-0 ml-2">
-                        {conv.lastMessage ? timeAgo(conv.lastMessage.createdAt) : ""}
-                      </span>
+            <div className="space-y-0.5">
+              {filteredConvs.map((conv) => {
+                const Icon = getConvIcon(conv);
+                const isActive = activeConv?.id === conv.id;
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => selectConv(conv)}
+                    className={cn(
+                      "w-full text-left p-3 hover:bg-accent transition-colors border-b",
+                      isActive && "bg-accent"
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="mt-0.5">
+                        <Icon className={cn("h-4 w-4", TYPE_LABELS[(conv.type ?? "DIRECT") as ConversationType]?.color)} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-medium text-sm truncate">
+                            {conv.pinned && <Pin className="inline h-3 w-3 mr-1 text-muted-foreground" />}
+                            {getConvDisplayName(conv)}
+                          </span>
+                          {conv.lastMessage && (
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {formatTime(conv.lastMessage.createdAt)}
+                            </span>
+                          )}
+                        </div>
+                        {conv.lastMessage && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            <span className="font-medium">{conv.lastMessage.senderName}:</span>{" "}
+                            {conv.lastMessage.content}
+                          </p>
+                        )}
+                        {conv.unreadCount > 0 && (
+                          <Badge variant="default" className="mt-1 h-4 text-[10px] px-1.5">
+                            {conv.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-xs text-gray-500 truncate">
-                        {conv.lastMessage?.content ?? t("noMessages")}
-                      </p>
-                      {conv.unreadCount > 0 && (
-                        <span className="ml-2 bg-green-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">
-                          {conv.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Zone de conversation */}
-      <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-800/50">
-        {selectedConv ? (
+      {/* Main: messages area */}
+      <div className="flex-1 flex flex-col">
+        {activeConv ? (
           <>
-            {/* Conv header */}
-            <div className="flex items-center gap-3 px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-              {(() => {
-                const other = selectedConv.participants.find((p) => p.id !== currentUserId);
-                return (
-                  <>
-                    <Avatar className="w-9 h-9">
-                      <AvatarFallback className="bg-green-100 text-green-700 text-sm">
-                        {getInitials(other?.name ?? "?")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
-                        {selectedConv.participants.length > 2
-                          ? (selectedConv.subject ?? t("groupCount", { count: selectedConv.participants.length }))
-                          : (other?.name ?? t("unknown"))}
-                      </p>
-                      {other && <p className="text-xs text-gray-400">{t(ROLE_KEYS[other.role] ?? other.role)}</p>}
-                    </div>
-                  </>
-                );
-              })()}
+            {/* Header */}
+            <div className="p-3 border-b flex items-center justify-between bg-background">
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const Icon = getConvIcon(activeConv);
+                  return <Icon className={cn("h-5 w-5", TYPE_LABELS[(activeConv.type ?? "DIRECT") as ConversationType]?.color)} />;
+                })()}
+                <div>
+                  <h3 className="font-medium text-sm">{getConvDisplayName(activeConv)}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {activeConv.participants.length} participant(s)
+                    {activeConv.readOnly && " · Annonce (lecture seule)"}
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {selectedConv.messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  <p className="text-sm">{t("startConversation")}</p>
+            <div className="flex-1 overflow-y-auto p-4">
+              {hasMore && (
+                <div className="text-center py-2">
+                  <Button size="sm" variant="ghost" onClick={loadOlderMessages} disabled={loadingMore}>
+                    {loadingMore ? "Chargement..." : "Charger plus de messages"}
+                  </Button>
                 </div>
-              ) : (
-                selectedConv.messages.map((msg) => {
-                  const isMe = msg.senderId === currentUserId;
+              )}
+              <div className="space-y-2">
+                {messages.map((msg) => {
+                  const isMe = msg.senderId === "me" || msg.senderId === activeConv.createdBy;
                   return (
-                    <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                      <div className={cn("max-w-[70%] space-y-1", isMe ? "items-end" : "items-start")}>
-                        {!isMe && (
-                          <p className="text-xs text-gray-400 px-1">{msg.senderName}</p>
+                    <div
+                      key={msg.id}
+                      className={cn("flex flex-col max-w-[70%]", isMe ? "ml-auto items-end" : "items-start")}
+                    >
+                      {!isMe && (
+                        <span className="text-xs text-muted-foreground mb-0.5 px-2">{msg.senderName}</span>
+                      )}
+                      <div
+                        className={cn(
+                          "rounded-lg px-3 py-2 text-sm",
+                          isMe
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
                         )}
-                        <div
-                          className={cn(
-                            "px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
-                            isMe
-                              ? "bg-green-600 text-white rounded-tr-sm"
-                              : "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm rounded-tl-sm border border-gray-100 dark:border-gray-700"
-                          )}
-                        >
-                          {msg.content}
-                        </div>
-                        <div className={cn("flex items-center gap-1 px-1", isMe ? "justify-end" : "justify-start")}>
-                          <p className="text-xs text-gray-400">{timeAgo(msg.createdAt)}</p>
-                          {isMe && (
-                            <CheckCheck className="w-3.5 h-3.5 text-green-500" />
-                          )}
-                        </div>
+                      >
+                        {msg.content}
+                      </div>
+                      <div className="flex items-center gap-1 px-2 mt-0.5">
+                        <span className="text-[10px] text-muted-foreground">{formatTime(msg.createdAt)}</span>
+                        {isMe && msg.readBy.length > 1 && (
+                          <CheckCheck className="h-3 w-3 text-blue-500" />
+                        )}
                       </div>
                     </div>
                   );
-                })
-              )}
-              <div ref={messagesEndRef} />
+                })}
+                <div ref={messagesEndRef} />
+              </div>
             </div>
 
-            {/* Input message */}
-            <form
-              onSubmit={sendMessage}
-              className="flex items-end gap-3 px-6 py-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700"
-            >
-              <textarea
-                value={newMsg}
-                onChange={(e) => setNewMsg(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(e); }
-                }}
-                placeholder={t("typeMessage")}
-                rows={2}
-                className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500 border-0"
-              />
-              <Button
-                type="submit"
-                disabled={sending || !newMsg.trim()}
-                size="icon"
-                className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-xl shrink-0"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </form>
+            {/* Input */}
+            {canWrite ? (
+              <div className="p-3 border-t flex items-center gap-2 bg-background">
+                <Button size="sm" variant="ghost" disabled>
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Input
+                  placeholder="Écrire un message..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  disabled={sending}
+                  className="flex-1"
+                />
+                <Button size="sm" onClick={sendMessage} disabled={!input.trim() || sending}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="p-3 border-t flex items-center justify-center gap-2 bg-muted/30 text-muted-foreground text-sm">
+                <Lock className="h-4 w-4" />
+                Cette conversation est en mode annonce — vous ne pouvez que lire
+              </div>
+            )}
+
+            {error && (
+              <div className="px-3 py-1 bg-destructive/10 text-destructive text-xs text-center">
+                {error}
+              </div>
+            )}
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 space-y-3">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-              <Send className="w-7 h-7 opacity-40" />
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
+              <p>Sélectionnez une conversation</p>
             </div>
-            <p className="font-medium text-gray-500">{t("selectConversation")}</p>
-            <p className="text-sm">{t("orStartNew")}</p>
-            <Button onClick={() => setShowNew(true)} variant="outline" className="mt-2 gap-2">
-              <Plus className="w-4 h-4" />
-              {t("newMessage")}
-            </Button>
           </div>
         )}
       </div>
 
-      {showNew && (
+      {/* New conversation modal */}
+      {showNewModal && (
         <NewConversationModal
-          allUsers={allUsers}
-          currentUserId={currentUserId}
-          onClose={() => setShowNew(false)}
+          userRole={userRole}
+          onClose={() => setShowNewModal(false)}
           onCreated={(conv) => {
-            setConversations((prev) => [conv, ...prev]);
-            setSelectedConv(conv);
+            setShowNewModal(false);
+            fetchConversations();
+            selectConv(conv);
           }}
         />
       )}
+    </div>
+  );
+}
+
+// --- New Conversation Modal ---
+function NewConversationModal({
+  userRole,
+  onClose,
+  onCreated,
+}: {
+  userRole: string;
+  onClose: () => void;
+  onCreated: (conv: Conversation) => void;
+}) {
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [type, setType] = useState<ConversationType>("DIRECT");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [readOnly, setReadOnly] = useState(false);
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [recipients, setRecipients] = useState<Participant[]>([]);
+  const [selectedRecipients, setSelectedRecipients] = useState<Participant[]>([]);
+  const [classes, setClasses] = useState<{ id: string; nom: string; niveau: string }[]>([]);
+  const [selectedClasseId, setSelectedClasseId] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Fetch recipients based on type
+  useEffect(() => {
+    if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
+      // Fetch classes
+      fetch("/api/classes")
+        .then((r) => r.json())
+        .then((data) => setClasses(data.classes ?? data ?? []))
+        .catch(() => {});
+    } else if (type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") {
+      // Fetch possible recipients
+      fetch(`/api/messages/recipients?type=${type}`)
+        .then((r) => r.json())
+        .then((data) => setRecipients(data.recipients ?? []))
+        .catch(() => {});
+    }
+  }, [type]);
+
+  const allowedTypes: ConversationType[] = (() => {
+    switch (userRole) {
+      case "SUPER_ADMIN":
+      case "TENANT_ADMIN":
+        return ["DIRECT", "CLASS_ANNOUNCEMENT", "CLASS_DISCUSSION", "ADMIN_BROADCAST", "PARENT_TEACHER", "PARENT_ADMIN", "STAFF_GROUP", "FREE"];
+      case "PRINCIPAL":
+        return ["DIRECT", "CLASS_ANNOUNCEMENT", "CLASS_DISCUSSION", "PARENT_TEACHER", "PARENT_ADMIN", "STAFF_GROUP", "FREE"];
+      case "SECRETARY":
+        return ["DIRECT", "CLASS_ANNOUNCEMENT", "PARENT_ADMIN", "FREE"];
+      case "TEACHER":
+      case "CLASS_TEACHER":
+        return ["DIRECT", "CLASS_DISCUSSION", "PARENT_TEACHER", "STAFF_GROUP"];
+      case "COUNSELOR":
+        return ["DIRECT", "PARENT_ADMIN", "STAFF_GROUP"];
+      case "ACCOUNTANT":
+        return ["DIRECT", "PARENT_ADMIN"];
+      case "PARENT":
+        return ["DIRECT", "PARENT_TEACHER", "PARENT_ADMIN"];
+      default:
+        return ["DIRECT"];
+    }
+  })();
+
+  const filteredRecipients = recipients.filter((r) =>
+    r.name?.toLowerCase().includes(recipientQuery.toLowerCase())
+  );
+
+  const handleCreate = async () => {
+    if (!message.trim()) return;
+    if ((type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") && selectedRecipients.length === 0) return;
+    if ((type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") && !selectedClasseId) return;
+
+    setCreating(true);
+    try {
+      const body: Record<string, unknown> = {
+        type,
+        subject: subject || undefined,
+        firstMessage: message,
+        readOnly,
+      };
+      if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
+        body.classeId = selectedClasseId;
+      } else {
+        body.participantIds = selectedRecipients.map((r) => r.id);
+      }
+
+      const res = await fetch("/api/messages/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setCreateError(err.error ?? "Échec de création");
+      } else {
+        const conv = await res.json();
+        onCreated(conv);
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-background rounded-lg shadow-lg w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-semibold text-lg">Nouvelle conversation</h2>
+
+        {/* Type selector */}
+        <div>
+          <label className="text-sm font-medium mb-1 block">Type de conversation</label>
+          <div className="grid grid-cols-2 gap-2">
+            {allowedTypes.map((t) => {
+              const Icon = TYPE_LABELS[t].icon;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setType(t)}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg border text-xs text-left transition-colors",
+                    type === t ? "border-primary bg-primary/5" : "border-border hover:bg-accent"
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4 shrink-0", TYPE_LABELS[t].color)} />
+                  <span>{TYPE_LABELS[t].label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Class selector */}
+        {(type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") && (
+          <div>
+            <label className="text-sm font-medium mb-1 block">Classe destinataire</label>
+            <select
+              value={selectedClasseId}
+              onChange={(e) => setSelectedClasseId(e.target.value)}
+              className="w-full p-2 border rounded-lg text-sm bg-background"
+            >
+              <option value="">Sélectionner une classe...</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>{c.nom} — {c.niveau}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Tous les élèves, parents et enseignants de cette classe seront automatiquement ajoutés.
+            </p>
+          </div>
+        )}
+
+        {/* Recipient selector (for DIRECT, PARENT_TEACHER, etc.) */}
+        {(type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") && (
+          <div>
+            <label className="text-sm font-medium mb-1 block">Destinataires</label>
+            <Input
+              placeholder="Rechercher un destinataire..."
+              value={recipientQuery}
+              onChange={(e) => setRecipientQuery(e.target.value)}
+              className="mb-2"
+            />
+            <div className="max-h-32 overflow-y-auto space-y-1 border rounded-lg p-2">
+              {filteredRecipients.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">Aucun destinataire trouvé</p>
+              ) : (
+                filteredRecipients.map((r) => {
+                  const selected = selectedRecipients.some((s) => s.id === r.id);
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => {
+                        setSelectedRecipients((prev) =>
+                          selected ? prev.filter((s) => s.id !== r.id) : [...prev, r]
+                        );
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2 p-1.5 rounded text-sm text-left",
+                        selected ? "bg-primary/10" : "hover:bg-accent"
+                      )}
+                    >
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={r.avatarUrl ?? undefined} />
+                        <AvatarFallback className="text-xs">{r.name?.[0] ?? "?"}</AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 truncate">{r.name}</span>
+                      <Badge variant="outline" className="text-[10px]">{r.role}</Badge>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {selectedRecipients.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">{selectedRecipients.length} destinataire(s) sélectionné(s)</p>
+            )}
+          </div>
+        )}
+
+        {/* Subject */}
+        <div>
+          <label className="text-sm font-medium mb-1 block">Sujet (optionnel)</label>
+          <Input
+            placeholder="Objet de la conversation..."
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </div>
+
+        {/* Read-only toggle for announcements */}
+        {(type === "CLASS_ANNOUNCEMENT" || type === "ADMIN_BROADCAST") && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={readOnly}
+              onChange={(e) => setReadOnly(e.target.checked)}
+              className="rounded"
+            />
+            Mode annonce (les participants ne peuvent que lire)
+          </label>
+        )}
+
+        {/* First message */}
+        <div>
+          <label className="text-sm font-medium mb-1 block">Message</label>
+          <textarea
+            placeholder="Votre message..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="w-full p-2 border rounded-lg text-sm min-h-[80px] resize-y bg-background"
+          />
+        </div>
+
+        {/* Error display */}
+        {createError && (
+          <div className="bg-destructive/10 text-destructive text-sm p-2 rounded">
+            {createError}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button
+            onClick={handleCreate}
+            disabled={creating || !message.trim() || ((type === "DIRECT" || type === "PARENT_TEACHER" || type === "PARENT_ADMIN" || type === "FREE") && selectedRecipients.length === 0) || ((type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") && !selectedClasseId)}
+          >
+            {creating ? "Création..." : "Créer"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

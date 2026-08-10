@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForRelation } from "@/lib/site-filter";
+import { revalidateTag } from "next/cache";
 
 // GET : Récupérer la grille de notes (élèves de la classe + leurs notes actuelles pour cette évaluation)
 export async function GET(
@@ -131,6 +132,8 @@ export async function PUT(
         data: { statut: "TERMINE" }
       });
     }
+
+    revalidateTag("dashboard-data");
 
     return NextResponse.json({ success: true, count: notesToCreate.length });
   } catch (error) {

@@ -90,6 +90,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         const { email, password } = parsed.data;
 
+        // eslint-disable-next-line ecolpro/require-site-filter -- login: no session exists yet, user must be looked up across all sites
         const user = await prisma.user.findUnique({
           where: { email },
           select: {

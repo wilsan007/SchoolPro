@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
+import { revalidateTag } from "next/cache";
 
 const CreateSchema = z.object({
   intitule: z.string().min(2).max(200),
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
       },
       include: { sessions: true },
     });
+
+    revalidateTag("dashboard-data");
 
     return NextResponse.json(examen, { status: 201 });
   } catch (error) {

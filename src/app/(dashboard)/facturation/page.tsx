@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { Header } from "@/components/layout/Header";
 import { FacturesTable } from "@/components/facturation/FacturesTable";
+import { FacturationActions } from "@/components/facturation/FacturationActions";
 import { getFacturesForTenant } from "@/lib/actions/facture";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
@@ -29,7 +30,8 @@ export default async function FacturationPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin space-y-4">
+        <FacturationActions currentYear="2025-2026" />
         <FacturesTable factures={factures} />
       </div>
     </div>

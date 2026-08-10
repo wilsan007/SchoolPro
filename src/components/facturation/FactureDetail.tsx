@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus, FileText, Printer, CreditCard } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus, FileText, Printer, CreditCard, Download } from "lucide-react";
 import Link from "next/link";
 import { enregistrerPaiement, annulerFacture, type PaiementFormData } from "@/lib/actions/facture";
 import { useTranslations } from "next-intl";
@@ -123,6 +123,12 @@ export function FactureDetail({ facture }: FactureDetailProps) {
         </Button>
         {facture.statut !== "ANNULEE" && facture.statut !== "PAYEE" && (
           <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <a href={`/api/factures/${facture.id}/pdf`} target="_blank" rel="noopener noreferrer">
+                <FileText className="h-4 w-4" />
+                {t("printInvoice")}
+              </a>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -144,13 +150,23 @@ export function FactureDetail({ facture }: FactureDetailProps) {
             </Button>
           </div>
         )}
-        {facture.statut === "PAYEE" && facture.paiements.length > 0 && (
-          <Button asChild size="sm" variant="outline" className="gap-2">
-            <a href={`/api/paiements/${facture.paiements[0].id}/recu`} target="_blank" rel="noopener noreferrer">
-              <Printer className="h-4 w-4" />
-              {t("printReceipt")}
-            </a>
-          </Button>
+        {facture.statut === "PAYEE" && (
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <a href={`/api/factures/${facture.id}/pdf`} target="_blank" rel="noopener noreferrer">
+                <FileText className="h-4 w-4" />
+                {t("printInvoice")}
+              </a>
+            </Button>
+            {facture.paiements.length > 0 && (
+              <Button asChild size="sm" variant="outline" className="gap-2">
+                <a href={`/api/paiements/${facture.paiements[0].id}/recu`} target="_blank" rel="noopener noreferrer">
+                  <Printer className="h-4 w-4" />
+                  {t("printReceipt")}
+                </a>
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

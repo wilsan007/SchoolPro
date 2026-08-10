@@ -20,7 +20,7 @@ const getDashboardData = unstable_cache(
     noteFilter: Record<string, unknown>,
     examenFilter: Record<string, unknown>
   ) => {
-    const baseWhere = { tenantId, ...eleveFilter } as Prisma.EleveWhereInput;
+    const baseWhere = { tenantId, ...eleveFilter, deletedAt: null } as Prisma.EleveWhereInput;
     const classeWhere = { tenantId, ...classeFilter } as Prisma.ClasseWhereInput;
     const absenceWhere = { tenantId, ...absenceFilter } as Prisma.AbsenceWhereInput;
     const noteWhere = { tenantId, ...noteFilter } as Prisma.NoteWhereInput;

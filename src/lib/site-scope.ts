@@ -370,6 +370,21 @@ export const SITE_PATHS: Record<string, SitePath> = {
 };
 
 /**
+ * Modèles "column" où `siteId: null` signifie "partagé entre tous les sites"
+ * (donnée de référence). Pour ces modèles, un filtrage par site inclut les
+ * enregistrements `null`.
+ *
+ * Pour tous les autres modèles "column" (eleve, classe, facture, etc.),
+ * `siteId: null` signifie "non assigné" et ne doit PAS apparaître quand
+ * on filtre par site.
+ */
+const SHARED_NULL_MODELS = new Set([
+  "matiere",
+  "structure",
+  "disponibiliteEnseignant",
+]);
+
+/**
  * Fragment d'isolation par site pour un modèle donné, en empruntant
  * automatiquement le bon chemin.
  *
@@ -403,7 +418,13 @@ export function siteFilterForModel(
       break;
   }
 
-  const inSites = { OR: [{ siteId: { in: scope.siteIds } }, { siteId: null }] };
+  // Pour les modèles "column", `siteId: null` ne signifie "partagé" que pour
+  // un ensemble restreint de modèles de référence (matière, structure…).
+  // Pour eleve, classe, facture, etc., `null` = non assigné → exclu du filtre.
+  const includeNull = path === "column" && SHARED_NULL_MODELS.has(model);
+  const inSites = includeNull
+    ? { OR: [{ siteId: { in: scope.siteIds } }, { siteId: null }] }
+    : { siteId: { in: scope.siteIds } };
 
   if (path === "column") return { AND: [inSites] };
   if ("one" in path) return { AND: [{ [path.one]: inSites }] };

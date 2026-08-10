@@ -7,7 +7,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { School, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 const LoginSchema = z.object({
@@ -59,14 +59,6 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md">
-      {/* Logo mobile */}
-      <div className="flex items-center gap-3 mb-8 lg:hidden">
-        <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-          <School className="w-5 h-5 text-white" />
-        </div>
-        <span className="text-lg font-bold">EcolPro</span>
-      </div>
-
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -148,56 +140,14 @@ function LoginForm() {
 // ─── Page principale avec Suspense (requis par Next.js 15 pour useSearchParams) ─
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex">
-      {/* Panneau gauche — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex-col justify-between p-12 text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
-            <School className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-indigo-200 to-purple-200 bg-clip-text text-transparent">EcolPro</span>
+    <div className="min-h-screen flex items-center justify-center p-8 bg-background">
+      <Suspense fallback={
+        <div className="flex items-center justify-center w-full h-full">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-        <div>
-          <blockquote className="text-2xl font-light leading-relaxed text-white/90">
-            &ldquo;La plateforme de gestion scolaire la plus moderne d&apos;Afrique. Élèves, absences, notes — tout en un.&rdquo;
-          </blockquote>
-          <div className="mt-8 flex items-center gap-4">
-            <div className="flex -space-x-2">
-              {["MK", "FD", "AB", "OS"].map((init) => (
-                <div key={init} className="w-8 h-8 rounded-full bg-indigo-500/40 border-2 border-slate-900 flex items-center justify-center text-xs font-semibold">
-                  {init}
-                </div>
-              ))}
-            </div>
-            <p className="text-sm text-white/70">
-              Rejoignez plus de <strong className="text-white">500+ établissements</strong>
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-6 text-center">
-          {[
-            { label: "Élèves gérés", value: "150+" },
-            { label: "Établissements", value: "3" },
-            { label: "Pays", value: "2" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p className="text-2xl font-bold text-indigo-400">{stat.value}</p>
-              <p className="text-xs text-white/50 mt-1">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Panneau droit — Formulaire */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
-        <Suspense fallback={
-          <div className="flex items-center justify-center w-full h-full">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        }>
-          <LoginForm />
-        </Suspense>
-      </div>
+      }>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import Stripe from "stripe";
+import { revalidateTag } from "next/cache";
 
 export async function POST(req: NextRequest) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -61,6 +62,8 @@ export async function POST(req: NextRequest) {
           where: { id: factureId },
           data: { statut: newStatut as never },
         });
+
+        revalidateTag("dashboard-data");
 
         console.log(`[Stripe] Paiement enregistré pour facture ${facture.numero}: ${amount}`);
         break;

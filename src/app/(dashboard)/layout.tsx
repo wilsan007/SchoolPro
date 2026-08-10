@@ -5,6 +5,7 @@ import { AiChatWidget } from "@/components/ai/AiChatWidget";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
+import { checkUserFinancialBlock } from "@/lib/financial-guard";
 
 const AI_GREETINGS: Record<string, string> = {
   SUPER_ADMIN:
@@ -37,13 +38,30 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [session, tRoles] = await Promise.all([
+  const [session, tRoles, tCommon] = await Promise.all([
     auth(),
     getTranslations("roles"),
+    getTranslations("common"),
   ]);
 
   if (!session?.user) {
     redirect("/login");
+  }
+
+  // Blocage financier : rediriger les élèves/parents exclus vers la page d'accès bloqué
+  // Pour les parents avec exclusion partielle, on affiche un avertissement mais on ne bloque pas
+  let partialBlockMessage: string | null = null;
+  if (
+    (session.user.role === "STUDENT" || session.user.role === "PARENT") &&
+    session.user.tenantId
+  ) {
+    const block = await checkUserFinancialBlock(session.user.id, session.user.tenantId);
+    if (block.blocked) {
+      redirect("/acces-bloque");
+    }
+    if (block.partialBlock && block.messageKey) {
+      partialBlockMessage = tCommon(block.messageKey, block.messageParams ?? {});
+    }
   }
 
   const tenantName = session.user.tenantId
@@ -107,6 +125,14 @@ export default async function DashboardLayout({
         isSiteAdmin={isSiteAdmin}
       />
       <main className="flex-1 flex flex-col overflow-hidden bg-background">
+        {partialBlockMessage && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2">
+            <svg className="h-4 w-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.93 19h12.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L4.2 16c-.77 1.33.19 3 1.73 3z" />
+            </svg>
+            <p className="text-sm text-amber-800">{partialBlockMessage}</p>
+          </div>
+        )}
         {children}
       </main>
       {/* AI chat widget temporarily hidden

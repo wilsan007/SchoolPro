@@ -52,6 +52,7 @@ export async function verifyTenantAccess(
   userId: string,
   tenantId: string
 ): Promise<boolean> {
+  // eslint-disable-next-line ecolpro/require-site-filter -- tenant-level access check, not site-scoped
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId },
     select: { id: true },

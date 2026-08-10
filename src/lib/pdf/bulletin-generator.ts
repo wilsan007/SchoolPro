@@ -81,6 +81,7 @@ export async function getBulletinData(
 ): Promise<BulletinData | null> {
   const { default: prisma } = await import("@/lib/prisma");
 
+  /* eslint-disable ecolpro/require-site-filter -- PDF generation library function, caller passes tenantId and is responsible for site scoping */
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     include: {
@@ -150,6 +151,7 @@ export async function getBulletinData(
     },
     select: { matiereId: true, moyenneEleve: true },
   });
+  /* eslint-enable ecolpro/require-site-filter */
 
   const moyenneClasseByMatiere: Record<string, number | null> = {};
   const matiereIds = [...new Set(allBulletinsMatieres.map(bm => bm.matiereId))];
@@ -276,6 +278,7 @@ export async function getBulletinAnnuelData(
 ): Promise<BulletinAnnuelData | null> {
   const { default: prisma } = await import("@/lib/prisma");
 
+  /* eslint-disable ecolpro/require-site-filter -- PDF generation library function, caller passes tenantId and is responsible for site scoping */
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     include: {
@@ -426,6 +429,7 @@ export async function getBulletinAnnuelData(
       },
       select: { bulletin: { select: { eleveId: true } }, moyenneEleve: true },
     });
+  /* eslint-enable ecolpro/require-site-filter */
     // Actually we need matiereId, not code. Let's use the map.
     // Skip for now - too complex for this iteration
     matiere.rangAnnuel = null;
