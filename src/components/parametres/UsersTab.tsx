@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin, AlertTriangle, Search, Shield, GraduationCap, Briefcase, Users as UsersIcon } from "lucide-react";
 import { createUser, toggleUserActive, deleteUser, updateUserPhone, assignUserSites, getUserSites, type UserFormData } from "@/lib/actions/parametres";
 import { addUserToTenant } from "@/lib/actions/user-tenant";
 import { useTranslations } from "next-intl";
 import type { AvailableTenant } from "@/auth.config";
 import type { Role } from "@prisma/client";
+import { cn } from "@/lib/utils";
 
 interface UserItem {
   id: string;
@@ -38,6 +39,15 @@ const roleKeys: Record<string, string> = {
   STUDENT: "roleStudent",
 };
 
+type UserCategory = "all" | "admin" | "teachers" | "staff";
+
+const categoryConfig: Record<UserCategory, { label: string; icon: typeof Shield; roles: string[] }> = {
+  all: { label: "Tous", icon: UsersIcon, roles: [] },
+  admin: { label: "Administration", icon: Shield, roles: ["TENANT_ADMIN", "PRINCIPAL", "SUPER_ADMIN"] },
+  teachers: { label: "Enseignants", icon: GraduationCap, roles: ["TEACHER", "CLASS_TEACHER", "COUNSELOR"] },
+  staff: { label: "Personnel", icon: Briefcase, roles: ["SECRETARY", "NURSE", "ACCOUNTANT"] },
+};
+
 // Rôles masqués du sélecteur (le prof principal est défini au niveau de la classe, pas au niveau utilisateur)
 const hiddenRoles = ["CLASS_TEACHER"];
 
@@ -53,6 +63,25 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
   const [isPending, setIsPending] = useState(false);
   const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
   const [phoneValue, setPhoneValue] = useState("");
+  const [activeCategory, setActiveCategory] = useState<UserCategory>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredUsers = users.filter((u) => {
+    const matchesCategory =
+      activeCategory === "all" || categoryConfig[activeCategory].roles.includes(u.role);
+    const matchesSearch =
+      !searchQuery ||
+      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const categoryCounts: Record<UserCategory, number> = {
+    all: users.length,
+    admin: users.filter((u) => categoryConfig.admin.roles.includes(u.role)).length,
+    teachers: users.filter((u) => categoryConfig.teachers.roles.includes(u.role)).length,
+    staff: users.filter((u) => categoryConfig.staff.roles.includes(u.role)).length,
+  };
 
   // Multi-tenant: modal d'invitation
   const [showTenantModal, setShowTenantModal] = useState(false);
@@ -414,6 +443,47 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
         </Card>
       )}
 
+      {/* Barre de filtres par catégorie + recherche */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(categoryConfig) as UserCategory[]).map((cat) => {
+            const cfg = categoryConfig[cat];
+            const count = categoryCounts[cat];
+            const isActive = activeCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <cfg.icon className="h-3.5 w-3.5" />
+                {cfg.label}
+                <span className={cn(
+                  "ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold",
+                  isActive ? "bg-primary-foreground/20" : "bg-muted"
+                )}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par nom ou email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -431,10 +501,12 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                 </tr>
               </thead>
               <tbody>
-                {users.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">{t("noUsers")}</td></tr>
+                {filteredUsers.length === 0 ? (
+                  <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">
+                    {searchQuery ? "Aucun utilisateur trouvé pour cette recherche." : t("noUsers")}
+                  </td></tr>
                 ) : (
-                  users.map((u) => (
+                  filteredUsers.map((u) => (
                     <tr key={u.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{u.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.email}</td>

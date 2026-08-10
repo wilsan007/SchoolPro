@@ -46,13 +46,20 @@ const STATUT_CODES = ["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"] as 
 interface ElevesTableProps {
   eleves: Eleve[];
   total: number;
+  /**
+   * Effectif réel de chaque classe, mesuré en base (nom de classe → nombre).
+   *
+   * Indispensable : `eleves` est plafonné à 500 lignes côté serveur, donc
+   * compter les éléments chargés sous-estimerait les effectifs sans le dire.
+   */
+  effectifs?: Record<string, number>;
   classes: string[];
   initialQuery: string;
   initialClasse: string;
   initialStatut: string;
 }
 
-export function ElevesTable({ eleves, total, classes, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
+export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("eleves");
@@ -112,6 +119,13 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
       ? <ChevronUp className="h-3 w-3" />
       : <ChevronDown className="h-3 w-3" />;
   }
+
+  /**
+   * Effectif à afficher pour une classe : la mesure faite en base si elle est
+   * disponible, sinon le nombre de lignes chargées. Sans filtre d'écran, les
+   * deux coïncident ; avec un filtre, la mesure serveur reste la référence.
+   */
+  const effectifDe = (classe: string, charges: number) => effectifs?.[classe] ?? charges;
 
   // Groupement des élèves par niveau scolaire, puis par niveau de classe, puis par classe
   const groupedEleves = SCHOOL_GROUP_ORDER.map((group) => {
@@ -223,7 +237,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
           <div className="flex items-center gap-1 px-4 pt-3 border-b">
             {groupedEleves.map(({ group, classesByNiveau }) => {
               const totalGroup = classesByNiveau.reduce(
-                (s, n) => s + n.classes.reduce((s2, c) => s2 + c.eleves.length, 0), 0
+                (s, n) => s + n.classes.reduce((s2, c) => s2 + effectifDe(c.classe, c.eleves.length), 0), 0
               );
               return (
                 <button
@@ -273,7 +287,7 @@ export function ElevesTable({ eleves, total, classes, initialQuery, initialClass
                             "ml-1.5 text-[10px]",
                             activeClass === classe ? "opacity-80" : "text-muted-foreground"
                           )}>
-                            {classeEleves.length}
+                            {effectifDe(classe, classeEleves.length)}
                           </span>
                         </button>
                       ))}

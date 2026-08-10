@@ -15,48 +15,93 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { getSitesForUser } from "@/lib/actions/eleve";
 import type { Prisma } from "@prisma/client";
 
-const getElevesStats = unstable_cache(
-  async (tenantId: string, siteFilter: Record<string, unknown>) => {
-    const where = { tenantId, ...siteFilter, deletedAt: null } as Prisma.EleveWhereInput;
-    const [byStatut, bySexe, byRegime, totalTenant] = await Promise.all([
-      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
-      prisma.eleve.groupBy({
-        by: ["statut"],
-        where,
-        _count: true,
-      }),
-      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
-      prisma.eleve.groupBy({
-        by: ["sexe"],
-        where,
-        _count: true,
-      }),
-      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
-      prisma.eleve.groupBy({
-        by: ["regime"],
-        where,
-        _count: true,
-      }),
-      // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } inside unstable_cache
-      prisma.eleve.count({ where }),
-    ]);
+/**
+ * Périmètre commun à TOUTES les mesures de la page.
+ *
+ * Le total affiché et la somme des effectifs par classe doivent provenir du
+ * même ensemble de lignes, sans quoi ils se contredisent — c'est ce qui
+ * produisait un total de 275 face à des classes totalisant 269 : les
+ * statistiques étaient servies depuis `unstable_cache` (60 s) pendant que le
+ * tableau lisait la base en direct, si bien qu'une suppression d'élève
+ * n'apparaissait que d'un côté.
+ */
+function baseEleveWhere(
+  tenantId: string,
+  siteFilter: Record<string, unknown>,
+  userRole?: string
+): Prisma.EleveWhereInput {
+  return {
+    tenantId,
+    ...siteFilter,
+    deletedAt: null,
+    // Pour les parents : masquer les enfants exclus. Ce filtre doit valoir
+    // pour les statistiques comme pour le tableau.
+    ...(userRole === "PARENT" && { statut: { not: "EXCLU" } }),
+  } as Prisma.EleveWhereInput;
+}
 
+/**
+ * Statistiques d'en-tête. Volontairement NON mises en cache : elles sont
+ * lues dans la même requête HTTP que le tableau, à partir du même `where`,
+ * ce qui rend toute divergence impossible par construction. Ce sont trois
+ * agrégats sur une colonne indexée (`tenantId`) — le coût est négligeable
+ * devant le risque d'afficher deux vérités différentes.
+ */
+// eslint-disable-next-line ecolpro/require-site-filter -- `where` est construit par baseEleveWhere, qui applique déjà siteFilter
+async function getElevesStats(where: Prisma.EleveWhereInput) {
+  const [byStatut, bySexe, byRegime, total] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    prisma.eleve.groupBy({ by: ["statut"], where, _count: true }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    prisma.eleve.groupBy({ by: ["sexe"], where, _count: true }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    prisma.eleve.groupBy({ by: ["regime"], where, _count: true }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    prisma.eleve.count({ where }),
+  ]);
 
-    const statutMap = Object.fromEntries(byStatut.map((s) => [s.statut, s._count]));
-    const sexeMap = Object.fromEntries(bySexe.map((s) => [s.sexe, s._count]));
-    const regimeMap = Object.fromEntries(byRegime.map((r) => [r.regime ?? "autre", r._count]));
+  const statutMap = Object.fromEntries(byStatut.map((s) => [s.statut, s._count]));
+  const sexeMap = Object.fromEntries(bySexe.map((s) => [s.sexe, s._count]));
+  const regimeMap = Object.fromEntries(byRegime.map((r) => [r.regime ?? "autre", r._count]));
 
-    return {
-      total: totalTenant,
-      actifs: statutMap["ACTIF"] ?? 0,
-      filles: sexeMap["F"] ?? 0,
-      garcons: sexeMap["M"] ?? 0,
-      internes: regimeMap["interne"] ?? 0,
-    };
-  },
-  ["eleves-stats"],
-  { revalidate: 60, tags: ["eleves-stats"] }
-);
+  return {
+    total,
+    actifs: statutMap["ACTIF"] ?? 0,
+    filles: sexeMap["F"] ?? 0,
+    garcons: sexeMap["M"] ?? 0,
+    internes: regimeMap["interne"] ?? 0,
+  };
+}
+
+/**
+ * Effectif réel de chaque classe, mesuré en base.
+ *
+ * Le tableau ne charge que les 500 premiers élèves ; compter les lignes
+ * chargées sous-estimerait donc les effectifs au-delà de ce plafond, en
+ * silence. Un `groupBy` donne le compte exact quel que soit le volume.
+ */
+async function getEffectifsParClasse(where: Prisma.EleveWhereInput) {
+  // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+  const parClasse = await prisma.eleve.groupBy({
+    by: ["classeId"],
+    where,
+    _count: true,
+  });
+
+  const ids = parClasse.map((c) => c.classeId).filter((id): id is string => !!id);
+  // eslint-disable-next-line ecolpro/require-site-filter -- restreint aux classes déjà atteintes par le where filtré
+  const classes = ids.length
+    ? await prisma.classe.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true } })
+    : [];
+  const nomDe = new Map(classes.map((c) => [c.id, c.nom]));
+
+  const effectifs: Record<string, number> = {};
+  for (const c of parClasse) {
+    const nom = c.classeId ? (nomDe.get(c.classeId) ?? "Sans classe") : "Sans classe";
+    effectifs[nom] = (effectifs[nom] ?? 0) + c._count;
+  }
+  return effectifs;
+}
 
 const getClassesList = unstable_cache(
   async (tenantId: string, siteFilter: Record<string, unknown>) => {
@@ -79,12 +124,14 @@ async function getElevesData(
   filters: { q?: string; classeId?: string; statut?: string },
   userRole?: string,
 ) {
+  // Périmètre de référence : ce que voit l'utilisateur, filtres d'écran mis à
+  // part. Statistiques et effectifs par classe en découlent tous les deux.
+  const base = baseEleveWhere(tenantId, siteFilter, userRole);
+
+  // Périmètre du tableau : le périmètre de référence, restreint par les
+  // filtres choisis à l'écran.
   const where = {
-    tenantId,
-    ...siteFilter,
-    deletedAt: null, // Exclure les élèves supprimés (soft delete)
-    // Pour les parents: masquer les enfants exclus de la liste
-    ...(userRole === "PARENT" && { statut: { not: "EXCLU" } }),
+    ...base,
     ...(filters.classeId && { classeId: filters.classeId }),
     ...(filters.statut && { statut: filters.statut as "ACTIF" }),
     ...(filters.q && {
@@ -96,7 +143,7 @@ async function getElevesData(
     }),
   } as Prisma.EleveWhereInput;
 
-  const [eleves, total, stats, classeNoms] = await Promise.all([
+  const [eleves, total, stats, classeNoms, effectifs] = await Promise.all([
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.findMany({
       where,
@@ -115,11 +162,16 @@ async function getElevesData(
     }),
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.count({ where }),
-    getElevesStats(tenantId, siteFilter),
+    // Les statistiques d'en-tête décrivent l'établissement (hors filtres
+    // d'écran) ; les effectifs par classe décrivent ce que le tableau montre.
+    // Sans filtre actif, les deux coïncident — c'est le contrôle que fait
+    // naturellement l'utilisateur en additionnant les classes.
+    getElevesStats(base),
     getClassesList(tenantId, classeSiteFilter),
+    getEffectifsParClasse(where),
   ]);
 
-  return { eleves, total, stats, classeNoms };
+  return { eleves, total, stats, classeNoms, effectifs };
 }
 
 export default async function ElevesPage({
@@ -140,7 +192,7 @@ export default async function ElevesPage({
   const classeSiteFilter = siteFilterForModel("classe", session.user);
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const tenantHasSites = (session.user as { tenantHasSites?: boolean }).tenantHasSites ?? false;
-  const [sites, { eleves, total, stats, classeNoms }] = await Promise.all([
+  const [sites, { eleves, total, stats, classeNoms, effectifs }] = await Promise.all([
     getSitesForUser(),
     getElevesData(session.user.tenantId, siteFilter, classeSiteFilter, {
       q,
@@ -178,6 +230,7 @@ export default async function ElevesPage({
         <ElevesTable
           eleves={eleves}
           total={total}
+          effectifs={effectifs}
           classes={classeNoms}
           initialQuery={q ?? ""}
           initialClasse={classeId ?? ""}
