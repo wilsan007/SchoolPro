@@ -1,21 +1,69 @@
 "use client";
 
+/**
+ * Import d'élèves en deux temps : on montre d'abord, on écrit ensuite.
+ *
+ * L'ancienne version écrivait d'abord et affichait le bilan après coup. Un
+ * réimport du même fichier ne se constatait donc qu'une fois les doublons
+ * créés — c'est ainsi que 78 fiches en trop sont apparues sans qu'aucun
+ * signal ne soit donné.
+ *
+ * Ici, l'étape « Analyser » ne touche pas la base : elle répond « voilà ce
+ * qui se passerait ». L'utilisateur voit chaque ligne, son verdict, et peut
+ * changer l'action avant de confirmer.
+ */
+
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, MapPin } from "lucide-react";
-import { useTranslations } from "next-intl";
+import {
+  Loader2, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle,
+  X, MapPin, ArrowLeft, Copy, Ban, RefreshCw, Plus, Undo2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type Action = "CREER" | "METTRE_A_JOUR" | "IGNORER";
+
+type Verdict =
+  | "NOUVEAU" | "MATRICULE_EXISTANT" | "DOUBLON_IDENTITE" | "DOUBLON_CLASSE"
+  | "DOUBLON_APPROCHE" | "DOUBLON_FICHIER" | "ERREUR";
+
+interface LignePlan {
+  ligne: number;
+  nom: string;
+  prenom: string;
+  classe: string;
+  dateNaissance?: string;
+  matricule?: string;
+  verdict: Verdict;
+  message: string;
+  action: Action;
+  existant?: { id: string; matricule: string; nom: string; prenom: string; classe: string | null; archive: boolean };
+}
+
+interface PlanImport {
+  hash: string;
+  lignes: LignePlan[];
+  resume: {
+    total: number; aCreer: number; aMettreAJour: number;
+    aIgnorer: number; doublons: number; erreurs: number;
+  };
+  dejaImporte?: { date: string; par: string | null };
+  classesInconnues: string[];
+}
 
 interface ImportSummary {
   totalRows: number;
-  imported: number;
+  created: number;
+  updated: number;
   skipped: number;
   structuresCreated: number;
   classesCreated: number;
-  errors?: string[];
+  warnings?: string[];
+  /** Identifiant du lot, présent dès qu'au moins une fiche a été créée. */
+  importBatchId?: string;
 }
 
 interface Site {
@@ -24,6 +72,22 @@ interface Site {
   code?: string | null;
 }
 
+const VERDICT_STYLE: Record<Verdict, { label: string; classe: string }> = {
+  NOUVEAU: { label: "Nouveau", classe: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300" },
+  MATRICULE_EXISTANT: { label: "Matricule connu", classe: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" },
+  DOUBLON_IDENTITE: { label: "Déjà enregistré", classe: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300" },
+  DOUBLON_CLASSE: { label: "Homonyme en classe", classe: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300" },
+  DOUBLON_APPROCHE: { label: "Orthographe proche", classe: "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-300" },
+  DOUBLON_FICHIER: { label: "Répété dans le fichier", classe: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300" },
+  ERREUR: { label: "Non importable", classe: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" },
+};
+
+const ACTION_LABEL: Record<Action, string> = {
+  CREER: "Créer",
+  METTRE_A_JOUR: "Mettre à jour",
+  IGNORER: "Ignorer",
+};
+
 interface ImportElevesDialogProps {
   onClose: () => void;
   sites?: Site[];
@@ -31,192 +95,399 @@ interface ImportElevesDialogProps {
   tenantHasSites?: boolean;
 }
 
-export function ImportElevesDialog({ onClose, sites = [], currentSiteId = null, tenantHasSites = false }: ImportElevesDialogProps) {
-  const t = useTranslations("import");
+export function ImportElevesDialog({
+  onClose,
+  sites = [],
+  currentSiteId = null,
+  tenantHasSites = false,
+}: ImportElevesDialogProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<ImportSummary | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState<string>(currentSiteId ?? "");
+  const [plan, setPlan] = useState<PlanImport | null>(null);
+  const [decisions, setDecisions] = useState<Record<number, Action>>({});
+  const [busy, setBusy] = useState<"analyse" | "import" | "annulation" | null>(null);
+  const [annule, setAnnule] = useState<{ annulees: number; conservees: number; detailConservees: string[] } | null>(null);
+  const [result, setResult] = useState<ImportSummary | null>(null);
+  const [seulementProblemes, setSeulementProblemes] = useState(true);
 
-  const needsSiteSelection = tenantHasSites && sites.length > 0 && !currentSiteId;
-  const siteBlocked = tenantHasSites && sites.length > 0 && !selectedSiteId;
+  const siteBloque = tenantHasSites && sites.length > 0 && !selectedSiteId;
 
-  async function handleImport() {
+  const actionDe = (l: LignePlan): Action => decisions[l.ligne] ?? l.action;
+
+  const compte = plan
+    ? plan.lignes.reduce(
+        (acc, l) => {
+          acc[actionDe(l)]++;
+          return acc;
+        },
+        { CREER: 0, METTRE_A_JOUR: 0, IGNORER: 0 } as Record<Action, number>
+      )
+    : { CREER: 0, METTRE_A_JOUR: 0, IGNORER: 0 };
+
+  async function analyser() {
     if (!file) return;
-    if (siteBlocked) {
-      toast.error("Veuillez sélectionner un site avant d'importer");
+    if (siteBloque) {
+      toast.error("Sélectionnez un site avant d'analyser");
       return;
     }
-    setImporting(true);
-    setResult(null);
+    setBusy("analyse");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      if (selectedSiteId) {
-        formData.append("siteId", selectedSiteId);
-      }
-      const res = await fetch("/api/import/eleves", {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (selectedSiteId) fd.append("siteId", selectedSiteId);
+      const res = await fetch("/api/import/eleves/analyze", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Analyse impossible");
+      setPlan(data);
+      setDecisions({});
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Analyse impossible");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function confirmer() {
+    if (!file || !plan) return;
+    setBusy("import");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("hash", plan.hash);
+      fd.append("decisions", JSON.stringify(decisions));
+      if (selectedSiteId) fd.append("siteId", selectedSiteId);
+      const res = await fetch("/api/import/eleves", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import impossible");
+      setResult(data.summary);
+      setPlan(null);
+      toast.success("Import terminé");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Import impossible");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function annulerImport() {
+    if (!result?.importBatchId) return;
+    setBusy("annulation");
+    try {
+      const res = await fetch("/api/import/eleves/annuler", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importBatchId: result.importBatchId }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Erreur lors de l'import");
-      }
-      setResult(data.summary);
-      toast.success(t("success"));
+      if (!res.ok) throw new Error(data.error || "Annulation impossible");
+      setAnnule(data);
+      toast.success(`${data.annulees} fiche(s) archivée(s)`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("error"));
+      toast.error(err instanceof Error ? err.message : "Annulation impossible");
     } finally {
-      setImporting(false);
+      setBusy(null);
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function choisirFichier(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
-    if (selected) {
-      const ext = selected.name.split(".").pop()?.toLowerCase();
-      if (ext !== "xlsx" && ext !== "xls") {
-        toast.error(t("invalidFormat"));
-        return;
-      }
-      setFile(selected);
+    if (!selected) return;
+    const ext = selected.name.split(".").pop()?.toLowerCase();
+    if (ext !== "xlsx" && ext !== "xls") {
+      toast.error("Format non pris en charge (.xlsx ou .xls attendu)");
+      return;
     }
+    setFile(selected);
+    setPlan(null);
+    setResult(null);
+    setAnnule(null);
   }
+
+  const lignesAffichees = plan
+    ? seulementProblemes
+      ? plan.lignes.filter((l) => l.verdict !== "NOUVEAU")
+      : plan.lignes
+    : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <Card className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <CardContent className="p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <Card
+        className={cn("w-full flex flex-col max-h-[90vh]", plan ? "max-w-3xl" : "max-w-lg")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <CardContent className="p-6 space-y-4 overflow-y-auto">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
-              {t("title")}
+              {plan ? "Vérifier avant d'importer" : "Importer des élèves"}
             </h2>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
 
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
+          {/* ── Étape 1 : choix du fichier ── */}
+          {!plan && !result && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Le fichier est d&apos;abord analysé. Rien n&apos;est enregistré tant que vous n&apos;avez pas confirmé.
+              </p>
 
-          {/* Sélecteur de site */}
-          {tenantHasSites && sites.length > 0 && (
-            <div className="space-y-1.5">
-              <Label htmlFor="importSiteId" className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                Site de rattachement
-              </Label>
-              <select
-                id="importSiteId"
-                value={selectedSiteId}
-                onChange={(e) => setSelectedSiteId(e.target.value)}
-                className={`h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring ${!selectedSiteId ? "border-destructive" : ""}`}
-              >
-                <option value="">— Sélectionner un site —</option>
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>{s.nom}{s.code ? ` (${s.code})` : ""}</option>
-                ))}
-              </select>
-              {!selectedSiteId && (
-                <p className="text-xs text-destructive">Veuillez sélectionner un site pour cet import</p>
+              {tenantHasSites && sites.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="importSiteId" className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                    Site de rattachement
+                  </Label>
+                  <select
+                    id="importSiteId"
+                    value={selectedSiteId}
+                    onChange={(e) => setSelectedSiteId(e.target.value)}
+                    className={cn(
+                      "h-10 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring",
+                      !selectedSiteId ? "border-destructive" : "border-input"
+                    )}
+                  >
+                    <option value="">— Sélectionner un site —</option>
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nom}{s.code ? ` (${s.code})` : ""}</option>
+                    ))}
+                  </select>
+                </div>
               )}
-            </div>
+
+              <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
+                <p className="font-semibold">Colonnes attendues</p>
+                <p className="text-muted-foreground">
+                  nom, prénom, classe, <span className="font-medium text-foreground">date de naissance</span>,
+                  sexe, matricule, lieu de naissance, nationalité, régime.
+                </p>
+                <p className="text-muted-foreground">
+                  La date de naissance est obligatoire : c&apos;est elle qui permet de distinguer
+                  deux homonymes et de reconnaître un élève déjà enregistré.
+                </p>
+              </div>
+
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => fileRef.current?.click()}
+              >
+                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={choisirFichier} />
+                {file ? (
+                  <div className="flex items-center justify-center gap-2 text-sm">
+                    <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                    <span className="font-medium">{file.name}</span>
+                    <span className="text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Upload className="h-8 w-8" />
+                    <p className="text-sm">Cliquez pour choisir un fichier Excel</p>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
-          {/* Format attendu */}
-          <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
-            <p className="font-semibold">{t("expectedFormat")}</p>
-            <p className="text-muted-foreground">{t("columns")}</p>
-            <p className="text-muted-foreground mt-1">{t("nomFormat")}</p>
-          </div>
-
-          {/* Upload zone */}
-          <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => fileRef.current?.click()}
-          >
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            {file ? (
-              <div className="flex items-center justify-center gap-2 text-sm">
-                <FileSpreadsheet className="h-5 w-5 text-green-600" />
-                <span className="font-medium">{file.name}</span>
-                <span className="text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Upload className="h-8 w-8" />
-                <p className="text-sm">{t("dropzone")}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Résultat */}
-          {result && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 rounded-lg border p-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+          {/* ── Étape 2 : le plan ── */}
+          {plan && (
+            <>
+              {plan.dejaImporte && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-xs">
+                  <Copy className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
                   <div>
-                    <p className="text-sm font-semibold">{result.imported}</p>
-                    <p className="text-xs text-muted-foreground">{t("imported")}</p>
+                    <p className="font-semibold text-amber-900 dark:text-amber-300">Ce fichier a déjà été importé</p>
+                    <p className="text-amber-800 dark:text-amber-400">
+                      Le {new Date(plan.dejaImporte.date).toLocaleString("fr-FR")}
+                      {plan.dejaImporte.par ? ` par ${plan.dejaImporte.par}` : ""}. Réimporter mettra
+                      les fiches à jour sans les dupliquer.
+                    </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border p-3">
-                  <AlertCircle className="h-5 w-5 text-orange-500" />
-                  <div>
-                    <p className="text-sm font-semibold">{result.skipped}</p>
-                    <p className="text-xs text-muted-foreground">{t("skipped")}</p>
-                  </div>
-                </div>
-              </div>
-
-              {(result.structuresCreated > 0 || result.classesCreated > 0) && (
-                <div className="rounded-lg border bg-primary/5 p-3 text-xs space-y-1">
-                  <p className="font-semibold">{t("autoCreated")}</p>
-                  {result.structuresCreated > 0 && (
-                    <p>• {result.structuresCreated} {t("structuresCreated")}</p>
-                  )}
-                  {result.classesCreated > 0 && (
-                    <p>• {result.classesCreated} {t("classesCreated")}</p>
-                  )}
                 </div>
               )}
 
-              {result.errors && result.errors.length > 0 && (
-                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs space-y-1 max-h-32 overflow-y-auto">
-                  <p className="font-semibold text-orange-800">{t("warnings")}</p>
-                  {result.errors.map((err, i) => (
-                    <p key={i} className="text-orange-700">{err}</p>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { n: compte.CREER, l: "à créer", i: Plus, c: "text-green-600" },
+                  { n: compte.METTRE_A_JOUR, l: "à mettre à jour", i: RefreshCw, c: "text-blue-600" },
+                  { n: compte.IGNORER, l: "ignorés", i: Ban, c: "text-muted-foreground" },
+                  { n: plan.resume.erreurs, l: "en erreur", i: AlertTriangle, c: "text-destructive" },
+                ].map((s) => (
+                  <div key={s.l} className="rounded-lg border p-2.5 text-center">
+                    <s.i className={cn("h-4 w-4 mx-auto mb-1", s.c)} />
+                    <p className="text-lg font-bold leading-none">{s.n}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{s.l}</p>
+                  </div>
+                ))}
+              </div>
+
+              {plan.classesInconnues.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Classes qui seront créées : <span className="font-medium text-foreground">{plan.classesInconnues.join(", ")}</span>
+                </p>
+              )}
+
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium">
+                  {lignesAffichees.length} ligne{lignesAffichees.length > 1 ? "s" : ""} affichée{lignesAffichees.length > 1 ? "s" : ""}
+                </p>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={seulementProblemes}
+                    onChange={(e) => setSeulementProblemes(e.target.checked)}
+                    className="rounded"
+                  />
+                  Masquer les nouveaux élèves
+                </label>
+              </div>
+
+              <div className="border rounded-lg divide-y max-h-80 overflow-y-auto">
+                {lignesAffichees.length === 0 ? (
+                  <p className="p-4 text-center text-xs text-muted-foreground">
+                    Aucun point d&apos;attention — toutes les lignes sont de nouveaux élèves.
+                  </p>
+                ) : (
+                  lignesAffichees.map((l) => {
+                    const style = VERDICT_STYLE[l.verdict];
+                    const action = actionDe(l);
+                    return (
+                      <div key={l.ligne} className="p-2.5 flex items-start gap-3 text-xs">
+                        <span className="text-muted-foreground w-8 shrink-0 pt-0.5">L{l.ligne}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">
+                              {l.prenom} {l.nom}
+                              {l.classe && <span className="text-muted-foreground font-normal"> · {l.classe}</span>}
+                            </span>
+                            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", style.classe)}>
+                              {style.label}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground mt-0.5">{l.message}</p>
+                        </div>
+                        {l.verdict !== "ERREUR" && (
+                          <select
+                            value={action}
+                            onChange={(e) =>
+                              setDecisions((d) => ({ ...d, [l.ligne]: e.target.value as Action }))
+                            }
+                            className="h-7 rounded border border-input bg-background px-1.5 text-[11px] shrink-0"
+                          >
+                            <option value="CREER">{ACTION_LABEL.CREER}</option>
+                            {l.existant && <option value="METTRE_A_JOUR">{ACTION_LABEL.METTRE_A_JOUR}</option>}
+                            <option value="IGNORER">{ACTION_LABEL.IGNORER}</option>
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Étape 3 : le résultat ── */}
+          {result && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { n: result.created, l: "créés", c: "text-green-600" },
+                  { n: result.updated, l: "mis à jour", c: "text-blue-600" },
+                  { n: result.skipped, l: "ignorés", c: "text-muted-foreground" },
+                ].map((s) => (
+                  <div key={s.l} className="rounded-lg border p-3 text-center">
+                    <p className={cn("text-xl font-bold", s.c)}>{s.n}</p>
+                    <p className="text-xs text-muted-foreground">{s.l}</p>
+                  </div>
+                ))}
+              </div>
+              {(result.structuresCreated > 0 || result.classesCreated > 0) && (
+                <div className="rounded-lg border bg-primary/5 p-3 text-xs">
+                  {result.classesCreated > 0 && <p>• {result.classesCreated} classe(s) créée(s)</p>}
+                  {result.structuresCreated > 0 && <p>• {result.structuresCreated} structure(s) créée(s)</p>}
+                </div>
+              )}
+              {result.warnings && result.warnings.length > 0 && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/30 p-3 text-xs space-y-1 max-h-32 overflow-y-auto">
+                  {result.warnings.map((w, i) => (
+                    <p key={i} className="text-orange-800 dark:text-orange-300">{w}</p>
                   ))}
                 </div>
               )}
+              <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Import terminé.
+                </div>
+                {/* Filet de sécurité : défaire l'import entier en un geste,
+                    plutôt que de retrouver et archiver les fiches une à une. */}
+                {result.importBatchId && !annule && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-destructive"
+                    onClick={annulerImport}
+                    disabled={busy === "annulation"}
+                  >
+                    {busy === "annulation" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Undo2 className="h-3.5 w-3.5" />
+                    )}
+                    Annuler cet import
+                  </Button>
+                )}
+              </div>
+              {annule && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-xs">
+                  <p className="font-medium text-amber-900 dark:text-amber-300">
+                    Import annulé : {annule.annulees} fiche(s) archivée(s).
+                  </p>
+                  {annule.conservees > 0 && (
+                    <p className="text-amber-800 dark:text-amber-400 mt-1">
+                      {annule.conservees} fiche(s) conservée(s) car des données y sont
+                      déjà rattachées : {annule.detailConservees.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
-
-          {/* Actions */}
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={onClose}>
-              {t("close")}
-            </Button>
-            <Button
-              size="sm"
-              className="gap-2"
-              onClick={handleImport}
-              disabled={!file || importing || siteBlocked}
-            >
-              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {t("importButton")}
-            </Button>
-          </div>
         </CardContent>
+
+        {/* Actions */}
+        <div className="flex gap-2 justify-between items-center border-t p-4">
+          {plan ? (
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setPlan(null)}>
+              <ArrowLeft className="h-4 w-4" />
+              Changer de fichier
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onClose}>Fermer</Button>
+            {!plan && !result && (
+              <Button size="sm" className="gap-2" onClick={analyser} disabled={!file || busy !== null || siteBloque}>
+                {busy === "analyse" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Analyser
+              </Button>
+            )}
+            {plan && (
+              <Button
+                size="sm"
+                className="gap-2"
+                onClick={confirmer}
+                disabled={busy !== null || compte.CREER + compte.METTRE_A_JOUR === 0}
+              >
+                {busy === "import" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Confirmer ({compte.CREER + compte.METTRE_A_JOUR})
+              </Button>
+            )}
+          </div>
+        </div>
       </Card>
     </div>
   );

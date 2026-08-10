@@ -1748,6 +1748,7 @@
     "classes": "Classes",
     "matieres": "Subjects",
     "parents": "Parents & Contacts",
+    "doublons": "Duplicate records",
     "appreciations": "Grading rules",
     "periodes": "Periods",
     "signature": "Signature & Stamp",

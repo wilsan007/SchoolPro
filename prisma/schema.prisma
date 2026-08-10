@@ -582,6 +582,16 @@ model Eleve {
   anneeInscription String
   numeroBoursier   String?
 
+  /// Clé d'identité normalisée « nom|prenom|AAAA-MM-JJ » (voir lib/eleve-identity).
+  /// Recalculée à chaque écriture, remise à NULL lors de l'archivage pour
+  /// libérer la place. NULL n'entre pas dans la contrainte d'unicité PostgreSQL :
+  /// les fiches archivées ne bloquent donc pas une réinscription.
+  /// Un homonyme légitime (même nom, prénom ET date) reçoit un suffixe « #2 ».
+  identiteKey String?
+
+  /// Lot d'import ayant créé cette fiche — permet d'annuler un import entier.
+  importBatchId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime? // Soft delete — null = actif, date = archivé/supprimé
@@ -598,9 +608,14 @@ model Eleve {
   exclusions ExclusionEleve[]
 
   @@unique([tenantId, matricule])
+  /// Rend le doublon impossible, et non plus seulement détectable. Les fiches
+  /// archivées portent `identiteKey = NULL` : PostgreSQL traitant les NULL
+  /// comme distincts, elles ne bloquent aucune réinscription.
+  @@unique([tenantId, identiteKey])
   @@index([tenantId])
   @@index([classeId])
   @@index([siteId])
+  @@index([importBatchId])
   @@map("eleves")
 }
 

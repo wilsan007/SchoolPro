@@ -7,6 +7,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-filter";
 import { checkPermission } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
+import { trouverDoublon, resoudreIdentiteKey, cleDepuisFiche } from "@/lib/eleve-identity-server";
 import { z } from "zod";
 
 const LienParente = z.enum(["PERE", "MERE", "TUTEUR", "AUTRE"]);
@@ -119,7 +120,7 @@ export async function getEleveForEdit(id: string) {
   };
 }
 
-export async function createEleve(data: EleveFormData) {
+export async function createEleve(data: EleveFormData, forcerDoublon = false) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
@@ -147,6 +148,25 @@ export async function createEleve(data: EleveFormData) {
     where: { tenantId_matricule: { tenantId, matricule } },
   });
   if (existing) throw new Error("Ce matricule existe déjà");
+
+  // Contrôle d'identité à la saisie manuelle. Jusqu'ici seul l'import
+  // vérifiait : une secrétaire pouvait ressaisir un élève déjà inscrit sans
+  // le moindre signal. On refuse, en nommant la fiche existante, et
+  // l'utilisateur peut assumer une homonymie réelle via `forcerDoublon`.
+  const identite = {
+    nom: values.nom,
+    prenom: values.prenom,
+    dateNaissance: new Date(values.dateNaissance),
+  };
+  const doublon = await trouverDoublon(tenantId, identite);
+  if (doublon && !forcerDoublon) {
+    throw new Error(
+      doublon.archive
+        ? `${doublon.prenom} ${doublon.nom} existe déjà sous le matricule ${doublon.matricule}, dans les fiches archivées. Restaurez-la plutôt que d'en créer une seconde.`
+        : `${doublon.prenom} ${doublon.nom} est déjà inscrit(e) sous le matricule ${doublon.matricule}${doublon.classe ? ` en ${doublon.classe}` : ""}. Vérifiez avant de créer une seconde fiche.`
+    );
+  }
+  const identiteKey = await resoudreIdentiteKey(tenantId, identite, { forcer: forcerDoublon });
 
   // Récupérer le siteId de la classe si non explicitement fourni
   let resolvedSiteId = values.siteId || (session.user.siteId ?? null);
@@ -182,6 +202,7 @@ export async function createEleve(data: EleveFormData) {
       numeroBoursier: values.numeroBoursier || null,
       anneeInscription,
       photoUrl: values.photoUrl || null,
+      identiteKey,
     },
   });
 
@@ -232,6 +253,22 @@ export async function updateEleve(id: string, data: EleveFormData) {
   });
   if (!existing) throw new Error("Élève non trouvé");
 
+  // Corriger un nom ou une date change l'identité : la clé doit suivre, sans
+  // quoi elle resterait figée sur l'ancienne valeur et ne protégerait plus
+  // rien. Une correction qui ferait tomber la fiche sur une identité déjà
+  // prise est refusée ici, avec un message clair plutôt qu'une erreur base.
+  const identite = {
+    nom: values.nom,
+    prenom: values.prenom,
+    dateNaissance: new Date(values.dateNaissance),
+  };
+  const doublon = await trouverDoublon(tenantId, identite, id);
+  if (doublon) {
+    throw new Error(
+      `Cette identité correspond déjà à ${doublon.prenom} ${doublon.nom} (matricule ${doublon.matricule}). Deux fiches ne peuvent pas désigner la même personne.`
+    );
+  }
+
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId + siteFilter ci-dessus
   await prisma.eleve.update({
     where: { id },
@@ -239,6 +276,7 @@ export async function updateEleve(id: string, data: EleveFormData) {
       nom: values.nom,
       prenom: values.prenom,
       dateNaissance: new Date(values.dateNaissance),
+      identiteKey: cleDepuisFiche(identite),
       lieuNaissance: values.lieuNaissance || null,
       nationalite: values.nationalite || "SN",
       sexe: values.sexe,
@@ -340,6 +378,9 @@ export async function deleteEleve(id: string, reason?: string) {
       deletedAt: new Date(),
       statut: "ABANDONNE",
       userId: null, // Déconnecter le compte élève
+      // Libère l.identité : la contrainte d.unicité ignore les NULL, donc une
+      // réinscription ultérieure de la même personne reste possible.
+      identiteKey: null,
     },
   });
 
@@ -379,17 +420,33 @@ export async function restoreEleve(id: string) {
   const tenantId = session.user.tenantId;
   const existing = await prisma.eleve.findFirst({
     where: { id, tenantId, ...siteFilterForModel("eleve", session.user) },
-    select: { id: true, nom: true, prenom: true, matricule: true, deletedAt: true },
+    select: { id: true, nom: true, prenom: true, matricule: true, deletedAt: true, dateNaissance: true },
   });
 
   if (!existing) throw new Error("Élève non trouvé");
   if (!existing.deletedAt) throw new Error("Cet élève n'est pas supprimé");
+
+  // La place a pu être reprise entre-temps par une réinscription : on le
+  // vérifie avant de restaurer, plutôt que de laisser la contrainte échouer
+  // avec un message technique.
+  const identite = {
+    nom: existing.nom,
+    prenom: existing.prenom,
+    dateNaissance: existing.dateNaissance,
+  };
+  const occupant = await trouverDoublon(tenantId, identite, id);
+  if (occupant) {
+    throw new Error(
+      `Impossible de restaurer : ${occupant.prenom} ${occupant.nom} a été réinscrit(e) entre-temps sous le matricule ${occupant.matricule}.`
+    );
+  }
 
   await prisma.eleve.update({
     where: { id },
     data: {
       deletedAt: null,
       statut: "ACTIF",
+      identiteKey: cleDepuisFiche(identite),
     },
   });
 

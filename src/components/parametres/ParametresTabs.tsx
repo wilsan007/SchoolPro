@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Settings, Users, GraduationCap, BookOpen, UserCog, Settings2, Calendar, Stamp, Building2,
-  School, UsersRound, BookOpenCheck, ChevronDown, DollarSign,
+  School, UsersRound, BookOpenCheck, ChevronDown, DollarSign, CopyCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EtablissementTab } from "./EtablissementTab";
@@ -17,6 +17,7 @@ import { PeriodesClotureManager } from "./PeriodesClotureManager";
 import { SignatureCachetManager } from "./SignatureCachetManager";
 import { SitesTab } from "./SitesTab";
 import { TarifsTab } from "./TarifsTab";
+import { DoublonsTab } from "./DoublonsTab";
 
 import type { AvailableTenant } from "@/auth.config";
 
@@ -30,7 +31,8 @@ type Tab =
   | "periodes"
   | "signature"
   | "sites"
-  | "tarifs";
+  | "tarifs"
+  | "doublons";
 
 type TabDef = { id: Tab; labelKey: string; icon: typeof Settings };
 
@@ -56,6 +58,7 @@ const tabGroups: TabGroup[] = [
     tabs: [
       { id: "utilisateurs", labelKey: "users", icon: Users },
       { id: "parents", labelKey: "parents", icon: UserCog },
+      { id: "doublons", labelKey: "doublons", icon: CopyCheck },
     ],
   },
   {
@@ -206,6 +209,7 @@ export function ParametresTabs({
         )}
         {activeTab === "sites" && <SitesTab sites={sites} canManage={canManage} />}
         {activeTab === "tarifs" && <TarifsTab />}
+        {activeTab === "doublons" && <DoublonsTab />}
       </div>
     </div>
   );
