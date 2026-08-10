@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/cron/dispatch-scheduled",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/purge-sites",
