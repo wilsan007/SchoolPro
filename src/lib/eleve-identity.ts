@@ -66,6 +66,23 @@ export function normalizeName(value: string): string {
     .trim();
 }
 
+/**
+ * Date vraisemblablement approximative, à faire confirmer.
+ *
+ * Un 1er janvier n'est pas une erreur en soi — des élèves naissent ce
+ * jour-là. Mais c'est la valeur de repli universelle quand la date réelle est
+ * inconnue : l'ancien import l'appliquait d'office, et 76 élèves de la base
+ * portent ainsi le 01/01/2008 sans que ce soit leur vraie date.
+ *
+ * On ne refuse donc pas ces dates : on les signale et on demande à
+ * l'administrateur de confirmer. S'il confirme, l'enregistrement se poursuit.
+ */
+export function estDateApproximative(d: Date | string | null | undefined): boolean {
+  const iso = normalizeDate(d);
+  if (!iso) return false;
+  return iso.slice(5) === "01-01";
+}
+
 /** Date en `AAAA-MM-JJ`, ou chaîne vide si absente. */
 export function normalizeDate(d: Date | string | null | undefined): string {
   if (!d) return "";

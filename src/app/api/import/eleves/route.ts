@@ -9,6 +9,7 @@ import { revalidateTag } from "next/cache";
 import { preparerPlan, dernierMatricule } from "@/lib/import-eleves-server";
 import { matriculeGenerator, parseDate, type Action, type LignePlan } from "@/lib/import-eleves";
 import { identityKey } from "@/lib/eleve-identity";
+import { resoudreIdentiteKey } from "@/lib/eleve-identity-server";
 import { randomUUID } from "crypto";
 
 // Mapping: nom du groupe scolaire → StructureType
@@ -113,6 +114,24 @@ export async function POST(req: NextRequest) {
     const aCreer = plan.lignes.filter((l) => actionDe(l) === "CREER");
     const aMettreAJour = plan.lignes.filter((l) => actionDe(l) === "METTRE_A_JOUR" && l.existant);
     const ignorees = plan.lignes.filter((l) => actionDe(l) === "IGNORER");
+
+    // Dates au 1er janvier : elles peuvent être exactes, mais c'est aussi la
+    // valeur de repli quand la date réelle est inconnue. On ne refuse pas —
+    // on exige que l'administrateur les ait validées à l'écran.
+    const datesAValider = [...aCreer, ...aMettreAJour].filter((l) => l.dateApproximative);
+    if (datesAValider.length > 0 && formData.get("datesConfirmees") !== "true") {
+      return NextResponse.json(
+        {
+          error: `${datesAValider.length} ligne(s) portent une date au 1er janvier, souvent saisie faute de connaître la date réelle. Confirmez ces dates à l'écran avant de poursuivre.`,
+          datesAValider: datesAValider.slice(0, 20).map((l) => ({
+            ligne: l.ligne,
+            nom: `${l.prenom} ${l.nom}`,
+            date: l.dateNaissance,
+          })),
+        },
+        { status: 409 }
+      );
+    }
 
     if (aCreer.length === 0 && aMettreAJour.length === 0) {
       return NextResponse.json({
@@ -222,8 +241,8 @@ export async function POST(req: NextRequest) {
     // une à une — c'est le tri manuel de 78 fiches qu'on veut éviter.
     const importBatchId = randomUUID();
 
-    const aInserer = aCreer
-      .map((l) => {
+    const aInserer = await Promise.all(
+      aCreer.map(async (l) => {
         const classe = classByName.get(l.classe);
         if (!classe) {
           warnings.push(`Ligne ${l.ligne} : classe « ${l.classe} » introuvable`);
@@ -232,6 +251,16 @@ export async function POST(req: NextRequest) {
         const date = parseDate(l.dateNaissance);
         if (!date) return null; // déjà écarté par l'analyse, garde-fou
         const src = srcDe.get(l.ligne);
+
+        // L'utilisateur a pu choisir « Créer » sur une ligne rapprochée d'une
+        // fiche existante : il assume alors une homonymie réelle. La clé reçoit
+        // un suffixe, sans quoi la contrainte d'unicité ferait échouer tout le
+        // lot au lieu d'enregistrer la seconde personne.
+        const identite = { nom: l.nom, prenom: l.prenom, dateNaissance: date };
+        const identiteKey = l.existant
+          ? await resoudreIdentiteKey(tenantId, identite, { forcer: true })
+          : identityKey(identite);
+
         return {
           tenantId,
           siteId: targetSiteId || classe.siteId,
@@ -246,12 +275,12 @@ export async function POST(req: NextRequest) {
           statut: "ACTIF" as const,
           classeId: classe.id,
           anneeInscription: annee,
-          // Clé d'unicité : c'est elle qui rend le doublon impossible en base.
-          identiteKey: identityKey({ nom: l.nom, prenom: l.prenom, dateNaissance: date }),
+          // Clé d.unicité : c.est elle qui rend le doublon impossible en base.
+          identiteKey,
           importBatchId,
         };
       })
-      .filter((e): e is NonNullable<typeof e> => e !== null);
+    ).then((liste) => liste.filter((e): e is NonNullable<typeof e> => e !== null));
 
     let created = 0;
     for (let i = 0; i < aInserer.length; i += 50) {

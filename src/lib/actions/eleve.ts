@@ -8,6 +8,7 @@ import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-filter";
 import { checkPermission } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
 import { trouverDoublon, resoudreIdentiteKey, cleDepuisFiche } from "@/lib/eleve-identity-server";
+import { estDateApproximative } from "@/lib/eleve-identity";
 import { z } from "zod";
 
 const LienParente = z.enum(["PERE", "MERE", "TUTEUR", "AUTRE"]);
@@ -43,6 +44,30 @@ const EleveFormSchema = z.object({
 });
 
 export type EleveFormData = z.infer<typeof EleveFormSchema>;
+
+/**
+ * Point de contrôle soumis à l'administrateur avant enregistrement.
+ *
+ * On ne refuse pas : on expose ce qui est suspect et on laisse trancher.
+ * Une date au 1er janvier peut être exacte, deux élèves peuvent réellement
+ * partager nom, prénom et date de naissance — seul l'établissement le sait.
+ */
+export interface ConfirmationRequise {
+  code: "DATE_APPROXIMATIVE" | "DOUBLON_IDENTITE";
+  titre: string;
+  message: string;
+}
+
+export interface Confirmations {
+  /** L'administrateur atteste que la date de naissance est exacte. */
+  dateNaissance?: boolean;
+  /** L'administrateur atteste qu'il s'agit d'une personne différente. */
+  doublon?: boolean;
+}
+
+export type ResultatEleve =
+  | { success: true; id: string }
+  | { success: false; confirmation: ConfirmationRequise };
 
 export async function getClassesForTenant() {
   const session = await auth();
@@ -120,7 +145,10 @@ export async function getEleveForEdit(id: string) {
   };
 }
 
-export async function createEleve(data: EleveFormData, forcerDoublon = false) {
+export async function createEleve(
+  data: EleveFormData,
+  confirmations: Confirmations = {}
+): Promise<ResultatEleve> {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
@@ -149,24 +177,45 @@ export async function createEleve(data: EleveFormData, forcerDoublon = false) {
   });
   if (existing) throw new Error("Ce matricule existe déjà");
 
-  // Contrôle d'identité à la saisie manuelle. Jusqu'ici seul l'import
-  // vérifiait : une secrétaire pouvait ressaisir un élève déjà inscrit sans
-  // le moindre signal. On refuse, en nommant la fiche existante, et
-  // l'utilisateur peut assumer une homonymie réelle via `forcerDoublon`.
   const identite = {
     nom: values.nom,
     prenom: values.prenom,
     dateNaissance: new Date(values.dateNaissance),
   };
-  const doublon = await trouverDoublon(tenantId, identite);
-  if (doublon && !forcerDoublon) {
-    throw new Error(
-      doublon.archive
-        ? `${doublon.prenom} ${doublon.nom} existe déjà sous le matricule ${doublon.matricule}, dans les fiches archivées. Restaurez-la plutôt que d'en créer une seconde.`
-        : `${doublon.prenom} ${doublon.nom} est déjà inscrit(e) sous le matricule ${doublon.matricule}${doublon.classe ? ` en ${doublon.classe}` : ""}. Vérifiez avant de créer une seconde fiche.`
-    );
+
+  // Date au 1er janvier : très probablement une date de repli. On la signale
+  // et on demande confirmation — sans la refuser, car elle peut être exacte.
+  if (estDateApproximative(identite.dateNaissance) && !confirmations.dateNaissance) {
+    return {
+      success: false,
+      confirmation: {
+        code: "DATE_APPROXIMATIVE",
+        titre: "Date de naissance à confirmer",
+        message: `La date du ${identite.dateNaissance.toLocaleDateString("fr-FR")} est celle qu'on saisit habituellement quand la date réelle est inconnue. C'est aussi elle qui permet de distinguer deux élèves de même nom. Confirmez-vous qu'il s'agit bien de la date exacte ?`,
+      },
+    };
   }
-  const identiteKey = await resoudreIdentiteKey(tenantId, identite, { forcer: forcerDoublon });
+
+  // Contrôle d'identité à la saisie manuelle : jusqu'ici seul l'import
+  // vérifiait, une secrétaire pouvait ressaisir un élève déjà inscrit sans le
+  // moindre signal. Deux personnes peuvent réellement porter les mêmes nom,
+  // prénom et date de naissance : on fait confirmer, on ne refuse pas.
+  const doublon = await trouverDoublon(tenantId, identite);
+  if (doublon && !confirmations.doublon) {
+    return {
+      success: false,
+      confirmation: {
+        code: "DOUBLON_IDENTITE",
+        titre: doublon.archive ? "Une fiche archivée correspond" : "Un élève identique existe déjà",
+        message: doublon.archive
+          ? `${doublon.prenom} ${doublon.nom} figure déjà dans les fiches archivées, sous le matricule ${doublon.matricule}. Il est préférable de la restaurer. Confirmez-vous qu'il s'agit d'une autre personne ?`
+          : `${doublon.prenom} ${doublon.nom}, né(e) le ${identite.dateNaissance.toLocaleDateString("fr-FR")}, est déjà inscrit(e) sous le matricule ${doublon.matricule}${doublon.classe ? ` en ${doublon.classe}` : ""}. Confirmez-vous qu'il s'agit d'une autre personne ?`,
+      },
+    };
+  }
+  const identiteKey = await resoudreIdentiteKey(tenantId, identite, {
+    forcer: confirmations.doublon,
+  });
 
   // Récupérer le siteId de la classe si non explicitement fourni
   let resolvedSiteId = values.siteId || (session.user.siteId ?? null);
@@ -232,10 +281,14 @@ export async function createEleve(data: EleveFormData, forcerDoublon = false) {
   revalidatePath("/eleves");
   revalidateTag("eleves-stats");
   revalidateTag("dashboard-data");
-  return { success: true as boolean, id: eleve.id };
+  return { success: true, id: eleve.id };
 }
 
-export async function updateEleve(id: string, data: EleveFormData) {
+export async function updateEleve(
+  id: string,
+  data: EleveFormData,
+  confirmations: Confirmations = {}
+): Promise<ResultatEleve> {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
@@ -255,19 +308,38 @@ export async function updateEleve(id: string, data: EleveFormData) {
 
   // Corriger un nom ou une date change l'identité : la clé doit suivre, sans
   // quoi elle resterait figée sur l'ancienne valeur et ne protégerait plus
-  // rien. Une correction qui ferait tomber la fiche sur une identité déjà
-  // prise est refusée ici, avec un message clair plutôt qu'une erreur base.
+  // rien. Les mêmes points de contrôle qu'à la création s'appliquent.
   const identite = {
     nom: values.nom,
     prenom: values.prenom,
     dateNaissance: new Date(values.dateNaissance),
   };
-  const doublon = await trouverDoublon(tenantId, identite, id);
-  if (doublon) {
-    throw new Error(
-      `Cette identité correspond déjà à ${doublon.prenom} ${doublon.nom} (matricule ${doublon.matricule}). Deux fiches ne peuvent pas désigner la même personne.`
-    );
+
+  if (estDateApproximative(identite.dateNaissance) && !confirmations.dateNaissance) {
+    return {
+      success: false,
+      confirmation: {
+        code: "DATE_APPROXIMATIVE",
+        titre: "Date de naissance à confirmer",
+        message: `La date du ${identite.dateNaissance.toLocaleDateString("fr-FR")} est celle qu'on saisit habituellement quand la date réelle est inconnue. Confirmez-vous qu'il s'agit bien de la date exacte ?`,
+      },
+    };
   }
+
+  const doublon = await trouverDoublon(tenantId, identite, id);
+  if (doublon && !confirmations.doublon) {
+    return {
+      success: false,
+      confirmation: {
+        code: "DOUBLON_IDENTITE",
+        titre: "Un élève identique existe déjà",
+        message: `Cette identité correspond déjà à ${doublon.prenom} ${doublon.nom} (matricule ${doublon.matricule}). Confirmez-vous qu'il s'agit de deux personnes différentes ?`,
+      },
+    };
+  }
+  const identiteKey = doublon
+    ? await resoudreIdentiteKey(tenantId, identite, { excludeId: id, forcer: true })
+    : cleDepuisFiche(identite);
 
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId + siteFilter ci-dessus
   await prisma.eleve.update({
@@ -276,7 +348,7 @@ export async function updateEleve(id: string, data: EleveFormData) {
       nom: values.nom,
       prenom: values.prenom,
       dateNaissance: new Date(values.dateNaissance),
-      identiteKey: cleDepuisFiche(identite),
+      identiteKey,
       lieuNaissance: values.lieuNaissance || null,
       nationalite: values.nationalite || "SN",
       sexe: values.sexe,
@@ -340,7 +412,7 @@ export async function updateEleve(id: string, data: EleveFormData) {
   revalidatePath(`/eleves/${id}`);
   revalidateTag("eleves-stats");
   revalidateTag("dashboard-data");
-  return { success: true as boolean, id };
+  return { success: true, id };
 }
 
 /**

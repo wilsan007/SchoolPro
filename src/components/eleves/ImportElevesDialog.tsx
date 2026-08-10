@@ -20,7 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Loader2, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle,
-  X, MapPin, ArrowLeft, Copy, Ban, RefreshCw, Plus, Undo2,
+  X, MapPin, ArrowLeft, Copy, Ban, RefreshCw, Plus, Undo2, CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +40,7 @@ interface LignePlan {
   verdict: Verdict;
   message: string;
   action: Action;
+  dateApproximative?: boolean;
   existant?: { id: string; matricule: string; nom: string; prenom: string; classe: string | null; archive: boolean };
 }
 
@@ -110,6 +111,7 @@ export function ImportElevesDialog({
   const [annule, setAnnule] = useState<{ annulees: number; conservees: number; detailConservees: string[] } | null>(null);
   const [result, setResult] = useState<ImportSummary | null>(null);
   const [seulementProblemes, setSeulementProblemes] = useState(true);
+  const [datesConfirmees, setDatesConfirmees] = useState(false);
 
   const siteBloque = tenantHasSites && sites.length > 0 && !selectedSiteId;
 
@@ -141,6 +143,7 @@ export function ImportElevesDialog({
       if (!res.ok) throw new Error(data.error || "Analyse impossible");
       setPlan(data);
       setDecisions({});
+      setDatesConfirmees(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Analyse impossible");
     } finally {
@@ -156,6 +159,7 @@ export function ImportElevesDialog({
       fd.append("file", file);
       fd.append("hash", plan.hash);
       fd.append("decisions", JSON.stringify(decisions));
+      if (datesConfirmees) fd.append("datesConfirmees", "true");
       if (selectedSiteId) fd.append("siteId", selectedSiteId);
       const res = await fetch("/api/import/eleves", { method: "POST", body: fd });
       const data = await res.json();
@@ -203,6 +207,13 @@ export function ImportElevesDialog({
     setResult(null);
     setAnnule(null);
   }
+
+  // Lignes qui seront réellement écrites et portent une date au 1er janvier.
+  // Une ligne ignorée n'a pas à être validée.
+  const lignesDateAConfirmer = plan
+    ? plan.lignes.filter((l) => l.dateApproximative && actionDe(l) !== "IGNORER")
+    : [];
+  const validationDatesManquante = lignesDateAConfirmer.length > 0 && !datesConfirmees;
 
   const lignesAffichees = plan
     ? seulementProblemes
@@ -321,6 +332,49 @@ export function ImportElevesDialog({
                   </div>
                 ))}
               </div>
+
+              {/* Dates au 1er janvier : validation explicite exigée. Elles
+                  peuvent être exactes, mais c'est la date qu'on saisit quand
+                  la vraie est inconnue — et c'est elle qui distingue deux
+                  élèves de même nom. */}
+              {lignesDateAConfirmer.length > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <CalendarClock className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
+                    <div className="text-xs">
+                      <p className="font-semibold text-amber-900 dark:text-amber-300">
+                        {lignesDateAConfirmer.length} date(s) de naissance au 1er janvier
+                      </p>
+                      <p className="text-amber-800 dark:text-amber-400">
+                        C&apos;est la date saisie par défaut quand la date réelle est inconnue.
+                        Vérifiez-les : c&apos;est elle qui permet de distinguer deux élèves
+                        de même nom et prénom.
+                      </p>
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-amber-900 dark:text-amber-300">
+                          Voir les lignes concernées
+                        </summary>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {lignesDateAConfirmer.map((l) => (
+                            <span key={l.ligne} className="rounded bg-background border px-1.5 py-0.5">
+                              L{l.ligne} · {l.prenom} {l.nom}
+                            </span>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-amber-900 dark:text-amber-300">
+                    <input
+                      type="checkbox"
+                      checked={datesConfirmees}
+                      onChange={(e) => setDatesConfirmees(e.target.checked)}
+                      className="rounded"
+                    />
+                    Je confirme que ces dates de naissance sont exactes
+                  </label>
+                </div>
+              )}
 
               {plan.classesInconnues.length > 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -480,7 +534,16 @@ export function ImportElevesDialog({
                 size="sm"
                 className="gap-2"
                 onClick={confirmer}
-                disabled={busy !== null || compte.CREER + compte.METTRE_A_JOUR === 0}
+                disabled={
+                  busy !== null ||
+                  compte.CREER + compte.METTRE_A_JOUR === 0 ||
+                  validationDatesManquante
+                }
+                title={
+                  validationDatesManquante
+                    ? "Confirmez d'abord les dates de naissance signalées"
+                    : undefined
+                }
               >
                 {busy === "import" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 Confirmer ({compte.CREER + compte.METTRE_A_JOUR})

@@ -21,6 +21,7 @@ import ExcelJS from "exceljs";
 import { createHash } from "crypto";
 import {
   classKey,
+  estDateApproximative,
   identityKey,
   isSimilarIdentity,
   normalizeName,
@@ -202,6 +203,12 @@ export interface LignePlan {
   message: string;
   /** Action appliquée si l'utilisateur ne change rien. */
   action: Action;
+  /**
+   * Date au 1er janvier : très probablement une date de repli plutôt que la
+   * date réelle. La ligne reste importable, mais l'administrateur doit
+   * confirmer explicitement avant que l'import ne s'exécute.
+   */
+  dateApproximative?: boolean;
   /** Fiche existante rapprochée, s'il y en a une. */
   existant?: {
     id: string;
@@ -223,6 +230,8 @@ export interface PlanImport {
     aIgnorer: number;
     doublons: number;
     erreurs: number;
+    /** Lignes dont la date de naissance doit être validée par l'administrateur. */
+    datesAConfirmer: number;
   };
   /** Import antérieur du même fichier, le cas échéant. */
   dejaImporte?: { date: string; par: string | null };
@@ -316,6 +325,7 @@ export function analyzeImport(
       classe: row.classe,
       dateNaissance: date ? date.toISOString().slice(0, 10) : undefined,
       matricule: row.matricule,
+      dateApproximative: estDateApproximative(date),
     };
 
     // La date de naissance conditionne toute identification fiable : sans
@@ -427,6 +437,7 @@ export function analyzeImport(
       aIgnorer: lignes.filter((l) => l.action === "IGNORER").length,
       doublons: lignes.filter((l) => l.verdict.startsWith("DOUBLON")).length,
       erreurs: lignes.filter((l) => l.verdict === "ERREUR").length,
+      datesAConfirmer: lignes.filter((l) => l.dateApproximative && l.verdict !== "ERREUR").length,
     },
     classesInconnues,
   };

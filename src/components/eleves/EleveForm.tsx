@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, Upload, X, User, MapPin } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Upload, X, User, MapPin, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -62,7 +62,19 @@ interface EleveFormProps {
   currentSiteId?: string | null;
   tenantHasSites?: boolean;
   initialData?: Partial<EleveFormData> & { id?: string };
-  submitAction: (data: EleveFormData) => Promise<{ success: boolean; id: string }>;
+  /**
+   * L'action peut demander une confirmation plutôt que d'enregistrer : date
+   * de naissance suspecte, ou élève de même identité déjà présent. Le
+   * formulaire affiche alors la question et rappelle l'action si
+   * l'administrateur confirme.
+   */
+  submitAction: (
+    data: EleveFormData,
+    confirmations?: { dateNaissance?: boolean; doublon?: boolean }
+  ) => Promise<
+    | { success: true; id: string }
+    | { success: false; confirmation: { code: string; titre: string; message: string } }
+  >;
   submitLabel: string;
   title: string;
   backHref: string;
@@ -115,6 +127,8 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
   });
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [confirmation, setConfirmation] = useState<{ code: string; titre: string; message: string } | null>(null);
+  const [confirmations, setConfirmations] = useState<{ dateNaissance?: boolean; doublon?: boolean }>({});
 
   function updateField<K extends keyof EleveFormData>(field: K, value: EleveFormData[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -144,9 +158,24 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
       return;
     }
 
+    await enregistrer(confirmations);
+  }
+
+  /**
+   * Enregistre, ou remonte la question posée par le serveur.
+   *
+   * Les confirmations s'accumulent : une fiche peut déclencher successivement
+   * la question sur la date puis celle sur l'homonymie.
+   */
+  async function enregistrer(confs: { dateNaissance?: boolean; doublon?: boolean }) {
     setIsPending(true);
     try {
-      const result = await submitAction(form);
+      const result = await submitAction(form, confs);
+      if (!result.success) {
+        setConfirmation(result.confirmation);
+        return;
+      }
+      setConfirmation(null);
       toast.success(submitLabel === "Créer" ? t("enrollSuccess") : t("updateSuccess"));
       router.push(`/eleves/${result.id}`);
       router.refresh();
@@ -155,6 +184,18 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
     } finally {
       setIsPending(false);
     }
+  }
+
+  function confirmerEtPoursuivre() {
+    if (!confirmation) return;
+    const suivantes = {
+      ...confirmations,
+      ...(confirmation.code === "DATE_APPROXIMATIVE" ? { dateNaissance: true } : {}),
+      ...(confirmation.code === "DOUBLON_IDENTITE" ? { doublon: true } : {}),
+    };
+    setConfirmations(suivantes);
+    setConfirmation(null);
+    enregistrer(suivantes);
   }
 
   const inputClass = (field: string) => cn("h-10", errors[field] && "border-destructive");
@@ -395,6 +436,36 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
           </div>
         </CardContent>
       </Card>
+
+      {/* Point de contrôle avant enregistrement : on expose ce qui est
+          suspect et l'administrateur tranche. Ni la date au 1er janvier ni
+          l'homonymie ne sont refusées d'office — elles peuvent être exactes. */}
+      {confirmation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setConfirmation(null)}
+        >
+          <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold">{confirmation.titre}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{confirmation.message}</p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setConfirmation(null)}>
+                  Corriger
+                </Button>
+                <Button type="button" size="sm" onClick={confirmerEtPoursuivre} disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmer et continuer"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </form>
   );
 }

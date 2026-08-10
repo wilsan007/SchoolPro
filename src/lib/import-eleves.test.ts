@@ -108,6 +108,38 @@ describe("analyzeImport — date de naissance", () => {
   });
 });
 
+describe("analyzeImport — dates au 1er janvier", () => {
+  // On ne refuse pas ces dates : elles peuvent être exactes. On les signale
+  // pour que l'administrateur les valide avant écriture.
+  it("signale une date au 1er janvier sans bloquer la ligne", () => {
+    const plan = analyse([ligne(2, { dateNaissance: "2008-01-01" })]);
+    expect(plan.lignes[0].dateApproximative).toBe(true);
+    expect(plan.lignes[0].verdict).toBe("NOUVEAU");
+    expect(plan.lignes[0].action).toBe("CREER");
+    expect(plan.resume.datesAConfirmer).toBe(1);
+  });
+
+  it("ne signale pas une date ordinaire", () => {
+    const plan = analyse([ligne(2, { dateNaissance: "2009-04-05" })]);
+    expect(plan.lignes[0].dateApproximative).toBe(false);
+    expect(plan.resume.datesAConfirmer).toBe(0);
+  });
+
+  it("signale le 1er janvier quelle que soit l'année", () => {
+    const plan = analyse([
+      ligne(2, { dateNaissance: "2013-01-01" }),
+      ligne(3, { nom: "Diallo", prenom: "Fatou", dateNaissance: "2011-01-01" }),
+    ]);
+    expect(plan.resume.datesAConfirmer).toBe(2);
+  });
+
+  // Une ligne non importable n'a pas à être validée.
+  it("ne compte pas les lignes en erreur", () => {
+    const plan = analyse([ligne(2, { dateNaissance: undefined })]);
+    expect(plan.resume.datesAConfirmer).toBe(0);
+  });
+});
+
 describe("analyzeImport — homonymes", () => {
   it("ignore par défaut un homonyme de la même classe, sans le rejeter définitivement", () => {
     const plan = analyse(

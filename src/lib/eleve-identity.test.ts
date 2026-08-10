@@ -5,6 +5,7 @@ import {
   classKey,
   isSimilarName,
   isSimilarIdentity,
+  estDateApproximative,
   nameKey,
   detectDuplicates,
   isBlocking,
@@ -188,5 +189,28 @@ describe("isBlocking", () => {
     expect(isBlocking("IDENTITE")).toBe(false);
     expect(isBlocking("CLASSE")).toBe(false);
     expect(isBlocking("APPROCHE")).toBe(false);
+  });
+});
+
+describe("estDateApproximative", () => {
+  // Le 1er janvier est la date de repli universelle quand la vraie est
+  // inconnue : 76 élèves de la base réelle portent ainsi le 01/01/2008.
+  it("signale un 1er janvier, quelle que soit l'année", () => {
+    expect(estDateApproximative("2008-01-01")).toBe(true);
+    expect(estDateApproximative("2013-01-01")).toBe(true);
+    expect(estDateApproximative(new Date("2010-01-01"))).toBe(true);
+  });
+
+  it("ne signale pas une date ordinaire", () => {
+    expect(estDateApproximative("2009-04-05")).toBe(false);
+    expect(estDateApproximative("2012-09-09")).toBe(false);
+    // Le 1er d'un autre mois n'a rien de suspect.
+    expect(estDateApproximative("2009-02-01")).toBe(false);
+  });
+
+  it("ne signale rien en l'absence de date", () => {
+    expect(estDateApproximative(null)).toBe(false);
+    expect(estDateApproximative(undefined)).toBe(false);
+    expect(estDateApproximative("pas une date")).toBe(false);
   });
 });
