@@ -102,7 +102,7 @@ export async function getPossibleRecipients(
       return [];
     }
     return prisma.user.findMany({
-      where: { tenantId, id: { not: userId }, active: true },
+      where: { tenantId, id: { not: userId }, isActive: true },
       select: { id: true, name: true, role: true, avatarUrl: true },
     });
   }
@@ -155,7 +155,7 @@ export async function getPossibleRecipients(
         where: {
           tenantId,
           id: { not: userId },
-          active: true,
+          isActive: true,
           role: { in: ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "COUNSELOR"] },
         },
         select: { id: true, name: true, role: true, avatarUrl: true },
@@ -163,7 +163,7 @@ export async function getPossibleRecipients(
     }
     // DIRECT: tous
     return prisma.user.findMany({
-      where: { tenantId, id: { not: userId }, active: true },
+      where: { tenantId, id: { not: userId }, isActive: true },
       select: { id: true, name: true, role: true, avatarUrl: true },
     });
   }
@@ -207,7 +207,7 @@ export async function getPossibleRecipients(
         where: {
           tenantId,
           id: { not: userId },
-          active: true,
+          isActive: true,
           role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "ACCOUNTANT", "SUPER_ADMIN"] },
         },
         select: { id: true, name: true, role: true, avatarUrl: true },
@@ -218,7 +218,7 @@ export async function getPossibleRecipients(
       where: {
         tenantId,
         id: { not: userId },
-        active: true,
+        isActive: true,
         role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER", "CLASS_TEACHER", "SUPER_ADMIN"] },
       },
       select: { id: true, name: true, role: true, avatarUrl: true },
@@ -295,7 +295,7 @@ export async function getTenantParticipants(
   const users = await prisma.user.findMany({
     where: {
       tenantId,
-      active: true,
+      isActive: true,
       ...(siteId ? { siteId } : {}),
     },
     select: { id: true },
