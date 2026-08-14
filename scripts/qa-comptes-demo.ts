@@ -34,7 +34,7 @@ const COMPTES = [
   { cle: "pp", email: `pp${SUFFIXE}`, name: "QA Prof Principal", role: Role.CLASS_TEACHER },
   { cle: "parent", email: `parent${SUFFIXE}`, name: "QA Parent", role: Role.PARENT },
   { cle: "eleve", email: `eleve${SUFFIXE}`, name: "QA Élève", role: Role.STUDENT },
-  // ── Rôles additionnels pour couvrir les 13 espaces dédiés ──
+  // ── Rôles additionnels pour couvrir les 15 espaces dédiés ──
   { cle: "principal", email: `principal${SUFFIXE}`, name: "QA Principal", role: Role.PRINCIPAL },
   { cle: "secretary", email: `secretary${SUFFIXE}`, name: "QA Secrétariat", role: Role.SECRETARY },
   { cle: "counselor", email: `counselor${SUFFIXE}`, name: "QA Conseiller", role: Role.COUNSELOR },
@@ -42,6 +42,8 @@ const COMPTES = [
   { cle: "accountant", email: `accountant${SUFFIXE}`, name: "QA Comptabilité", role: Role.ACCOUNTANT },
   { cle: "supervisor", email: `supervisor${SUFFIXE}`, name: "QA Surveillant", role: Role.SUPERVISOR },
   { cle: "subject_lead", email: `subject_lead${SUFFIXE}`, name: "QA Coordinateur", role: Role.SUBJECT_LEAD },
+  { cle: "site_manager", email: `site_manager${SUFFIXE}`, name: "QA Exploitation", role: Role.SITE_MANAGER },
+  { cle: "inspector", email: `inspector${SUFFIXE}`, name: "QA Inspecteur", role: Role.INSPECTOR },
   // SUPER_ADMIN n'a pas de tenant : il est créé sans rattachement.
   { cle: "super_admin", email: `super_admin${SUFFIXE}`, name: "QA Super Admin", role: Role.SUPER_ADMIN },
 ] as const;

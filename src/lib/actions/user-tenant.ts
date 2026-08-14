@@ -73,7 +73,7 @@ export async function addUserToTenant(params: {
   });
 
   if (existingUser) {
-    // Vérifier qu'il n'est pas déjà dans ce tenant
+    // Vérifier s'il est déjà dans ce tenant
     const existingUT = await prisma.userTenant.findUnique({
       where: {
         userId_tenantId: {
@@ -83,19 +83,72 @@ export async function addUserToTenant(params: {
       },
     });
 
+    // Vérifier s'il possède déjà ce rôle dans UserRole
+    // eslint-disable-next-line ecolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; vérification d'existence du rôle
+    const existingUserRole = await prisma.userRole.findUnique({
+      where: {
+        userId_tenantId_role: {
+          userId: existingUser.id,
+          tenantId: params.tenantId,
+          role: params.role,
+        },
+      },
+    });
+
     if (existingUT) {
       if (existingUT.isActive) {
-        throw new Error("Cet utilisateur a déjà accès à cet établissement");
+        // L'utilisateur est déjà actif dans ce tenant.
+        if (existingUserRole && existingUserRole.isActive) {
+          // Il possède déjà ce rôle — refuser au lieu de dupliquer.
+          throw new Error("Cet utilisateur possède déjà ce rôle dans cet établissement");
+        }
+        // Ajouter le rôle à UserRole sans changer le rôle actif.
+        // eslint-disable-next-line ecolpro/require-tenant-id -- l'adhésion au tenant a été vérifiée ci-dessus ; ajout d'un rôle possédé
+        await prisma.userRole.create({
+          data: {
+            userId: existingUser.id,
+            tenantId: params.tenantId,
+            role: params.role,
+            isActive: true,
+          },
+        });
+        // Créer l'enregistrement métier si nécessaire (Enseignant/Parent).
+        await ensureBusinessRecord(existingUser.id, params.tenantId, params.role, params.email);
+        revalidatePath("/parametres");
+        return {
+          success: true,
+          message: `Rôle ${params.role} ajouté à ${existingUser.name} dans ${tenant.name}`,
+        };
       }
-      // Réactiver l'accès
+      // Accès désactivé : le réactiver avec ce rôle.
       await prisma.userTenant.update({
         where: { id: existingUT.id },
         data: { isActive: true, role: params.role },
       });
+      // Ajouter ou réactiver le rôle dans UserRole.
+      if (existingUserRole) {
+        // eslint-disable-next-line ecolpro/require-tenant-id -- existingUserRole a été obtenu par findUnique avec tenantId dans la clé composite ; réactivation d'un rôle possédé
+        await prisma.userRole.update({
+          where: { id: existingUserRole.id },
+          data: { isActive: true },
+        });
+      } else {
+        // eslint-disable-next-line ecolpro/require-tenant-id -- création d'un rôle pour un user dont l'adhésion au tenant a été vérifiée ci-dessus
+        await prisma.userRole.create({
+          data: {
+            userId: existingUser.id,
+            tenantId: params.tenantId,
+            role: params.role,
+            isActive: true,
+          },
+        });
+      }
+      await ensureBusinessRecord(existingUser.id, params.tenantId, params.role, params.email);
       return { success: true, message: `Accès réactivé pour ${existingUser.name}` };
     }
 
-    // Ajouter l'utilisateur au tenant
+    // L'utilisateur existe mais n'est pas encore dans ce tenant :
+    // créer l'adhésion + le rôle.
     await prisma.userTenant.create({
       data: {
         userId: existingUser.id,
@@ -105,6 +158,16 @@ export async function addUserToTenant(params: {
         isDefault: false,
       },
     });
+    // eslint-disable-next-line ecolpro/require-tenant-id -- l'adhésion au tenant a été vérifiée ci-dessus ; création du rôle possédé
+    await prisma.userRole.create({
+      data: {
+        userId: existingUser.id,
+        tenantId: params.tenantId,
+        role: params.role,
+        isActive: true,
+      },
+    });
+    await ensureBusinessRecord(existingUser.id, params.tenantId, params.role, params.email);
 
     revalidatePath("/parametres");
     return { success: true, message: `${existingUser.name} ajouté à ${tenant.name}` };
@@ -133,14 +196,69 @@ export async function addUserToTenant(params: {
           isDefault: true,
         },
       },
+      userRoles: {
+        create: {
+          tenantId: params.tenantId,
+          role: params.role,
+          isActive: true,
+        },
+      },
     },
   });
+
+  // Créer l'enregistrement métier si nécessaire
+  await ensureBusinessRecord(newUser.id, params.tenantId, params.role, params.email);
 
   revalidatePath("/parametres");
   return {
     success: true,
     message: `Nouvel utilisateur ${newUser.email} créé et ajouté à ${tenant.name}. Mot de passe temporaire: ${tempPassword}`,
   };
+}
+
+/**
+ * Crée l'enregistrement métier (Enseignant, Parent) correspondant à un
+ * rôle, s'il n'existe pas déjà. Sans cet enregistrement, le switch-role
+ * ne peut pas détecter les rôles disponibles pour cet utilisateur.
+ */
+async function ensureBusinessRecord(
+  userId: string,
+  tenantId: string,
+  role: Role,
+  email: string
+): Promise<void> {
+  if (role === "TEACHER" || role === "CLASS_TEACHER") {
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup, vérification d'existence
+    const existing = await prisma.enseignant.findFirst({
+      where: { userId, tenantId },
+      select: { id: true },
+    });
+    if (!existing) {
+      await prisma.enseignant.create({
+        data: { tenantId, userId, dateEntree: new Date() },
+      });
+    }
+  } else if (role === "PARENT") {
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup, vérification d'existence
+    const existing = await prisma.parent.findFirst({
+      where: { userId, tenantId },
+      select: { id: true },
+    });
+    if (!existing) {
+      const [prenom, ...rest] = email.split("@");
+      const nom = rest.join("@") || prenom;
+      await prisma.parent.create({
+        data: {
+          tenantId,
+          userId,
+          nom,
+          prenom: prenom.charAt(0).toUpperCase() + prenom.slice(1),
+          email,
+          phone: "",
+        },
+      });
+    }
+  }
 }
 
 /**

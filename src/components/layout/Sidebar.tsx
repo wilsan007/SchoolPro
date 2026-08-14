@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { SiteSwitcher } from "./SiteSwitcher";
-import { RoleSwitcher, type RoleMode } from "./RoleSwitcher";
+import { RoleSwitcher } from "./RoleSwitcher";
+import type { Role } from "@prisma/client";
 import {
   LayoutDashboard,
   Users,
@@ -166,13 +167,13 @@ interface SidebarProps {
   sites?: { id: string; nom: string; code?: string | null }[];
   currentSiteId?: string | null;
   isSiteAdmin?: boolean;
-  /** Modes de rôle disponibles pour la bascule Travail/Parent. */
-  availableRoleModes?: RoleMode[];
-  /** Mode de rôle actuellement actif. */
-  currentRoleMode?: RoleMode;
+  /** Rôles possédés par l'utilisateur dans le tenant actif. */
+  availableRoles?: Role[];
+  /** Rôle actuellement actif. */
+  currentRole?: Role;
 }
 
-export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École", tenantId, isSuperAdmin = false, roleKey = "TENANT_ADMIN", availableTenants = [], sites = [], currentSiteId = null, isSiteAdmin = false, availableRoleModes = [], currentRoleMode = "WORK" }: SidebarProps) {
+export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École", tenantId, isSuperAdmin = false, roleKey = "TENANT_ADMIN", availableTenants = [], sites = [], currentSiteId = null, isSiteAdmin = false, availableRoles = [], currentRole }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [collapsed, setCollapsed] = useState(false);
@@ -393,13 +394,13 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
       </div>
       )}
 
-      {/* Bascule Travail/Parent — affichée uniquement si l'utilisateur a
-          plusieurs rôles (enseignant ET parent dans le même établissement). */}
-      {availableRoleModes.length >= 2 && !collapsed && (
+      {/* Bascule de rôle — affichée uniquement si l'utilisateur possède
+          plusieurs rôles dans le même établissement. */}
+      {availableRoles.length >= 2 && !collapsed && (
         <div className="px-3 pb-2 border-t border-slate-800/40 pt-3">
           <RoleSwitcher
-            availableModes={availableRoleModes}
-            currentMode={currentRoleMode}
+            availableRoles={availableRoles}
+            currentRole={currentRole ?? (roleKey as Role)}
           />
         </div>
       )}

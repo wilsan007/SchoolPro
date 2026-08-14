@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Users, Loader2, KeyRound, AlertTriangle } from "lucide-react";
+import { Users, Loader2, KeyRound, AlertTriangle, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { ExportMenu } from "@/components/ui/ExportMenu";
 import type { ExportColumn } from "@/lib/export";
@@ -19,26 +18,26 @@ interface Classe {
   niveau: string;
 }
 
-interface Account {
-  matricule: string;
+interface ParentAccount {
   nom: string;
   username: string;
   password: string;
+  enfants: string;
 }
 
 interface Skipped {
-  matricule: string;
   nom: string;
+  prenom?: string;
   raison: string;
 }
 
-export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
+export function GenerationComptesParentsForm({ classes }: { classes: Classe[] }) {
   const t = useTranslations("eleves");
   const [classeId, setClasseId] = useState("");
   const [useCustomPassword, setUseCustomPassword] = useState(false);
   const [customPassword, setCustomPassword] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<ParentAccount[]>([]);
   const [skipped, setSkipped] = useState<Skipped[]>([]);
 
   async function handleGenerate() {
@@ -50,7 +49,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
     setAccounts([]);
     setSkipped([]);
     try {
-      const res = await fetch("/api/eleves/generer-comptes", {
+      const res = await fetch("/api/parents/generer-comptes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -62,7 +61,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
       if (!res.ok) throw new Error(data.error ?? t("genericError"));
       setAccounts(data.accounts ?? []);
       setSkipped(data.skipped ?? []);
-      toast.success(t("genAccountsCreated", { count: data.created }));
+      toast.success(t("genParentAccountsCreated", { count: data.created }));
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t("genAccountsError"));
     } finally {
@@ -70,11 +69,11 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
     }
   }
 
-  const columns: ExportColumn<Account>[] = [
-    { header: t("genAccountsColMatricule"), key: "matricule", width: 14 },
+  const columns: ExportColumn<ParentAccount>[] = [
     { header: t("genAccountsColName"), key: "nom", width: 28 },
     { header: t("genAccountsColUsername"), key: "username", width: 22 },
     { header: t("genAccountsColPassword"), key: "password", width: 18 },
+    { header: t("genParentColChildren"), key: "enfants", width: 40 },
   ];
 
   return (
@@ -82,8 +81,8 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            {t("genAccountsTitle")}
+            <Phone className="h-5 w-5" />
+            {t("genParentAccountsTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -100,15 +99,15 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>{t("genAccountsUsernameFormat")}</Label>
+              <Label>{t("genParentUsernameFormat")}</Label>
               <div className="flex items-center h-9 px-3 rounded-md border bg-muted/50 text-sm text-muted-foreground">
-                {t("genAccountsMatricule")}
+                {t("genParentUsernamePhone")}
               </div>
             </div>
           </div>
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-            {t("genAccountsDobInfo")}
+            {t("genParentDobInfo")}
           </div>
 
           <div className="flex items-center gap-3">
@@ -135,8 +134,8 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
 
           <div className="flex justify-end">
             <Button onClick={handleGenerate} disabled={generating || !classeId} className="gap-2">
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-              {t("genAccountsGenerate")}
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+              {t("genParentAccountsGenerate")}
             </Button>
           </div>
         </CardContent>
@@ -155,7 +154,6 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColMatricule")}</th>
                     <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColName")}</th>
                     <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColReason")}</th>
                   </tr>
@@ -163,8 +161,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
                 <tbody>
                   {skipped.map((s, i) => (
                     <tr key={i} className="hover:bg-muted/30">
-                      <td className="px-3 py-2 border-b">{s.matricule}</td>
-                      <td className="px-3 py-2 border-b font-medium">{s.nom}</td>
+                      <td className="px-3 py-2 border-b font-medium">{s.prenom ? `${s.prenom} ${s.nom}` : s.nom}</td>
                       <td className="px-3 py-2 border-b text-amber-600">{s.raison}</td>
                     </tr>
                   ))}
@@ -179,8 +176,8 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>{t("genAccountsResults", { count: accounts.length })}</CardTitle>
-              <ExportMenu rows={accounts} columns={columns} filename="comptes-eleves" />
+              <CardTitle>{t("genParentAccountsResults", { count: accounts.length })}</CardTitle>
+              <ExportMenu rows={accounts} columns={columns} filename="comptes-parents" />
             </div>
           </CardHeader>
           <CardContent>
@@ -188,19 +185,19 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColMatricule")}</th>
                     <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColName")}</th>
                     <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColUsername")}</th>
                     <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColPassword")}</th>
+                    <th className="px-3 py-2 text-left font-semibold border-b">{t("genParentColChildren")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {accounts.map((a, i) => (
                     <tr key={i} className="hover:bg-muted/30">
-                      <td className="px-3 py-2 border-b">{a.matricule}</td>
                       <td className="px-3 py-2 border-b font-medium">{a.nom}</td>
                       <td className="px-3 py-2 border-b font-mono text-xs">{a.username}</td>
                       <td className="px-3 py-2 border-b font-mono text-xs">{a.password}</td>
+                      <td className="px-3 py-2 border-b text-xs">{a.enfants}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -408,7 +408,18 @@
     "attestationsSubtitle": "Abuur daabac shahaado",
     "classNotAssigned": "Fasal lahayn",
     "editStudent": "Wax ka beddel arday",
-    "noClass": "Fasal lahayn"
+    "noClass": "Fasal lahayn",
+    "genAccountsColReason": "Sababta",
+    "genAccountsSkipped": "{count} arday laga reebay",
+    "genAccountsDobInfo": "Magaca isticmaalaha waa lambarka ardayga. Erayga sirta ah ee hore waa taariikhda dhalashada (qaab DDMMYYYY). Ardaygu waa inuu beddelaa marka ugu horeysa ee uu soo galo.",
+    "genParentAccountsTitle": "Abuurista Koontada Waalidiinta Muddo Gaaban",
+    "genParentAccountsGenerate": "Abuur koontada waalidiinta",
+    "genParentAccountsCreated": "{count} koontadood oo waalidiin ah oo la abuuray si guul ah!",
+    "genParentAccountsResults": "Koontada waalidiinta la abuuray ({count})",
+    "genParentUsernameFormat": "Qaabka magaca isticmaalaha",
+    "genParentUsernamePhone": "Lambarka telefoonka (tusaale: 221771234567)",
+    "genParentDobInfo": "Magaca isticmaalaha waa lambarka telefoonka ee waalidka. Erayga sirta ah ee hore waa taariikhda dhalashada ee ilmaha ugu wayn (qaab DDMMYYYY). Waalidku waa inuu beddelaa marka ugu horeysa. Waalidiinta aan lahayn telefoon waa la reebay.",
+    "genParentColChildren": "Ilmaha la xidhay"
   },
   "absences": {
     "title": "Maqnaanshaha",
@@ -2147,6 +2158,10 @@
     "COUNSELOR": "Counselor",
     "NURSE": "Nurse",
     "ACCOUNTANT": "Accountant",
+    "SUPERVISOR": "Supervisor",
+    "SUBJECT_LEAD": "Subject Lead",
+    "SITE_MANAGER": "Site Manager",
+    "INSPECTOR": "Inspector",
     "PARENT": "Parent",
     "STUDENT": "Arday"
   },
@@ -3372,7 +3387,8 @@
     "remplacantsDisponibles": "Beddelo la heli karo",
     "modeTravail": "Hababka shaqada",
     "modeParent": "Hababka waalidka",
-    "basculerRole": "Beddel"
+    "basculerRole": "Beddel",
+    "switchRole": "Beddel doorka"
   },
   "travail": {
     "titre": "Shaqo la qabto",
@@ -3409,5 +3425,43 @@
     "details": "Faahfaahin",
     "aucunParent": "Wax waalid ah ma jiro",
     "eleve": "Arday"
+  },
+  "profil": {
+    "title": "Bogagayga",
+    "subtitle": "Maamul koontadaada i doorashooyinkaaga",
+    "changePassword": "Beddel eraygaaga sirta ah",
+    "currentPassword": "Erayga sirta ah ee hadda",
+    "newPassword": "Erayga sirta ah ee cusub",
+    "confirmPassword": "Xaqiiji erayga sirta ah ee cusub",
+    "changePasswordBtn": "Beddel erayga sirta ah",
+    "passwordChanged": "Erayga sirta ah waa la beddelay si guul ah",
+    "passwordError": "Khalad marka la beddelayo erayga sirta ah",
+    "passwordMinLength": "Ugu yaraan 8 xaraf",
+    "mustChangeTitle": "Waxaad bedbeshaa eraygaaga sirta ah",
+    "mustChangeDesc": "Eraygaaga sirta ah ee hadda waa eray si toos ah loo abuuray. Ammaanka koontadaada darteed, waa inaad beddeshaa ka hor intaadan sii wadin.",
+    "lienEnfantTitle": "Ku xidh ilmo kale",
+    "lienEnfantDesc": "Geli lambarka ardayga iyo taariikhda dhalashada ee ilmaha aad rabto inaad ku xidho koontadaada. Maamulka wuu xaqiigi doonaa codsigaaga.",
+    "lienMatricule": "Lambarka ardayga ee ilmaha",
+    "lienDateNaissance": "Taariikhda dhalashada ee ilmaha",
+    "lienDemandeBtn": "Soo dir codsiga",
+    "lienDemandeCreated": "Codsiga la abuuray {nom} (fasal: {classe}). Maamulka wuu xaqiigi doonaa xidhidhka.",
+    "lienDemandeError": "Khalad marka la abuurayo codsiga",
+    "lienMesDemandes": "Codsigyadayda",
+    "lienStatutAttente": "Sugitaan xaqiijin",
+    "lienStatutValide": "Waa la xaqiijiyay",
+    "lienStatutRefuse": "Waa la diiday"
+  },
+  "admin": {
+    "demandesLienTitle": "Codsigyada xidhidhka ilmaha",
+    "demandesLienSubtitle": "Xaqiijin ama diid codsigyada waalidiinta ee ilmaha ku xidhaya koontadooda",
+    "aucuneDemandeLien": "Codsig sugitaan ah ma jiro",
+    "demandeParent": "Waalidka codsaday",
+    "demandeEleve": "Ilmaha la xidhi doono",
+    "motifRefus": "Sababta diidmada (ikhtiyaari)",
+    "motifRefusPlaceholder": "Tusaale: xiriirka qoyska lama caddeyn",
+    "valider": "Xaqiiji",
+    "refuser": "Diid",
+    "demandeValidee": "Codsiga waa la xaqiijiyay — ilmaha waa la xidhay koontada waalidka",
+    "demandeRefusee": "Codsiga waa la diiday"
   }
 }

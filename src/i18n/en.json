@@ -436,7 +436,18 @@
     "attestationsSubtitle": "Generate and print certificates",
     "classNotAssigned": "Class not assigned",
     "editStudent": "Edit student",
-    "noClass": "No class"
+    "noClass": "No class",
+    "genAccountsColReason": "Reason",
+    "genAccountsSkipped": "{count} student(s) skipped",
+    "genAccountsDobInfo": "Username is the student ID. Initial password is the date of birth (DDMMYYYY format). The student must change it at first login.",
+    "genParentAccountsTitle": "Bulk Parent Account Generation",
+    "genParentAccountsGenerate": "Generate parent accounts",
+    "genParentAccountsCreated": "{count} parent accounts created successfully!",
+    "genParentAccountsResults": "Parent accounts created ({count})",
+    "genParentUsernameFormat": "Username format",
+    "genParentUsernamePhone": "Normalized phone (e.g. 221771234567)",
+    "genParentDobInfo": "Username is the parent's phone number. Initial password is the eldest child's date of birth (DDMMYYYY format). The parent must change it at first login. Parents without a phone number are skipped.",
+    "genParentColChildren": "Linked child(ren)"
   },
   "absences": {
     "title": "Absences",
@@ -2234,6 +2245,10 @@
     "COUNSELOR": "Counselor",
     "NURSE": "Nurse",
     "ACCOUNTANT": "Accountant",
+    "SUPERVISOR": "Supervisor",
+    "SUBJECT_LEAD": "Subject Lead",
+    "SITE_MANAGER": "Site Manager",
+    "INSPECTOR": "Inspector",
     "PARENT": "Parent",
     "STUDENT": "Student"
   },
@@ -3459,7 +3474,8 @@
     "remplacantsDisponibles": "Available substitutes",
     "modeTravail": "Work mode",
     "modeParent": "Parent mode",
-    "basculerRole": "Switch"
+    "basculerRole": "Switch",
+    "switchRole": "Switch role"
   },
   "travail": {
     "titre": "Homework",
@@ -3496,5 +3512,43 @@
     "details": "Details",
     "aucunParent": "No parent linked",
     "eleve": "Student"
+  },
+  "profil": {
+    "title": "My profile",
+    "subtitle": "Manage your account and preferences",
+    "changePassword": "Change my password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "changePasswordBtn": "Change password",
+    "passwordChanged": "Password changed successfully",
+    "passwordError": "Error changing password",
+    "passwordMinLength": "Minimum 8 characters",
+    "mustChangeTitle": "You must change your password",
+    "mustChangeDesc": "Your current password is an auto-generated initial password. For your account security, you must change it before continuing.",
+    "lienEnfantTitle": "Connect another child",
+    "lienEnfantDesc": "Enter the student ID and date of birth of the child to link to your account. The administration will validate your request.",
+    "lienMatricule": "Child's student ID",
+    "lienDateNaissance": "Child's date of birth",
+    "lienDemandeBtn": "Submit request",
+    "lienDemandeCreated": "Request created for {nom} (class: {classe}). The administration will validate the link.",
+    "lienDemandeError": "Error creating the request",
+    "lienMesDemandes": "My requests",
+    "lienStatutAttente": "Pending validation",
+    "lienStatutValide": "Validated",
+    "lienStatutRefuse": "Refused"
+  },
+  "admin": {
+    "demandesLienTitle": "Child linking requests",
+    "demandesLienSubtitle": "Approve or reject parent requests to link a child to their account",
+    "aucuneDemandeLien": "No pending requests",
+    "demandeParent": "Requesting parent",
+    "demandeEleve": "Child to link",
+    "motifRefus": "Refusal reason (optional)",
+    "motifRefusPlaceholder": "e.g. family relationship not justified",
+    "valider": "Approve",
+    "refuser": "Reject",
+    "demandeValidee": "Request approved — child linked to parent account",
+    "demandeRefusee": "Request rejected"
   }
 }

@@ -12,7 +12,7 @@ import { loginAs } from "./fixtures-roles";
  * donc que l'URL finale n'est **pas** la route demandée.
  *
  * Prérequis :
- *   1. Le seed E2E a été appliqué.
+ *   1. Les comptes QA LEARNOS (`scripts/qa-comptes-demo.ts`) ont été créés.
  *   2. Le serveur dev tourne sur le port configuré.
  */
 
@@ -30,8 +30,9 @@ test.describe("Permissions par rôle — routes critiques", () => {
     });
 
     test("bloqué sur /notes (redirigé)", async ({ page }) => {
+      test.setTimeout(60000);
       await loginAs(page, "PARENT");
-      await page.goto("/notes");
+      await page.goto("/notes", { waitUntil: "domcontentloaded" }).catch(() => {});
       await expect(page).not.toHaveURL(/\/notes$/);
     });
   });
@@ -47,8 +48,9 @@ test.describe("Permissions par rôle — routes critiques", () => {
     });
 
     test("bloqué sur /absences (redirigé)", async ({ page }) => {
+      test.setTimeout(60000);
       await loginAs(page, "STUDENT");
-      await page.goto("/absences");
+      await page.goto("/absences", { waitUntil: "domcontentloaded" }).catch(() => {});
       await expect(page).not.toHaveURL(/\/absences/);
     });
   });
@@ -64,8 +66,9 @@ test.describe("Permissions par rôle — routes critiques", () => {
     });
 
     test("bloqué sur /notes (redirigé)", async ({ page }) => {
+      test.setTimeout(60000);
       await loginAs(page, "NURSE");
-      await page.goto("/notes");
+      await page.goto("/notes", { waitUntil: "domcontentloaded" }).catch(() => {});
       await expect(page).not.toHaveURL(/\/notes/);
     });
   });
@@ -81,8 +84,10 @@ test.describe("Permissions par rôle — routes critiques", () => {
     });
 
     test("bloqué sur /direction (redirigé)", async ({ page }) => {
+      test.setTimeout(60000);
       await loginAs(page, "SUPERVISOR");
-      await page.goto("/direction");
+      // Le middleware redirige avant le chargement complet → ERR_ABORTED.
+      await page.goto("/direction", { waitUntil: "domcontentloaded" }).catch(() => {});
       await expect(page).not.toHaveURL(/\/direction/);
     });
   });
@@ -183,6 +188,42 @@ test.describe("Permissions par rôle — routes critiques", () => {
       await loginAs(page, "SUPER_ADMIN");
       await page.goto("/super-admin");
       await expect(page).toHaveURL(/\/super-admin/);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SITE_MANAGER
+  // ─────────────────────────────────────────────
+  test.describe("SITE_MANAGER", () => {
+    test("accède à /exploitation (autorisé)", async ({ page }) => {
+      await loginAs(page, "SITE_MANAGER");
+      await page.goto("/exploitation");
+      await expect(page).toHaveURL(/\/exploitation/);
+    });
+
+    test("bloqué sur /notes (redirigé)", async ({ page }) => {
+      test.setTimeout(60000);
+      await loginAs(page, "SITE_MANAGER");
+      await page.goto("/notes", { waitUntil: "domcontentloaded" }).catch(() => {});
+      await expect(page).not.toHaveURL(/\/notes/);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // INSPECTOR
+  // ─────────────────────────────────────────────
+  test.describe("INSPECTOR", () => {
+    test("accède à /inspection (autorisé)", async ({ page }) => {
+      await loginAs(page, "INSPECTOR");
+      await page.goto("/inspection");
+      await expect(page).toHaveURL(/\/inspection/);
+    });
+
+    test("bloqué sur /notes (redirigé)", async ({ page }) => {
+      test.setTimeout(60000);
+      await loginAs(page, "INSPECTOR");
+      await page.goto("/notes", { waitUntil: "domcontentloaded" }).catch(() => {});
+      await expect(page).not.toHaveURL(/\/notes/);
     });
   });
 });

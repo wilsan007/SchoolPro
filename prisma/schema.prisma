@@ -160,6 +160,9 @@ model Tenant {
   remplacementsCours  RemplacementCours[]
   entretiensConseiller EntretienConseiller[]
 
+  // Self-service : demandes de rattachement parent↔élève
+  demandesLienParent  DemandeLienParent[]
+
   @@map("tenants")
 }
 
@@ -725,6 +728,12 @@ model User {
   isActive    Boolean   @default(true)
   lastLoginAt DateTime?
 
+  // Forçage du changement de mot de passe au prochain login.
+  // Mis à true lors de la génération en masse de comptes (élèves/parents)
+  // avec un mot de passe initial prévisible (DOB). L'utilisateur ne peut
+  // accéder au tableau de bord qu'après l'avoir changé.
+  mustChangePassword Boolean @default(false)
+
   // 2FA / TOTP
   twoFactorEnabled Boolean   @default(false)
   totpSecret       String?   // secret TOTP chiffré (base32)
@@ -1099,6 +1108,9 @@ model Eleve {
   ficheSanitaire     FicheSanitaire?
   entretiensConseiller EntretienConseiller[]
 
+  // Self-service : demandes de rattachement déposées par des parents
+  demandesLien DemandeLienParent[]
+
   @@unique([tenantId, matricule])
   /// Rend le doublon impossible, et non plus seulement détectable. Les fiches
   /// archivées portent `identiteKey = NULL` : PostgreSQL traitant les NULL
@@ -1148,6 +1160,9 @@ model Parent {
   learnosPreferences    PreferencesParent?
   learnosAlertes        AlerteParent[]
   learnosEchanges       EchangeParent[]
+
+  // Self-service : demandes de rattachement d'enfant déposées par ce parent
+  demandesLien DemandeLienParent[]
 
   @@index([tenantId])
   @@index([userId])
@@ -4319,4 +4334,48 @@ enum StatutEntretien {
   REALISE
   ANNULE
   REPORTÉ
+}
+
+// ============================================================
+// DEMANDE DE LIEN PARENT ↔ ÉLÈVE (self-service)
+// Un parent connecté demande à rattacher un autre enfant à son
+// compte en saisissant matricule + date de naissance. L'admin
+// valide avant que le lien EleveParent ne soit créé.
+// ============================================================
+
+enum StatutDemandeLien {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
+}
+
+model DemandeLienParent {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  parentId  String  // Parent qui demande (a déjà un compte)
+  parent    Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  eleveId   String  // Élève à rattacher
+  eleve     Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  // Données saisies par le parent pour prouver le lien
+  matriculeSaisi   String
+  dateNaissanceSaisie DateTime
+
+  statut    StatutDemandeLien @default(EN_ATTENTE)
+
+  // Traitement admin
+  traitePar String? // userId de l'admin
+  traiteLe  DateTime?
+  motifRefus String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([parentId, eleveId]) // Une seule demande par couple parent↔élève
+  @@index([tenantId])
+  @@index([statut])
+  @@map("demandes_lien_parent")
 }

@@ -107,6 +107,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           token.siteIds = [];
           token.tenantHasSites = true;
           token.availableTenants = [];
+          token.availableRoles = [];
           token.claimsVersion = CLAIMS_VERSION;
           return token;
         }
@@ -117,6 +118,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token.siteIds = claims.siteIds;
         token.tenantHasSites = claims.tenantHasSites;
         token.availableTenants = claims.availableTenants;
+        token.availableRoles = claims.availableRoles;
         token.claimsVersion = claims.claimsVersion;
       }
 
@@ -145,6 +147,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             password: true,
             avatarUrl: true,
             isActive: true,
+            mustChangePassword: true,
           },
         });
 
@@ -213,7 +216,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           siteIds: claims.siteIds,
           tenantHasSites: claims.tenantHasSites,
           availableTenants: claims.availableTenants,
+          availableRoles: claims.availableRoles,
           claimsVersion: claims.claimsVersion,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),
@@ -237,6 +242,10 @@ declare module "next-auth" {
       /** Le tenant actif possède-t-il au moins un site ? */
       tenantHasSites?: boolean;
       availableTenants?: AvailableTenant[];
+      /** Tous les rôles possédés dans le tenant actif (pour le RoleSwitcher). */
+      availableRoles?: Role[];
+      /** L'utilisateur doit changer son mot de passe au prochain login. */
+      mustChangePassword?: boolean;
       /** Impersonation : vrai si le SUPER_ADMIN a pris le contrôle d'un tenant. */
       impersonating?: boolean;
       /** Tenant cible de l'impersonation. */

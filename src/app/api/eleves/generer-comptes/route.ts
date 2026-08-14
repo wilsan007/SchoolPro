@@ -5,6 +5,21 @@ import bcrypt from "bcryptjs";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidateTag } from "next/cache";
 
+/**
+ * POST /api/eleves/generer-comptes
+ *
+ * Génère les comptes de connexion pour les élèves d'une classe qui n'en
+ * ont pas encore (userId = null).
+ *
+ * Convention :
+ *   - Username = matricule de l'élève (identifiant public, stable)
+ *   - Mot de passe initial = date de naissance au format JJMMAAAA
+ *   - mustChangePassword = true → l'élève doit changer son mot de passe
+ *     au premier login (garde contre la faiblesse de la DOB comme secret)
+ *
+ * L'admin peut toujours surcharger le mot de passe via `customPassword`
+ * (cas d'un établissement qui préfère un mot de passe commun).
+ */
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
@@ -12,16 +27,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { classeId, customPassword, usernameFormat } = body as {
+  const { classeId, customPassword } = body as {
     classeId: string;
     customPassword?: string;
-    usernameFormat: "matricule" | "nom.prenom";
   };
 
   if (!classeId) {
     return NextResponse.json({ error: "classeId requis" }, { status: 400 });
   }
-
 
   const siteFilter = siteFilterForModel("eleve", session.user);
   const eleves = await prisma.eleve.findMany({
@@ -41,18 +54,33 @@ export async function POST(req: NextRequest) {
 
   const accounts: { matricule: string; nom: string; username: string; password: string }[] = [];
   const created: string[] = [];
+  const skipped: { matricule: string; nom: string; raison: string }[] = [];
 
   for (const eleve of eleves) {
-    const username =
-      usernameFormat === "matricule"
-        ? eleve.matricule
-        : `${eleve.nom.toLowerCase().replace(/[^a-z]/g, "")}.${eleve.prenom.toLowerCase().replace(/[^a-z]/g, "")}`;
+    const username = eleve.matricule;
 
-    const password = customPassword || generateRandomPassword();
+    // Mot de passe : customPassword si fourni, sinon date de naissance JJMMAAAA
+    const password = customPassword || formatDOB(eleve.dateNaissance);
+
+    if (!password) {
+      skipped.push({
+        matricule: eleve.matricule,
+        nom: `${eleve.prenom} ${eleve.nom}`,
+        raison: "Date de naissance manquante",
+      });
+      continue;
+    }
 
     // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'unicité globale par email avant création de compte élève
     const existing = await prisma.user.findUnique({ where: { email: username } });
-    if (existing) continue;
+    if (existing) {
+      skipped.push({
+        matricule: eleve.matricule,
+        nom: `${eleve.prenom} ${eleve.nom}`,
+        raison: "Username déjà pris",
+      });
+      continue;
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -64,6 +92,24 @@ export async function POST(req: NextRequest) {
         role: "STUDENT",
         tenantId: session.user.tenantId,
         locale: "fr",
+        mustChangePassword: true,
+        // Créer l'entrée UserTenant pour le multi-tenant
+        userTenants: {
+          create: {
+            tenantId: session.user.tenantId,
+            role: "STUDENT",
+            isActive: true,
+            isDefault: true,
+          },
+        },
+        // Créer l'entrée UserRole pour le multi-rôle
+        userRoles: {
+          create: {
+            tenantId: session.user.tenantId,
+            role: "STUDENT",
+            isActive: true,
+          },
+        },
       },
     });
 
@@ -76,6 +122,8 @@ export async function POST(req: NextRequest) {
       matricule: eleve.matricule,
       nom: `${eleve.prenom} ${eleve.nom}`,
       username,
+      // Si customPassword, on affiche "—" car l'admin le connaît déjà.
+      // Sinon on affiche la DOB pour que l'admin puisse la communiquer.
       password: customPassword ? "—" : password,
     });
     created.push(user.id);
@@ -84,14 +132,21 @@ export async function POST(req: NextRequest) {
   revalidateTag("eleves-stats");
   revalidateTag("dashboard-data");
 
-  return NextResponse.json({ created: created.length, accounts });
+  return NextResponse.json({
+    created: created.length,
+    accounts,
+    skipped: skipped.length > 0 ? skipped : undefined,
+  });
 }
 
-function generateRandomPassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let pwd = "";
-  for (let i = 0; i < 8; i++) {
-    pwd += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return pwd;
+/**
+ * Formate une date de naissance au format JJMMAAAA (ex: 05042012).
+ * Utilisé comme mot de passe initial pour les comptes élèves.
+ */
+function formatDOB(date: Date): string | null {
+  if (!date || isNaN(date.getTime())) return null;
+  const jj = String(date.getUTCDate()).padStart(2, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const aaaa = String(date.getUTCFullYear());
+  return `${jj}${mm}${aaaa}`;
 }

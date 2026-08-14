@@ -100,6 +100,14 @@ export async function registerTenant(data: RegisterFormData) {
           isDefault: true,
         },
       },
+      // Créer l'entrée UserRole pour le multi-rôle
+      userRoles: {
+        create: {
+          tenantId: tenant.id,
+          role: "TENANT_ADMIN",
+          isActive: true,
+        },
+      },
     },
   });
 

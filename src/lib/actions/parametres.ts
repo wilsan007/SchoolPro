@@ -185,6 +185,14 @@ export async function createUser(data: UserFormData) {
           isDefault: true,
         },
       },
+      // Créer l'entrée UserRole pour le multi-rôle
+      userRoles: {
+        create: {
+          tenantId: session.user.tenantId,
+          role: v.role,
+          isActive: v.isActive,
+        },
+      },
     },
   });
 

@@ -49,6 +49,7 @@ describe("deriveClaims", () => {
       tenantId: TENANT_A,
       siteId: null,
       userTenants: [],
+      userRoles: [],
     });
 
     expect(await deriveClaims("u1")).toBeNull();
@@ -65,6 +66,7 @@ describe("deriveClaims", () => {
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
         { tenantId: TENANT_B, role: "TENANT_ADMIN", isDefault: false, tenant: t(TENANT_B) },
       ],
+      userRoles: [],
     });
 
     const claims = await deriveClaims("u1", TENANT_B);
@@ -83,6 +85,7 @@ describe("deriveClaims", () => {
       userTenants: [
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
       ],
+      userRoles: [],
     });
 
     const claims = await deriveClaims("u1", TENANT_B);
@@ -101,6 +104,7 @@ describe("deriveClaims", () => {
       userTenants: [
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
       ],
+      userRoles: [],
     });
     db.userSite.findMany.mockResolvedValue([{ siteId: SITE_A1, role: "TEACHER" }]);
     db.site.findMany.mockResolvedValue(sitesDuTenant(2));
@@ -127,6 +131,7 @@ describe("deriveClaims", () => {
       userTenants: [
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
       ],
+      userRoles: [],
     });
     db.userSite.findMany.mockResolvedValue([]);
     db.enseignantSite.findMany.mockResolvedValue([{ siteId: SITE_A1 }]);
@@ -147,6 +152,7 @@ describe("deriveClaims", () => {
       userTenants: [
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
       ],
+      userRoles: [],
     });
     db.userSite.findMany.mockResolvedValue([{ siteId: SITE_A1, role: "TEACHER" }]);
     db.site.findMany.mockResolvedValue(sitesDuTenant(2));
@@ -167,6 +173,7 @@ describe("deriveClaims", () => {
         { tenantId: TENANT_A, role: "PARENT", isDefault: true, tenant: t(TENANT_A) },
         { tenantId: TENANT_B, role: "TENANT_ADMIN", isDefault: false, tenant: t(TENANT_B) },
       ],
+      userRoles: [],
     });
     // Dans le tenant A, aucun rattachement de site.
     db.userSite.findMany.mockResolvedValue([]);
@@ -189,6 +196,7 @@ describe("deriveClaims", () => {
       userTenants: [
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
       ],
+      userRoles: [],
     });
     db.site.findMany.mockResolvedValue(sitesDuTenant(0));
 
@@ -206,6 +214,7 @@ describe("deriveClaims", () => {
       userTenants: [
         { tenantId: TENANT_A, role: "TEACHER", isDefault: true, tenant: t(TENANT_A) },
       ],
+      userRoles: [],
     });
     db.userSite.findMany.mockResolvedValue([{ siteId: SITE_A1, role: "PRINCIPAL" }]);
     db.site.findMany.mockResolvedValue(sitesDuTenant(2));

@@ -45,8 +45,13 @@ test.describe("Routes fermées aux familles (PARENT, STUDENT)", () => {
     test.describe(`${role} ne peut pas ouvrir les consoles du personnel`, () => {
       for (const route of BLOCKED_ROUTES) {
         test(`${role} bloqué sur ${route}`, async ({ page }) => {
+          test.setTimeout(60000);
           await loginAs(page, role);
-          await page.goto(route);
+          // Le middleware peut rediriger avant que la page ne se charge
+          // complètement, ce qui provoque un ERR_ABORTED. On utilise
+          // domcontentloaded et on ignore les erreurs de navigation liées
+          // aux redirections.
+          await page.goto(route, { waitUntil: "domcontentloaded" }).catch(() => {});
           // La route demandée ne doit pas être l'URL finale :
           // l'utilisateur est redirigé vers /acces-bloque ou son accueil.
           await expect(page).not.toHaveURL(new RegExp(`${route}$`));

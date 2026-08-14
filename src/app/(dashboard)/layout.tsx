@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { Sidebar } from "@/components/layout/Sidebar";
-import type { RoleMode } from "@/components/layout/RoleSwitcher";
+import type { Role } from "@prisma/client";
 import { AiChatWidget } from "@/components/ai/AiChatWidget";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import prisma from "@/lib/prisma";
@@ -66,6 +67,18 @@ export default async function DashboardLayout({
     }
   }
 
+  // Forçage du changement de mot de passe : si l'utilisateur a un mot de
+  // passe initial prévisible (génération en masse), il doit le changer avant
+  // d'accéder au tableau de bord. On laisse passer la page /profil elle-même.
+  const mustChange = session.user.mustChangePassword ?? false;
+  if (mustChange) {
+    const h = await headers();
+    const currentPath = h.get("x-pathname") ?? "";
+    if (!currentPath.startsWith("/profil")) {
+      redirect("/profil");
+    }
+  }
+
   const tenantName = session.user.tenantId
     ? await getTenantName(session.user.tenantId)
     : "Mon École";
@@ -97,28 +110,11 @@ export default async function DashboardLayout({
 
   const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
 
-  // Déterminer les modes de rôle disponibles pour la bascule Travail/Parent.
-  // Un utilisateur qui est à la fois enseignant et parent dans le même
-  // établissement peut basculer entre les deux contextes sans se déconnecter.
-  const availableRoleModes: RoleMode[] = [];
-  let currentRoleMode: RoleMode = "WORK";
-  if (session.user.tenantId) {
-    const [hasParent, hasEnseignant] = await Promise.all([
-      // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, vérification d'existence du Parent
-      prisma.parent.findFirst({
-        where: { userId: session.user.id, tenantId: session.user.tenantId },
-        select: { id: true },
-      }).then((r) => !!r),
-      // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, vérification d'existence de l'Enseignant
-      prisma.enseignant.findFirst({
-        where: { userId: session.user.id, tenantId: session.user.tenantId },
-        select: { id: true },
-      }).then((r) => !!r),
-    ]);
-    if (hasParent) availableRoleModes.push("PARENT");
-    if (hasEnseignant) availableRoleModes.push("WORK");
-    currentRoleMode = session.user.role === "PARENT" ? "PARENT" : "WORK";
-  }
+  // Rôles possédés par l'utilisateur dans le tenant actif.
+  // Calculés par deriveClaims et propagés dans la session — pas de
+  // requête supplémentaire ici, la session est la source de vérité.
+  const availableRoles: Role[] = session.user.availableRoles ?? [session.user.role];
+  const currentRole: Role = session.user.role;
 
   const roleLabels: Record<string, string> = {
     SUPER_ADMIN: tRoles("SUPER_ADMIN"),
@@ -148,8 +144,8 @@ export default async function DashboardLayout({
         sites={sites}
         currentSiteId={siteId}
         isSiteAdmin={isSiteAdmin}
-        availableRoleModes={availableRoleModes}
-        currentRoleMode={currentRoleMode}
+        availableRoles={availableRoles}
+        currentRole={currentRole}
       />
       <main className="flex-1 flex flex-col overflow-hidden bg-background print:overflow-visible print:bg-white">
         <ImpersonationBanner />

@@ -31,6 +31,13 @@ export const authConfig: NextAuthConfig = {
         if (availableTenants) {
           token.availableTenants = availableTenants;
         }
+        // Stocker la liste des rôles possédés dans le tenant actif
+        const availableRoles = (user as { availableRoles?: Role[] }).availableRoles;
+        if (availableRoles) {
+          token.availableRoles = availableRoles;
+        }
+        // mustChangePassword : forçage du changement au 1er login
+        token.mustChangePassword = (user as { mustChangePassword?: boolean }).mustChangePassword ?? false;
       }
       return token;
     },
@@ -46,6 +53,12 @@ export const authConfig: NextAuthConfig = {
         (session.user as { tenantHasSites?: boolean }).tenantHasSites =
           (token.tenantHasSites as boolean | undefined) ?? true;
         (session.user as { availableTenants?: AvailableTenant[] }).availableTenants = token.availableTenants as AvailableTenant[] | undefined;
+        // Rôles possédés dans le tenant actif (pour le RoleSwitcher)
+        (session.user as { availableRoles?: Role[] }).availableRoles =
+          (token.availableRoles as Role[] | undefined) ?? [];
+        // mustChangePassword : forçage du changement au 1er login
+        (session.user as { mustChangePassword?: boolean }).mustChangePassword =
+          (token.mustChangePassword as boolean | undefined) ?? false;
         // Impersonation : expose les champs au session pour la bannière
         (session.user as { impersonating?: boolean }).impersonating = (token.impersonating as boolean | undefined) ?? false;
         (session.user as { impersonatedTenantId?: string | null }).impersonatedTenantId = (token.impersonatedTenantId as string | null | undefined) ?? null;

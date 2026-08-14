@@ -7,9 +7,10 @@ import { siteFilterForModel, requireSiteIdForCreate, mergeFilters } from "@/lib/
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { revalidateTag, revalidatePath } from "next/cache";
 import { preparerPlan, dernierMatricule } from "@/lib/import-eleves-server";
-import { matriculeGenerator, parseDate, type Action, type LignePlan } from "@/lib/import-eleves";
+import { matriculeGenerator, parseDate, type Action, type LignePlan, type ContactParentLu } from "@/lib/import-eleves";
 import { identityKey } from "@/lib/eleve-identity";
 import { resoudreIdentiteKey } from "@/lib/eleve-identity-server";
+import { normalizePhone } from "@/lib/phone";
 import { randomUUID } from "crypto";
 
 // Mapping: nom du groupe scolaire → StructureType
@@ -245,6 +246,24 @@ export async function POST(req: NextRequest) {
     const sexeDe = (v?: string): Sexe =>
       v === "F" || v === "FEMME" || v === "FILLE" ? "F" : "M";
 
+    const lienValide = (l?: string): "PERE" | "MERE" | "TUTEUR" | "AUTRE" => {
+      if (l === "PERE" || l === "MERE" || l === "TUTEUR" || l === "AUTRE") return l;
+      return "TUTEUR";
+    };
+
+    /** Crée le lien EleveParent s'il n'existe pas déjà. */
+    const creerLienSiAbsent = async (eleveId: string, parentId: string, lien?: string) => {
+      // eslint-disable-next-line ecolpro/require-site-filter -- clé composite parent↔élève, déjà isolée par tenant
+      const existing = await prisma.eleveParent.findUnique({
+        where: { eleveId_parentId: { eleveId, parentId } },
+      });
+      if (!existing) {
+        await prisma.eleveParent.create({
+          data: { eleveId, parentId, lien: lienValide(lien), isGardien: true },
+        });
+      }
+    };
+
     const warnings: string[] = [];
     // Identifiant du lot : chaque fiche créée le porte, ce qui permet de
     // défaire un import entier d'un seul geste au lieu de trier les fiches
@@ -299,6 +318,60 @@ export async function POST(req: NextRequest) {
       created += res.count;
     }
 
+    // ── Parents (depuis les colonnes parent du fichier) ───────────
+    // On récupère les élèves fraîchement créés par leur identiteKey pour
+    // obtenir leur id, puis on crée les fiches Parent (dédupliquées par
+    // téléphone normalisé dans le lot) et les liens EleveParent.
+    let parentsCreated = 0;
+    let liensCreated = 0;
+    const clesCrees = new Set(aInserer.map((e) => e.identiteKey).filter((k): k is string => !!k));
+    if (clesCrees.size > 0) {
+      // eslint-disable-next-line ecolpro/require-site-filter -- récupération des élèves du lot par identiteKey, isolation par tenantId
+      const elevesCrees = await prisma.eleve.findMany({
+        where: { tenantId, identiteKey: { in: [...clesCrees] } },
+        select: { id: true, identiteKey: true },
+      });
+      const eleveIdParCle = new Map(elevesCrees.map((e) => [e.identiteKey, e.id]));
+
+      // Déduplication des parents par téléphone normalisé dans ce lot.
+      // Un parent présent pour 3 enfants = 1 fiche Parent + 3 liens.
+      const parentParTel = new Map<string, string>(); // tel normalisé → parentId
+      const aCreerParents: { tel: string; data: { tenantId: string; nom: string; prenom: string; phone: string; phone2: string | null } }[] = [];
+
+      for (const ligne of aCreer) {
+        const src = srcDe.get(ligne.ligne);
+        if (!src) continue;
+        const eleveId = eleveIdParCle.get(identityKey({ nom: ligne.nom, prenom: ligne.prenom, dateNaissance: parseDate(ligne.dateNaissance)! }));
+        if (!eleveId) continue;
+
+        for (const bloc of [src.parent1, src.parent2]) {
+          if (!bloc || !bloc.nom) continue;
+          const tel = bloc.telephone ? normalizePhone(bloc.telephone) : null;
+          // Si on a déjà vu ce téléphone dans le lot, on récupère le parentId existant
+          if (tel && parentParTel.has(tel)) {
+            const parentId = parentParTel.get(tel)!;
+            await creerLienSiAbsent(eleveId, parentId, bloc.lien);
+            liensCreated++;
+            continue;
+          }
+          // Sinon on prépare la création (la fiche sera insérée ci-dessous)
+          const parentData = {
+            tenantId,
+            nom: bloc.nom,
+            prenom: bloc.prenom ?? "",
+            phone: bloc.telephone ?? "",
+            phone2: bloc.telephone2 ?? null,
+          };
+          // Insertion immédiate pour récupérer l'id (createMany ne le renvoie pas)
+          const parent = await prisma.parent.create({ data: parentData });
+          parentsCreated++;
+          if (tel) parentParTel.set(tel, parent.id);
+          await creerLienSiAbsent(eleveId, parent.id, bloc.lien);
+          liensCreated++;
+        }
+      }
+    }
+
     // Mises à jour : on rafraîchit la fiche existante au lieu d'en créer une
     // seconde. C'est ce qui rend un réimport idempotent.
     let updated = 0;
@@ -341,6 +414,8 @@ export async function POST(req: NextRequest) {
           created,
           updated,
           ignorees: ignorees.length,
+          parentsCreated,
+          liensCreated,
         },
       },
     });
@@ -361,6 +436,8 @@ export async function POST(req: NextRequest) {
         skipped: ignorees.length,
         structuresCreated: structuresToCreate.length,
         classesCreated: classesToCreate.length,
+        parentsCreated,
+        liensCreated,
         warnings: warnings.length > 0 ? warnings.slice(0, 20) : undefined,
         // Permet d'annuler l'import d'un seul geste depuis l'écran de résultat.
         importBatchId: created > 0 ? importBatchId : undefined,

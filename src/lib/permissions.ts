@@ -255,6 +255,7 @@ export const ROUTE_RULES: RouteRule[] = [
   // — Écrans ouverts à tout compte authentifié —
   { pattern: /^\/dashboard/, permission: null },
   { pattern: /^\/acces-bloque/, permission: null },
+  { pattern: /^\/profil/, permission: null },
   { pattern: /^\/messages/, permission: "messages:read" },
 
   // — Plateforme —
@@ -425,6 +426,7 @@ export const ROUTE_RULES: RouteRule[] = [
 
   // — Configuration —
   { pattern: /^\/parametres\/audit/, permission: "audit:read" },
+  { pattern: /^\/parametres\/demandes-lien/, permission: "parametres:read" },
   { pattern: /^\/parametres/, permission: "parametres:read" },
 ];
 

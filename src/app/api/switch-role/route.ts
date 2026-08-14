@@ -8,18 +8,32 @@ import { auditFire } from "@/lib/audit";
 import { erreurJson } from "@/lib/erreurs-api";
 
 const BodySchema = z.object({
-  mode: z.enum(["WORK", "PARENT"]),
+  role: z.enum([
+    "SUPER_ADMIN",
+    "TENANT_ADMIN",
+    "PRINCIPAL",
+    "SECRETARY",
+    "TEACHER",
+    "CLASS_TEACHER",
+    "COUNSELOR",
+    "NURSE",
+    "ACCOUNTANT",
+    "SUPERVISOR",
+    "SUBJECT_LEAD",
+    "SITE_MANAGER",
+    "INSPECTOR",
+    "PARENT",
+    "STUDENT",
+  ]),
 });
 
 /**
- * POST /api/switch-role — bascule entre le mode Travail et le mode Parent.
+ * POST /api/switch-role — bascule le rôle actif dans le tenant courant.
  *
- * Un utilisateur qui est à la fois enseignant et parent dans le même
- * établissement peut changer de contexte sans se déconnecter. La route
- * vérifie que l'utilisateur possède l' enregistrement métier correspondant
- * (un `Parent` pour le mode PARENT, un `Enseignant` pour le mode WORK) dans
- * le tenant actif, puis met à jour le rôle porté par `UserTenant` pour ce
- * tenant et rafraîchit la session.
+ * L'utilisateur doit **posséder** le rôle cible dans `UserRole` pour ce
+ * tenant. La route met à jour uniquement le rôle **actif** (pointeur dans
+ * `UserTenant.role` et `User.role`) — elle ne crée ni ne supprime jamais
+ * de ligne dans `UserRole`. Les autres rôles possédés restent intacts.
  */
 export async function POST(req: Request) {
   try {
@@ -38,7 +52,7 @@ export async function POST(req: Request) {
       return erreurJson("DONNEES_INVALIDES");
     }
 
-    const { mode } = parsed.data;
+    const { role: targetRole } = parsed.data;
     const userId = session.user.id;
     const tenantId = session.user.tenantId;
 
@@ -46,7 +60,7 @@ export async function POST(req: Request) {
       return erreurJson("ADHESION_INTROUVABLE");
     }
 
-    // Vérifier que l'utilisateur a une adhésion active à ce tenant.
+    // 1. Vérifier que l'utilisateur a une adhésion active à ce tenant.
     const userTenant = await prisma.userTenant.findFirst({
       where: { userId, tenantId, isActive: true },
       select: { id: true, role: true },
@@ -64,79 +78,52 @@ export async function POST(req: Request) {
       return erreurJson("ADHESION_INTROUVABLE");
     }
 
-    // Déterminer le rôle cible et vérifier que l'utilisateur possède
-    // l'enregistrement métier correspondant dans ce tenant.
-    let targetRole: Role;
-    if (mode === "PARENT") {
-      // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, vérification d'existence du Parent
-      const parent = await prisma.parent.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
+    // 2. Vérifier que l'utilisateur **possède** ce rôle dans UserRole.
+    //    C'est la garantie centrale : on ne peut basculer que vers un rôle
+    //    qu'on possède réellement, jamais vers un rôle arbitraire.
+    // eslint-disable-next-line ecolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; self-lookup de l'utilisateur connecté
+    const userRole = await prisma.userRole.findUnique({
+      where: {
+        userId_tenantId_role: { userId, tenantId, role: targetRole },
+      },
+      select: { id: true, isActive: true },
+    });
+
+    if (!userRole || !userRole.isActive) {
+      auditFire({
+        userId,
+        tenantId,
+        action: "switch-role",
+        verdict: "DENIED",
+        resource: "role",
+        reason: `Rôle ${targetRole} non possédé dans ce tenant`,
       });
-      if (!parent) {
-        auditFire({
-          userId,
-          tenantId,
-          action: "switch-role",
-          verdict: "DENIED",
-          resource: "role",
-          reason: "Aucun enregistrement Parent pour ce tenant",
-        });
-        return erreurJson("ADHESION_INTROUVABLE");
-      }
-      targetRole = "PARENT";
-    } else {
-      // Mode WORK : l'utilisateur doit avoir un enregistrement Enseignant
-      // (ou être un membre du personnel). On conserve le rôle de travail
-      // d'origine s'il existe, sinon on utilise TEACHER par défaut.
-      // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, vérification d'existence de l'Enseignant
-      const enseignant = await prisma.enseignant.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
-      });
-      if (!enseignant) {
-        // Si l'utilisateur n'est pas enseignant mais a un rôle de personnel
-        // (secrétaire, comptable, etc.), on accepte le mode WORK avec le
-        // rôle actuel s'il n'est pas PARENT/STUDENT.
-        const currentRole = userTenant.role;
-        if (currentRole === "PARENT" || currentRole === "STUDENT") {
-          auditFire({
-            userId,
-            tenantId,
-            action: "switch-role",
-            verdict: "DENIED",
-            resource: "role",
-            reason: "Aucun enregistrement Enseignant ni rôle de personnel",
-          });
-          return erreurJson("ADHESION_INTROUVABLE");
-        }
-        targetRole = currentRole;
-      } else {
-        // Conserver le rôle de travail existant s'il n'est pas PARENT/STUDENT,
-        // sinon utiliser TEACHER.
-        const currentRole = userTenant.role;
-        targetRole =
-          currentRole === "PARENT" || currentRole === "STUDENT"
-            ? "TEACHER"
-            : currentRole;
-      }
+      return erreurJson("PERMISSIONS_INSUFFISANTES");
     }
 
-    // Mettre à jour le rôle dans UserTenant.
+    // Si le rôle demandé est déjà le rôle actif, ne rien faire.
+    if (userTenant.role === targetRole) {
+      return NextResponse.json({ success: true, activeRole: targetRole });
+    }
+
+    // 3. Mettre à jour uniquement le rôle ACTIF — UserTenant.role.
+    //    UserRole n'est JAMAIS modifié ici : les rôles possédés sont
+    //    intacts, seul le pointeur change.
     await prisma.userTenant.update({
       where: { id: userTenant.id },
       data: { role: targetRole },
     });
 
-    // Mettre à jour le rôle global de l'utilisateur pour cohérence.
+    // 4. Synchroniser User.role pour cohérence avec le code existant
+    //    qui lit User.role directement (middleware, layout, etc.).
     // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
     await prisma.user.update({
       where: { id: userId },
       data: { role: targetRole },
     });
 
-    // Régénérer le JWT : le callback `jwt` relit le périmètre complet
-    // depuis la base.
+    // 5. Régénérer le JWT : le callback `jwt` relit le périmètre complet
+    //    depuis la base, y compris availableRoles.
     await unstable_update({ user: { tenantId } } as never);
 
     const claims = await deriveClaims(userId, tenantId);
@@ -157,12 +144,18 @@ export async function POST(req: Request) {
       action: "switch-role",
       verdict: "ALLOWED",
       resource: "role",
-      reason: `Bascule vers ${mode} (${targetRole})`,
+      reason: `Bascule vers ${targetRole}`,
+      metadata: {
+        previousRole: userTenant.role,
+        newRole: targetRole,
+        availableRoles: claims.availableRoles,
+      },
     });
 
     return NextResponse.json({
       success: true,
       activeRole: claims.role,
+      availableRoles: claims.availableRoles,
     });
   } catch (error) {
     console.error("Erreur switch role:", error);

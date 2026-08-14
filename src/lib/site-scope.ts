@@ -434,6 +434,7 @@ export const SITE_PATHS: Record<string, SitePath> = {
   tenant: "tenant",
   site: "tenant",
   userTenant: "tenant",
+  userRole: "tenant",
   deviceToken: "tenant",
   // Le journal d'audit est transverse : il trace aussi les actions menées
   // hors périmètre de site (connexion, changement de tenant).
@@ -462,6 +463,9 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // --- Échéancier de paiement (rattaché à la facture qui porte siteId) ---
   echeancier: { one: "facture" },
   echeancePaiement: { chain: ["echeancier", "facture"] },
+
+  // --- Demandes de lien parent/élève (niveau tenant, pas de siteId) ---
+  demandeLienParent: "tenant",
 };
 
 /**

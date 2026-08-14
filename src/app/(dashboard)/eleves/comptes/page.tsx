@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { GenerationComptesForm } from "@/components/eleves/GenerationComptesForm";
+import { GenerationComptesParentsForm } from "@/components/eleves/GenerationComptesParentsForm";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
 
@@ -31,8 +32,9 @@ export default async function ComptesElevesPage() {
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin space-y-8">
         <GenerationComptesForm classes={classes} />
+        <GenerationComptesParentsForm classes={classes} />
       </div>
     </div>
   );

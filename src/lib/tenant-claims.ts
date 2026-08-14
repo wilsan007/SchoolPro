@@ -21,7 +21,7 @@ import type { AvailableTenant } from "@/auth.config";
  * sémantique des claims change : les JWT émis avec une version antérieure sont
  * alors ré-hydratés depuis la base à la première requête, sans reconnexion.
  */
-export const CLAIMS_VERSION = 2;
+export const CLAIMS_VERSION = 3;
 
 export interface TenantSiteClaims {
   tenantId: string | null;
@@ -33,6 +33,8 @@ export interface TenantSiteClaims {
   /** Le tenant actif possède-t-il au moins un site ? */
   tenantHasSites: boolean;
   availableTenants: AvailableTenant[];
+  /** Tous les rôles possédés par l'utilisateur dans le tenant actif. */
+  availableRoles: Role[];
   claimsVersion: number;
 }
 
@@ -63,6 +65,13 @@ export async function deriveClaims(
           role: true,
           isDefault: true,
           tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        },
+      },
+      userRoles: {
+        where: { isActive: true },
+        select: {
+          tenantId: true,
+          role: true,
         },
       },
     },
@@ -110,8 +119,25 @@ export async function deriveClaims(
       siteIds: [],
       tenantHasSites: false,
       availableTenants,
+      availableRoles: [],
       claimsVersion: CLAIMS_VERSION,
     };
+  }
+
+  // ---- Rôles possédés dans le tenant actif -------------------------------
+  // `UserRole` est l'inventaire complet des rôles de l'utilisateur dans
+  // chaque tenant. On ne retient que ceux du tenant actif, et actifs.
+  const availableRoles: Role[] = user.userRoles
+    .filter((r) => r.tenantId === activeTenantId)
+    .map((r) => r.role);
+
+  // Garantir que le rôle actif figure toujours dans availableRoles, même
+  // si la table UserRole n'a pas encore été alimentée pour ce user (comptes
+  // historiques créés avant la migration).
+  if (availableRoles.length === 0) {
+    availableRoles.push(tenantRole);
+  } else if (!availableRoles.includes(tenantRole)) {
+    availableRoles.push(tenantRole);
   }
 
   // ---- Sites autorisés DANS le tenant actif ------------------------------
@@ -175,6 +201,7 @@ export async function deriveClaims(
     siteIds,
     tenantHasSites: tenantSiteCount > 0,
     availableTenants,
+    availableRoles,
     claimsVersion: CLAIMS_VERSION,
   };
 }

@@ -44,11 +44,37 @@ export interface ParsedRow {
   matricule?: string;
   nationalite?: string;
   regime?: string;
+  // Parents (2 blocs optionnels — un fichier sans ces colonnes reste valide)
+  parent1?: ContactParentLu;
+  parent2?: ContactParentLu;
+}
+
+/** Contact parent lu dans le fichier d'import (un bloc de colonnes). */
+export interface ContactParentLu {
+  nom: string;
+  prenom?: string;
+  telephone?: string;
+  telephone2?: string;
+  lien?: string; // PERE | MERE | TUTEUR | AUTRE
 }
 
 export function buildColumnMapping(headers: string[]): Record<string, string> {
   const find = (patterns: string[]): string | undefined =>
     headers.find((h) => patterns.some((p) => h.includes(p)));
+
+  // Pour les blocs parent, on cherche les colonnes suffixées par 1/2 ou
+  // préfixées par pere/mere/tuteur. On normalise les en-têtes pour la recherche.
+  const findParent = (bloc: 1 | 2, patterns: string[]): string | undefined => {
+    const suffix = bloc === 1 ? ["1", "_1", " 1"] : ["2", "_2", " 2"];
+    // D'abord chercher avec suffixe explicite (telephone_parent1)
+    const avecSuffix = headers.find((h) =>
+      patterns.some((p) => h.includes(p)) && suffix.some((s) => h.includes(s))
+    );
+    if (avecSuffix) return avecSuffix;
+    // Puis chercher par mot-clé de rôle (pere, mere, tuteur)
+    const role = bloc === 1 ? ["pere", "père", "father"] : ["mere", "mère", "mother"];
+    return headers.find((h) => role.some((r) => h.includes(r)) && patterns.some((p) => h.includes(p)));
+  };
 
   return {
     nom: find(["nom", "lastname", "surname"]) ?? "nom",
@@ -61,6 +87,18 @@ export function buildColumnMapping(headers: string[]): Record<string, string> {
     matricule: find(["matricule", "id", "registration"]) ?? "matricule",
     nationalite: find(["nationalite", "nationality", "pays", "country"]) ?? "nationalite",
     regime: find(["regime", "internat", "pension", "boarding"]) ?? "regime",
+    // Bloc parent 1
+    parent1Nom: findParent(1, ["nom", "lastname", "surname"]) ?? "",
+    parent1Prenom: findParent(1, ["prenom", "prénom", "firstname", "name"]) ?? "",
+    parent1Tel: findParent(1, ["telephone", "tel", "phone", "contact", "mobile", "portable"]) ?? "",
+    parent1Tel2: findParent(1, ["telephone2", "tel2", "phone2", "contact2", "mobile2", "secondaire"]) ?? "",
+    parent1Lien: findParent(1, ["lien", "relation", "type"]) ?? "",
+    // Bloc parent 2
+    parent2Nom: findParent(2, ["nom", "lastname", "surname"]) ?? "",
+    parent2Prenom: findParent(2, ["prenom", "prénom", "firstname", "name"]) ?? "",
+    parent2Tel: findParent(2, ["telephone", "tel", "phone", "contact", "mobile", "portable"]) ?? "",
+    parent2Tel2: findParent(2, ["telephone2", "tel2", "phone2", "contact2", "mobile2", "secondaire"]) ?? "",
+    parent2Lien: findParent(2, ["lien", "relation", "type"]) ?? "",
   };
 }
 
@@ -149,10 +187,33 @@ export async function parseElevesWorkbook(buffer: ArrayBuffer): Promise<ParseRes
       matricule: texte("matricule"),
       nationalite: texte("nationalite"),
       regime: texte("regime"),
+      parent1: lireContactParent(texte, "parent1"),
+      parent2: lireContactParent(texte, "parent2"),
     });
   }
 
   return { rows, erreurs, hash: fileHash(buffer) };
+}
+
+/** Lit un bloc de colonnes parent et ne renvoie un objet que si au moins
+ *  un champ (nom ou téléphone) est présent. */
+function lireContactParent(
+  texte: (k: string) => string | undefined,
+  prefix: "parent1" | "parent2"
+): ContactParentLu | undefined {
+  const nom = texte(`${prefix}Nom`);
+  const prenom = texte(`${prefix}Prenom`);
+  const telephone = texte(`${prefix}Tel`);
+  const telephone2 = texte(`${prefix}Tel2`);
+  const lien = texte(`${prefix}Lien`);
+  if (!nom && !telephone && !prenom) return undefined;
+  return {
+    nom: nom ?? "",
+    prenom: prenom || undefined,
+    telephone: telephone || undefined,
+    telephone2: telephone2 || undefined,
+    lien: lien?.toUpperCase() || undefined,
+  };
 }
 
 // ------------------------------------------------------------

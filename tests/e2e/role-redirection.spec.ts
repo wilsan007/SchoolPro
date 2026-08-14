@@ -10,7 +10,7 @@ import { loginAs } from "./fixtures-roles";
  * SOURCE DE VÉRITÉ : `ACCUEIL_PAR_ROLE` dans `accueil-par-role.ts`.
  *
  * Prérequis :
- *   1. Le seed E2E (`prisma/seed-e2e.ts`) a été appliqué.
+ *   1. Les comptes QA LEARNOS (`scripts/qa-comptes-demo.ts`) ont été créés.
  *   2. Le serveur dev tourne sur le port configuré (3001 par défaut).
  */
 
@@ -27,11 +27,9 @@ const ACCUEIL: Record<string, string> = {
   COUNSELOR: "/conseiller",
   NURSE: "/infirmerie",
   ACCOUNTANT: "/comptabilite",
-  // /ma-matiere est le nouvel écran du coordinateur de matière,
-  // en cours de création. Tant que accueil-par-role.ts renvoie null
-  // pour SUBJECT_LEAD, ce test échouera — c'est l'objectif : il
-  // verrouille l'invariant jusqu'à ce que l'écran soit livré.
   SUBJECT_LEAD: "/ma-matiere",
+  SITE_MANAGER: "/exploitation",
+  INSPECTOR: "/inspection",
 };
 
 test.describe("Redirection post-login par rôle", () => {
