@@ -318,12 +318,21 @@ export function RapportsView() {
 
   return (
     <div className="space-y-6">
-      {/* CSS print - masque tout sauf le rapport */}
+      {/* CSS print - masque tout sauf le contenu du rapport */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #rapport-print-container { display: block !important; }
-          #rapport-print-container > * { display: block !important; }
+          body * { visibility: hidden !important; }
+          #rapport-print-container, #rapport-print-container * { visibility: visible !important; }
+          #rapport-print-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: white !important;
+          }
+          #rapport-print-container .print\:hidden { display: none !important; }
         }
       `}</style>
 

@@ -75,18 +75,23 @@ describe("SITE_PATHS — cohérence avec le schéma Prisma", () => {
       const name = modelNameFor(delegate);
       if (!name || typeof path === "string") continue;
 
-      const field = "one" in path ? path.one : path.many;
-      const rel = relation(name, field);
-
-      if (!rel) {
-        wrong.push(`${name}.${field} n'existe pas (ou n'est pas une relation)`);
-        continue;
-      }
-      if ("one" in path && rel.isList) {
-        wrong.push(`${name}.${field} est une liste : utiliser { many } et non { one }`);
-      }
-      if ("many" in path && !rel.isList) {
-        wrong.push(`${name}.${field} n'est pas une liste : utiliser { one } et non { many }`);
+      // { chain } parcourt plusieurs sauts à-un successifs : chacun doit être
+      // une relation réelle et non une liste (une liste appellerait { many }).
+      const fields = "chain" in path ? path.chain : [("one" in path ? path.one : path.many)];
+      let current = name;
+      for (const field of fields) {
+        const rel = relation(current, field);
+        if (!rel) {
+          wrong.push(`${current}.${field} n'existe pas (ou n'est pas une relation)`);
+          break;
+        }
+        if (("one" in path || "chain" in path) && rel.isList) {
+          wrong.push(`${current}.${field} est une liste : { one }/{ chain } ne supportent que des relations à-un`);
+        }
+        if ("many" in path && !rel.isList) {
+          wrong.push(`${current}.${field} n'est pas une liste : utiliser { one } et non { many }`);
+        }
+        current = rel.type;
       }
     }
     expect(wrong, wrong.join("\n")).toEqual([]);
@@ -98,19 +103,37 @@ describe("SITE_PATHS — cohérence avec le schéma Prisma", () => {
       const name = modelNameFor(delegate);
       if (!name || typeof path === "string") continue;
 
+      if ("chain" in path) {
+        // { chain } doit résoudre en entier vers une colonne siteId réelle —
+        // c'est précisément ce que siteFilterForModel suppose au runtime,
+        // sans re-résolution récursive via SITE_PATHS.
+        let current = name;
+        let ok = true;
+        for (const field of path.chain) {
+          const rel = relation(current, field);
+          if (!rel) { ok = false; break; }
+          current = rel.type;
+        }
+        if (!ok || !hasSiteIdColumn(current)) {
+          wrong.push(`${name}.${path.chain.join(".")} → ${current} qui ne porte pas siteId`);
+        }
+        continue;
+      }
+
       const field = "one" in path ? path.one : path.many;
       const rel = relation(name, field);
       if (!rel) continue; // déjà signalé par le test précédent
 
-      // Le modèle cible doit soit porter siteId, soit être lui-même rattaché.
+      // Le modèle cible doit soit porter siteId, soit être lui-même rattaché
+      // via { chain } (un { one }/{ many } imbriqué n'est PAS résolu par
+      // siteFilterForModel — seul { chain } compose plusieurs sauts).
       if (!hasSiteIdColumn(rel.type)) {
         const targetDelegate = rel.type[0].toLowerCase() + rel.type.slice(1);
         const targetPath: SitePath | undefined = SITE_PATHS[targetDelegate];
-        const chained =
-          targetPath && targetPath !== "tenant" && targetPath !== "column";
+        const chained = targetPath && typeof targetPath === "object" && "chain" in targetPath;
         if (!chained) {
           wrong.push(
-            `${name}.${field} → ${rel.type} qui ne porte pas siteId et n'est pas rattaché`
+            `${name}.${field} → ${rel.type} qui ne porte pas siteId et n'est pas déclaré via { chain }`
           );
         }
       }
@@ -143,6 +166,32 @@ describe("siteFilterForModel", () => {
     });
     expect(siteFilterForModel("paiement", scoped)).toEqual({
       AND: [{ facture: { siteId: { in: ["s1"] } } }],
+    });
+  });
+
+  // Régression : ficheRH/bulletinPaie/absencePersonnel/congePersonnel/sanction/
+  // bulletinMatiere n'ont pas de siteId propre — { one } aurait produit un
+  // "Unknown argument siteId" Prisma dès qu'un rôle site-scopé (non
+  // TENANT_ADMIN/PRINCIPAL) touchait ces modèles. { chain } compose plusieurs
+  // sauts jusqu'à une colonne siteId réelle.
+  it("filtre via une chaîne de relations pour un modèle à deux sauts ou plus d'une colonne siteId", () => {
+    expect(siteFilterForModel("ficheRH", scoped)).toEqual({
+      AND: [{ enseignant: { user: { siteId: { in: ["s1"] } } } }],
+    });
+    expect(siteFilterForModel("bulletinPaie", scoped)).toEqual({
+      AND: [{ ficheRH: { enseignant: { user: { siteId: { in: ["s1"] } } } } }],
+    });
+    expect(siteFilterForModel("absencePersonnel", scoped)).toEqual({
+      AND: [{ enseignant: { user: { siteId: { in: ["s1"] } } } }],
+    });
+    expect(siteFilterForModel("congePersonnel", scoped)).toEqual({
+      AND: [{ enseignant: { user: { siteId: { in: ["s1"] } } } }],
+    });
+    expect(siteFilterForModel("sanction", scoped)).toEqual({
+      AND: [{ incident: { eleve: { siteId: { in: ["s1"] } } } }],
+    });
+    expect(siteFilterForModel("bulletinMatiere", scoped)).toEqual({
+      AND: [{ bulletin: { eleve: { siteId: { in: ["s1"] } } } }],
     });
   });
 

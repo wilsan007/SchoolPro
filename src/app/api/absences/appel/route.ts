@@ -35,9 +35,9 @@ export async function POST(req: NextRequest) {
     const tenantId = session.user.tenantId;
     const appelDate = new Date(date);
 
-    // Vérifier que la classe appartient au tenant
+    // Vérifier que la classe appartient au tenant et au site
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId },
+      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user) },
     });
     if (!classe) {
       return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
 
       // Récupérer les élèves signalés avec leurs parents (tous les parents liés, pas seulement le gardien)
       const elevesSignales = await prisma.eleve.findMany({
-        where: { id: { in: signaleEleveIds.map((e) => e.eleveId) } },
+        where: { id: { in: signaleEleveIds.map((e) => e.eleveId) }, tenantId, ...siteFilterForModel("eleve", session.user) },
         select: {
           id: true,
           nom: true,

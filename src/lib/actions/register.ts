@@ -36,8 +36,14 @@ export async function registerTenant(data: RegisterFormData) {
 
   const values = parsed.data;
 
+  // Inscription publique : aucun tenant n'existe encore pour cet appelant (on
+  // est justement en train d'en créer un) — la recherche d'unicité de l'email
+  // administrateur est nécessairement inter-tenants, comme pour la connexion
+  // (cf. src/lib/auth.ts).
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
   const existingUser = await prisma.user.findUnique({
     where: { email: values.adminEmail },
+    select: { id: true },
   });
   if (existingUser) {
     throw new Error("Un compte existe déjà avec cet email administrateur");

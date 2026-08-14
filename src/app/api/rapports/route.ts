@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   if (type === "statistiques") {
     const [totalEleves, totalEnseignants, totalClasses, notesStats, absencesStats] = await Promise.all([
       prisma.eleve.count({ where: { tenantId, ...siteFilter, statut: "ACTIF" } }),
-      prisma.enseignant.count({ where: { tenantId } }),
+      prisma.enseignant.count({ where: { tenantId, ...siteFilterForModel("enseignant", session.user) } }),
       prisma.classe.count({ where: { tenantId, ...siteFilter } }),
       prisma.note.aggregate({
         where: { tenantId, ...eleveFilter, isPubliee: true },
@@ -75,9 +75,9 @@ export async function GET(req: NextRequest) {
         where: { tenantId, ...siteFilter },
         select: { nom: true, niveau: true, filiere: true, effectifMax: true, _count: { select: { eleves: { where: { statut: "ACTIF" } } } } },
       }),
-      prisma.matiere.findMany({ where: { tenantId }, select: { nom: true, code: true, coefficient: true } }),
+      prisma.matiere.findMany({ where: { tenantId, ...siteFilterForModel("matiere", session.user) }, select: { nom: true, code: true, coefficient: true } }),
       prisma.enseignant.findMany({
-        where: { tenantId },
+        where: { tenantId, ...siteFilterForModel("enseignant", session.user) },
         select: { specialite: true, typeContrat: true, user: { select: { name: true } } },
       }),
       prisma.eleve.groupBy({ by: ["statut"], where: { tenantId, ...siteFilter }, _count: { id: true } }),

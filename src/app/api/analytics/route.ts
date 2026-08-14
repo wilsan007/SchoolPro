@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   const paiements = await prisma.paiement.findMany({
-    where: { facture: { tenantId }, date: { gte: sixMonthsAgo } },
+    where: { ...siteFilterForModel("paiement", session.user), facture: { tenantId }, date: { gte: sixMonthsAgo } },
     select: { montant: true, devise: true, date: true },
   });
   const revenueByMonth: Record<string, number> = {};

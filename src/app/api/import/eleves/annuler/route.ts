@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { mergeFilters, siteFilterForModel } from "@/lib/site-scope";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 
 const Schema = z.object({ importBatchId: z.string().min(1) });
 
@@ -93,6 +93,9 @@ export async function POST(req: NextRequest) {
     });
 
     revalidateTag("eleves-stats");
+    // Les effectifs par classe affichés dans Paramètres → Pédagogie.
+    revalidatePath("/parametres");
+    revalidatePath("/eleves");
     revalidateTag("dashboard-data");
 
     return NextResponse.json({

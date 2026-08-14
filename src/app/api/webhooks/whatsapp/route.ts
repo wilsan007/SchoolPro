@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyMetaSignature } from "@/lib/webhooks";
+import { repondreAuParent } from "@/lib/learnos/bot-parent-webhook";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN ?? "ecolpro_whatsapp_token";
 
@@ -51,33 +52,12 @@ export async function POST(request: NextRequest) {
             const from = msg.from; // numéro international
             const text = msg.text?.body ?? msg.type ?? "(media)";
 
-            console.log(`[WhatsApp Webhook] Message de ${from}: ${text}`);
+            console.log(`[WhatsApp Webhook] Message de ${from}`);
 
-            // Chercher le parent par téléphone
-            const parent = await prisma.parent.findFirst({
-              where: {
-                OR: [
-                  { phone: from },
-                  { phone: `+${from}` },
-                ],
-              },
-            });
-
-            if (parent) {
-              await prisma.notification.create({
-                data: {
-                  tenantId: parent.tenantId,
-                  titre: `WhatsApp de ${parent.prenom} ${parent.nom}`,
-                  contenu: text,
-                  canal: "IN_APP", // WhatsApp entrant tracé comme notification interne
-                  cible: "TOUS",
-                  statut: "ENVOYEE",
-                  nbDestinataires: 1,
-                  nbDelivres: 1,
-                  nbLus: 1,
-                },
-              });
-            }
+            // Le traitement est délibérément à l'intérieur de la boucle et
+            // attendu : sur Vercel, la fonction est gelée dès la réponse
+            // renvoyée, donc un `void` ici perdrait la réponse au parent.
+            await repondreAuParent({ telephone: from, texte: text, canal: "whatsapp" });
           }
         }
 

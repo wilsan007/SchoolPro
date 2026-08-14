@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   Package, AlertTriangle, XCircle, DollarSign, Plus, Search,
@@ -79,7 +79,7 @@ export function InventaireView() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [isPending, startTransition] = useTransition();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
@@ -93,9 +93,9 @@ export function InventaireView() {
       setStats(data.stats);
     }
     setLoading(false);
-  };
+  }, [search, filterCat, filterEtat, showAlerte]);
 
-  useEffect(() => { load(); }, [search, filterCat, filterEtat, showAlerte]);
+  useEffect(() => { load(); }, [load]);
 
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); };
   const openEdit = (item: Item) => {

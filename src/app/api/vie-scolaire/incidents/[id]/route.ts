@@ -32,7 +32,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 });
 
-    const existing = await prisma.incident.findFirst({ where: { id, tenantId } });
+    const existing = await prisma.incident.findFirst({
+      where: { id, tenantId, ...siteFilterForModel("incident", session.user) },
+    });
     if (!existing) return NextResponse.json({ error: "Incident introuvable" }, { status: 404 });
 
     const updated = await prisma.incident.update({
@@ -70,7 +72,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsed = SanctionSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 });
 
-    const existing = await prisma.incident.findFirst({ where: { id, tenantId } });
+    const existing = await prisma.incident.findFirst({
+      where: { id, tenantId, ...siteFilterForModel("incident", session.user) },
+    });
     if (!existing) return NextResponse.json({ error: "Incident introuvable" }, { status: 404 });
 
     const { type, description, dateDebut, dateFin, parentNotifie } = parsed.data;

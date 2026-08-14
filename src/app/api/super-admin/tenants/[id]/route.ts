@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -39,7 +40,7 @@ export async function PATCH(
         trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : undefined,
       },
       include: {
-        _count: { select: { eleves: true, enseignants: true, users: true } },
+        _count: { select: { eleves: ELEVE_NON_ARCHIVE, enseignants: true, users: true } },
       },
     });
 

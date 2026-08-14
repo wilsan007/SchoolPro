@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
+    // eslint-disable-next-line ecolpro/require-site-filter -- health check système sans session utilisateur
     const userCount = await prisma.user.count();
     return NextResponse.json({ ok: true, userCount });
   } catch (error) {

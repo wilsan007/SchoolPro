@@ -1,11 +1,12 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForRelation, siteFilterForModel } from "@/lib/site-filter";
 import Link from "next/link";
 import { ArrowLeft, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
+import { CompetencesEvaluation } from "@/components/evaluations/CompetencesEvaluation";
 
 export default async function SaisieNotesPage({
   params
@@ -21,7 +22,11 @@ export default async function SaisieNotesPage({
   const evaluation = await prisma.evaluation.findFirst({
     where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter },
     include: {
-      classe: { include: { eleves: { orderBy: { nom: 'asc' } } } },
+      classe: {
+        include: {
+          eleves: { where: siteFilterForModel("eleve", session.user), orderBy: { nom: 'asc' } },
+        },
+      },
       matiere: true,
       notes: true,
     }
@@ -30,6 +35,10 @@ export default async function SaisieNotesPage({
   if (!evaluation) {
     redirect("/evaluations");
   }
+
+  const peutModifier = ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"].includes(
+    session.user.role as string
+  );
 
   const grille = evaluation.classe.eleves.map(eleve => {
     const existingNote = evaluation.notes.find(n => n.eleveId === eleve.id);
@@ -58,7 +67,7 @@ export default async function SaisieNotesPage({
           <Link href="/evaluations">
             <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-sm border-none">
               <ArrowLeft className="h-4 w-4" />
-              Retour à l'examen
+              Retour à l&apos;examen
             </Button>
           </Link>
           <Button className="bg-green-600 hover:bg-green-700 text-white gap-2 shadow-sm border-none">
@@ -68,8 +77,14 @@ export default async function SaisieNotesPage({
         </div>
       </div>
       <p className="text-sm text-gray-500 mt-2 ml-1">
-        Saisie et consultation des notes pour l'examen "{evaluation.titre}" de la classe {evaluation.classe.nom} en {evaluation.matiere.nom.toUpperCase()}.
+        Saisie et consultation des notes pour l&apos;examen &quot;{evaluation.titre}&quot; de la classe {evaluation.classe.nom} en {evaluation.matiere.nom.toUpperCase()}.
       </p>
+
+      {/* Rattachement aux compétences — sans lui, les notes saisies ci-dessous
+          ne produisent qu'une preuve de granularité « matière ». */}
+      <div className="mt-4">
+        <CompetencesEvaluation evaluationId={evaluationId} peutModifier={peutModifier} />
+      </div>
 
       {/* Grid */}
       <GrilleSaisie evaluation={evaluation} initialGrille={grille} />

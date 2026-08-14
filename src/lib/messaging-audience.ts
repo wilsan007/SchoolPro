@@ -70,6 +70,12 @@ export type AudienceGroup =
 export interface AudienceSelector {
   scope: AudienceScope;
   group: AudienceGroup;
+  /**
+   * Publics multiples — quand l'interface coche « Parents + Enseignants »
+   * en une seule fois. Si présent, `group` est ignoré et la résolution
+   * fusionne tous les publics.
+   */
+  groups?: AudienceGroup[];
 }
 
 /** Résultat d'une résolution : les identifiants + de quoi l'expliquer. */
@@ -127,8 +133,14 @@ export function allowedScopeKinds(role: Role): AudienceScope["kind"][] {
     case "TEACHER":
     case "CLASS_TEACHER":
       return ["CLASSE"];
+    case "PARENT":
+      // Un parent peut cibler les classes de ses enfants pour contacter
+      // les autres parents. La restriction aux classes de ses enfants est
+      // appliquée par `parentClasseFilter` dans `listTargetingOptions` et
+      // `classeIdsForScope`.
+      return ["CLASSE"];
     default:
-      // PARENT, STUDENT, NURSE, ACCOUNTANT : destinataires individuels
+      // STUDENT, NURSE, ACCOUNTANT : destinataires individuels
       // uniquement, pas de diffusion.
       return [];
   }
@@ -148,16 +160,22 @@ export function allowedGroups(role: Role): AudienceGroup[] {
     case "TEACHER":
     case "CLASS_TEACHER":
       return ["ALL", "PARENTS", "ELEVES"];
+    case "PARENT":
+      // Un parent peut contacter les autres parents des classes de ses enfants.
+      return ["PARENTS"];
     default:
       return [];
   }
 }
 
 export function canTarget(role: Role, selector: AudienceSelector): boolean {
-  return (
-    allowedScopeKinds(role).includes(selector.scope.kind) &&
-    allowedGroups(role).includes(selector.group)
-  );
+  if (!allowedScopeKinds(role).includes(selector.scope.kind)) return false;
+  // Multi-groups : tous les publics doivent être autorisés
+  if (selector.groups && selector.groups.length > 0) {
+    const allowed = allowedGroups(role);
+    return selector.groups.every((g) => allowed.includes(g));
+  }
+  return allowedGroups(role).includes(selector.group);
 }
 
 // ------------------------------------------------------------
@@ -182,17 +200,21 @@ export function deriveConversationType(
     return recipientCount > 1 ? "FREE" : "DIRECT";
   }
 
-  const { scope, group } = selector;
+  const { scope, group, groups } = selector;
+  // Utiliser groups si fourni, sinon [group]
+  const effectiveGroups = groups && groups.length > 0 ? groups : [group];
+  const hasOnlyStaff = effectiveGroups.every(
+    (g) => g === "ENSEIGNANTS" || g === "PERSONNEL" || g === "DIRECTION"
+  );
+  const hasParents = effectiveGroups.includes("PARENTS");
 
   if (intent === "ANNONCE") {
     return scope.kind === "CLASSE" ? "CLASS_ANNOUNCEMENT" : "ADMIN_BROADCAST";
   }
 
   if (scope.kind === "CLASSE") return "CLASS_DISCUSSION";
-  if (group === "ENSEIGNANTS" || group === "PERSONNEL" || group === "DIRECTION") {
-    return "STAFF_GROUP";
-  }
-  if (group === "PARENTS") return "PARENT_ADMIN";
+  if (hasOnlyStaff) return "STAFF_GROUP";
+  if (hasParents) return "PARENT_ADMIN";
   return "FREE";
 }
 
@@ -218,7 +240,8 @@ async function classeIdsForScope(actor: Actor, scope: AudienceScope): Promise<st
   const base = mergeFilters(
     { tenantId: actor.tenantId },
     siteFilterForModel("classe", actor),
-    await teacherClasseFilter(actor)
+    await teacherClasseFilter(actor),
+    await parentClasseFilter(actor)
   );
 
   const extra: Record<string, unknown> =
@@ -250,6 +273,9 @@ async function classeIdsForScope(actor: Actor, scope: AudienceScope): Promise<st
 async function teacherClasseFilter(actor: Actor): Promise<Record<string, unknown>> {
   if (actor.role !== "TEACHER" && actor.role !== "CLASS_TEACHER") return {};
 
+  // Fiche de l'émetteur lui-même, retrouvée par son propre `userId` :
+  // aucun filtre de site à appliquer, la requête ne peut viser personne d'autre.
+  // eslint-disable-next-line ecolpro/require-site-filter
   const enseignant = await prisma.enseignant.findFirst({
     where: { userId: actor.id, tenantId: actor.tenantId },
     select: { id: true },
@@ -269,6 +295,46 @@ async function teacherClasseFilter(actor: Actor): Promise<Record<string, unknown
   };
 }
 
+/**
+ * Restriction pour les parents : ils ne ciblent que les classes où leurs
+ * enfants sont inscrits. Sans ce filtre, un parent pourrait voir toutes les
+ * classes du tenant et contacter des parents d'enfants qu'il ne connaît pas.
+ */
+async function parentClasseFilter(actor: Actor): Promise<Record<string, unknown>> {
+  if (actor.role !== "PARENT") return {};
+
+  // Fiche de l'émetteur lui-même : voir `teacherClasseFilter` ci-dessus.
+  // eslint-disable-next-line ecolpro/require-site-filter
+  const parent = await prisma.parent.findFirst({
+    where: { userId: actor.id, tenantId: actor.tenantId },
+    select: { id: true },
+  });
+  // Fail-closed : un compte parent sans fiche n'a aucune classe.
+  if (!parent) return { AND: [{ id: "__ecolpro_no_classe__" }] };
+
+  // Enfants de l'émetteur : c'est le lien de filiation qui borne la requête,
+  // pas le site — un parent dont les enfants sont sur deux sites doit pouvoir
+  // cibler les deux classes.
+  // eslint-disable-next-line ecolpro/require-site-filter
+  const enfants = await prisma.eleve.findMany({
+    where: {
+      tenantId: actor.tenantId,
+      deletedAt: null,
+      parents: { some: { parentId: parent.id } },
+    },
+    select: { classeId: true },
+  });
+  const classeIds = [...new Set(enfants.map((e) => e.classeId).filter((id): id is string => !!id))];
+  if (classeIds.length === 0) return { AND: [{ id: "__ecolpro_no_classe__" }] };
+
+  // Encapsulé dans `AND` — impératif. `mergeFilters` ne concatène que la clé
+  // `AND` : un `id` de premier niveau était écrasé par le `{ id: scope.id }`
+  // de la portée CLASSE, et la restriction disparaissait purement et
+  // simplement. Un parent pouvait alors cibler les parents de n'importe
+  // quelle classe de l'établissement en passant son identifiant.
+  return { AND: [{ id: { in: classeIds } }] };
+}
+
 /** Sites couverts par la portée, bornés au périmètre de l'émetteur. */
 async function siteIdsForScope(actor: Actor, scope: AudienceScope): Promise<string[] | null> {
   const siteScope = resolveSiteScope(actor);
@@ -282,8 +348,11 @@ async function siteIdsForScope(actor: Actor, scope: AudienceScope): Promise<stri
   // STRUCTURE / NIVEAU / CLASSE : on déduit les sites des classes visées.
   const classeIds = await classeIdsForScope(actor, scope);
   if (classeIds.length === 0) return [];
+  // `classeIds` sort de `classeIdsForScope`, qui applique déjà
+  // `siteFilterForModel("classe", actor)` : la portée est acquise en amont.
+  // eslint-disable-next-line ecolpro/require-site-filter
   const classes = await prisma.classe.findMany({
-    where: { id: { in: classeIds } },
+    where: { id: { in: classeIds }, tenantId: actor.tenantId },
     select: { siteId: true },
   });
   const ids = [...new Set(classes.map((c) => c.siteId).filter((s): s is string => !!s))];
@@ -328,6 +397,10 @@ async function resolveParents(actor: Actor, scope: AudienceScope) {
         ? mergeFilters(eleveBase, { siteId: scope.id })
         : mergeFilters(eleveBase, { classeId: { in: await classeIdsForScope(actor, scope) } });
 
+  // L'isolation passe par la relation : `eleveWhere` porte déjà
+  // `siteFilterForModel("eleve", actor)`. Un lien élève↔parent n'a pas de
+  // site propre à filtrer.
+  // eslint-disable-next-line ecolpro/require-site-filter
   const liens = await prisma.eleveParent.findMany({
     where: { eleve: eleveWhere },
     select: { parent: { select: { id: true, userId: true } } },
@@ -357,13 +430,20 @@ async function resolveEnseignants(actor: Actor, scope: AudienceScope) {
 
   // Professeurs principaux + intervenants via l'emploi du temps : c'est la
   // seule définition fidèle de « les enseignants de cette classe ».
+  // `classeIds` sort de `classeIdsForScope`, déjà borné au périmètre de site.
   const [classes, creneaux] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.classe.findMany({
-      where: { id: { in: classeIds } },
+      where: { id: { in: classeIds }, tenantId: actor.tenantId },
       select: { profPrincipal: { select: { userId: true } } },
     }),
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.emploiTemps.findMany({
-      where: { classeId: { in: classeIds }, enseignantId: { not: null } },
+      where: {
+        classeId: { in: classeIds },
+        enseignantId: { not: null },
+        tenantId: actor.tenantId,
+      },
       select: { enseignant: { select: { userId: true } } },
       distinct: ["enseignantId"],
     }),
@@ -430,9 +510,17 @@ export async function resolveAudience(
     return { userIds: [], breakdown: [], sansCompte: 0, label: "", truncated: false };
   }
 
-  const { scope, group } = selector;
+  const { scope, group, groups: multiGroups } = selector;
+  // Multi-groups : si l'interface envoie plusieurs publics, on les résout tous.
+  // Sinon, ALL se décompose en tous les publics, et un seul group reste tel quel.
   const groups: AudienceGroup[] =
-    group === "ALL" ? ["ELEVES", "PARENTS", "ENSEIGNANTS", "PERSONNEL"] : [group];
+    multiGroups && multiGroups.length > 0
+      ? multiGroups.includes("ALL")
+        ? ["ELEVES", "PARENTS", "ENSEIGNANTS", "PERSONNEL"]
+        : multiGroups
+      : group === "ALL"
+        ? ["ELEVES", "PARENTS", "ENSEIGNANTS", "PERSONNEL"]
+        : [group];
 
   const seen = new Set<string>();
   const breakdown: { group: AudienceGroup; count: number }[] = [];
@@ -472,11 +560,16 @@ export async function resolveAudience(
   }
 
   const all = [...seen];
+  // Libellé : si multi-groups, on les concatène ; sinon on garde le group unique
+  const labelGroups =
+    multiGroups && multiGroups.length > 0
+      ? multiGroups.map((g) => GROUP_LABELS[g]).join(" + ")
+      : GROUP_LABELS[group];
   return {
     userIds: all.slice(0, MAX_AUDIENCE),
     breakdown,
     sansCompte,
-    label: `${GROUP_LABELS[group]} — ${await scopeLabel(actor, scope)}`,
+    label: `${labelGroups} — ${await scopeLabel(actor, scope)}`,
     truncated: all.length > MAX_AUDIENCE,
   };
 }
@@ -514,7 +607,8 @@ export async function listTargetingOptions(actor: Actor): Promise<TargetingOptio
   const classeWhere = mergeFilters(
     { tenantId: actor.tenantId },
     siteFilterForModel("classe", actor),
-    await teacherClasseFilter(actor)
+    await teacherClasseFilter(actor),
+    await parentClasseFilter(actor)
   );
 
   const [classes, sites, structures] = await Promise.all([

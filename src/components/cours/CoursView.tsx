@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import type { SiteColor } from "@/lib/site-colors";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,8 @@ interface Cours {
   dureeMin: number | null;
   nbVues: number;
   nbInscrits: number;
+  siteId?: string | null;
+  siteNom?: string | null;
   createdAt: string | Date;
   _count?: { contenus: number; progressions: number };
   contenus?: ContenuCours[];
@@ -312,14 +315,23 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
 
 // ─── Carte Cours ────────────────────────────────────────────────────────────────
 
-function CoursCard({ cours, onSelect, onDelete }: {
+const FALLBACK: SiteColor = {
+  base: "#6b7280",
+  light: "#f3f4f6",
+  border: "#e5e7eb",
+  text: "#374151",
+};
+
+function CoursCard({ cours, siteColors, onSelect, onDelete }: {
   cours: Cours;
+  siteColors: Record<string, SiteColor>;
   onSelect: (c: Cours) => void;
   onDelete: (id: string) => void;
 }) {
   const t = useTranslations("cours");
   const nConfig = NIVEAU_CONFIG[cours.niveau];
   const sConfig = STATUT_CONFIG[cours.statut];
+  const siteColor = cours.siteId ? (siteColors[cours.siteId] ?? FALLBACK) : FALLBACK;
 
   return (
     <Card className="border-0 shadow-sm hover:shadow-md transition-all cursor-pointer group"
@@ -331,6 +343,14 @@ function CoursCard({ cours, onSelect, onDelete }: {
             <BookMarked className="w-5 h-5 text-primary" />
           </div>
           <div className="flex gap-1.5 flex-shrink-0">
+            {cours.siteId && cours.siteNom && (
+              <Badge
+                className="text-xs"
+                style={{ backgroundColor: siteColor.light, borderColor: siteColor.border, color: siteColor.text }}
+              >
+                {cours.siteNom}
+              </Badge>
+            )}
             <Badge className={cn("text-xs border", nConfig.color)}>{t(nConfig.labelKey)}</Badge>
             <Badge className={cn("text-xs", sConfig.color)}>{t(sConfig.labelKey)}</Badge>
           </div>
@@ -552,7 +572,13 @@ function CoursDetail({ cours: initial, onBack }: {
 
 // ─── Vue principale ─────────────────────────────────────────────────────────────
 
-export function CoursView() {
+export function CoursView({
+  siteColors,
+  activeSite,
+}: {
+  siteColors: Record<string, SiteColor>;
+  activeSite: string;
+}) {
   const t = useTranslations("cours");
   const [cours, setCours] = useState<Cours[]>([]);
   const [selected, setSelected] = useState<Cours | null>(null);
@@ -563,14 +589,16 @@ export function CoursView() {
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
-  // Charger les cours au montage
+  // Charger les cours au montage et quand le site actif change
   useEffect(() => {
-    fetch("/api/cours")
+    const url = activeSite === "all" ? "/api/cours" : `/api/cours?siteId=${encodeURIComponent(activeSite)}`;
+    setLoading(true);
+    fetch(url)
       .then(r => r.json())
       .then(({ cours }) => setCours(cours ?? []))
       .catch(() => toast.error(t("loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t, activeSite]);
 
   const stats = useMemo(() => ({
     total: cours.length,
@@ -714,7 +742,7 @@ export function CoursView() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(c => (
-            <CoursCard key={c.id} cours={c} onSelect={handleSelect} onDelete={handleDelete} />
+            <CoursCard key={c.id} cours={c} siteColors={siteColors} onSelect={handleSelect} onDelete={handleDelete} />
           ))}
         </div>
       )}

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const { classeId, creneaux } = parsed.data;
     const tenantId = session.user.tenantId;
 
-    const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId }, select: { id: true, nom: true } });
+    const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId, ...siteFilter }, select: { id: true, nom: true } });
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
 
     // Auto-conflit interne au plan fourni (classe, enseignant, salle).

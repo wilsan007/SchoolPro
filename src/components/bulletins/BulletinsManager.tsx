@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +72,7 @@ export function BulletinsManager({
   const isPublished = published.has(key);
 
   // Vérifier si des bulletins existent déjà en DB pour cette classe/période
-  async function checkExistingBulletins(classeId: string, periodeId: string) {
+  const checkExistingBulletins = useCallback(async (classeId: string, periodeId: string) => {
     setCheckingExisting(true);
     try {
       const res = await fetch(`/api/bulletins/check-existing?classeId=${classeId}&periodeId=${periodeId}`);
@@ -92,14 +92,18 @@ export function BulletinsManager({
       setCheckingExisting(false);
     }
     return false;
-  }
+  }, []);
 
-  // Quand on change de classe/période, vérifier si bulletins déjà générés
+  // Quand on change de classe/période, vérifier si bulletins déjà générés.
+  // Les identifiants sont extraits en variables : une expression composée
+  // dans le tableau de dépendances ne peut pas être vérifiée statiquement.
+  const classeIdSelectionnee = selectedClasse?.id;
+  const periodeIdSelectionnee = selectedPeriode?.id;
   useEffect(() => {
-    if (selectedClasse && selectedPeriode) {
-      checkExistingBulletins(selectedClasse.id, selectedPeriode.id);
+    if (classeIdSelectionnee && periodeIdSelectionnee) {
+      checkExistingBulletins(classeIdSelectionnee, periodeIdSelectionnee);
     }
-  }, [selectedClasse?.id, selectedPeriode?.id]);
+  }, [classeIdSelectionnee, periodeIdSelectionnee, checkExistingBulletins]);
 
   // Replier la sidebar automatiquement en vue matricielle
   useEffect(() => {

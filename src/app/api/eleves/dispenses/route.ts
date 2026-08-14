@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   const matiere = await prisma.matiere.findFirst({
-    where: { id: matiereId, tenantId: session.user.tenantId },
+    where: { id: matiereId, tenantId: session.user.tenantId, ...siteFilterForModel("matiere", session.user) },
     select: { id: true, nom: true, code: true },
   });
   if (!matiere) {

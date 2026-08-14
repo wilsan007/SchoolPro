@@ -54,7 +54,7 @@ export default function TestWhatsAppPage() {
       <div>
         <h1 className="text-2xl font-bold">Test WhatsApp & SMS</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Envoyez un vrai message WhatsApp ou SMS pour vérifier l'intégration
+          Envoyez un vrai message WhatsApp ou SMS pour vérifier l&apos;intégration
         </p>
       </div>
 
@@ -74,7 +74,7 @@ export default function TestWhatsAppPage() {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Smartphone className="w-4 h-4" />
-              <span className="font-medium">SMS (Africa's Talking):</span>
+              <span className="font-medium">SMS (Africa&apos;s Talking):</span>
               <span>{config.sms?.apiKey}</span>
               <span className="text-muted-foreground">|</span>
               <span>{config.sms?.username}</span>
@@ -86,8 +86,8 @@ export default function TestWhatsAppPage() {
                 <ul className="list-disc list-inside mt-1 space-y-0.5">
                   <li><code>WHATSAPP_API_TOKEN</code> — Token API WhatsApp Business Cloud</li>
                   <li><code>WHATSAPP_PHONE_NUMBER_ID</code> — ID du numéro WhatsApp Business</li>
-                  <li><code>AT_API_KEY</code> — Clé API Africa's Talking</li>
-                  <li><code>AT_USERNAME</code> — Nom d'utilisateur Africa's Talking</li>
+                  <li><code>AT_API_KEY</code> — Clé API Africa&apos;s Talking</li>
+                  <li><code>AT_USERNAME</code> — Nom d&apos;utilisateur Africa&apos;s Talking</li>
                 </ul>
               </div>
             )}
@@ -110,16 +110,16 @@ export default function TestWhatsAppPage() {
               className="w-full"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Indicatif pays requis. Djibouti: 253, Sénégal: 221, Côte d'Ivoire: 225
+              Indicatif pays requis. Djibouti: 253, Sénégal: 221, Côte d&apos;Ivoire: 225
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium block mb-1">Nom de l'élève</label>
+              <label className="text-sm font-medium block mb-1">Nom de l&apos;élève</label>
               <Input value={eleveNom} onChange={(e) => setEleveNom(e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">Nom de l'école</label>
+              <label className="text-sm font-medium block mb-1">Nom de l&apos;école</label>
               <Input value={ecoleNom} onChange={(e) => setEcoleNom(e.target.value)} />
             </div>
           </div>
@@ -176,7 +176,7 @@ export default function TestWhatsAppPage() {
               ) : (
                 <XCircle className="w-5 h-5 text-red-500" />
               )}
-              Résultat de l'envoi
+              Résultat de l&apos;envoi
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">

@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import type { Session } from "next-auth";
+import { siteFilterForModel, mergeFilters, type SessionSiteClaims } from "@/lib/site-scope";
 
 export interface SituationFinanciere {
   totalFacture: number;
@@ -28,16 +29,25 @@ export interface SituationFinanciere {
  * Récupère la situation financière complète d'un élève.
  * Calcule le solde, les retards, les relances et l'exclusion en cours.
  */
-export async function getSituationFinanciere(eleveId: string, tenantId: string): Promise<SituationFinanciere> {
+export async function getSituationFinanciere(
+  eleveId: string,
+  tenantId: string,
+  claims: SessionSiteClaims
+): Promise<SituationFinanciere> {
   const factures = await prisma.facture.findMany({
-    where: { eleveId, tenantId, statut: { not: "ANNULEE" } },
+    where: mergeFilters(
+      { eleveId, tenantId, statut: { not: "ANNULEE" } },
+      siteFilterForModel("facture", claims)
+    ),
     include: {
-      paiements: true,
-      relances: { select: { id: true, niveau: true } },
+      paiements: { where: siteFilterForModel("paiement", claims) },
+      relances: { where: siteFilterForModel("relance", claims), select: { id: true, niveau: true } },
     },
     orderBy: { createdAt: "asc" },
   });
 
+  // Une exclusion est rattachée à l'élève (déjà filtré par site ci-dessus) ; l'exclusion
+  // elle-même n'a pas de siteId propre, mais reste bornée au tenant.
   const exclusion = await prisma.exclusionEleve.findFirst({
     where: { eleveId, tenantId, dateFin: null },
     select: { id: true, motif: true, dateDebut: true },
@@ -118,7 +128,11 @@ export async function checkEleveAccess(eleveId: string, tenantId: string): Promi
  * - Si CERTAINS seulement sont exclus → blocage partiel (blocked: false, partialBlock: true, excludedEleveIds: [...])
  *   Le parent garde accès à la plateforme mais les données des enfants exclus sont masquées.
  */
-export async function checkUserFinancialBlock(userId: string, tenantId: string): Promise<{
+export async function checkUserFinancialBlock(
+  userId: string,
+  tenantId: string,
+  claims: SessionSiteClaims
+): Promise<{
   blocked: boolean;
   reason?: string;
   eleveIds?: string[];
@@ -129,14 +143,14 @@ export async function checkUserFinancialBlock(userId: string, tenantId: string):
 }> {
   // Cas 1: l'utilisateur est un élève
   const eleve = await prisma.eleve.findFirst({
-    where: { userId, tenantId },
+    where: mergeFilters({ userId, tenantId }, siteFilterForModel("eleve", claims)),
     select: { id: true, statut: true },
   });
 
   if (eleve) {
     if (eleve.statut === "EXCLU") {
       const exclusion = await prisma.exclusionEleve.findFirst({
-        where: { eleveId: eleve.id, dateFin: null },
+        where: { eleveId: eleve.id, tenantId, dateFin: null },
         select: { motif: true, dateDebut: true },
       });
       return {
@@ -156,7 +170,7 @@ export async function checkUserFinancialBlock(userId: string, tenantId: string):
 
   // Cas 2: l'utilisateur est un parent
   const enfants = await prisma.eleveParent.findMany({
-    where: { parent: { userId, tenantId } },
+    where: mergeFilters({ parent: { userId, tenantId } }, siteFilterForModel("eleveParent", claims)),
     select: { eleveId: true },
   });
 
@@ -164,7 +178,7 @@ export async function checkUserFinancialBlock(userId: string, tenantId: string):
 
   const eleveIds = enfants.map((e) => e.eleveId);
   const exclusions = await prisma.exclusionEleve.findMany({
-    where: { eleveId: { in: eleveIds }, dateFin: null },
+    where: { eleveId: { in: eleveIds }, tenantId, dateFin: null },
     select: { eleveId: true, motif: true, dateDebut: true },
   });
 

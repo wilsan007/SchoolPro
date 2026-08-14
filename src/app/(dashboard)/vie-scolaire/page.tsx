@@ -4,12 +4,12 @@ import { Header } from "@/components/layout/Header";
 import { VieScolaireView } from "@/components/vie-scolaire/VieScolaireView";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 
-async function getVieScolaireData(tenantId: string, incFilter: Record<string, unknown>, eleveFilter: Record<string, unknown>, classeFilter: Record<string, unknown>) {
+async function getVieScolaireData(tenantId: string, claims: SessionSiteClaims) {
   const [incidents, eleves, classes] = await Promise.all([
     prisma.incident.findMany({
-      where: { tenantId, ...incFilter },
+      where: { tenantId, ...siteFilterForModel("incident", claims) },
       include: {
         eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } } },
         rapportePar: { select: { name: true } },
@@ -19,12 +19,12 @@ async function getVieScolaireData(tenantId: string, incFilter: Record<string, un
       take: 100,
     }),
     prisma.eleve.findMany({
-      where: { tenantId, statut: "ACTIF", ...eleveFilter },
+      where: { tenantId, statut: "ACTIF", ...siteFilterForModel("eleve", claims) },
       select: { id: true, nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } },
       orderBy: [{ nom: "asc" }, { prenom: "asc" }],
     }),
     prisma.classe.findMany({
-      where: { tenantId, ...classeFilter },
+      where: { tenantId, ...siteFilterForModel("classe", claims) },
       select: { id: true, nom: true },
       orderBy: { nom: "asc" },
     }),
@@ -38,12 +38,9 @@ export default async function VieScolairePage() {
     auth(),
     getTranslations("vieScolaire"),
   ]);
-  guardPage(session, "vie-scolaire:read");
+  await guardPage(session, "vie-scolaire:read");
 
-  const incFilter = siteFilterForModel("incident", session!.user);
-  const eleveFilter = siteFilterForModel("eleve", session!.user);
-  const classeFilter = siteFilterForModel("classe", session!.user);
-  const { incidents, eleves, classes } = await getVieScolaireData(session!.user.tenantId!, incFilter, eleveFilter, classeFilter);
+  const { incidents, eleves, classes } = await getVieScolaireData(session!.user.tenantId!, session!.user);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

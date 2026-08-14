@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForRelation, siteFilterForModel } from "@/lib/site-filter";
 
 // GET — liste des enseignants avec fiche RH
 export async function GET(req: NextRequest) {
@@ -27,12 +27,14 @@ export async function GET(req: NextRequest) {
       ficheRH: {
         include: {
           bulletinsPaie: {
+            where: siteFilterForModel("bulletinPaie", session.user),
             orderBy: [{ annee: "desc" }, { mois: "desc" }],
             take: 3,
           },
         },
       },
       emploiTemps: {
+        where: siteFilterForModel("emploiTemps", session.user),
         select: {
           jour: true, heureDebut: true, heureFin: true,
           matiere: { select: { nom: true, couleur: true } },
@@ -40,6 +42,7 @@ export async function GET(req: NextRequest) {
         },
       },
       classesPrincipales: {
+        where: siteFilterForModel("classe", session.user),
         select: { id: true, nom: true, niveau: true },
       },
     },

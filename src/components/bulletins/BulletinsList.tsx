@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Edit, Trash2, Loader2, Download, FileSpreadsheet } from "lucide-react";
+import { Printer, Edit, Trash2, Loader2, Download, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { BulletinEditorModal } from "./BulletinEditorModal";
@@ -22,7 +22,7 @@ export function BulletinsList({ classes, periodes }: { classes: any[]; periodes:
 
   const [editingBulletin, setEditingBulletin] = useState<any>(null);
 
-  const loadBulletins = async () => {
+  const loadBulletins = useCallback(async () => {
     if (!selectedClasse || !selectedPeriode) return;
     setLoading(true);
     try {
@@ -38,11 +38,11 @@ export function BulletinsList({ classes, periodes }: { classes: any[]; periodes:
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedClasse, selectedPeriode, t]);
 
   useEffect(() => {
     loadBulletins();
-  }, [selectedClasse, selectedPeriode]);
+  }, [loadBulletins]);
 
   const handleDelete = async (id: string) => {
     if (!confirm(t("confirmDelete"))) return;
@@ -170,7 +170,7 @@ export function BulletinsList({ classes, periodes }: { classes: any[]; periodes:
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button variant="ghost" size="icon" onClick={() => handlePrint(b.eleve.id, b.periodeId)} title={t("previewPrint")}>
-                            <Eye className="h-4 w-4" />
+                            <Printer className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => setEditingBulletin(b)} title={t("edit")}>
                             <Edit className="h-4 w-4" />

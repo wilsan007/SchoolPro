@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 import { useTranslations } from "next-intl";
+import type { SiteColor } from "@/lib/site-colors";
 
 interface Eleve {
   id: string;
@@ -27,7 +28,7 @@ interface Eleve {
   statut: string;
   regime: string | null;
   photoUrl: string | null;
-  classe: { nom: string; niveau: string } | null;
+  classe: { id: string; nom: string; niveau: string; site: { id: string; nom: string } | null } | null;
   parents: Array<{
     parent: { nom: string; prenom: string; phone: string };
   }>;
@@ -53,13 +54,14 @@ interface ElevesTableProps {
    * compter les éléments chargés sous-estimerait les effectifs sans le dire.
    */
   effectifs?: Record<string, number>;
-  classes: string[];
+  classes: { id: string; nom: string; siteNom: string | null }[];
+  siteColors: Record<string, SiteColor>;
   initialQuery: string;
   initialClasse: string;
   initialStatut: string;
 }
 
-export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
+export function ElevesTable({ eleves, total, effectifs, classes, siteColors, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("eleves");
@@ -71,6 +73,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showFilters, setShowFilters] = useState(Boolean(initialClasse || initialStatut));
   const [activeGroup, setActiveGroup] = useState<SchoolGroup | null>(null);
+  const [activeSite, setActiveSite] = useState<string | "all">("all");
   const [activeClass, setActiveClass] = useState<string | null>(null);
 
   // Recherche : mise à jour de l'URL avec un debounce
@@ -125,31 +128,104 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
    * disponible, sinon le nombre de lignes chargées. Sans filtre d'écran, les
    * deux coïncident ; avec un filtre, la mesure serveur reste la référence.
    */
-  const effectifDe = (classe: string, charges: number) => effectifs?.[classe] ?? charges;
+  const effectifDe = (classeId: string, charges: number) => effectifs?.[classeId] ?? charges;
 
-  // Groupement des élèves par niveau scolaire, puis par niveau de classe, puis par classe
+  // Groupement des élèves par niveau scolaire, puis par niveau de classe, puis par classe.
+  // La cle de regroupement est l'id de la classe pour distinguer deux classes
+  // homonymes situees sur des sites differents.
   const groupedEleves = SCHOOL_GROUP_ORDER.map((group) => {
-    const classesInGroup = new Map<string, Eleve[]>();
+    const classesInGroup = new Map<string, { nom: string; niveau: string; siteId: string | null; siteNom: string | null; eleves: Eleve[] }>();
     for (const eleve of sorted) {
-      const classeNom = eleve.classe?.nom ?? "Sans classe";
-      const niveau = eleve.classe?.niveau ?? "";
-      const eleveGroup = eleve.classe ? getSchoolGroup(niveau, classeNom) : "Autre";
+      const classe = eleve.classe;
+      const eleveGroup = classe ? getSchoolGroup(classe.niveau, classe.nom) : "Autre";
       if (eleveGroup !== group) continue;
-      if (!classesInGroup.has(classeNom)) classesInGroup.set(classeNom, []);
-      classesInGroup.get(classeNom)!.push(eleve);
+
+      const key = classe?.id ?? "__sans_classe__";
+      if (!classesInGroup.has(key)) {
+        classesInGroup.set(key, {
+          nom: classe?.nom ?? "Sans classe",
+          niveau: classe?.niveau ?? "",
+          siteId: classe?.site?.id ?? null,
+          siteNom: classe?.site?.nom ?? null,
+          eleves: [],
+        });
+      }
+      classesInGroup.get(key)!.eleves.push(eleve);
     }
     // Regrouper les classes par niveau (ex: toutes les 6ème A/B/C ensemble)
-    const classesByNiveau = new Map<string, { classe: string; eleves: Eleve[] }[]>();
-    for (const [classe, eleves] of Array.from(classesInGroup.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
-      const niveauKey = eleves[0]?.classe?.niveau ?? classe;
+    const classesByNiveau = new Map<string, { id: string; nom: string; niveau: string; siteId: string | null; siteNom: string | null; eleves: Eleve[] }[]>();
+    for (const [id, data] of Array.from(classesInGroup.entries()).sort((a, b) => a[1].nom.localeCompare(b[1].nom))) {
+      const niveauKey = data.eleves[0]?.classe?.niveau ?? data.nom;
       if (!classesByNiveau.has(niveauKey)) classesByNiveau.set(niveauKey, []);
-      classesByNiveau.get(niveauKey)!.push({ classe, eleves });
+      classesByNiveau.get(niveauKey)!.push({ id, nom: data.nom, niveau: data.niveau, siteId: data.siteId, siteNom: data.siteNom, eleves: data.eleves });
     }
     return {
       group,
       classesByNiveau: Array.from(classesByNiveau.entries()).map(([niveau, classes]) => ({ niveau, classes })),
     };
   }).filter((g) => g.classesByNiveau.length > 0);
+
+  const activeGroupData = activeGroup ? groupedEleves.find((g) => g.group === activeGroup) : undefined;
+
+  const siteOptions = activeGroupData
+    ? (() => {
+        const map = new Map<string, { siteId: string; siteNom: string; count: number }>();
+        let total = 0;
+        for (const n of activeGroupData.classesByNiveau) {
+          for (const c of n.classes) {
+            const key = c.siteId ?? "__none__";
+            const existing = map.get(key);
+            if (!existing) {
+              map.set(key, { siteId: key, siteNom: c.siteNom ?? "Sans site", count: 0 });
+            }
+            const count = effectifDe(c.id, c.eleves.length);
+            map.get(key)!.count += count;
+            total += count;
+          }
+        }
+        const all = [{ siteId: "all" as const, siteNom: tCommon("all"), count: total }];
+        const sites = Array.from(map.values()).sort((a, b) => a.siteNom.localeCompare(b.siteNom));
+        return [...all, ...sites];
+      })()
+    : [];
+
+  const fallbackColor: SiteColor = { base: "#6b7280", light: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+
+  const classesBySite = activeGroupData
+    ? (() => {
+        const map = new Map<string, { siteId: string; siteNom: string | null; color: SiteColor; classes: { id: string; nom: string; niveau: string; siteId: string | null; siteNom: string | null; eleves: Eleve[] }[] }>();
+        for (const n of activeGroupData.classesByNiveau) {
+          for (const c of n.classes) {
+            const key = c.siteId ?? "__none__";
+            const color = c.siteId ? (siteColors[c.siteId] ?? fallbackColor) : fallbackColor;
+            if (!map.has(key)) {
+              map.set(key, { siteId: key, siteNom: c.siteNom, color, classes: [] });
+            }
+            map.get(key)!.classes.push(c);
+          }
+        }
+        return Array.from(map.values()).sort((a, b) => (a.siteNom ?? "").localeCompare(b.siteNom ?? ""));
+      })()
+    : [];
+
+  const filteredClassesByNiveau = activeGroupData
+    ? activeGroupData.classesByNiveau
+        .map(({ niveau, classes }) => ({
+          niveau,
+          classes: activeSite === "all" ? classes : classes.filter((c) => (c.siteId ?? "__none__") === activeSite),
+        }))
+        .filter((n) => n.classes.length > 0)
+    : [];
+
+  const displayedEleves = sorted.filter((e) => {
+    if (!activeGroup) return false;
+    const eleveGroup = e.classe ? getSchoolGroup(e.classe.niveau, e.classe.nom) : "Autre";
+    if (eleveGroup !== activeGroup) return false;
+    const eleveSiteId = e.classe?.site?.id ?? "__none__";
+    if (activeSite !== "all" && eleveSiteId !== activeSite) return false;
+    if (activeClass && e.classe?.id !== activeClass) return false;
+    return true;
+  });
 
   return (
     <Card>
@@ -194,7 +270,9 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
             >
               <option value="">{tCommon("all")}</option>
               {classes.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c.id} value={c.id}>
+                  {c.nom}{c.siteNom ? ` — ${c.siteNom}` : ""}
+                </option>
               ))}
             </select>
           </div>
@@ -237,13 +315,14 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
           <div className="flex items-center gap-1 px-4 pt-3 border-b">
             {groupedEleves.map(({ group, classesByNiveau }) => {
               const totalGroup = classesByNiveau.reduce(
-                (s, n) => s + n.classes.reduce((s2, c) => s2 + effectifDe(c.classe, c.eleves.length), 0), 0
+                (s, n) => s + n.classes.reduce((s2, c) => s2 + effectifDe(c.id, c.eleves.length), 0), 0
               );
               return (
                 <button
                   key={group}
                   onClick={() => {
                     setActiveGroup(activeGroup === group ? null : group);
+                    setActiveSite("all");
                     setActiveClass(null);
                   }}
                   className={cn(
@@ -260,54 +339,145 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
             })}
           </div>
 
-          {/* Boutons de classes horizontaux, regroupés par niveau */}
+          {/* Sous-onglets par site */}
           {activeGroup && (
-            <div className="px-4 py-3 border-b bg-muted/20">
-              {groupedEleves
-                .find((g) => g.group === activeGroup)
-                ?.classesByNiveau.map(({ niveau, classes }) => (
-                  <div key={niveau} className="flex items-center gap-2 mb-2 last:mb-0">
-                    <span className="text-xs font-semibold text-muted-foreground min-w-[60px] flex-shrink-0">
-                      {niveau}
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {classes.map(({ classe, eleves: classeEleves }) => (
-                        <button
-                          key={classe}
-                          onClick={() => setActiveClass(activeClass === classe ? null : classe)}
-                          className={cn(
-                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all border",
-                            activeClass === classe
-                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                              : "bg-background border-border hover:border-primary/40 hover:bg-accent"
-                          )}
-                        >
-                          {classe}
-                          <span className={cn(
-                            "ml-1.5 text-[10px]",
-                            activeClass === classe ? "opacity-80" : "text-muted-foreground"
-                          )}>
-                            {effectifDe(classe, classeEleves.length)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+            <div className="flex items-center gap-1 px-4 pt-3 border-b bg-muted/20">
+              {siteOptions.map((site) => {
+                const color = site.siteId === "all" ? undefined : (siteColors[site.siteId] ?? fallbackColor);
+                const isActive = activeSite === site.siteId;
+                const isAll = site.siteId === "all";
+                return (
+                  <button
+                    key={site.siteId}
+                    onClick={() => {
+                      setActiveSite(site.siteId);
+                      setActiveClass(null);
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors border-b-2",
+                      isActive ? "bg-background" : "hover:bg-muted/40",
+                      isAll && isActive ? "border-primary text-primary" : "",
+                      isAll && !isActive ? "text-muted-foreground" : ""
+                    )}
+                    style={
+                      color
+                        ? { color: color.text, borderColor: isActive ? color.base : "transparent" }
+                        : undefined
+                    }
+                  >
+                    {site.siteNom}
+                    <span className="ml-1.5 text-[10px] opacity-70">({site.count})</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* Tableau des élèves de la classe sélectionnée */}
-          {activeGroup && activeClass && (
-            <div className="overflow-x-auto">
-              {(() => {
-                const groupData = groupedEleves.find((g) => g.group === activeGroup);
-                const classData = groupData?.classesByNiveau
-                  .flatMap((n) => n.classes)
-                  .find((c) => c.classe === activeClass);
-                if (!classData) return null;
-                return (
-                  <table className="w-full text-sm">
+          {/* Blocs de classes par site */}
+          {activeGroup && (
+            <div className="px-4 py-3 border-b bg-muted/20">
+              {activeSite === "all" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {classesBySite.map((site) => {
+                    const niveaux = new Map<string, typeof site.classes>();
+                    for (const c of site.classes) {
+                      if (!niveaux.has(c.niveau)) niveaux.set(c.niveau, []);
+                      niveaux.get(c.niveau)!.push(c);
+                    }
+                    const niveauEntries = Array.from(niveaux.entries()).sort(([a], [b]) => a.localeCompare(b));
+                    return (
+                      <div
+                        key={site.siteId}
+                        className="rounded-lg border p-3"
+                        style={{ borderColor: site.color.border, backgroundColor: site.color.light }}
+                      >
+                        <div className="mb-2 text-sm font-semibold" style={{ color: site.color.text }}>
+                          {site.siteNom ?? "Sans site"}
+                          <span className="ml-1.5 text-[10px] opacity-80">
+                            ({site.classes.reduce((s, c) => s + effectifDe(c.id, c.eleves.length), 0)})
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {niveauEntries.map(([niveau, classes]) => (
+                            <div key={niveau} className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-muted-foreground min-w-[60px] flex-shrink-0">
+                                {niveau}
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {classes.map(({ id, nom, eleves: classeEleves }) => (
+                                  <button
+                                    key={id}
+                                    onClick={() => setActiveClass(activeClass === id ? null : id)}
+                                    className={cn(
+                                      "px-3 py-1.5 text-xs font-medium rounded-lg transition-all border",
+                                      activeClass === id ? "shadow-sm" : "hover:bg-white/60"
+                                    )}
+                                    style={
+                                      activeClass === id
+                                        ? { backgroundColor: site.color.base, borderColor: site.color.base, color: "#fff" }
+                                        : { borderColor: site.color.border, color: site.color.text }
+                                    }
+                                  >
+                                    {nom}
+                                    <span className="ml-1.5 text-[10px] opacity-80">
+                                      {effectifDe(id, classeEleves.length)}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                filteredClassesByNiveau.map(({ niveau, classes }) => {
+                  const siteColor = siteColors[activeSite] ?? fallbackColor;
+                  return (
+                    <div key={niveau} className="flex items-center gap-2 mb-2 last:mb-0">
+                      <span className="text-xs font-semibold text-muted-foreground min-w-[60px] flex-shrink-0">
+                        {niveau}
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {classes.map(({ id, nom, eleves: classeEleves }) => (
+                          <button
+                            key={id}
+                            onClick={() => setActiveClass(activeClass === id ? null : id)}
+                            className={cn(
+                              "px-3 py-1.5 text-xs font-medium rounded-lg transition-all border",
+                              activeClass === id ? "shadow-sm" : "hover:bg-white/60"
+                            )}
+                            style={
+                              activeClass === id
+                                ? { backgroundColor: siteColor.base, borderColor: siteColor.base, color: "#fff" }
+                                : { borderColor: siteColor.border, color: siteColor.text }
+                            }
+                          >
+                            {nom}
+                            <span className="ml-1.5 text-[10px] opacity-80">
+                              {effectifDe(id, classeEleves.length)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* Tableau des élèves du site / de la classe sélectionnés */}
+          {activeGroup && displayedEleves.length > 0 && (
+            <div className="overflow-x-auto p-2">
+              <div className="px-4 py-2 text-sm font-medium text-muted-foreground">
+                {displayedEleves.length} élève{displayedEleves.length > 1 ? "s" : ""}
+                {activeSite !== "all" ? ` — ${siteOptions.find((s) => s.siteId === activeSite)?.siteNom ?? ""}` : ""}
+                {activeClass ? ` — ${filteredClassesByNiveau.flatMap((n) => n.classes).find((c) => c.id === activeClass)?.nom ?? ""}` : ""}
+              </div>
+              <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/40">
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground w-10">#</th>
@@ -318,6 +488,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
                         </th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColMatricule")}</th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColBirth")}</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColClasse")}</th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColParent")}</th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">
                           <button onClick={() => toggleSort("statut")} className="flex items-center gap-1 hover:text-foreground transition-colors">
@@ -328,7 +499,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
                       </tr>
                     </thead>
                     <tbody>
-                      {classData.eleves.map((eleve, i) => {
+                      {displayedEleves.map((eleve, i) => {
                         const tuteur = eleve.parents[0]?.parent;
                         return (
                           <tr
@@ -365,6 +536,28 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
                               {formatDate(eleve.dateNaissance)}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {eleve.classe ? (
+                                <span>
+                                  {eleve.classe.nom}
+                                  {eleve.classe.site && activeSite === "all" ? (
+                                    (() => {
+                                      const siteColor = siteColors[eleve.classe.site.id] ?? fallbackColor;
+                                      return (
+                                        <span
+                                          className="ml-1 text-[10px]"
+                                          style={{ color: siteColor?.text }}
+                                        >
+                                          ({eleve.classe.site.nom})
+                                        </span>
+                                      );
+                                    })()
+                                  ) : null}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
                             </td>
                             <td className="px-4 py-3">
                               {tuteur ? (
@@ -403,17 +596,13 @@ export function ElevesTable({ eleves, total, effectifs, classes, initialQuery, i
                       })}
                     </tbody>
                   </table>
-                );
-              })()}
             </div>
           )}
 
-          {/* Message si aucun groupe/classe sélectionné */}
-          {(!activeGroup || !activeClass) && (
+          {/* Message si aucun groupe sélectionné */}
+          {!activeGroup && (
             <div className="text-center py-10 text-muted-foreground text-sm">
-              {!activeGroup
-                ? t("selectLevelForClasses")
-                : t("selectClassForStudents")}
+              {t("selectLevelForClasses")}
             </div>
           )}
         </>

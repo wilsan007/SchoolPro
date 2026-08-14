@@ -35,6 +35,13 @@ const SITE_SCOPED_MODELS = new Set([
   "sanction", "bulletinMatiere", "contenuCours",
   "absencePersonnel", "congePersonnel", "bulletinPaie",
   "bulletin",
+  // LEARNOS (docs/learnos-integration-plan.md)
+  "chapitre", "competence", "learningEvidence",
+  "studentLearningProfile", "studentIntervention", "aiDecisionLog",
+  "learnosEvent", "evaluationCompetence",
+  "seuilsRecommandation", "recommandation",
+  "planProgression", "etapePlan", "planificationChapitre",
+  "kpiSnapshot",
 ]);
 
 // Modèles tenant-wide (pas de filtre de site requis)
@@ -43,6 +50,7 @@ const TENANT_WIDE_MODELS = new Set([
   "tenant", "site", "userTenant", "deviceToken", "conversation",
   "conversationParticipant", "message", "account", "session",
   "verificationToken",
+  "aiCache",
 ]);
 
 // Méthodes de lecture qui nécessitent un filtre
@@ -50,11 +58,17 @@ const READ_METHODS = new Set([
   "findMany", "findFirst", "findUnique", "count", "groupBy", "aggregate",
 ]);
 
-// Identifiers qui satisfont le filtre de site
-const SITE_FILTER_IDENTIFIERS = new Set([
+// Fonctions qui produisent un filtre de site.
+const SITE_FILTER_FUNCTIONS = new Set([
   "siteFilterForModel",
   "siteFilterFromSession",
   "siteFilterForRelation",
+]);
+
+// Noms de variables historiquement reconnus tels quels, conservés pour les
+// cas où la déclaration est hors du fichier analysé (import, paramètre).
+const SITE_FILTER_IDENTIFIERS = new Set([
+  ...SITE_FILTER_FUNCTIONS,
   "siteFilter",
   "siteWhere",
   "eleveScopeFilter",
@@ -62,18 +76,144 @@ const SITE_FILTER_IDENTIFIERS = new Set([
   "personalScopeFilter",
 ]);
 
-function hasSiteFilterInObject(objNode) {
-  if (!objNode) return false;
+/**
+ * Remonte à la valeur d'initialisation d'une variable locale.
+ *
+ * POURQUOI
+ * --------
+ * La règle ne reconnaissait le filtre que si la variable portait l'un des
+ * noms ci-dessus. Or les filtres sont nommés d'après leur modèle dans tout le
+ * code — `notifFilter`, `absenceWhere`, `baseWhere`… :
+ *
+ *   const notifFilter = siteFilterForModel("notification", session.user);
+ *   prisma.notification.findMany({ where: { tenantId, ...notifFilter } });
+ *
+ * Ce code est correct et était pourtant signalé. On résout donc la variable
+ * jusqu'à son initialisation, au lieu de spéculer sur son nom.
+ */
+function resolveInit(node, scope) {
+  if (!scope || !node || node.type !== "Identifier") return null;
+  for (let s = scope; s; s = s.upper) {
+    const variable = s.set && s.set.get(node.name);
+    if (!variable) continue;
+    for (const def of variable.defs) {
+      if (def.node && def.node.type === "VariableDeclarator" && def.node.init) {
+        return def.node.init;
+      }
+    }
+    return null;
+  }
+  return null;
+}
+
+function isSiteFilterCall(node, scope, depth = 0) {
+  if (!node || node.type !== "CallExpression" || depth > 6) return false;
+  const callee = node.callee.name || (node.callee.property && node.callee.property.name);
+
+  if (SITE_FILTER_FUNCTIONS.has(callee)) return true;
+
+  // `mergeFilters(a, b, …)` propage : il suffit qu'un argument porte le
+  // filtre. Les arguments sont souvent des variables (`siteFilter`, `extra`),
+  // d'où la résolution complète plutôt qu'un simple test sur l'appel.
+  if (callee === "mergeFilters") {
+    return node.arguments.some((a) => hasSiteFilterInObject(a, scope, depth + 1));
+  }
+
+  // Helper local (`recipientBaseFilter(...)`) : on l'accepte seulement si
+  // *toutes* ses sorties portent le filtre — une seule branche non filtrée
+  // suffirait à faire fuiter, et la règle doit rester fail-closed.
+  const fn = resolveFunction(node.callee, scope);
+  if (fn) {
+    const sorties = returnExpressions(fn);
+    if (sorties.length > 0) {
+      return sorties.every((s) => hasSiteFilterInObject(s, scope, depth + 1));
+    }
+  }
+  return false;
+}
+
+/** Résout un identifiant vers la fonction qu'il désigne, si elle est locale. */
+function resolveFunction(node, scope) {
+  if (!scope || !node || node.type !== "Identifier") return null;
+  for (let s = scope; s; s = s.upper) {
+    const variable = s.set && s.set.get(node.name);
+    if (!variable) continue;
+    for (const def of variable.defs) {
+      const d = def.node;
+      if (!d) continue;
+      if (d.type === "FunctionDeclaration") return d;
+      if (
+        d.type === "VariableDeclarator" &&
+        d.init &&
+        (d.init.type === "ArrowFunctionExpression" || d.init.type === "FunctionExpression")
+      ) {
+        return d.init;
+      }
+    }
+    return null;
+  }
+  return null;
+}
+
+/** Expressions renvoyées par une fonction (corps concis ou `return`). */
+function returnExpressions(fn) {
+  if (!fn.body) return [];
+  if (fn.body.type !== "BlockStatement") return [fn.body];
+
+  const sorties = [];
+  const visit = (node) => {
+    if (!node || typeof node.type !== "string") return;
+    // Ne pas descendre dans une fonction imbriquée : ses `return` sont à elle.
+    if (
+      node !== fn &&
+      (node.type === "FunctionDeclaration" ||
+        node.type === "FunctionExpression" ||
+        node.type === "ArrowFunctionExpression")
+    ) {
+      return;
+    }
+    if (node.type === "ReturnStatement" && node.argument) sorties.push(node.argument);
+    for (const key of Object.keys(node)) {
+      if (key === "parent") continue;
+      const child = node[key];
+      if (Array.isArray(child)) child.forEach(visit);
+      else if (child && typeof child.type === "string") visit(child);
+    }
+  };
+  visit(fn.body);
+  return sorties;
+}
+
+function hasSiteFilterInObject(objNode, scope, depth = 0) {
+  if (!objNode || depth > 6) return false;
 
   // Unwrap TSAsExpression: { ... } as Prisma.XWhereInput
   if (objNode.type === "TSAsExpression") {
-    return hasSiteFilterInObject(objNode.expression);
+    return hasSiteFilterInObject(objNode.expression, scope, depth + 1);
   }
 
-  // Direct call: where: siteFilterForModel(...) or where: siteFilterFromSession(...)
+  // Direct call: where: siteFilterForModel(...) ou where: mergeFilters(..., siteFilterForModel(...))
   if (objNode.type === "CallExpression") {
+    if (isSiteFilterCall(objNode, scope, depth)) return true;
     const calleeName = objNode.callee.name || (objNode.callee.property && objNode.callee.property.name);
     if (SITE_FILTER_IDENTIFIERS.has(calleeName)) return true;
+  }
+
+  // where: cond ? base : mergeFilters(base, …) — motif courant quand la
+  // portée module le filtre. Fail-closed : toutes les branches doivent porter
+  // le filtre, une seule branche nue suffirait à faire fuiter.
+  if (objNode.type === "ConditionalExpression") {
+    return (
+      hasSiteFilterInObject(objNode.consequent, scope, depth + 1) &&
+      hasSiteFilterInObject(objNode.alternate, scope, depth + 1)
+    );
+  }
+
+  // where: absenceWhere — on suit la variable jusqu'à sa définition.
+  if (objNode.type === "Identifier") {
+    if (SITE_FILTER_IDENTIFIERS.has(objNode.name)) return true;
+    const init = resolveInit(objNode, scope);
+    return init ? hasSiteFilterInObject(init, scope, depth + 1) : false;
   }
 
   if (objNode.type !== "ObjectExpression") return false;
@@ -82,16 +222,8 @@ function hasSiteFilterInObject(objNode) {
     // SpreadElement: ...siteFilter ou ...siteFilterForModel(...)
     // Must be checked before the !prop.key guard, since SpreadElement has no key.
     if (prop.type === "SpreadElement") {
-      const spreadArg = prop.argument;
-      if (spreadArg.type === "Identifier" && SITE_FILTER_IDENTIFIERS.has(spreadArg.name)) {
-        return true;
-      }
-      if (spreadArg.type === "CallExpression") {
-        const calleeName = spreadArg.callee.name || (spreadArg.callee.property && spreadArg.callee.property.name);
-        if (SITE_FILTER_IDENTIFIERS.has(calleeName)) {
-          return true;
-        }
-      }
+      if (hasSiteFilterInObject(prop.argument, scope, depth + 1)) return true;
+      continue;
     }
 
     if (!prop.key) continue;
@@ -101,29 +233,52 @@ function hasSiteFilterInObject(objNode) {
     // AND encapsule souvent le filtre de site
     if (keyName === "AND" && prop.value.type === "ArrayExpression") {
       for (const element of prop.value.elements) {
-        if (hasSiteFilterInObject(element)) return true;
+        if (hasSiteFilterInObject(element, scope, depth + 1)) return true;
       }
     }
 
     // Direct identifier: siteFilter: siteFilterForModel(...)
-    if (prop.value && prop.value.type === "CallExpression") {
-      const calleeName = prop.value.callee.name || (prop.value.callee.property && prop.value.callee.property.name);
-      if (SITE_FILTER_IDENTIFIERS.has(calleeName)) {
-        return true;
-      }
+    if (prop.value && prop.value.type === "CallExpression" && isSiteFilterCall(prop.value, scope, depth)) {
+      return true;
     }
   }
 
   return false;
 }
 
-function checkIncludesForSiteFilter(includeNode, context, parentModel) {
+/**
+ * Relations déclarées dans schema.prisma, lues une seule fois.
+ *
+ * POURQUOI
+ * --------
+ * La règle décidait auparavant à partir du *nom du champ* d'include : elle
+ * signalait `include: { eleve: true }` parce que « eleve » figure dans
+ * SITE_SCOPED_MODELS. Or `note.eleve` est une relation to-one, et Prisma
+ * n'accepte pas de `where` dessus :
+ *
+ *   prisma.note.findMany({ include: { eleve: { where: {...} } } })
+ *   → TS2353 'where' does not exist in type 'EleveDefaultArgs'
+ *
+ * La règle exigeait donc du code qui ne compile pas — 70 des 72 signalements
+ * sur les include étaient dans ce cas. On ne peut filtrer que les relations
+ * to-many ; pour une to-one, c'est le `where` racine qui porte l'isolation.
+ *
+ * Le nom du champ ne donne pas non plus le modèle cible (`parents` pointe sur
+ * EleveParent) : on résout la cible via le schéma.
+ *
+ * Le schéma est lu par `prisma-schema.js`, partagé avec `require-tenant-id`.
+ */
+const { RELATIONS } = require("./prisma-schema");
+
+function checkIncludesForSiteFilter(includeNode, context, parentModel, scope) {
   if (!includeNode) return;
 
   // include: true — pas de filtre possible, mais c'est une relation simple
   if (includeNode.type === "BooleanLiteral") return;
 
   if (includeNode.type !== "ObjectExpression") return;
+
+  const parentRelations = RELATIONS.get(parentModel);
 
   for (const prop of includeNode.properties) {
     if (!prop.key) continue;
@@ -132,10 +287,16 @@ function checkIncludesForSiteFilter(includeNode, context, parentModel) {
     // Skip non-relation keys like orderBy, take, skip
     if (["orderBy", "take", "skip", "cursor", "distinct"].includes(relationName)) continue;
 
+    const relation = parentRelations && parentRelations.get(relationName);
+
+    // Relation inconnue du schéma, ou to-one : dans les deux cas il n'y a rien
+    // à exiger. Une relation to-one n'admet pas de `where` en Prisma ; son
+    // isolation vient du `where` racine de la requête.
+    const filtrable = !!relation && relation.isList && SITE_SCOPED_MODELS.has(relation.model);
+
     if (prop.value.type === "BooleanLiteral") {
-      // include: { eleves: true } — pas de filtre
-      // On signale seulement pour les modèles site-scoped connus
-      if (SITE_SCOPED_MODELS.has(relationName)) {
+      // include: { eleves: true } — relation to-many sans aucun filtre
+      if (filtrable) {
         context.report({
           node: prop,
           messageId: "missingIncludeFilter",
@@ -151,16 +312,7 @@ function checkIncludesForSiteFilter(includeNode, context, parentModel) {
         (p) => p.key && (p.key.name === "where" || p.key.value === "where")
       );
 
-      if (!whereProp && SITE_SCOPED_MODELS.has(relationName)) {
-        context.report({
-          node: prop,
-          messageId: "missingIncludeFilter",
-          data: { relation: relationName, parentModel },
-        });
-        continue;
-      }
-
-      if (whereProp && !hasSiteFilterInObject(whereProp.value) && SITE_SCOPED_MODELS.has(relationName)) {
+      if (filtrable && (!whereProp || !hasSiteFilterInObject(whereProp.value, scope))) {
         context.report({
           node: prop,
           messageId: "missingIncludeFilter",
@@ -168,12 +320,13 @@ function checkIncludesForSiteFilter(includeNode, context, parentModel) {
         });
       }
 
-      // Récursion: vérifier les include imbriqués
+      // Récursion: vérifier les include imbriqués, sous le modèle réellement
+      // ciblé par la relation (et non son nom de champ).
       const nestedInclude = prop.value.properties.find(
         (p) => p.key && (p.key.name === "include" || p.key.value === "include")
       );
-      if (nestedInclude) {
-        checkIncludesForSiteFilter(nestedInclude.value, context, relationName);
+      if (nestedInclude && relation) {
+        checkIncludesForSiteFilter(nestedInclude.value, context, relation.model, scope);
       }
     }
   }
@@ -217,6 +370,12 @@ module.exports = {
           if (TENANT_WIDE_MODELS.has(model)) return;
           if (!SITE_SCOPED_MODELS.has(model)) return;
 
+          // Portée du site d'appel : sert à remonter aux variables de filtre
+          // (`const notifFilter = siteFilterForModel(...)`).
+          const scope = context.sourceCode
+            ? context.sourceCode.getScope(node)
+            : context.getScope();
+
           const arg = node.arguments[0];
           if (!arg || arg.type !== "ObjectExpression") {
             // findMany sans argument = pas de filtre du tout
@@ -243,7 +402,7 @@ module.exports = {
             return;
           }
 
-          if (!hasSiteFilterInObject(whereProp.value)) {
+          if (!hasSiteFilterInObject(whereProp.value, scope)) {
             context.report({
               node,
               messageId: "missingSiteFilter",
@@ -256,7 +415,7 @@ module.exports = {
             (p) => p.key && (p.key.name === "include" || p.key.value === "include")
           );
           if (includeProp) {
-            checkIncludesForSiteFilter(includeProp.value, context, model);
+            checkIncludesForSiteFilter(includeProp.value, context, model, scope);
           }
         }
       },

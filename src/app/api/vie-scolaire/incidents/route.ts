@@ -67,7 +67,9 @@ export async function POST(req: NextRequest) {
     const tenantId = session.user.tenantId;
 
     // Vérifier que l'élève appartient au tenant
-    const eleve = await prisma.eleve.findFirst({ where: { id: eleveId, tenantId } });
+    const eleve = await prisma.eleve.findFirst({
+      where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", session.user) },
+    });
     if (!eleve) return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
 
     const incident = await prisma.incident.create({

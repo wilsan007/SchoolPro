@@ -59,6 +59,19 @@
   }
 }
 
+@layer base {
+  @media print {
+    html, body {
+      background: white !important;
+      color: black !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    /* Masquer automatiquement les éléments interactifs courants */
+    [role="dialog"], .no-print, .print\\:hidden { display: none !important; }
+  }
+}
+
 @layer utilities {
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;

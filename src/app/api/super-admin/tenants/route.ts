@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
     include: {
       _count: {
         select: {
-          eleves: true,
+          eleves: ELEVE_NON_ARCHIVE,
           enseignants: true,
           users: true,
         },

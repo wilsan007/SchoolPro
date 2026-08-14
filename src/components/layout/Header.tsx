@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { getInitials, timeAgo } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 
@@ -23,12 +24,14 @@ interface NotifItem {
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  site?: string;
+  siteColor?: { base: string; light: string; border: string; text: string };
   userName?: string;
   userAvatar?: string;
   notifCount?: number;
 }
 
-export function Header({ title, subtitle, userName = "Admin", userAvatar }: HeaderProps) {
+export function Header({ title, subtitle, site, siteColor, userName = "Admin", userAvatar }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const locale = useLocale();
@@ -91,10 +94,30 @@ export function Header({ title, subtitle, userName = "Admin", userAvatar }: Head
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-6 bg-background border-b border-border">
+    <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-6 bg-background border-b border-border print:hidden">
       {/* Titre de la page */}
       <div>
-        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+          {site && (
+            siteColor ? (
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
+                style={{
+                  backgroundColor: siteColor.light,
+                  borderColor: siteColor.border,
+                  color: siteColor.text,
+                }}
+              >
+                {site}
+              </span>
+            ) : (
+              <Badge variant="secondary" className="font-normal">
+                {site}
+              </Badge>
+            )
+          )}
+        </div>
         {subtitle && (
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         )}

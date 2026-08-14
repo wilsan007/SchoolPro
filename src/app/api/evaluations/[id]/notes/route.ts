@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForRelation, siteFilterForModel } from "@/lib/site-filter";
+import { publishEvents, type NoteRecordedPayload } from "@/lib/learnos/events";
 import { revalidateTag } from "next/cache";
 
 // GET : Récupérer la grille de notes (élèves de la classe + leurs notes actuelles pour cette évaluation)
@@ -25,7 +26,11 @@ export async function GET(
     const evaluation = await prisma.evaluation.findFirst({
       where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter },
       include: {
-        classe: { include: { eleves: { orderBy: { prenom: 'asc' } } } },
+        classe: {
+          include: {
+            eleves: { where: siteFilterForModel("eleve", session.user), orderBy: { prenom: 'asc' } },
+          },
+        },
         notes: true,
       }
     });
@@ -82,7 +87,9 @@ export async function PUT(
     const siteFilter2 = siteFilterForRelation(session.user, "classe");
 
     const evaluation = await prisma.evaluation.findFirst({
-      where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter2 }
+      where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter2 },
+      // Le site de la classe situe les événements LEARNOS émis plus bas.
+      include: { classe: { select: { siteId: true } } },
     });
 
     if (!evaluation) {
@@ -121,7 +128,7 @@ export async function PUT(
       }));
 
     await prisma.$transaction([
-      prisma.note.deleteMany({ where: { evaluationId } }),
+      prisma.note.deleteMany({ where: { evaluationId, tenantId: tenantIdStr } }),
       prisma.note.createMany({ data: notesToCreate })
     ]);
 
@@ -131,6 +138,49 @@ export async function PUT(
         where: { id: evaluationId },
         data: { statut: "TERMINE" }
       });
+    }
+
+    // Observation LEARNOS. `createMany` ne rend pas les lignes écrites : on les
+    // relit pour disposer des identifiants réels, indispensables au rattachement
+    // preuve → note. Relecture après la transaction, donc sans l'allonger.
+    if (notesToCreate.length > 0) {
+      const enregistrees = await prisma.note.findMany({
+        where: {
+          evaluationId,
+          tenantId: tenantIdStr,
+          ...siteFilterForModel("note", session.user),
+        },
+        select: {
+          id: true, eleveId: true, classeId: true, matiereId: true, periodeId: true,
+          valeur: true, noteMax: true, coefficient: true, type: true, intitule: true,
+          date: true, saisieParId: true,
+        },
+      });
+
+      await publishEvents(
+        enregistrees.map((note) => ({
+          tenantId: tenantIdStr,
+          siteId: evaluation.classe?.siteId ?? null,
+          eventType: "note.recorded" as const,
+          aggregateType: "note",
+          aggregateId: note.id,
+          payload: {
+            noteId: note.id,
+            eleveId: note.eleveId,
+            classeId: note.classeId,
+            matiereId: note.matiereId,
+            periodeId: note.periodeId,
+            evaluationId,
+            valeur: note.valeur,
+            noteMax: note.noteMax,
+            coefficient: note.coefficient,
+            type: note.type,
+            intitule: note.intitule,
+            date: note.date.toISOString(),
+            saisieParId: note.saisieParId,
+          } satisfies NoteRecordedPayload,
+        }))
+      );
     }
 
     revalidateTag("dashboard-data");

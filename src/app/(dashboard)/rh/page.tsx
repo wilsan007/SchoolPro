@@ -4,12 +4,12 @@ import { Header } from "@/components/layout/Header";
 import { RHView } from "@/components/rh/RHView";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 
-async function getEnseignantsRH(tenantId: string, ensFilter: Record<string, unknown>, absFilter: Record<string, unknown>, congeFilter: Record<string, unknown>) {
+async function getEnseignantsRH(tenantId: string, claims: SessionSiteClaims) {
   const [enseignants, absencesPersonnel, congesPersonnel] = await Promise.all([
     prisma.enseignant.findMany({
-      where: { tenantId, ...ensFilter },
+      where: { tenantId, ...siteFilterForModel("enseignant", claims) },
       include: {
         user: {
           select: {
@@ -20,12 +20,14 @@ async function getEnseignantsRH(tenantId: string, ensFilter: Record<string, unkn
         ficheRH: {
           include: {
             bulletinsPaie: {
+              where: siteFilterForModel("bulletinPaie", claims),
               orderBy: [{ annee: "desc" }, { mois: "desc" }],
               take: 3,
             },
           },
         },
         emploiTemps: {
+          where: siteFilterForModel("emploiTemps", claims),
           select: {
             jour: true, heureDebut: true, heureFin: true,
             matiere: { select: { nom: true, couleur: true } },
@@ -33,13 +35,14 @@ async function getEnseignantsRH(tenantId: string, ensFilter: Record<string, unkn
           },
         },
         classesPrincipales: {
+          where: siteFilterForModel("classe", claims),
           select: { id: true, nom: true, niveau: true },
         },
       },
       orderBy: { user: { name: "asc" } },
     }),
     prisma.absencePersonnel.findMany({
-      where: { tenantId, ...absFilter },
+      where: { tenantId, ...siteFilterForModel("absencePersonnel", claims) },
       include: {
         enseignant: { select: { id: true, user: { select: { name: true } } } },
         saisiePar: { select: { name: true } },
@@ -48,7 +51,7 @@ async function getEnseignantsRH(tenantId: string, ensFilter: Record<string, unkn
       take: 50,
     }),
     prisma.congePersonnel.findMany({
-      where: { tenantId, ...congeFilter },
+      where: { tenantId, ...siteFilterForModel("congePersonnel", claims) },
       include: {
         enseignant: { select: { id: true, user: { select: { name: true } } } },
         demandePar: { select: { name: true } },
@@ -67,12 +70,9 @@ export default async function RHPage() {
     auth(),
     getTranslations("rh"),
   ]);
-  guardPage(session, "rh:read");
+  await guardPage(session, "rh:read");
 
-  const ensFilter = siteFilterForModel("enseignant", session!.user);
-  const absFilter = siteFilterForModel("absencePersonnel", session!.user);
-  const congeFilter = siteFilterForModel("congePersonnel", session!.user);
-  const { enseignants, absencesPersonnel, congesPersonnel } = await getEnseignantsRH(session!.user.tenantId!, ensFilter, absFilter, congeFilter);
+  const { enseignants, absencesPersonnel, congesPersonnel } = await getEnseignantsRH(session!.user.tenantId!, session!.user);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

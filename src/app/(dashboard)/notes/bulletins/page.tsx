@@ -9,14 +9,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, List, Award } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import type { Role } from "@prisma/client";
 
 async function getBulletinsData(
   tenantId: string,
+  claims: SessionSiteClaims,
   scope?: { classeIds: string[]; isRestricted: boolean }
 ) {
   const classeWhere = {
     tenantId,
+    ...siteFilterForModel("classe", claims),
     ...(scope?.isRestricted && scope.classeIds.length > 0
       ? { id: { in: scope.classeIds } }
       : scope?.isRestricted
@@ -28,7 +31,11 @@ async function getBulletinsData(
     prisma.classe.findMany({
       where: classeWhere,
       include: {
-        eleves: { where: { statut: "ACTIF" }, select: { id: true, nom: true, prenom: true, matricule: true }, orderBy: { prenom: "asc" } },
+        eleves: {
+          where: { statut: "ACTIF", ...siteFilterForModel("eleve", claims) },
+          select: { id: true, nom: true, prenom: true, matricule: true },
+          orderBy: { prenom: "asc" },
+        },
         profPrincipal: { include: { user: { select: { name: true } } } },
       },
       orderBy: { nom: "asc" },
@@ -55,7 +62,7 @@ export default async function BulletinsPage() {
     ? await getTeacherScope(session.user.tenantId, session.user.id, session.user.role as Role)
     : undefined;
 
-  const { classes, periodes, anneeId } = await getBulletinsData(session.user.tenantId, scope);
+  const { classes, periodes, anneeId } = await getBulletinsData(session.user.tenantId, session.user, scope);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

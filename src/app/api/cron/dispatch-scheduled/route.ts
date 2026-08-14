@@ -23,7 +23,7 @@ async function handler(req: NextRequest) {
 
   // Verrou léger : on passe les notifications dues en EN_ENVOI d'abord,
   // pour éviter qu'un second tick ne les reprenne en parallèle.
-  // eslint-disable-next-line ecolpro/require-tenant-id -- cron cross-tenant : traite toutes les notifications dues, protégé par CRON_SECRET
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- cron cross-tenant : traite toutes les notifications dues, protégé par CRON_SECRET, pas de session utilisateur
   const due = await prisma.notification.findMany({
     where: { statut: "PLANIFIEE", planifieeAt: { lte: now } },
     select: { id: true, tenantId: true },

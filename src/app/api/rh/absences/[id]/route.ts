@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForModel, mergeFilters } from "@/lib/site-filter";
 
 const UpdateSchema = z.object({
   statut: z.enum(["JUSTIFIEE", "INJUSTIFIEE", "EN_ATTENTE"]),
@@ -25,13 +25,11 @@ export async function PATCH(
   const body = await req.json();
   const { statut, commentaire } = UpdateSchema.parse(body);
 
-  const userFilter = siteFilterForRelation(session.user, "user");
-  const siteFilter = Object.keys(userFilter).length > 0
-    ? { enseignant: (userFilter as any).user }
-    : {};
-
   const absence = await prisma.absencePersonnel.findFirst({
-    where: { id, tenantId: session.user.tenantId, ...siteFilter },
+    where: mergeFilters(
+      { id, tenantId: session.user.tenantId },
+      siteFilterForModel("absencePersonnel", session.user)
+    ),
   });
   if (!absence) {
     return NextResponse.json({ error: "Absence introuvable" }, { status: 404 });
@@ -47,16 +45,26 @@ export async function PATCH(
 
   if (statut === "INJUSTIFIEE" || statut === "JUSTIFIEE") {
     const count = await prisma.absencePersonnel.count({
-      where: {
-        enseignantId: absence.enseignantId,
-        tenantId: session.user.tenantId,
-        statut: "INJUSTIFIEE",
-      },
+      where: mergeFilters(
+        { enseignantId: absence.enseignantId, tenantId: session.user.tenantId, statut: "INJUSTIFIEE" },
+        siteFilterForModel("absencePersonnel", session.user)
+      ),
     });
-    await prisma.ficheRH.update({
-      where: { enseignantId: absence.enseignantId },
-      data: { absencesCount: count },
-    }).catch(() => {});
+    // La fiche RH a déjà été résolue en amont via `absence` (elle-même filtrée
+    // par site ci-dessus) : cette écriture est bornée au même enseignant.
+    const ficheExistante = await prisma.ficheRH.findFirst({
+      where: mergeFilters(
+        { enseignantId: absence.enseignantId, tenantId: session.user.tenantId },
+        siteFilterForModel("ficheRH", session.user)
+      ),
+      select: { enseignantId: true },
+    });
+    if (ficheExistante) {
+      await prisma.ficheRH.update({
+        where: { enseignantId: absence.enseignantId },
+        data: { absencesCount: count },
+      }).catch(() => {});
+    }
   }
 
   return NextResponse.json({ absence: updated });

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId;
 
     const eleves = await prisma.eleve.findMany({
-      where: { classeId, tenantId, statut: "ACTIF" },
+      where: { classeId, tenantId, statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
       select: {
         id: true,
         nom: true,

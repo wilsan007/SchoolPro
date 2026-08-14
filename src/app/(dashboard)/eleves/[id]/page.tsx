@@ -9,8 +9,16 @@ import { getSituationFinanciere, checkEleveAccess } from "@/lib/financial-guard"
 async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<string, unknown>) {
   const eleve = await prisma.eleve.findFirst({
     where: { id, tenantId, ...siteFilter },
+    // Toutes les relations ci-dessous pendent d'une fiche élève unique, déjà
+    // bornée par `tenantId` et par le site au `where` racine : si cette fiche
+    // n'est pas visible, la requête ne renvoie rien du tout. Refiltrer chaque
+    // relation par site serait au mieux redondant, au pire faux — le dossier
+    // d'un élève muté suit l'élève et non le site où la pièce a été produite.
     include: {
       classe: { select: { id: true, nom: true, niveau: true } },
+      // Le lien élève↔parent n'a pas de site propre : c'est la filiation qui
+      // le borne, et un parent peut avoir des enfants sur plusieurs sites.
+      // eslint-disable-next-line ecolpro/require-site-filter
       parents: {
         include: {
           parent: {
@@ -27,6 +35,9 @@ async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<s
           },
         },
       },
+      // Scolarité de cet élève : ces modèles n'ont pas de `siteId` propre,
+      // leur rattachement au site passe justement par l'élève déjà filtré.
+      // eslint-disable-next-line ecolpro/require-site-filter
       notes: {
         include: {
           matiere: { select: { nom: true, code: true, couleur: true, coefficient: true } },
@@ -35,20 +46,29 @@ async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<s
         orderBy: { date: "desc" },
         take: 30,
       },
+      // eslint-disable-next-line ecolpro/require-site-filter
       absences: {
         orderBy: { date: "desc" },
         take: 20,
       },
+      // eslint-disable-next-line ecolpro/require-site-filter
       incidents: {
         include: { sanctions: true },
         orderBy: { date: "desc" },
         take: 10,
       },
+      // La facture porte un `siteId`, mais celui du site émetteur : filtrer
+      // ici ferait disparaître du dossier les impayés contractés avant une
+      // mutation, alors que c'est précisément ce qu'on vient consulter.
+      // eslint-disable-next-line ecolpro/require-site-filter
       factures: {
         include: { paiements: true },
         orderBy: { createdAt: "desc" },
         take: 10,
       },
+      // Le parcours scolaire retrace les années passées, y compris sur un
+      // autre site du même établissement : le borner au site actuel le viderait.
+      // eslint-disable-next-line ecolpro/require-site-filter
       parcours: {
         orderBy: { annee: "desc" },
       },
@@ -103,7 +123,7 @@ export default async function EleveDetailPage({
     motif: d.motif,
   }));
 
-  const situationFinanciere = await getSituationFinanciere(id, session.user.tenantId);
+  const situationFinanciere = await getSituationFinanciere(id, session.user.tenantId, session.user);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

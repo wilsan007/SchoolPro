@@ -10,6 +10,11 @@ import { checkUserFinancialBlock, checkEleveAccess, getSituationFinanciere } fro
 import { personalScopeFilter } from "../src/lib/site-scope";
 import type { Prisma } from "@prisma/client";
 
+// Script de simulation manuelle (hors requête HTTP) : aucune session réelle n'existe.
+// On simule un périmètre TENANT_ADMIN (accès à tout le tenant, tous sites confondus) car ce
+// script vérifie la logique métier sur l'ensemble du tenant, pas le périmètre d'un site précis.
+const ADMIN_CLAIMS = { role: "TENANT_ADMIN" } as const;
+
 async function simulate() {
   const tenantId = process.argv[2] ?? "cms8kt0b40001zbi3o63y7c5v";
 
@@ -109,7 +114,7 @@ async function simulate() {
   console.log("📱 SIMULATION 2: Layout (blocage global)");
   console.log("─".repeat(70));
 
-  const block = await checkUserFinancialBlock(testUser.id, tenantId);
+  const block = await checkUserFinancialBlock(testUser.id, tenantId, ADMIN_CLAIMS);
   console.log(`\nBlocage total: ${block.blocked ? "OUI → redirection /acces-bloque ❌" : "NON ✅"}`);
   console.log(`Blocage partiel: ${block.partialBlock ? "OUI → bannière d'avertissement ⚠️" : "NON"}`);
   if (block.messageKey) console.log(`Message key: "${block.messageKey}"`);
@@ -125,7 +130,7 @@ async function simulate() {
   for (const e of enfants) {
     console.log(`\n📄 ${e.prenom} ${e.nom} (${e.id}):`);
     const access = await checkEleveAccess(e.id, tenantId);
-    const situation = await getSituationFinanciere(e.id, tenantId);
+    const situation = await getSituationFinanciere(e.id, tenantId, ADMIN_CLAIMS);
 
     if (!access.allowed) {
       console.log(`   ❌ ACCÈS BLOQUÉ`);

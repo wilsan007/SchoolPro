@@ -1,15 +1,16 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { AppelInterface } from "@/components/absences/AppelInterface";
 
-async function getClasses(tenantId: string) {
+async function getClasses(tenantId: string, claims: SessionSiteClaims) {
   return prisma.classe.findMany({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("classe", claims) },
     include: {
       eleves: {
-        where: { statut: "ACTIF" },
+        where: { statut: "ACTIF", ...siteFilterForModel("eleve", claims) },
         select: {
           id: true, nom: true, prenom: true,
           photoUrl: true, sexe: true, matricule: true,
@@ -25,7 +26,7 @@ export default async function AppelPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
-  const classes = await getClasses(session.user.tenantId);
+  const classes = await getClasses(session.user.tenantId, session.user);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

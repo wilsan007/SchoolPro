@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   ] = await Promise.all([
     prisma.eleve.count({ where: { tenantId, statut: "ACTIF", ...eleveFilter } }),
     prisma.classe.count({ where: { tenantId, ...eleveFilter } }),
-    prisma.enseignant.count({ where: { tenantId } }),
+    prisma.enseignant.count({ where: { tenantId, ...siteFilterForModel("enseignant", user) } }),
     prisma.note.count({ where: { tenantId, ...eleveRelFilter } }),
     prisma.absence.count({ where: { tenantId, ...eleveRelFilter } }),
     prisma.incident.count({ where: { tenantId, ...eleveRelFilter } }),
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   );
 
   const matieres = await prisma.matiere.findMany({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("matiere", user) },
     select: { id: true, nom: true, code: true, couleur: true },
     orderBy: { nom: "asc" },
   });

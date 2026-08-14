@@ -8,6 +8,11 @@
 import prisma from "../src/lib/prisma";
 import { checkUserFinancialBlock, getSituationFinanciere, checkEleveAccess } from "../src/lib/financial-guard";
 
+// Script de simulation manuelle (hors requête HTTP) : aucune session réelle n'existe.
+// On simule un périmètre TENANT_ADMIN (accès à tout le tenant, tous sites confondus) car ce
+// script vérifie la logique métier sur l'ensemble du tenant, pas le périmètre d'un site précis.
+const ADMIN_CLAIMS = { role: "TENANT_ADMIN" } as const;
+
 async function simulate() {
   const tenantId = process.argv[2];
   if (!tenantId) {
@@ -103,7 +108,7 @@ async function runSimulation(userId: string, tenantId: string, eleves: any[]) {
   console.log("📋 Étape 2: État initial (aucun enfant exclu)");
   console.log("─".repeat(70));
 
-  let block = await checkUserFinancialBlock(userId, tenantId);
+  let block = await checkUserFinancialBlock(userId, tenantId, ADMIN_CLAIMS);
   console.log(`Blocage: ${block.blocked ? "OUI ❌" : "NON ✅"}`);
   console.log(`Blocage partiel: ${block.partialBlock ? "OUI ⚠️" : "NON ✅"}`);
   console.log(`Message: ${block.messageKey ?? "Aucun"}`);
@@ -169,7 +174,7 @@ async function runSimulation(userId: string, tenantId: string, eleves: any[]) {
   console.log("📋 Étape 4: Vérification du blocage (1 enfant exclu sur 3)");
   console.log("─".repeat(70));
 
-  block = await checkUserFinancialBlock(userId, tenantId);
+  block = await checkUserFinancialBlock(userId, tenantId, ADMIN_CLAIMS);
   console.log(`Blocage total: ${block.blocked ? "OUI ❌" : "NON ✅"}`);
   console.log(`Blocage partiel: ${block.partialBlock ? "OUI ⚠️" : "NON"}`);
   console.log(`Enfants exclus: ${block.excludedEleveIds?.length ?? 0}`);
@@ -177,7 +182,7 @@ async function runSimulation(userId: string, tenantId: string, eleves: any[]) {
 
   for (const e of eleves) {
     const access = await checkEleveAccess(e.id, tenantId);
-    const situation = await getSituationFinanciere(e.id, tenantId);
+    const situation = await getSituationFinanciere(e.id, tenantId, ADMIN_CLAIMS);
     console.log(`  ${e.prenom} ${e.nom}:`);
     console.log(`    Accès: ${access.allowed ? "AUTORISÉ ✅" : "BLOQUÉ ❌"}`);
     console.log(`    Financier: facturé=${situation.totalFacture}, payé=${situation.totalPaye}, restant=${situation.totalRestant}`);
@@ -207,7 +212,7 @@ async function runSimulation(userId: string, tenantId: string, eleves: any[]) {
     console.log(`  ${eleves[i].prenom} ${eleves[i].nom} exclu`);
   }
 
-  block = await checkUserFinancialBlock(userId, tenantId);
+  block = await checkUserFinancialBlock(userId, tenantId, ADMIN_CLAIMS);
   console.log(`\nBlocage total: ${block.blocked ? "OUI ❌" : "NON ✅"}`);
   console.log(`Raison: ${block.reason}`);
   console.log(`Message: ${block.messageKey ?? "Aucun"}`);
@@ -247,7 +252,7 @@ async function runSimulation(userId: string, tenantId: string, eleves: any[]) {
     console.log(`  ${eleves[2].prenom} ${eleves[2].nom} réactivé`);
   }
 
-  block = await checkUserFinancialBlock(userId, tenantId);
+  block = await checkUserFinancialBlock(userId, tenantId, ADMIN_CLAIMS);
   console.log(`\nBlocage total: ${block.blocked ? "OUI ❌" : "NON ✅"}`);
   console.log(`Blocage partiel: ${block.partialBlock ? "OUI ⚠️" : "NON"}`);
   console.log(`Enfants exclus: ${block.excludedEleveIds?.length ?? 0}`);

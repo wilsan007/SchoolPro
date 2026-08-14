@@ -60,7 +60,13 @@ export async function addUserToTenant(params: {
     throw new Error("Établissement introuvable");
   }
 
-  // Chercher l'utilisateur par email
+  // Chercher l'utilisateur par email — recherche intentionnellement inter-tenants :
+  // la fonction sert précisément à relier un compte existant (potentiellement
+  // d'un autre établissement) au tenant cible. L'appartenance au tenant CIBLE a
+  // déjà été vérifiée ci-dessus (SUPER_ADMIN ou TENANT_ADMIN dudit tenant) ;
+  // aucune donnée d'un autre tenant n'est renvoyée à l'appelant au-delà de ce
+  // que cette action doit précisément lier.
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
   const existingUser = await prisma.user.findUnique({
     where: { email: params.email },
     select: { id: true, name: true, password: true },
@@ -205,6 +211,12 @@ export async function getUserTenants(userId: string) {
     throw new Error("Permissions insuffisantes");
   }
 
+  // UserTenant relie un utilisateur à PLUSIEURS tenants par construction :
+  // il n'existe pas de tenantId unique à filtrer ici, l'objet même de cette
+  // fonction est d'énumérer tous les tenants de l'utilisateur. L'isolation
+  // est portée par le contrôle d'autorisation ci-dessus (userId === appelant,
+  // ou SUPER_ADMIN), pas par un filtre tenantId.
+  // eslint-disable-next-line ecolpro/require-tenant-id
   return prisma.userTenant.findMany({
     where: { userId, isActive: true },
     include: {

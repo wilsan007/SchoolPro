@@ -21,7 +21,6 @@ const EleveFormSchema = z.object({
   nationalite: z.string().optional(),
   sexe: z.enum(["M", "F"]),
   classeId: z.string().optional(),
-  siteId: z.string().optional(),
   statut: z.enum(["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
   groupeSanguin: z.string().optional(),
   allergies: z.string().optional(),
@@ -109,6 +108,10 @@ export async function getEleveForEdit(id: string) {
     where: { id, tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) },
     include: {
       classe: true,
+      // EleveParent n'a pas de colonne siteId propre : l'isolation passe par
+      // l'élève parent qui est déjà filtré par tenantId et siteId. Un lien
+      // eleveParent appartient forcément au même périmètre que son élève.
+      // eslint-disable-next-line ecolpro/require-site-filter
       parents: {
         include: { parent: true },
         orderBy: { isGardien: "desc" },
@@ -217,9 +220,10 @@ export async function createEleve(
     forcer: confirmations.doublon,
   });
 
-  // Récupérer le siteId de la classe si non explicitement fourni
-  let resolvedSiteId = values.siteId || (session.user.siteId ?? null);
-  if (!resolvedSiteId && values.classeId) {
+  // L'élève hérite du site de sa classe, unique source de vérité.
+  // S'il n'est rattaché à aucune classe, on conserve le site de la session.
+  let resolvedSiteId = session.user.siteId ?? null;
+  if (values.classeId) {
     // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- findUnique pour récupérer le siteId de la classe
     const classe = await prisma.classe.findUnique({
       where: { id: values.classeId },
@@ -279,6 +283,9 @@ export async function createEleve(
   }
 
   revalidatePath("/eleves");
+  // Les effectifs par classe sont aussi affichés dans Paramètres → Pédagogie :
+  // sans cette invalidation, cet écran garde les chiffres d.avant.
+  revalidatePath("/parametres");
   revalidateTag("eleves-stats");
   revalidateTag("dashboard-data");
   return { success: true, id: eleve.id };
@@ -302,6 +309,8 @@ export async function updateEleve(
 
   const existing = await prisma.eleve.findFirst({
     where: { id, tenantId, ...siteFilterForModel("eleve", session.user) },
+    // Voir ci-dessus : eleveParent est isolé par son élève parent.
+    // eslint-disable-next-line ecolpro/require-site-filter
     include: { parents: { include: { parent: true } } },
   });
   if (!existing) throw new Error("Élève non trouvé");
@@ -341,6 +350,23 @@ export async function updateEleve(
     ? await resoudreIdentiteKey(tenantId, identite, { excludeId: id, forcer: true })
     : cleDepuisFiche(identite);
 
+  // L'élève suit le site de sa classe ; s'il n'est rattaché à aucune classe,
+  // on conserve son site actuel. La classe doit appartenir au tenant ET au
+  // périmètre de l'utilisateur, sinon on pourrait faire suivre la siteId d'une
+  // classe d'un autre site/tenant à cet élève.
+  let resolvedSiteId = existing.siteId;
+  if (values.classeId) {
+    const classe = await prisma.classe.findFirst({
+      where: {
+        id: values.classeId,
+        tenantId: session.user.tenantId,
+        ...siteFilterForModel("classe", session.user),
+      },
+      select: { siteId: true },
+    });
+    if (classe?.siteId) resolvedSiteId = classe.siteId;
+  }
+
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId + siteFilter ci-dessus
   await prisma.eleve.update({
     where: { id },
@@ -353,6 +379,7 @@ export async function updateEleve(
       nationalite: values.nationalite || "SN",
       sexe: values.sexe,
       classeId: values.classeId || null,
+      siteId: resolvedSiteId,
       statut: values.statut || "ACTIF",
       groupeSanguin: values.groupeSanguin || null,
       allergies: values.allergies || null,
@@ -409,6 +436,9 @@ export async function updateEleve(
   }
 
   revalidatePath("/eleves");
+  // Les effectifs par classe sont aussi affichés dans Paramètres → Pédagogie :
+  // sans cette invalidation, cet écran garde les chiffres d.avant.
+  revalidatePath("/parametres");
   revalidatePath(`/eleves/${id}`);
   revalidateTag("eleves-stats");
   revalidateTag("dashboard-data");
@@ -473,6 +503,9 @@ export async function deleteEleve(id: string, reason?: string) {
   });
 
   revalidatePath("/eleves");
+  // Les effectifs par classe sont aussi affichés dans Paramètres → Pédagogie :
+  // sans cette invalidation, cet écran garde les chiffres d.avant.
+  revalidatePath("/parametres");
   revalidatePath(`/eleves/${id}`);
   revalidateTag("eleves-stats");
   revalidateTag("dashboard-data");
@@ -538,6 +571,9 @@ export async function restoreEleve(id: string) {
   });
 
   revalidatePath("/eleves");
+  // Les effectifs par classe sont aussi affichés dans Paramètres → Pédagogie :
+  // sans cette invalidation, cet écran garde les chiffres d.avant.
+  revalidatePath("/parametres");
   revalidatePath(`/eleves/${id}`);
   revalidateTag("eleves-stats");
   revalidateTag("dashboard-data");

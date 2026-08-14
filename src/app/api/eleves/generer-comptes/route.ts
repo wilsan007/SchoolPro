@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
 
     const password = customPassword || generateRandomPassword();
 
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'unicité globale par email avant création de compte élève
     const existing = await prisma.user.findUnique({ where: { email: username } });
     if (existing) continue;
 

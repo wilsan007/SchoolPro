@@ -28,7 +28,7 @@ export async function PATCH(
   if (action === "envoyer") {
     try {
       const result = await dispatchNotification(id, session.user.tenantId);
-      const updated = await prisma.notification.findFirst({ where: { id, tenantId: session.user.tenantId } });
+      const updated = await prisma.notification.findFirst({ where: { id, tenantId: session.user.tenantId, ...notifFilter } });
       return NextResponse.json({ notification: updated, envoi: result });
     } catch (e) {
       console.error("[Communication] Échec dispatch:", e);

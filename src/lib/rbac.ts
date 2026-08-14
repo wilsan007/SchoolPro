@@ -37,7 +37,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
     "admissions:*", "rh:*", "finance:*", "inventaire:*", "alumni:*",
     "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
-    "ai:*", "audit:read",
+    "ai:*", "audit:read", "entrainement:*",
   ],
 
   // Chef d'établissement — pédagogie & vie scolaire complètes, pas la finance/RH en écriture
@@ -47,7 +47,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
     "admissions:*", "rh:read", "finance:read", "inventaire:*", "alumni:*",
     "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
-    "ai:*",
+    "ai:*", "entrainement:*",
   ],
 
   // Secrétariat — gestion administrative
@@ -64,6 +64,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "notes:*", "evaluations:*", "absences:read", "absences:write",
     "bulletins:read", "emploi-du-temps:read", "messages:*",
     "cours:*", "analytics:read", "examens:read", "ai:teacher",
+    "entrainement:*",
   ],
 
   // Professeur principal — enseignant + bulletins/conseil + vie scolaire
@@ -74,6 +75,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "emploi-du-temps:read", "messages:*", "cours:*",
     "vie-scolaire:*", "orientation:read", "orientation:write",
     "analytics:read", "examens:read", "parents:read", "ai:teacher",
+    "entrainement:*",
   ],
 
   // Conseiller / CPE — vie scolaire & orientation
@@ -97,16 +99,20 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   PARENT: [
     "bulletins:read", "absences:read", "notes:read", "messages:*",
     "communication:read", "cours:read", "orientation:read",
-    "emploi-du-temps:read", "ai:parent",
+    "emploi-du-temps:read", "ai:parent", "entrainement:read",
   ],
 
   // Élève — consultation de son périmètre (lecture seule + messagerie limitée)
   // Un élève peut lire et répondre dans une conversation où il est déjà participant,
   // mais ne peut pas initier de nouvelle conversation (règle École360).
+  // `entrainement:write` est la seule écriture ouverte à un élève. Elle ne
+  // touche ni note ni bulletin : elle alimente la couche d'analyse LEARNOS,
+  // dont les preuves sont explicitement moins fiables que le travail surveillé.
   STUDENT: [
     "bulletins:read", "absences:read", "notes:read",
     "messages:read", "messages:reply",
     "communication:read", "cours:*", "emploi-du-temps:read",
+    "entrainement:read", "entrainement:write",
   ],
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   School, Users, GraduationCap, TrendingUp, Plus, Search,
@@ -71,7 +71,7 @@ export function SuperAdminView() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [isPending, startTransition] = useTransition();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
@@ -84,9 +84,9 @@ export function SuperAdminView() {
       setStats(data.stats);
     }
     setLoading(false);
-  };
+  }, [search, filterStatus, filterPlan]);
 
-  useEffect(() => { load(); }, [search, filterStatus, filterPlan]);
+  useEffect(() => { load(); }, [load]);
 
   const handleCreate = () => {
     startTransition(async () => {

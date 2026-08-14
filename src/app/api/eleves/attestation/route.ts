@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "eleveId requis" }, { status: 400 });
   }
 
-  const data = await getAttestationData(eleveId, session.user.tenantId, honorifique, titre);
+  const data = await getAttestationData(eleveId, session.user.tenantId, honorifique, titre, session.user);
   if (!data) {
     return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
   }

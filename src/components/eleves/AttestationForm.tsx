@@ -186,6 +186,10 @@ export function AttestationForm({ classes, tenant }: { classes: Classe[]; tenant
                 </div>
                 <div className="text-center">
                   {tenant.signatureUrl && (
+                    // Signature téléversée par l'établissement : URL arbitraire,
+                    // hors des `remotePatterns` de next.config, et rendue dans un
+                    // aperçu destiné à l'impression.
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={tenant.signatureUrl} alt="Signature" className="h-16 object-contain mb-1" />
                   )}
                   <p className="text-xs font-semibold border-t pt-1">{tenant.chefEtablissement ?? t("attDirector")}</p>

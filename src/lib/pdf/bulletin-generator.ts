@@ -81,7 +81,14 @@ export async function getBulletinData(
 ): Promise<BulletinData | null> {
   const { default: prisma } = await import("@/lib/prisma");
 
-  /* eslint-disable ecolpro/require-site-filter -- PDF generation library function, caller passes tenantId and is responsible for site scoping */
+  /* Bibliothèque de rendu PDF : aucune session n'est disponible ici, le
+   * périmètre de sites ne peut donc pas être résolu. L'appartenance au tenant
+   * est vérifiée sur l'élève (`id` + `tenantId`) et toutes les requêtes qui
+   * suivent dérivent de cet élève ou de sa classe. C'est à la route appelante
+   * de vérifier que `eleveId` relève bien du périmètre de sites de
+   * l'utilisateur avant d'appeler cette fonction.
+   */
+  /* eslint-disable ecolpro/require-site-filter */
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     include: {
@@ -106,8 +113,8 @@ export async function getBulletinData(
   });
   if (!periode) return null;
 
-  const bulletin = await prisma.bulletin.findUnique({
-    where: { eleveId_periodeId: { eleveId, periodeId } },
+  const bulletin = await prisma.bulletin.findFirst({
+    where: { eleveId, periodeId, tenantId },
     include: { matieres: { include: { matiere: true } } }
   });
 
@@ -144,7 +151,9 @@ export async function getBulletinData(
   // Récupérer les bulletins matières de toute la classe pour calculer la moyenne de classe par matière
   const allBulletinsMatieres = await prisma.bulletinMatiere.findMany({
     where: {
+      tenantId,
       bulletin: {
+        tenantId,
         periodeId,
         eleveId: { in: eleveIds },
       },
@@ -278,7 +287,12 @@ export async function getBulletinAnnuelData(
 ): Promise<BulletinAnnuelData | null> {
   const { default: prisma } = await import("@/lib/prisma");
 
-  /* eslint-disable ecolpro/require-site-filter -- PDF generation library function, caller passes tenantId and is responsible for site scoping */
+  /* Même raisonnement que `getBulletinData` : bibliothèque de rendu PDF, sans
+   * session donc sans périmètre de sites résoluble. L'appartenance au tenant
+   * est vérifiée sur l'élève et sur l'année, et tout le reste dérive de ces
+   * deux lectures. La vérification du site incombe à la route appelante.
+   */
+  /* eslint-disable ecolpro/require-site-filter */
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     include: {
@@ -306,7 +320,7 @@ export async function getBulletinAnnuelData(
 
   // Récupérer les bulletins de l'élève pour chaque période
   const bulletins = await prisma.bulletin.findMany({
-    where: { eleveId, periodeId: { in: periodes.map(p => p.id) } },
+    where: { eleveId, tenantId, periodeId: { in: periodes.map(p => p.id) } },
     include: { matieres: { include: { matiere: true } } },
   });
 
@@ -386,7 +400,7 @@ export async function getBulletinAnnuelData(
 
   // Calculer la moyenne annuelle de chaque élève de la classe
   const allBulletins = await prisma.bulletin.findMany({
-    where: { eleveId: { in: eleveIds }, periodeId: { in: periodes.map(p => p.id) } },
+    where: { eleveId: { in: eleveIds }, tenantId, periodeId: { in: periodes.map(p => p.id) } },
     select: { eleveId: true, moyenneGenerale: true },
   });
   const moyennesByEleve: Record<string, number[]> = {};
@@ -421,8 +435,10 @@ export async function getBulletinAnnuelData(
     // Récupérer les moyennes annuelles de tous les élèves pour cette matière
     const allMatBulletins = await prisma.bulletinMatiere.findMany({
       where: {
+        tenantId,
         matiereId: matiere.matiereCode, // This won't work by code, need matiereId
         bulletin: {
+          tenantId,
           periodeId: { in: periodes.map(p => p.id) },
           eleveId: { in: eleveIds },
         },

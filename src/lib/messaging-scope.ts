@@ -66,7 +66,7 @@ export function getAllowedConversationTypes(role: Role): ConversationType[] {
     case "ACCOUNTANT":
       return ["DIRECT", "PARENT_ADMIN"];
     case "PARENT":
-      return ["DIRECT", "PARENT_TEACHER", "PARENT_ADMIN"];
+      return ["DIRECT", "PARENT_TEACHER", "PARENT_ADMIN", "FREE"];
     case "STUDENT":
       return []; // reply only
     default:
@@ -115,54 +115,78 @@ export async function getPossibleRecipients(
   classeId?: string,
   query?: string
 ): Promise<{ id: string; name: string | null; role: Role; avatarUrl: string | null }[]> {
+  const portee = await recipientScopeFilter(user, type, classeId);
+  if (!portee) return [];
+
+  return prisma.user.findMany({
+    where: recipientBaseFilter(user, portee, query),
+    select: { id: true, name: true, role: true, avatarUrl: true },
+    orderBy: { name: "asc" },
+    take: RECIPIENTS_PAGE_SIZE,
+  });
+}
+
+/**
+ * Socle commun à toutes les recherches de destinataires.
+ *
+ * L'isolation par site manquait totalement ici : la requête ne portait que
+ * sur `tenantId`, si bien qu'un personnel du site A pouvait écrire à
+ * n'importe qui sur le site B. `siteFilterForModel` rétablit la règle
+ * appliquée partout ailleurs dans l'application.
+ */
+function recipientBaseFilter(
+  user: SessionUser,
+  portee: Record<string, unknown>,
+  query?: string
+): Record<string, unknown> {
+  return mergeFilters(
+    { tenantId: user.tenantId, id: { not: user.id }, isActive: true },
+    siteFilterForModel("user", user),
+    // Encapsulé dans `AND` — impératif : `mergeFilters` ne concatène que la
+    // clé `AND`, un `OR` de premier niveau serait écrasé par le fragment
+    // suivant et la recherche par nom disparaîtrait sans erreur visible.
+    query
+      ? {
+          AND: [
+            {
+              OR: [
+                { name: { contains: query, mode: "insensitive" as const } },
+                { email: { contains: query, mode: "insensitive" as const } },
+              ],
+            },
+          ],
+        }
+      : {},
+    portee
+  );
+}
+
+/**
+ * Qui ce rôle a-t-il le droit de joindre, pour ce type de conversation ?
+ * Renvoie le fragment Prisma correspondant, ou `null` si le couple
+ * rôle/type n'autorise aucun destinataire individuel.
+ *
+ * Extrait de `getPossibleRecipients` pour que la *création* de conversation
+ * puisse rejouer exactement la même règle : la liste proposée à l'écran était
+ * filtrée, mais rien ne revalidait les identifiants renvoyés par le client.
+ * Deux implémentations séparées auraient fini par diverger — c'est justement
+ * ce genre d'écart qui rouvre le trou.
+ */
+async function recipientScopeFilter(
+  user: SessionUser,
+  type: ConversationType,
+  classeId?: string
+): Promise<Record<string, unknown> | null> {
   const { id: userId, tenantId, role } = user;
 
   // Fail-closed : un compte sans périmètre de site exploitable ne se voit
   // proposer aucun destinataire, plutôt que l'annuaire complet du tenant.
-  if (resolveSiteScope(user).kind === "NONE") return [];
-
-  /**
-   * Socle commun à toutes les recherches d'utilisateurs.
-   *
-   * L'isolation par site manquait totalement ici : la requête ne portait que
-   * sur `tenantId`, si bien qu'un personnel du site A pouvait écrire à
-   * n'importe qui sur le site B. `siteFilterForModel` rétablit la règle
-   * appliquée partout ailleurs dans l'application.
-   */
-  const userBase = (extra: Record<string, unknown> = {}) =>
-    mergeFilters(
-      { tenantId, id: { not: userId }, isActive: true },
-      siteFilterForModel("user", user),
-      // Encapsulé dans `AND` — impératif : `mergeFilters` ne concatène que la
-      // clé `AND`, un `OR` de premier niveau serait écrasé par le fragment
-      // suivant et la recherche par nom disparaîtrait sans erreur visible.
-      query
-        ? {
-            AND: [
-              {
-                OR: [
-                  { name: { contains: query, mode: "insensitive" as const } },
-                  { email: { contains: query, mode: "insensitive" as const } },
-                ],
-              },
-            ],
-          }
-        : {},
-      extra
-    );
-
-  const searchUsers = (extra: Record<string, unknown> = {}) =>
-    prisma.user.findMany({
-      where: userBase(extra),
-      select: { id: true, name: true, role: true, avatarUrl: true },
-      orderBy: { name: "asc" },
-      take: RECIPIENTS_PAGE_SIZE,
-    });
+  if (resolveSiteScope(user).kind === "NONE") return null;
 
   if (role === "SUPER_ADMIN" || role === "TENANT_ADMIN" || role === "PRINCIPAL" || role === "SECRETARY") {
     // Pour une conversation de classe, le ciblage passe par l'audience, pas
     // par une liste de personnes.
-    if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") return [];
+    if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") return null;
 
     // Le type demandé restreint l'annuaire : proposer tout le monde sous
     // l'étiquette « Parent ↔ Enseignant » était trompeur.
@@ -179,27 +203,31 @@ export async function getPossibleRecipients(
     // signature et n'était jamais lu, la fonctionnalité n'existait donc pas.
     const classFilter = classeId ? await classeUserFilter(tenantId, classeId) : {};
 
-    return searchUsers(mergeFilters(roleFilter, classFilter));
+    return mergeFilters(roleFilter, classFilter);
   }
 
   if (role === "TEACHER" || role === "CLASS_TEACHER") {
     if (type === "CLASS_DISCUSSION" || type === "CLASS_ANNOUNCEMENT") {
       // Les classes de l'enseignant
-      return [];
+      return null;
     }
     if (type === "PARENT_TEACHER") {
       // Parents des élèves de ses classes.
+      // Fiche de l'émetteur lui-même, retrouvée par son propre `userId` :
+      // aucun filtre de site à appliquer, la requête ne peut viser personne
+      // d'autre.
+      // eslint-disable-next-line ecolpro/require-site-filter
       const enseignant = await prisma.enseignant.findFirst({
         where: { userId, tenantId },
         select: { id: true },
       });
-      if (!enseignant) return [];
+      if (!enseignant) return null;
 
       // L'ancienne version ne retenait que les classes dont l'enseignant est
       // professeur principal (un `OR` à une seule branche, avec un TODO en
       // commentaire). Un enseignant de matière ne pouvait donc joindre aucun
       // parent. Les créneaux d'emploi du temps complètent le rattachement.
-      return searchUsers({
+      return {
         role: "PARENT",
         parents: {
           some: {
@@ -220,26 +248,32 @@ export async function getPossibleRecipients(
             },
           },
         },
-      });
+      };
     }
     // STAFF_GROUP : collègues du même périmètre.
     if (type === "STAFF_GROUP") {
-      return searchUsers({ role: { in: STAFF_ROLES } });
+      return { role: { in: STAFF_ROLES } };
     }
     // DIRECT : tout le personnel et l'administration du périmètre.
-    return searchUsers();
+    return {};
   }
 
   if (role === "PARENT") {
     if (type === "PARENT_TEACHER") {
+      // Fiche de l'émetteur lui-même : voir plus haut, pas de filtre de site.
+      // eslint-disable-next-line ecolpro/require-site-filter
       const parent = await prisma.parent.findFirst({
         where: { userId, tenantId },
         select: { id: true },
       });
-      if (!parent) return [];
+      if (!parent) return null;
 
       // Là aussi, seul le professeur principal était proposé : un parent ne
       // pouvait pas écrire au professeur de mathématiques de son enfant.
+      // Classes où l'émetteur a un enfant inscrit : c'est le lien de filiation
+      // qui borne la requête, pas le site. Un parent dont les enfants sont sur
+      // deux sites doit joindre les enseignants des deux.
+      // eslint-disable-next-line ecolpro/require-site-filter
       const classes = await prisma.classe.findMany({
         where: {
           tenantId,
@@ -247,14 +281,14 @@ export async function getPossibleRecipients(
         },
         select: { id: true, profPrincipal: { select: { userId: true } } },
       });
-      if (classes.length === 0) return [];
+      if (classes.length === 0) return null;
 
       const classeIds = classes.map((c) => c.id);
       const profPrincipauxIds = classes
         .map((c) => c.profPrincipal?.userId)
         .filter((id): id is string => !!id);
 
-      return searchUsers({
+      return {
         AND: [
           {
             OR: [
@@ -263,30 +297,112 @@ export async function getPossibleRecipients(
             ],
           },
         ],
-      });
+      };
     }
     if (type === "PARENT_ADMIN") {
-      return searchUsers({
+      return {
         role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "ACCOUNTANT", "SUPER_ADMIN"] },
+      };
+    }
+    if (type === "FREE") {
+      // Un parent peut créer un groupe avec d'autres parents des classes
+      // de ses enfants. La restriction est appliquée par la requête ci-dessous :
+      // seuls les parents qui ont un enfant dans une classe où l'émetteur a
+      // aussi un enfant sont proposés.
+      // Fiche de l'émetteur lui-même : voir plus haut, pas de filtre de site.
+      // eslint-disable-next-line ecolpro/require-site-filter
+      const parent = await prisma.parent.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
       });
+      if (!parent) return null;
+
+      // Enfants de l'émetteur : bornés par la filiation, voir ci-dessus.
+      // eslint-disable-next-line ecolpro/require-site-filter
+      const mesEnfants = await prisma.eleve.findMany({
+        where: {
+          tenantId,
+          deletedAt: null,
+          parents: { some: { parentId: parent.id } },
+        },
+        select: { classeId: true },
+      });
+      const classeIds = [...new Set(mesEnfants.map((e) => e.classeId).filter((id): id is string => !!id))];
+      if (classeIds.length === 0) return null;
+
+      // Parents des élèves de ces classes, en excluant l'émetteur.
+      return {
+        role: "PARENT",
+        parents: {
+          some: {
+            enfants: {
+              some: {
+                eleve: {
+                  tenantId,
+                  deletedAt: null,
+                  classeId: { in: classeIds },
+                },
+              },
+            },
+          },
+        },
+      };
     }
     // DIRECT : enseignants des enfants + administration.
-    return searchUsers({
+    return {
       role: { in: ["TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER", "CLASS_TEACHER", "SUPER_ADMIN"] },
-    });
+    };
   }
 
   if (role === "STUDENT") {
     // Un élève ne crée pas de conversation (`messages:reply` uniquement) mais
     // l'annuaire lui sert pour la recherche : ses enseignants et la vie
     // scolaire, jamais les autres familles.
-    return searchUsers({
+    return {
       role: { in: ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "COUNSELOR", "NURSE", "SECRETARY"] },
-    });
+    };
   }
 
   // NURSE, ACCOUNTANT et tout rôle non traité : personnel du périmètre.
-  return searchUsers({ role: { in: STAFF_ROLES } });
+  return { role: { in: STAFF_ROLES } };
+}
+
+/**
+ * Les destinataires demandés sont-ils réellement joignables par cet émetteur ?
+ *
+ * LE TROU QU'ELLE FERME
+ * ---------------------
+ * La création de conversation insérait les `participantIds` reçus du client
+ * tels quels, sans aucun contrôle : ni tenant, ni site, ni règle de rôle.
+ * `getPossibleRecipients` ne filtrait que la liste *affichée* — une requête
+ * fabriquée à la main pouvait donc ajouter n'importe quel utilisateur, y
+ * compris d'un autre établissement, et lui pousser un message.
+ *
+ * On rejoue ici la règle exacte de l'annuaire, sans plafond de pagination et
+ * bornée aux identifiants demandés : tout ce qui n'en ressort pas est refusé.
+ *
+ * @returns les identifiants refusés — vide si tout est autorisé.
+ */
+export async function rejectUnreachableRecipients(
+  user: SessionUser,
+  type: ConversationType,
+  participantIds: string[],
+  classeId?: string
+): Promise<string[]> {
+  const demandes = [...new Set(participantIds)].filter((id) => id !== user.id);
+  if (demandes.length === 0) return [];
+
+  const portee = await recipientScopeFilter(user, type, classeId);
+  // Aucun destinataire individuel n'est permis pour ce couple rôle/type.
+  if (!portee) return demandes;
+
+  const joignables = await prisma.user.findMany({
+    where: mergeFilters(recipientBaseFilter(user, portee), { id: { in: demandes } }),
+    select: { id: true },
+  });
+
+  const autorises = new Set(joignables.map((u) => u.id));
+  return demandes.filter((id) => !autorises.has(id));
 }
 
 /**
@@ -297,6 +413,9 @@ async function classeUserFilter(
   tenantId: string,
   classeId: string
 ): Promise<Record<string, unknown>> {
+  // `classeId` est vérifié par l'appelant — la route contrôle
+  // `canAccessSite(actor, classe.siteId)` avant d'ouvrir la conversation.
+  // eslint-disable-next-line ecolpro/require-site-filter
   const classe = await prisma.classe.findFirst({
     where: { id: classeId, tenantId },
     select: { id: true, profPrincipal: { select: { userId: true } } },
@@ -329,14 +448,21 @@ export async function getClassParticipants(
   classeId: string,
   creatorUserId: string
 ): Promise<{ userId: string; role: ParticipantRole }[]> {
+  // Participants d'une classe déjà autorisée : la route valide
+  // `canAccessSite(actor, classe.siteId)` avant d'appeler cette fonction. Le
+  // périmètre découle donc de `classeId`, et les élèves d'une classe sont par
+  // construction sur le site de cette classe.
   const [eleves, classe] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.eleve.findMany({
       where: { tenantId, classeId, deletedAt: null },
       include: {
         user: { select: { id: true } },
+        // eslint-disable-next-line ecolpro/require-site-filter
         parents: { include: { parent: { include: { user: { select: { id: true } } } } } },
       },
     }),
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.classe.findFirst({
       where: { id: classeId, tenantId },
       include: {
@@ -377,16 +503,18 @@ export async function getClassParticipants(
  * Récupère tous les utilisateurs d'un tenant (pour ADMIN_BROADCAST).
  */
 export async function getTenantParticipants(
-  tenantId: string,
-  creatorUserId: string,
-  siteId?: string | null
+  creator: SessionUser,
+  creatorUserId: string
 ): Promise<{ userId: string; role: ParticipantRole }[]> {
+  // Le périmètre venait d'un `siteId` optionnel : un compte rattaché à
+  // plusieurs sites sans site courant (`siteId: null`, `siteIds: [s1, s2]`)
+  // retombait sur « aucun filtre » et diffusait à tout l'établissement.
+  // `siteFilterForModel` couvre ce cas, comme partout ailleurs.
   const users = await prisma.user.findMany({
-    where: {
-      tenantId,
-      isActive: true,
-      ...(siteId ? { siteId } : {}),
-    },
+    where: mergeFilters(
+      { tenantId: creator.tenantId, isActive: true },
+      siteFilterForModel("user", creator)
+    ),
     select: { id: true },
   });
 

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     // Récupérer tous les bulletins de la classe pour la période
     const eleves = await prisma.eleve.findMany({
-      where: { classeId, tenantId, statut: "ACTIF" },
+      where: { classeId, tenantId, statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
       select: { id: true },
     });
 

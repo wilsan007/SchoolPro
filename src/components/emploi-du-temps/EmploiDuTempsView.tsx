@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useCallback } from "react";
+import { useState, useTransition, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -334,13 +334,20 @@ export function EmploiDuTempsView({
   const [dragOverSlot, setDragOverSlot] = useState<{ jour: Jour; time: string } | null>(null);
   const dragOffsetRef = useRef(0);
 
-  const classeEmplois = selectedClasse
-    ? emplois.filter(
-        (e) =>
-          e.classe.nom === selectedClasse.nom ||
-          (e as { classeId?: string }).classeId === selectedClasse.id
-      )
-    : [];
+  // Mémoïsé : recalculé à chaque rendu, ce tableau changeait d'identité en
+  // permanence et invalidait le `useCallback` de déplacement de créneau, qui
+  // en dépend — la mémoïsation ne servait donc plus à rien.
+  const classeEmplois = useMemo(
+    () =>
+      selectedClasse
+        ? emplois.filter(
+            (e) =>
+              e.classe.nom === selectedClasse.nom ||
+              (e as { classeId?: string }).classeId === selectedClasse.id
+          )
+        : [],
+    [selectedClasse, emplois]
+  );
 
   function addCreneau(c: EmploiCreneau) {
     setEmplois((prev) => [...prev, c]);
@@ -425,7 +432,7 @@ export function EmploiDuTempsView({
       );
       toast.error(e instanceof Error ? e.message : t("moveError"), { duration: 5000 });
     }
-  }, [emplois, classeEmplois]);
+  }, [emplois, classeEmplois, t]);
 
   // Render a single day column (drop zones)
   function renderDayColumn(jour: Jour) {
@@ -585,8 +592,23 @@ export function EmploiDuTempsView({
 
   return (
     <div className="space-y-6">
+      {/* Styles d'impression : masque les contrôles et optimise la grille */}
+      <style>{`
+        @media print {
+          @page { size: landscape; margin: 10mm; }
+          #emploi-print-area {
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          #emploi-print-area .min-w-\[900px\] { min-width: auto !important; }
+          #emploi-print-area .overflow-x-auto { overflow: visible !important; }
+        }
+      `}</style>
+
       {/* Classe selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 print:hidden">
         <div className="flex gap-2 flex-wrap">
           {classes.map((c) => (
             <button
@@ -641,14 +663,14 @@ export function EmploiDuTempsView({
       </div>
 
       {/* Info banner */}
-      <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2 flex items-center gap-2">
+      <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2 flex items-center gap-2 print:hidden">
         <GripVertical className="w-4 h-4" />
         <span>{t("dragHint")}</span>
       </div>
 
       {/* Grille horaire */}
       {selectedClasse ? (
-        <Card className="overflow-hidden">
+        <Card id="emploi-print-area" className="overflow-hidden">
           <div className="overflow-x-auto">
             <div className="min-w-[900px]">
               {/* Header jours */}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
+import { siteFilterForModel } from "@/lib/site-scope";
 import ExcelJS from "exceljs";
 
 export async function GET(req: NextRequest) {
@@ -22,8 +22,6 @@ export async function GET(req: NextRequest) {
     if (!classeId || !periodeId) {
       return NextResponse.json({ error: "classeId et periodeId sont requis" }, { status: 400 });
     }
-
-    const bulletinFilter = siteFilterForRelation(session.user, "eleve");
 
     // Récupérer la classe et les élèves
     const classe = await prisma.classe.findFirst({
@@ -45,11 +43,18 @@ export async function GET(req: NextRequest) {
     // Récupérer tous les bulletins de la classe pour cette période
     const bulletins = await prisma.bulletin.findMany({
       where: {
-        eleve: { classeId, tenantId: session.user.tenantId, ...siteFilterForModel("bulletin", session.user), statut: "ACTIF" },
+        eleve: { classeId, tenantId: session.user.tenantId, statut: "ACTIF" },
         periodeId,
+        tenantId: session.user.tenantId,
+        ...siteFilterForModel("bulletin", session.user),
       },
       include: {
         eleve: { select: { id: true, nom: true, prenom: true, matricule: true } },
+        // Les lignes de matière suivent le bulletin parent, déjà borné au
+        // tenant et au périmètre de sites : elles ne peuvent appartenir qu'à un
+        // bulletin autorisé. `BulletinMatiere` n'a pas de chemin de site propre
+        // (elle passe par le bulletin, qui ne porte pas de colonne `siteId`).
+        // eslint-disable-next-line ecolpro/require-site-filter
         matieres: { include: { matiere: { select: { nom: true, code: true } } } },
       },
       orderBy: { eleve: { prenom: "asc" } },

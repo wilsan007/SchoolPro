@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const eleveId = searchParams.get("eleveId");
-
+  const niveau = searchParams.get("niveau");
 
   const siteFilter = siteFilterForModel("eleve", session.user);
   if (eleveId) {
@@ -24,32 +24,69 @@ export async function GET(req: NextRequest) {
         where: { id: eleveId, tenantId: session.user.tenantId, ...siteFilter },
         include: {
           classe: { select: { nom: true, niveau: true, filiere: true } },
+          // Les liens parent-élève sont des enfants de l'élève retourné, lui-même
+          // déjà borné au tenant et au périmètre de sites par le `where` ci-dessus :
+          // l'isolation est portée par la relation.
+          // eslint-disable-next-line ecolpro/require-site-filter
           parents: { include: { parent: { select: { nom: true, prenom: true, phone: true } } } },
         },
       }),
+      // `eleveId` vient de la requête HTTP et n'est vérifié nulle part : sans filtre
+      // de site, ces quatre agrégats livraient le parcours, les notes, les absences
+      // et les incidents d'un élève d'un autre site du même établissement.
       prisma.parcoursScolaire.findMany({
-        where: { eleveId, tenantId: session.user.tenantId },
+        where: {
+          eleveId,
+          tenantId: session.user.tenantId,
+          ...siteFilterForModel("parcoursScolaire", session.user),
+        },
         orderBy: { annee: "desc" },
       }),
       prisma.note.findMany({
-        where: { eleveId, tenantId: session.user.tenantId, isPubliee: true },
-        select: { valeur: true, noteMax: true, coefficient: true, matiere: { select: { nom: true } }, createdAt: true },
+        where: {
+          eleveId,
+          tenantId: session.user.tenantId,
+          isPubliee: true,
+          ...siteFilterForModel("note", session.user),
+        },
+        select: { valeur: true, noteMax: true, coefficient: true, matiere: { select: { nom: true, code: true } }, createdAt: true },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.absence.count({ where: { eleveId, tenantId: session.user.tenantId, statut: "INJUSTIFIEE" } }),
-      prisma.incident.count({ where: { eleveId, tenantId: session.user.tenantId } }),
+      prisma.absence.count({
+        where: {
+          eleveId,
+          tenantId: session.user.tenantId,
+          statut: "INJUSTIFIEE",
+          ...siteFilterForModel("absence", session.user),
+        },
+      }),
+      prisma.incident.count({
+        where: {
+          eleveId,
+          tenantId: session.user.tenantId,
+          ...siteFilterForModel("incident", session.user),
+        },
+      }),
     ]);
 
     return NextResponse.json({ eleve, parcours, notes, absencesInjust: absences, incidents });
   }
 
-  // Liste élèves avec résumé parcours
+  // Liste élèves avec résumé parcours (par défaut niveau Seconde pour l'orientation)
+  const niveauFilter = niveau ? { classe: { niveau } } : { classe: { niveau: "Seconde" } };
   const eleves = await prisma.eleve.findMany({
-    where: { tenantId: session.user.tenantId, ...siteFilter, statut: "ACTIF" },
+    where: { tenantId: session.user.tenantId, ...siteFilter, statut: "ACTIF", ...niveauFilter },
     include: {
       classe: { select: { nom: true, niveau: true } },
+      // Parcours, notes et absences sont des enfants des élèves retournés, eux-mêmes
+      // déjà bornés au tenant et au périmètre de sites par le `where` ci-dessus :
+      // l'isolation est portée par la relation, la répéter n'ajouterait qu'une
+      // jointure vers le même élève.
+      // eslint-disable-next-line ecolpro/require-site-filter
       parcours: { orderBy: { annee: "desc" }, take: 1 },
-      notes: { where: { isPubliee: true }, select: { valeur: true, noteMax: true, coefficient: true } },
+      // eslint-disable-next-line ecolpro/require-site-filter
+      notes: { where: { isPubliee: true }, select: { valeur: true, noteMax: true, coefficient: true, matiere: { select: { nom: true, code: true } } } },
+      // eslint-disable-next-line ecolpro/require-site-filter
       absences: { where: { statut: "INJUSTIFIEE" }, select: { id: true } },
     },
     orderBy: [{ nom: "asc" }, { prenom: "asc" }],

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, ChevronDown, Printer } from "lucide-react";
 import { exportToExcel, exportToCsv, type ExportColumn } from "@/lib/export";
 
 interface ExportMenuProps<T extends Record<string, any>> {
@@ -32,7 +32,50 @@ export function ExportMenu<T extends Record<string, any>>({
 
   function handlePrint() {
     setOpen(false);
-    window.print();
+    const w = window.open("", "_blank");
+    if (!w) return;
+
+    const headers = columns.map((c) => `<th style="padding:8px;border-bottom:2px solid #e5e7eb;text-align:left;font-size:12px;background:#f9fafb">${c.header}</th>`).join("");
+    const body = rows
+      .map((row) => {
+        const cells = columns
+          .map((col) => {
+            const raw = row[col.key];
+            const value = col.format ? col.format(raw, row) : (raw ?? "");
+            return `<td style="padding:8px;border-bottom:1px solid #f3f4f6;font-size:12px">${value}</td>`;
+          })
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>${filename}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
+    h1 { font-size: 18px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    .print-btn { display: block; margin: 16px auto; padding: 10px 24px; background: #1e40af; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .print-btn:hover { background: #1e3a8a; }
+    @media print { .print-btn { display: none; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <h1>${filename}</h1>
+  <table>
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+  <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+</body>
+</html>`;
+
+    w.document.write(html);
+    w.document.close();
+    w.focus();
   }
 
   return (
@@ -71,7 +114,7 @@ export function ExportMenu<T extends Record<string, any>>({
               onClick={handlePrint}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors"
             >
-              <Download className="h-4 w-4" />
+              <Printer className="h-4 w-4" />
               Imprimer / PDF
             </button>
           </div>

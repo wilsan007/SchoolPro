@@ -7,9 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Compass, Search, TrendingUp, TrendingDown, Star,
-  ChevronRight, ArrowLeft, AlertTriangle, CheckCircle2,
-  BookOpen, Calendar, Users, Loader2, BarChart3,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Compass, Search, ArrowLeft, CheckCircle2,
+  Users, Loader2, BarChart3, GraduationCap, BookOpen,
+  ChevronDown, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getInitials, calculerMoyenne } from "@/lib/utils";
@@ -18,6 +25,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
+import { FILIERES, computeFiliereScores, type ScoreFiliere, type FiliereSlug } from "@/lib/orientation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +42,15 @@ const RECOM_CONFIG: Record<TypeRecom, { labelKey: string; color: string; emoji: 
   REDOUBLEMENT:         { labelKey: "recomTypes.REDOUBLEMENT",         color: "bg-red-50 text-red-800 border-red-300",          emoji: "🔄" },
 };
 
+const NIVEAU_OPTIONS = ["Seconde", "2nde", "2nd", "Troisième", "Quatrième", "Cinquième", "Sixième"];
+
+interface NoteApi {
+  valeur: number;
+  noteMax: number;
+  coefficient: number;
+  matiere: { nom: string; code: string | null };
+}
+
 interface EleveResume {
   id: string;
   nom: string;
@@ -41,21 +58,46 @@ interface EleveResume {
   matricule: string;
   classe: { nom: string; niveau: string } | null;
   parcours: { annee: string; moyenneAnnuelle: number | null; recommandation: TypeRecom | null }[];
-  notes: { valeur: number; noteMax: number; coefficient: number }[];
+  notes: NoteApi[];
   absences: { id: string }[];
 }
 
-// ─── Calcul recommandation automatique ───────────────────────────────────────
-
-function calculerRecommandation(moyenne: number | null, absences: number): TypeRecom {
-  if (moyenne === null) return "SOUTIEN_RENFORCE";
-  if (moyenne >= 16) return "EXCELLENTE_VOIE";
-  if (moyenne >= 14) return "FILIERE_SCIENTIFIQUE";
-  if (moyenne >= 12) return "FILIERE_LITTERAIRE";
-  if (moyenne >= 10) return "FILIERE_TECHNIQUE";
-  if (moyenne >= 8 && absences < 5) return "SOUTIEN_RENFORCE";
-  if (moyenne < 8 || absences > 10) return "REDOUBLEMENT";
-  return "FILIERE_PROFESSIONNELLE";
+function FiliereScoreBar({ score }: { score: ScoreFiliere }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          <span>{score.emoji}</span>
+          <span className="font-medium">{score.label}</span>
+          {score.matchedCount > 0 && (
+            <span className="text-xs text-muted-foreground">({score.matchedCount} matière{score.matchedCount > 1 ? "s" : ""})</span>
+          )}
+        </div>
+        <span className={cn("font-bold", score.percent >= 70 ? "text-green-600" : score.percent >= 50 ? "text-blue-600" : "text-orange-600")}>
+          {score.percent}%
+        </span>
+      </div>
+      <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn("h-full rounded-full transition-all duration-500", score.color)}
+          style={{ width: `${Math.max(0, Math.min(100, score.percent))}%` }}
+        />
+      </div>
+      {score.details.length > 0 && (
+        <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
+          {score.details.slice(0, 4).map((d, i) => (
+            <div key={i} className="flex justify-between">
+              <span className="truncate max-w-[70%]">{d.matiere}</span>
+              <span>{d.noteSur20.toFixed(1)}/20 (×{d.coefficient})</span>
+            </div>
+          ))}
+          {score.details.length > 4 && (
+            <p className="italic">+ {score.details.length - 4} autres matières</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Fiche individuelle ───────────────────────────────────────────────────────
@@ -93,11 +135,11 @@ function FicheOrientationEleve({
 
   const { eleve, parcours, notes, absencesInjust, incidents } = data;
   const moyenneActuelle = calculerMoyenne(notes);
-  const recomAuto = calculerRecommandation(moyenneActuelle, absencesInjust);
+  const filiereScores = computeFiliereScores(notes);
+  const topFiliere = filiereScores[0] ?? null;
 
-  // Données graphique évolution
   const chartData = [...parcours].reverse().map((p: any) => ({
-    annee: p.annee.slice(-2), // "24-25" → "24-25"
+    annee: p.annee,
     moyenne: p.moyenneAnnuelle ?? 0,
   }));
 
@@ -114,7 +156,7 @@ function FicheOrientationEleve({
             classe: eleve.classe?.nom ?? "",
             niveau: eleve.classe?.niveau ?? "",
             moyenneAnnuelle: moyenneActuelle,
-            recommandation: recomChoisie || recomAuto,
+            recommandation: recomChoisie || (topFiliere ? mapFiliereToRecom(topFiliere.key) : undefined),
             commentaire,
           }),
         });
@@ -138,7 +180,6 @@ function FicheOrientationEleve({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Colonne gauche : stats */}
         <div className="space-y-4">
-          {/* Moyenne actuelle */}
           <Card className="border-0 shadow-sm">
             <CardContent className="p-5 text-center">
               <p className="text-xs text-gray-500 mb-2">{t("currentAverage")}</p>
@@ -154,7 +195,6 @@ function FicheOrientationEleve({
             </CardContent>
           </Card>
 
-          {/* Indicateurs */}
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 space-y-3">
               <div className="flex justify-between items-center">
@@ -179,7 +219,6 @@ function FicheOrientationEleve({
 
         {/* Colonne centrale : évolution + recommandation */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Graphique évolution */}
           {chartData.length > 0 && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
@@ -200,7 +239,36 @@ function FicheOrientationEleve({
             </Card>
           )}
 
-          {/* Recommandation auto */}
+          {/* Scores par filière */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-gray-600 flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-primary" />
+                {t("filiereScores")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {topFiliere && (
+                <div className={cn("p-3 rounded-xl border-2 flex items-center gap-3 bg-muted/30", topFiliere.color.replace("bg-", "border-"))}>
+                  <span className="text-2xl">{topFiliere.emoji}</span>
+                  <div>
+                    <p className="font-semibold text-sm">
+                      {t("preferredFiliere")}: {topFiliere.label} ({topFiliere.percent}%)
+                    </p>
+                    <p className="text-xs opacity-70">{t("preferredFiliereHint")}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {filiereScores.map((score) => (
+                  <FiliereScoreBar key={score.key} score={score} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recommandation manuelle */}
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-gray-600 flex items-center gap-2">
@@ -209,15 +277,6 @@ function FicheOrientationEleve({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className={cn("p-3 rounded-xl border-2 flex items-center gap-3", RECOM_CONFIG[recomAuto].color)}>
-                <span className="text-2xl">{RECOM_CONFIG[recomAuto].emoji}</span>
-                <div>
-                  <p className="font-semibold text-sm">{t(RECOM_CONFIG[recomAuto].labelKey)}</p>
-                  <p className="text-xs opacity-70">{t("recomAuto")}</p>
-                </div>
-              </div>
-
-              {/* Override manuel */}
               <div>
                 <label className="text-xs text-gray-600 mb-1.5 block font-medium">
                   {t("recomEdit")}
@@ -241,7 +300,6 @@ function FicheOrientationEleve({
                 </div>
               </div>
 
-              {/* Commentaire */}
               <div>
                 <label className="text-xs text-gray-600 mb-1 block font-medium">{t("counselorComment")}</label>
                 <textarea
@@ -265,6 +323,17 @@ function FicheOrientationEleve({
   );
 }
 
+function mapFiliereToRecom(key: FiliereSlug): TypeRecom {
+  switch (key) {
+    case "SCIENTIFIQUE": return "FILIERE_SCIENTIFIQUE";
+    case "LITTERAIRE": return "FILIERE_LITTERAIRE";
+    case "TECHNOLOGIQUE": return "FILIERE_TECHNIQUE";
+    case "ECONOMIQUE":
+    case "AUTRES":
+    default: return "FILIERE_PROFESSIONNELLE";
+  }
+}
+
 // ─── Vue principale ───────────────────────────────────────────────────────────
 
 export function OrientationView() {
@@ -273,24 +342,39 @@ export function OrientationView() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [niveau, setNiveau] = useState("Seconde");
+  const [openedFiliere, setOpenedFiliere] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/orientation")
+    setLoading(true);
+    fetch(`/api/orientation?niveau=${encodeURIComponent(niveau)}`)
       .then((r) => r.json())
       .then((d) => setEleves(d.eleves ?? []))
       .finally(() => setLoading(false));
-  }, []);
+  }, [niveau]);
 
-  const elevesAvecMoyenne = useMemo(() => eleves.map((e) => {
+  const elevesAvecScores = useMemo(() => eleves.map((e) => {
     const moy = calculerMoyenne(e.notes);
-    const recom = calculerRecommandation(moy, e.absences.length);
-    return { ...e, moyenne: moy, recomAuto: recom };
+    const scores = computeFiliereScores(e.notes);
+    const best = scores[0] ?? null;
+    return { ...e, moyenne: moy, scores, bestFiliere: best };
   }), [eleves]);
 
-  const filtered = useMemo(() => elevesAvecMoyenne.filter((e) => {
+  const filtered = useMemo(() => elevesAvecScores.filter((e) => {
     const q = search.toLowerCase();
     return !q || `${e.prenom} ${e.nom} ${e.classe?.nom ?? ""}`.toLowerCase().includes(q);
-  }), [elevesAvecMoyenne, search]);
+  }), [elevesAvecScores, search]);
+
+  const elevesByFiliere = useMemo(() => {
+    const map: Record<string, typeof elevesAvecScores> = {};
+    for (const f of FILIERES) map[f.key] = [];
+    for (const e of filtered) {
+      const key = e.bestFiliere?.key ?? "AUTRES";
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    }
+    return map;
+  }, [filtered]);
 
   if (selectedId) {
     return <FicheOrientationEleve eleveId={selectedId} onBack={() => setSelectedId(null)} />;
@@ -302,21 +386,43 @@ export function OrientationView() {
     </div>
   );
 
-  // Répartition par recommandation
-  const recomStats = elevesAvecMoyenne.reduce<Record<string, number>>((acc, e) => {
-    acc[e.recomAuto] = (acc[e.recomAuto] ?? 0) + 1;
-    return acc;
-  }, {});
+  const totalEleves = filtered.length;
 
   return (
     <div className="space-y-6">
-      {/* En-tête stats */}
+      {/* Filtres */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="w-full sm:w-48">
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("level")}</label>
+          <Select value={niveau} onValueChange={setNiveau}>
+            <SelectTrigger>
+              <SelectValue placeholder={t("level")} />
+            </SelectTrigger>
+            <SelectContent>
+              {NIVEAU_OPTIONS.map((n) => (
+                <SelectItem key={n} value={n}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder={t("searchStudent")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: t("studentsToOrient"), value: elevesAvecMoyenne.length, icon: <Users className="w-5 h-5 text-indigo-600" />, color: "bg-indigo-100 dark:bg-indigo-900/30" },
-          { label: t("excellentPath"), value: recomStats["EXCELLENTE_VOIE"] ?? 0, icon: <Star className="w-5 h-5 text-yellow-600" />, color: "bg-yellow-100 dark:bg-yellow-900/30" },
-          { label: t("supportRepeat"), value: (recomStats["SOUTIEN_RENFORCE"] ?? 0) + (recomStats["REDOUBLEMENT"] ?? 0), icon: <AlertTriangle className="w-5 h-5 text-orange-600" />, color: "bg-orange-100 dark:bg-orange-900/30" },
-          { label: t("withParcours"), value: elevesAvecMoyenne.filter((e) => e.parcours.length > 0).length, icon: <BarChart3 className="w-5 h-5 text-green-600" />, color: "bg-green-100 dark:bg-green-900/30" },
+          { label: t("studentsToOrient"), value: totalEleves, icon: <Users className="w-5 h-5 text-indigo-600" />, color: "bg-indigo-100 dark:bg-indigo-900/30" },
+          { label: t("scientificStream"), value: elevesByFiliere["SCIENTIFIQUE"].length, icon: <BookOpen className="w-5 h-5 text-blue-600" />, color: "bg-blue-100 dark:bg-blue-900/30" },
+          { label: t("literaryStream"), value: elevesByFiliere["LITTERAIRE"].length, icon: <BookOpen className="w-5 h-5 text-purple-600" />, color: "bg-purple-100 dark:bg-purple-900/30" },
+          { label: t("technologicalStream"), value: elevesByFiliere["TECHNOLOGIQUE"].length, icon: <BarChart3 className="w-5 h-5 text-amber-600" />, color: "bg-amber-100 dark:bg-amber-900/30" },
         ].map((s) => (
           <Card key={s.label} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
@@ -330,19 +436,8 @@ export function OrientationView() {
         ))}
       </div>
 
-      {/* Recherche */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <Input
-          placeholder={t("searchStudent")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 text-sm"
-        />
-      </div>
-
-      {/* Liste */}
-      {filtered.length === 0 ? (
+      {/* Groupes de filières */}
+      {totalEleves === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="py-16 text-center">
             <Compass className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -350,49 +445,78 @@ export function OrientationView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((e) => {
-            const recomCfg = RECOM_CONFIG[e.recomAuto];
+        <div className="grid grid-cols-1 gap-4">
+          {FILIERES.map((filiere) => {
+            const group = elevesByFiliere[filiere.key] ?? [];
+            const isOpen = openedFiliere === filiere.key;
             return (
               <Card
-                key={e.id}
-                className="border-0 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                onClick={() => setSelectedId(e.id)}
+                key={filiere.key}
+                className={cn("border-0 shadow-sm transition-all", group.length === 0 && "opacity-60")}
               >
-                <CardContent className="p-4 flex items-center gap-4">
-                  <Avatar className="h-10 w-10 flex-shrink-0">
-                    <AvatarFallback className="bg-indigo-100 text-indigo-700 text-sm font-semibold">
-                      {getInitials(`${e.prenom} ${e.nom}`)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => setOpenedFiliere(isOpen ? null : filiere.key)}
+                  className="w-full"
+                  type="button"
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white", filiere.color)}>
+                        <span className="text-lg">{filiere.emoji}</span>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold text-gray-900 dark:text-white">{filiere.label}</p>
+                        <p className="text-xs text-muted-foreground">{group.length} élève{group.length > 1 ? "s" : ""}</p>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">{e.prenom} {e.nom}</p>
-                      <Badge className="text-xs bg-primary/10 text-primary border-primary/20">
-                        {e.classe?.nom ?? t("noClass")}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className={cn(
-                        "text-sm font-bold",
-                        (e.moyenne ?? 0) >= 14 ? "text-green-600" :
-                        (e.moyenne ?? 0) >= 10 ? "text-blue-600" :
-                        (e.moyenne ?? 0) >= 8 ? "text-orange-500" : "text-red-600"
-                      )}>
-                        {e.moyenne?.toFixed(2) ?? "—"}/20
+                      <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                        {group.length > 0 ? Math.round(group.reduce((sum, e) => sum + (e.bestFiliere?.percent ?? 0), 0) / group.length) : 0}% moy.
                       </span>
-                      {e.absences.length > 0 && (
-                        <span className="text-xs text-orange-500">{t("absShort", { count: e.absences.length })}</span>
-                      )}
+                      {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge className={cn("text-xs gap-1", recomCfg.color)}>
-                      {recomCfg.emoji} {t(recomCfg.labelKey)}
-                    </Badge>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  </div>
-                </CardContent>
+                  </CardContent>
+                </button>
+
+                {isOpen && (
+                  <CardContent className="px-4 pb-4 pt-0">
+                    <div className="max-h-[360px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                      {group.map((e) => (
+                        <div
+                          key={e.id}
+                          onClick={() => setSelectedId(e.id)}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                        >
+                          <Avatar className="h-10 w-10 flex-shrink-0">
+                            <AvatarFallback className="bg-indigo-100 text-indigo-700 text-sm font-semibold">
+                              {getInitials(`${e.prenom} ${e.nom}`)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                              {e.prenom} {e.nom}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{e.classe?.nom ?? t("noClass")}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className={cn(
+                              "text-sm font-bold",
+                              (e.moyenne ?? 0) >= 14 ? "text-green-600" :
+                              (e.moyenne ?? 0) >= 10 ? "text-blue-600" :
+                              (e.moyenne ?? 0) >= 8 ? "text-orange-500" : "text-red-600"
+                            )}>
+                              {e.moyenne?.toFixed(2) ?? "—"}/20
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {e.bestFiliere ? `${e.bestFiliere.percent}%` : "—"}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             );
           })}

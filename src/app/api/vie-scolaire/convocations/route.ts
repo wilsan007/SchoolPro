@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     where: { id: eleveId, tenantId: session.user.tenantId, ...siteFilter },
     include: {
       classe: true,
-      parents: { include: { parent: true } },
+      parents: { where: siteFilterForModel("eleveParent", session.user), include: { parent: true } },
     },
   });
 

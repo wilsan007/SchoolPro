@@ -8,23 +8,17 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AbsenceChart } from "@/components/dashboard/AbsenceChart";
 import { getTranslations, getLocale } from "next-intl/server";
 import { unstable_cache } from "next/cache";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import type { Prisma } from "@prisma/client";
 
 const getDashboardData = unstable_cache(
-  async (
-    tenantId: string,
-    eleveFilter: Record<string, unknown>,
-    classeFilter: Record<string, unknown>,
-    absenceFilter: Record<string, unknown>,
-    noteFilter: Record<string, unknown>,
-    examenFilter: Record<string, unknown>
-  ) => {
-    const baseWhere = { tenantId, ...eleveFilter, deletedAt: null } as Prisma.EleveWhereInput;
-    const classeWhere = { tenantId, ...classeFilter } as Prisma.ClasseWhereInput;
-    const absenceWhere = { tenantId, ...absenceFilter } as Prisma.AbsenceWhereInput;
-    const noteWhere = { tenantId, ...noteFilter } as Prisma.NoteWhereInput;
-    const examenWhere = { tenantId, ...examenFilter } as Prisma.ExamenWhereInput;
+  async (tenantId: string, claims: SessionSiteClaims) => {
+    const baseWhere = { tenantId, ...siteFilterForModel("eleve", claims), deletedAt: null } as Prisma.EleveWhereInput;
+    const classeWhere = { tenantId, ...siteFilterForModel("classe", claims) } as Prisma.ClasseWhereInput;
+    const absenceWhere = { tenantId, ...siteFilterForModel("absence", claims) } as Prisma.AbsenceWhereInput;
+    const noteWhere = { tenantId, ...siteFilterForModel("note", claims) } as Prisma.NoteWhereInput;
+    const examenWhere = { tenantId, ...siteFilterForModel("examen", claims) } as Prisma.ExamenWhereInput;
 
     const [
       eleveStats,
@@ -97,13 +91,22 @@ export default async function DashboardPage() {
 
   if (!session?.user?.tenantId) redirect("/login");
 
-  const eleveFilter = siteFilterForModel("eleve", session.user);
-  const classeFilter = siteFilterForModel("classe", session.user);
-  const absenceFilter = siteFilterForModel("absence", session.user);
-  const noteFilter = siteFilterForModel("note", session.user);
-  const examenFilter = siteFilterForModel("examen", session.user);
+  const tenantId = session.user.tenantId;
+  const [data, sites, anneeCourante] = await Promise.all([
+    getDashboardData(tenantId, session.user),
+    prisma.site.findMany({
+      where: { tenantId, actif: true, deletedAt: null },
+      select: { id: true, nom: true },
+    }),
+    getAnneeCouranteLibelle(tenantId),
+  ]);
 
-  const data = await getDashboardData(session.user.tenantId, eleveFilter, classeFilter, absenceFilter, noteFilter, examenFilter);
+  const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const currentSiteName = currentSiteId
+    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? "Site inconnu")
+    : session.user.role === "TENANT_ADMIN" || (session.user.role as string) === "SUPER_ADMIN"
+      ? "Tous les sites"
+      : "Aucun site";
 
   const stats = [
     {
@@ -120,7 +123,7 @@ export default async function DashboardPage() {
       value: data.totalClasses.toString(),
       icon: "school" as const,
       color: "blue" as const,
-      change: "2025-2026",
+      change: anneeCourante ?? "—",
     },
     {
       label: t("title") === "Dashboard" ? "Absences today" : "Absences aujourd'hui",
@@ -146,6 +149,7 @@ export default async function DashboardPage() {
       <Header
         title={t("title")}
         subtitle={`${t("welcome")} ${session.user.name?.split(" ")[0]} 👋 — ${new Intl.DateTimeFormat(locale === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date())}`}
+        site={currentSiteName}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
@@ -158,7 +162,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Graphique absences */}
           <div className="lg:col-span-2">
-            <AbsenceChart tenantId={session.user.tenantId} siteFilter={eleveFilter} />
+            <AbsenceChart tenantId={session.user.tenantId} />
           </div>
 
           {/* Actions rapides */}

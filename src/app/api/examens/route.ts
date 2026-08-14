@@ -29,7 +29,12 @@ export async function GET(req: NextRequest) {
       where: { tenantId, ...siteFilter,
         ...(statut ? { statut: statut as never } : {}),
       },
-      include: { sessions: { orderBy: { date: "asc" } } },
+      include: {
+        sessions: {
+          where: siteFilterForModel("sessionExamen", session.user),
+          orderBy: { date: "asc" },
+        },
+      },
       orderBy: { dateDebut: "desc" },
     });
 

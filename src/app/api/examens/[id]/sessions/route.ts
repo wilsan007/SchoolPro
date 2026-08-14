@@ -25,7 +25,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const tenantId = session.user.tenantId;
 
     // Vérifier que l'examen appartient au tenant
-    const examen = await prisma.examen.findFirst({ where: { id, tenantId } });
+    const examen = await prisma.examen.findFirst({
+      where: { id, tenantId, ...siteFilterForModel("examen", session.user) },
+    });
     if (!examen) return NextResponse.json({ error: "Examen introuvable" }, { status: 404 });
 
     const body = await req.json();
@@ -65,11 +67,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const tenantId = session.user.tenantId;
 
-    const examen = await prisma.examen.findFirst({ where: { id, tenantId }, select: { id: true } });
+    const examen = await prisma.examen.findFirst({
+      where: { id, tenantId, ...siteFilterForModel("examen", session.user) },
+      select: { id: true },
+    });
     if (!examen) return NextResponse.json({ error: "Examen introuvable" }, { status: 404 });
 
     const sessions = await prisma.sessionExamen.findMany({
-      where: { examId: id },
+      where: { examId: id, ...siteFilterForModel("sessionExamen", session.user) },
       orderBy: { date: "asc" },
     });
 

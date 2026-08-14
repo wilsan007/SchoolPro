@@ -166,7 +166,7 @@ export async function dispatchNotification(
     }
     case "PUSH": {
       const devices = await prisma.deviceToken.findMany({
-        where: { userId: { in: userIds }, isActive: true },
+        where: { userId: { in: userIds }, tenantId: notif.tenantId, isActive: true },
         select: { token: true },
       });
       const tokens = devices.map((d) => d.token);
@@ -178,8 +178,12 @@ export async function dispatchNotification(
       });
       nbDelivres = r.sent;
       success = r.success;
-      // Purge des tokens invalides
+      // Purge des tokens invalides — signalés comme tels par le fournisseur push
+      // (FCM/APNs), pas par une entrée utilisateur. Un token invalide l'est
+      // indépendamment du tenant ; la désactivation ne lit ni ne renvoie aucune
+      // donnée, seul le champ `token` (déjà connu de l'appelant) sert de clé.
       if (r.invalidTokens.length > 0) {
+        // eslint-disable-next-line ecolpro/require-tenant-id
         await prisma.deviceToken.updateMany({
           where: { token: { in: r.invalidTokens } },
           data: { isActive: false },

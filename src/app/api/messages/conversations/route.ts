@@ -241,8 +241,8 @@ export async function POST(req: NextRequest) {
       // de site de l'émetteur. Le contrôle de site manquait : un personnel du
       // site A pouvait ouvrir une conversation sur une classe du site B en
       // connaissant son identifiant.
-      const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId } });
-      if (!classe || !canAccessSite(actor, classe.siteId)) {
+      const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId, ...siteFilterForModel("classe", actor) } });
+      if (!classe) {
         return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
       }
       resolvedClasseId = classeId;
@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
         lastReadAt: p.userId === userId ? new Date() : null,
       }));
     } else if (type === "ADMIN_BROADCAST") {
-      const tenantParticipants = await getTenantParticipants(tenantId, userId, resolvedSiteId);
+      const tenantParticipants = await getTenantParticipants(actor, userId);
       participantsToCreate = tenantParticipants.map((p) => ({
         userId: p.userId,
         role: p.role,

@@ -19,7 +19,7 @@ export async function GET() {
     }
 
     const structures = await prisma.structure.findMany({
-      where: { tenantId: session.user.tenantId },
+      where: { tenantId: session.user.tenantId, ...siteFilterForModel("structure", session.user) },
       include: {
         _count: { select: { classes: true } },
       },
@@ -102,9 +102,17 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "id requis" }, { status: 400 });
     }
 
+    // Vérifier l'appartenance de la structure au tenant et au site
+    const structure = await prisma.structure.findFirst({
+      where: { id: structureId, tenantId: session.user.tenantId, ...siteFilterForModel("structure", session.user) },
+    });
+    if (!structure) {
+      return NextResponse.json({ error: "Structure introuvable" }, { status: 404 });
+    }
+
     // Vérifier qu'il n'y a pas de classes rattachées
     const classCount = await prisma.classe.count({
-      where: { structureId, tenantId: session.user.tenantId },
+      where: { structureId, tenantId: session.user.tenantId, ...siteFilterForModel("classe", session.user) },
     });
     if (classCount > 0) {
       return NextResponse.json(

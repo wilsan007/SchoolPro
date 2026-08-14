@@ -335,7 +335,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                 </select>
               </div>
               <div className="md:col-span-3 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
-                💡 Si l'email existe déjà, l'utilisateur sera lié au nouvel établissement avec le rôle choisi.
+                💡 Si l&apos;email existe déjà, l&apos;utilisateur sera lié au nouvel établissement avec le rôle choisi.
                 Si non, un nouveau compte sera créé avec un mot de passe temporaire.
               </div>
               <div className="md:col-span-3 flex gap-2">
@@ -617,7 +617,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
               </div>
             ) : sites.length === 0 ? (
               <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
-                Aucun site n'a été configuré. Allez dans l'onglet « Sites » pour créer des sites, puis revenez ici pour assigner les utilisateurs.
+                Aucun site n&apos;a été configuré. Allez dans l&apos;onglet « Sites » pour créer des sites, puis revenez ici pour assigner les utilisateurs.
               </p>
             ) : (
               <>
@@ -636,7 +636,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                       <Building2 className="h-4 w-4 text-primary" />
                       <div>
                         <p className="text-sm font-semibold">Accès à tous les sites</p>
-                        <p className="text-xs text-muted-foreground">Cocher pour donner accès à tous les sites de l'établissement</p>
+                        <p className="text-xs text-muted-foreground">Cocher pour donner accès à tous les sites de l&apos;établissement</p>
                       </div>
                     </div>
                   </label>
@@ -707,7 +707,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
             </p>
             <div className="space-y-2">
               <Label htmlFor="delete-confirm">
-                Pour confirmer, tapez le nom exact de l'utilisateur : <strong className="text-foreground">{deleteUserName}</strong>
+                Pour confirmer, tapez le nom exact de l&apos;utilisateur : <strong className="text-foreground">{deleteUserName}</strong>
               </Label>
               <Input
                 id="delete-confirm"

@@ -40,6 +40,7 @@ export async function GET() {
   // Link each student to this parent if not already linked
   const results: string[] = [];
   for (const eleve of eleves) {
+    // eslint-disable-next-line ecolpro/require-site-filter -- route de test/développement, élèves déjà filtrés par site ci-dessus
     const existing = await prisma.eleveParent.findUnique({
       where: { eleveId_parentId: { eleveId: eleve.id, parentId: parent.id } },
     });

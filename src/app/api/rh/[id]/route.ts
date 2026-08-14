@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForRelation, siteFilterForModel, mergeFilters } from "@/lib/site-filter";
 
 const FicheRHSchema = z.object({
   typeContrat: z.enum(["CDI", "CDD", "VACATAIRE", "FONCTIONNAIRE", "STAGIAIRE"]).optional(),
@@ -84,14 +84,18 @@ export async function POST(
   const body = await req.json();
   const { mois, annee } = z.object({ mois: z.number(), annee: z.number() }).parse(body);
 
-  const siteFilter2 = siteFilterForRelation(session.user, "user");
-
   const ficheRH = await prisma.ficheRH.findFirst({
-    where: { enseignantId: id, tenantId: session.user.tenantId, enseignant: { ...(siteFilter2 as any).user ? { user: (siteFilter2 as any).user } : {} } },
+    where: mergeFilters(
+      { enseignantId: id, tenantId: session.user.tenantId },
+      siteFilterForModel("ficheRH", session.user)
+    ),
     include: {
       enseignant: {
         include: {
-          emploiTemps: { select: { heureDebut: true, heureFin: true } },
+          emploiTemps: {
+            where: siteFilterForModel("emploiTemps", session.user),
+            select: { heureDebut: true, heureFin: true },
+          },
         },
       },
     },

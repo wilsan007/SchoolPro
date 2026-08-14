@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { guardPage } from "@/lib/guard-page";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { NotesOverview } from "@/components/notes/NotesOverview";
@@ -8,31 +9,43 @@ import Link from "next/link";
 import { PenLine, FileText, Plus, ArrowLeft } from "lucide-react";
 import { SaisieNotesSelectors } from "@/components/notes/SaisieNotesSelectors";
 import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
+import { SiteTabs } from "@/components/sites/SiteTabs";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, mergeFilters, type SessionSiteClaims } from "@/lib/site-scope";
+import { getSitesForUser } from "@/lib/actions/eleve";
+import { getSiteColorMap } from "@/lib/site-colors";
 
 const getNotesData = unstable_cache(
   async (
     tenantId: string,
-    siteFilter: Record<string, unknown>,
-    eleveFilter: Record<string, unknown>,
+    // Revendications de site réduites au strict nécessaire : elles entrent dans
+    // la clé de cache, on n'y met donc rien d'identifiant (ni id, ni e-mail).
+    claims: SessionSiteClaims,
     classeId?: string,
     scope?: { classeIds: string[]; matiereIds: string[]; isRestricted: boolean }
   ) => {
-    const classeWhere = { tenantId, ...siteFilter, ...(scope?.isRestricted && scope.classeIds.length > 0 ? { id: { in: scope.classeIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
-    const matiereWhere = { tenantId, ...(scope?.isRestricted && scope.matiereIds.length > 0 ? { id: { in: scope.matiereIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
-    const noteWhere = {
-      ...(classeId ? { tenantId, classeId } : { tenantId, ...eleveFilter }),
-      ...(scope?.isRestricted && scope.classeIds.length > 0 ? { eleve: { classeId: { in: scope.classeIds } } } : scope?.isRestricted ? { id: "__none__" } : {}),
-    };
+    const classeWhere = { tenantId, ...siteFilterForModel("classe", claims), ...(scope?.isRestricted && scope.classeIds.length > 0 ? { id: { in: scope.classeIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
+    const matiereWhere = { tenantId, ...siteFilterForModel("matiere", claims), ...(scope?.isRestricted && scope.matiereIds.length > 0 ? { id: { in: scope.matiereIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
+    // Le filtre de site s'applique dans tous les cas : auparavant il sautait dès
+    // qu'une `classeId` était fournie dans l'URL, ce qui laissait lire les
+    // statistiques de notes d'une classe d'un autre site.
+    const noteWhere = mergeFilters(
+      { tenantId, ...(classeId ? { classeId } : {}) },
+      siteFilterForModel("note", claims),
+      scope?.isRestricted && scope.classeIds.length > 0
+        ? { eleve: { classeId: { in: scope.classeIds } } }
+        : scope?.isRestricted
+          ? { id: "__none__" }
+          : {}
+    );
 
     const [classes, matieres, statsNotes] = await Promise.all([
       prisma.classe.findMany({
         where: classeWhere,
-        select: { id: true, nom: true, niveau: true },
+        select: { id: true, nom: true, niveau: true, siteId: true, site: { select: { nom: true } } },
         orderBy: { nom: "asc" },
       }),
       prisma.matiere.findMany({
@@ -57,21 +70,47 @@ const getNotesData = unstable_cache(
 export default async function NotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ classeId?: string; matiereId?: string; evaluationId?: string }>;
+  searchParams: Promise<{ classeId?: string; matiereId?: string; evaluationId?: string; siteId?: string }>;
 }) {
-  const [session, t, tCommon, sp] = await Promise.all([
-    auth(),
+  const session = await auth();
+  if (!session?.user?.tenantId) redirect("/login");
+  await guardPage(session, "notes:read");
+
+  const [t, tCommon, sp, sites, siteColors] = await Promise.all([
     getTranslations("notes"),
     getTranslations("common"),
     searchParams,
+    getSitesForUser(),
+    getSiteColorMap(session.user.tenantId),
   ]);
-  if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
-  const siteFilter = siteFilterForModel("classe", session.user);
-  const eleveFilter = siteFilterForModel("note", session.user);
-  const evalFilter = siteFilterForModel("evaluation", session.user);
-  const { classeId, matiereId, evaluationId } = sp;
+  const sessionSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const { classeId, matiereId, evaluationId, siteId } = sp;
+
+  const activeSite = (() => {
+    if (!siteId) return sessionSiteId ? sessionSiteId : "all";
+    if (siteId === "all") {
+      if (sessionSiteId) return sessionSiteId;
+      return session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN" ? "all" : sessionSiteId ?? "all";
+    }
+    return sites.some((s) => s.id === siteId) ? siteId : (sessionSiteId ?? "all");
+  })();
+
+  const noteClaims: SessionSiteClaims = {
+    role: session.user.role,
+    siteId: activeSite === "all" ? null : activeSite,
+    siteIds: (session.user as { siteIds?: string[] | null }).siteIds ?? null,
+    tenantHasSites: (session.user as { tenantHasSites?: boolean }).tenantHasSites ?? false,
+  };
+
+  const currentSiteName = activeSite === "all"
+    ? tCommon("allSites")
+    : (sites.find((s) => s.id === activeSite)?.nom ?? "Site inconnu");
+  const currentSiteColor = activeSite === "all" ? undefined : siteColors[activeSite];
+  const siteFilter = siteFilterForModel("classe", noteClaims);
+  const eleveFilter = siteFilterForModel("note", noteClaims);
+  const evalFilter = siteFilterForModel("evaluation", noteClaims);
 
   // Filtrer par classes/matières de l'enseignant si applicable
   const scope = isTeacherRole(session.user.role as Role)
@@ -79,7 +118,7 @@ export default async function NotesPage({
     : undefined;
 
   // Récupérer les classes et matières (filtrées pour les enseignants)
-  const { classes, matieres, statsNotes } = await getNotesData(tenantId, siteFilter, eleveFilter, classeId, scope);
+  const { classes, matieres, statsNotes } = await getNotesData(tenantId, noteClaims, classeId, scope);
 
   // Si classe et matière sont sélectionnées, on récupère les évaluations correspondantes
   let evaluations: any[] = [];
@@ -99,10 +138,14 @@ export default async function NotesPage({
   let evaluation: any = null;
   let grille: any[] = [];
   if (classeId && matiereId && evaluationId) {
-    evaluation = await prisma.evaluation.findUnique({
-      where: { id: evaluationId, tenantId },
+    evaluation = await prisma.evaluation.findFirst({
+      where: { id: evaluationId, tenantId, ...evalFilter },
       include: {
-        classe: { include: { eleves: { orderBy: { prenom: 'asc' } } } },
+        classe: {
+          include: {
+            eleves: { where: siteFilterForModel("eleve", noteClaims), orderBy: { prenom: 'asc' } },
+          },
+        },
         matiere: true,
         notes: true,
       }
@@ -135,20 +178,37 @@ export default async function NotesPage({
 
   const selectedMatiere = matieres.find(m => m.id === matiereId);
   const selectedClasse = classes.find(c => c.id === classeId);
+  const classOptions = classes.map((c) => ({
+    id: c.id,
+    nom: c.nom,
+    niveau: c.niveau,
+    siteId: c.siteId,
+    siteNom: c.site?.nom ?? null,
+  }));
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
         title={t("title")}
         subtitle={t("subtitle")}
+        site={currentSiteName}
+        siteColor={currentSiteColor}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+        {/* Sélecteur de site coloré */}
+        <SiteTabs
+          sites={sites.map((s) => ({ id: s.id, nom: s.nom }))}
+          siteColors={siteColors}
+          activeSiteId={activeSite}
+          className="mb-2"
+        />
+
         {/* Filtres de sélection en haut */}
         <SaisieNotesSelectors
-          classes={classes}
+          classes={classes.map((c) => ({ id: c.id, nom: c.nom }))}
           matieres={matieres}
           evaluations={evaluations}
           selectedClasseId={classeId}
@@ -298,7 +358,12 @@ export default async function NotesPage({
                 </div>
 
                 {/* Vue d'ensemble par matière */}
-                <NotesOverview matieres={matieresWithStats} classes={classes} selectedClasseId={classeId ?? ""} />
+                <NotesOverview
+                  matieres={matieresWithStats}
+                  classes={classOptions}
+                  siteColors={siteColors}
+                  selectedClasseId={classeId ?? ""}
+                />
               </>
             )}
           </>

@@ -1,0 +1,24 @@
+overrides:
+  next>postcss: 8.5.15
+  tar: ^7.5.16
+
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma
+  - sharp
+  - "@parcel/watcher"
+  - "@swc/core"
+  - esbuild
+  - unrs-resolver
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@swc/core': true
+  esbuild: true
+  prisma: true
+  sharp: true
+  tesseract.js: set this to true or false
+  unrs-resolver: true

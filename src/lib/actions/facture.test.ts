@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     paiement: {
       create: vi.fn(),
+      count: vi.fn(),
     },
     // `createFacture` lit le site de l'élève pour rattacher la facture au bon
     // site — sans ce délégué, l'action échoue avant toute assertion.
@@ -52,6 +53,7 @@ const mockPrisma = prisma as unknown as {
   };
   paiement: {
     create: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
   };
   eleve: {
     findUnique: ReturnType<typeof vi.fn>;
@@ -61,8 +63,11 @@ const mockPrisma = prisma as unknown as {
 describe("facture actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // role: TENANT_ADMIN → périmètre tenant entier (siteFilterForModel renvoie
+    // {}) : les assertions ci-dessous vérifient le `where` sans avoir à
+    // reproduire la résolution de périmètre par site à chaque cas.
     mockAuth.mockResolvedValue({
-      user: { id: "user1", tenantId: "tenant1", name: "Admin" },
+      user: { id: "user1", tenantId: "tenant1", name: "Admin", role: "TENANT_ADMIN" },
     });
     // Élève rattaché à un site par défaut : les tests qui vérifient le
     // rattachement le redéfinissent explicitement.
@@ -202,13 +207,19 @@ describe("facture actions", () => {
     it("throws when not authorized", async () => {
       mockAuth.mockResolvedValue(null);
       await expect(
-        enregistrerPaiement("f1", { montant: 1000, methode: "WAFFI" })
+        enregistrerPaiement("f1", { montant: 1000, methode: "waffi" })
       ).rejects.toThrow("Non autorisé");
+    });
+
+    it("throws when invoice id is empty", async () => {
+      await expect(
+        enregistrerPaiement("", { montant: 1000, methode: "waffi" })
+      ).rejects.toThrow("Numéro de facture requis");
     });
 
     it("throws on invalid data (zero montant)", async () => {
       await expect(
-        enregistrerPaiement("f1", { montant: 0, methode: "WAFFI" })
+        enregistrerPaiement("f1", { montant: 0, methode: "waffi" })
       ).rejects.toThrow();
     });
 
@@ -221,7 +232,7 @@ describe("facture actions", () => {
     it("throws when facture not found", async () => {
       mockPrisma.facture.findFirst.mockResolvedValue(null);
       await expect(
-        enregistrerPaiement("f1", { montant: 1000, methode: "WAFFI" })
+        enregistrerPaiement("f1", { montant: 1000, methode: "waffi" })
       ).rejects.toThrow("Facture non trouvée");
     });
 
@@ -236,7 +247,7 @@ describe("facture actions", () => {
       mockPrisma.paiement.create.mockResolvedValue({ id: "p1" });
       const result = await enregistrerPaiement("f1", {
         montant: 10000,
-        methode: "WAFFI",
+        methode: "waffi",
         reference: "REF123",
       });
       expect(result).toEqual({ success: true, id: "p1" });
@@ -245,7 +256,7 @@ describe("facture actions", () => {
           data: expect.objectContaining({
             factureId: "f1",
             montant: 10000,
-            methode: "WAFFI",
+            methode: "waffi",
             reference: "REF123",
             enregistreParId: "user1",
           }),
@@ -267,7 +278,7 @@ describe("facture actions", () => {
         paiements: [],
       });
       mockPrisma.paiement.create.mockResolvedValue({ id: "p2" });
-      await enregistrerPaiement("f1", { montant: 10000, methode: "CAC_PAY" });
+      await enregistrerPaiement("f1", { montant: 10000, methode: "cac_pay" });
       expect(mockPrisma.facture.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { statut: "EN_ATTENTE" },
@@ -285,7 +296,7 @@ describe("facture actions", () => {
         paiements: [],
       });
       mockPrisma.paiement.create.mockResolvedValue({ id: "p3" });
-      await enregistrerPaiement("f1", { montant: 10000, methode: "DAHAB_PLUS" });
+      await enregistrerPaiement("f1", { montant: 10000, methode: "dahab_plus" });
       expect(mockPrisma.facture.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { statut: "EN_RETARD" },
@@ -302,7 +313,7 @@ describe("facture actions", () => {
         paiements: [],
       });
       mockPrisma.paiement.create.mockResolvedValue({ id: "p4" });
-      await enregistrerPaiement("f1", { montant: 1000, methode: "SABA_PAY" });
+      await enregistrerPaiement("f1", { montant: 1000, methode: "saba_pay" });
       const call = mockPrisma.paiement.create.mock.calls[0][0];
       expect(call.data.reference).toBeNull();
     });
@@ -320,7 +331,8 @@ describe("facture actions", () => {
     });
 
     it("cancels facture and returns success", async () => {
-      mockPrisma.facture.findFirst.mockResolvedValue({ id: "f1" });
+      mockPrisma.facture.findFirst.mockResolvedValue({ id: "f1", statut: "EN_ATTENTE" });
+      mockPrisma.paiement.count.mockResolvedValue(0);
       mockPrisma.facture.update.mockResolvedValue({ id: "f1", statut: "ANNULEE" });
       const result = await annulerFacture("f1");
       expect(result).toEqual({ success: true });
@@ -330,6 +342,17 @@ describe("facture actions", () => {
           data: { statut: "ANNULEE" },
         })
       );
+    });
+
+    it("throws when invoice is already paid", async () => {
+      mockPrisma.facture.findFirst.mockResolvedValue({ id: "f1", statut: "PAYEE" });
+      await expect(annulerFacture("f1")).rejects.toThrow("Impossible d'annuler");
+    });
+
+    it("throws when invoice has payments", async () => {
+      mockPrisma.facture.findFirst.mockResolvedValue({ id: "f1", statut: "EN_ATTENTE" });
+      mockPrisma.paiement.count.mockResolvedValue(1);
+      await expect(annulerFacture("f1")).rejects.toThrow("déjà des paiements");
     });
   });
 });

@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { FacturesTable } from "@/components/facturation/FacturesTable";
 import { FacturationActions } from "@/components/facturation/FacturationActions";
@@ -11,7 +12,7 @@ export default async function FacturationPage() {
     auth(),
     getTranslations("facturation"),
   ]);
-  guardPage(session, "finance:read");
+  await guardPage(session, "finance:read");
 
   const factures = await getFacturesForTenant();
 

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const tenantId = session.user.tenantId;
 
     const eleve = await prisma.eleve.findFirst({
-      where: { id: eleveId, tenantId },
+      where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", session.user) },
       select: {
         nom: true,
         prenom: true,
@@ -40,11 +40,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
     }
 
-    const bulletin = await prisma.bulletin.findUnique({
-      where: { eleveId_periodeId: { eleveId, periodeId } },
-      include: { matieres: { include: { matiere: true } }, periode: true },
+    const bulletin = await prisma.bulletin.findFirst({
+      where: {
+        eleveId,
+        periodeId,
+        tenantId,
+        ...siteFilterForModel("bulletin", session.user),
+      },
+      include: {
+        // Les lignes de matières appartiennent au bulletin retourné, lui-même déjà
+        // borné au tenant et au périmètre de sites : l'isolation est portée par la
+        // relation. (BulletinMatiere n'a par ailleurs aucun chemin propre vers le
+        // site : son rattachement passe uniquement par ce bulletin.)
+        // eslint-disable-next-line ecolpro/require-site-filter
+        matieres: { include: { matiere: true } },
+        periode: true,
+      },
     });
-    if (!bulletin || bulletin.tenantId !== tenantId) {
+    if (!bulletin) {
       return NextResponse.json(
         { error: "Bulletin introuvable — générez d'abord les bulletins de la classe" },
         { status: 404 }

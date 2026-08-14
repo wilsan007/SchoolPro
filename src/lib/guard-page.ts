@@ -9,14 +9,18 @@ import type { Session } from "next-auth";
  * Redirige vers /login si non authentifié, /select-tenant si pas de tenant,
  * ou /dashboard si permission insuffisante.
  *
+ * **Async** : Next.js 15 ne propage pas `redirect()` depuis une fonction
+ * synchrone utilitaire — la fonction doit être `await`-ée pour que l'erreur
+ * `NEXT_REDIRECT` remonte jusqu'au framework.
+ *
  * @example
  * const session = await auth();
- * guardPage(session, "facturation:read");
+ * const { tenantId, role } = await guardPage(session, "facturation:read");
  */
-export function guardPage(
+export async function guardPage(
   session: Session | null,
   permission?: Permission | Permission[]
-): { tenantId: string; userId: string; role: Role; session: Session } {
+): Promise<{ tenantId: string; userId: string; role: Role; session: Session }> {
   if (!session?.user?.id) {
     redirect("/login");
   }

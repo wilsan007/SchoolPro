@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import Stripe from "stripe";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     const facture = await prisma.facture.findFirst({
-      where: { id: factureId, tenantId: session.user.tenantId },
+      where: { id: factureId, tenantId: session.user.tenantId, ...siteFilterForModel("facture", session.user) },
       include: {
         eleve: {
           select: { nom: true, prenom: true, matricule: true },
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Facture non payable" }, { status: 400 });
     }
 
+    // eslint-disable-next-line ecolpro/require-site-filter -- paiement n'a pas de siteId, scopé via factureId déjà validé par site ci-dessus
     const totalPaye = await prisma.paiement.aggregate({
       where: { factureId },
       _sum: { montant: true },

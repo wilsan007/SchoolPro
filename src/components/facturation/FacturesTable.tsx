@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, Plus, Filter, Eye } from "lucide-react";
+import { Download, Plus, Filter, Eye, User, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { StudentSearch } from "./StudentSearch";
+import { getPaymentMethod, getPaymentMethodType } from "@/lib/payment-methods";
 
 interface FactureWithRelations {
   id: string;
@@ -25,7 +27,7 @@ interface FactureWithRelations {
     matricule: string;
     classe: { nom: string } | null;
   };
-  paiements: { montant: number }[];
+  paiements: { montant: number; methode: string }[];
   createdBy?: { id: string; name: string } | null;
 }
 
@@ -46,25 +48,81 @@ function formatMoney(amount: number, devise: string) {
   return new Intl.NumberFormat("fr-DJ", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
+function PaymentMethodsBadges({ paiements, t }: { paiements: { methode: string }[]; t: (k: string) => string }) {
+  const methods = useMemo(() => {
+    const ids = Array.from(new Set(paiements.map((p) => p.methode).filter(Boolean)));
+    return ids.slice(0, 3);
+  }, [paiements]);
+
+  if (methods.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {methods.map((m) => {
+        const pm = getPaymentMethod(m);
+        const type = getPaymentMethodType(m);
+        const label = pm ? t(pm.labelKey) : m;
+        const variant =
+          type === "CASH"
+            ? "success"
+            : type === "MOBILE_MONEY"
+              ? "default"
+              : type === "BANK"
+                ? "secondary"
+                : type === "CARD"
+                  ? "warning"
+                  : "secondary";
+        return (
+          <Badge key={m} variant={variant} className="text-[10px] px-1.5 py-0">
+            {label}
+          </Badge>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FacturesTable({ factures }: FacturesTableProps) {
   const t = useTranslations("facturation");
   const [search, setSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState("");
+  const [eleveFilterId, setEleveFilterId] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  const elevesOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          factures.map((f) => [
+            f.eleve.id,
+            {
+              id: f.eleve.id,
+              nom: f.eleve.nom,
+              prenom: f.eleve.prenom,
+              matricule: f.eleve.matricule,
+              classe: f.eleve.classe,
+            },
+          ])
+        ).values()
+      ),
+    [factures]
+  );
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return factures.filter((f) => {
       const matchesSearch =
+        !q ||
         f.numero.toLowerCase().includes(q) ||
         f.libelle.toLowerCase().includes(q) ||
         f.eleve.nom.toLowerCase().includes(q) ||
         f.eleve.prenom.toLowerCase().includes(q) ||
         f.eleve.matricule.toLowerCase().includes(q);
       const matchesStatut = !statutFilter || f.statut === statutFilter;
-      return matchesSearch && matchesStatut;
+      const matchesEleve = !eleveFilterId || f.eleve.id === eleveFilterId;
+      return matchesSearch && matchesStatut && matchesEleve;
     });
-  }, [factures, search, statutFilter]);
+  }, [factures, search, statutFilter, eleveFilterId]);
 
   const totalMontant = filtered.reduce((sum, f) => sum + f.montant, 0);
   const totalPaye = filtered.reduce(
@@ -74,9 +132,10 @@ export function FacturesTable({ factures }: FacturesTableProps) {
   const totalRestant = totalMontant - totalPaye;
 
   function exportCSV() {
-    const headers = ["N°", "Élève", "Matricule", "Classe", "Libellé", "Montant", "Payé", "Restant", "Statut", "Échéance"];
+    const headers = ["N°", "Élève", "Matricule", "Classe", "Libellé", "Montant", "Payé", "Restant", "Statut", "Moyens", "Échéance"];
     const rows = filtered.map((f) => {
       const paye = f.paiements.reduce((s, p) => s + p.montant, 0);
+      const methodes = Array.from(new Set(f.paiements.map((p) => p.methode).filter(Boolean))).join(";");
       return [
         f.numero,
         `${f.eleve.prenom} ${f.eleve.nom}`,
@@ -87,6 +146,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
         paye,
         f.montant - paye,
         f.statut,
+        methodes,
         f.echeance ? new Date(f.echeance).toLocaleDateString("fr-FR") : "",
       ];
     });
@@ -138,10 +198,11 @@ export function FacturesTable({ factures }: FacturesTableProps) {
 
       {showFilters && (
         <Card>
-          <CardContent className="pt-4 flex flex-wrap gap-4">
+          <CardContent className="pt-4 flex flex-wrap gap-4 items-end">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">{t("status")}</label>
               <select
+                data-testid="status-filter"
                 value={statutFilter}
                 onChange={(e) => setStatutFilter(e.target.value)}
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -153,6 +214,30 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                 <option value="ANNULEE">{t("statusCancelled")}</option>
               </select>
             </div>
+            <div className="space-y-1 min-w-[260px]">
+              <label className="text-xs font-medium text-muted-foreground">{t("filterByStudent")}</label>
+              <StudentSearch
+                students={elevesOptions}
+                value={eleveFilterId}
+                onChange={(id) => setEleveFilterId(id)}
+                placeholder={t("studentSearchPlaceholder")}
+                emptyMessage={t("noStudentFound")}
+              />
+            </div>
+            {(statutFilter || eleveFilterId) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-muted-foreground"
+                onClick={() => {
+                  setStatutFilter("");
+                  setEleveFilterId("");
+                }}
+              >
+                <X className="h-4 w-4" />
+                {t("resetFilters")}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -212,6 +297,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                         <td className="px-4 py-3">
                           <div className="font-medium">{f.eleve.prenom} {f.eleve.nom}</div>
                           <div className="text-xs text-muted-foreground">{f.eleve.matricule} · {f.eleve.classe?.nom ?? t("notApplicable")}</div>
+                          <PaymentMethodsBadges paiements={f.paiements} t={t} />
                         </td>
                         <td className="px-4 py-3">{f.libelle}</td>
                         <td className="px-4 py-3 text-right font-medium">{formatMoney(f.montant, f.devise)}</td>

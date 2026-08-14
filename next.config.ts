@@ -10,6 +10,16 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  /**
+   * Paquets laissés à Node, jamais empaquetés par le bundler serveur.
+   *
+   * Les trois portent du code natif ou lancent des workers, et le bundling les
+   * casse silencieusement : `tesseract.js` ne retrouve plus son worker,
+   * `@napi-rs/canvas` et `sharp` ne retrouvent plus leur binaire `.node`. Le
+   * symptôme est un OCR qui échoue en production alors qu'il fonctionne en
+   * développement — d'où cette déclaration, qui n'est pas une optimisation.
+   */
+  serverExternalPackages: ["tesseract.js", "@napi-rs/canvas", "sharp"],
   experimental: {
     serverActions: {
       allowedOrigins: ["*.ecolpro.app", "*.netlify.app", "*.pages.dev", "*.vercel.app", "localhost:3000", "localhost:3001", "localhost:3002", "localhost:3003", "localhost:3004", "localhost:3005", "10.139.161.24:3003"],

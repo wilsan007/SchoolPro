@@ -12,6 +12,8 @@ import {
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { ClassSelector } from "@/components/sites/ClassSelector";
+import type { SiteColor } from "@/lib/site-colors";
 
 type StatutExamen = "PROGRAMME" | "EN_COURS" | "TERMINE" | "ANNULE";
 
@@ -39,6 +41,8 @@ interface Classe {
   id: string;
   nom: string;
   niveau: string;
+  siteId: string | null;
+  siteNom: string | null;
 }
 
 interface Matiere {
@@ -565,16 +569,19 @@ export function ExamensManager({
   examens: initial,
   classes,
   matieres,
+  siteColors,
 }: {
   examens: Examen[];
   classes: Classe[];
   matieres: Matiere[];
+  siteColors: Record<string, SiteColor>;
   tenantId: string;
 }) {
   const t = useTranslations("examens");
   const [examens, setExamens] = useState<Examen[]>(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [filterStatut, setFilterStatut] = useState<StatutExamen | "ALL">("ALL");
+  const [selectedClasseId, setSelectedClasseId] = useState("");
 
   const stats = {
     total: examens.length,
@@ -584,6 +591,10 @@ export function ExamensManager({
   };
 
   const filtered = filterStatut === "ALL" ? examens : examens.filter((e) => e.statut === filterStatut);
+  const selectedClasse = classes.find((c) => c.id === selectedClasseId);
+  const displayed = selectedClasse
+    ? filtered.filter((e) => e.sessions.some((s) => s.niveau === selectedClasse.niveau))
+    : filtered;
 
   function addExamen(exam: Examen) {
     setExamens((prev) => [exam, ...prev]);
@@ -637,8 +648,16 @@ export function ExamensManager({
         </Button>
       </div>
 
+      {/* Filtre par classes coloré */}
+      <ClassSelector
+        classes={classes}
+        siteColors={siteColors}
+        selectedId={selectedClasseId}
+        onSelect={setSelectedClasseId}
+      />
+
       {/* Liste */}
-      {filtered.length === 0 ? (
+      {displayed.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Calendar className="w-12 h-12 text-gray-300 mb-4" />
@@ -652,7 +671,7 @@ export function ExamensManager({
         </Card>
       ) : (
         <div className="space-y-4">
-          {filtered.map((exam) => (
+          {displayed.map((exam) => (
             <ExamenCard
               key={exam.id}
               examen={exam}

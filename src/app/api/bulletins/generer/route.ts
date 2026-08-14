@@ -71,8 +71,10 @@ export async function POST(req: NextRequest) {
 
     console.log("[generer] step 1: fetching classe");
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId },
-      include: { eleves: { where: { statut: "ACTIF" } } },
+      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user) },
+      include: {
+        eleves: { where: { statut: "ACTIF", ...siteFilterForModel("eleve", session.user) } },
+      },
     });
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
     console.log("[generer] step 2: classe found", classe.nom, "eleves:", classe.eleves.length);
@@ -242,7 +244,7 @@ export async function POST(req: NextRequest) {
       });
 
       // Update BulletinMatieres
-      await prisma.bulletinMatiere.deleteMany({ where: { bulletinId: bulletin.id } });
+      await prisma.bulletinMatiere.deleteMany({ where: { bulletinId: bulletin.id, tenantId } });
       if (matieresToSave.length > 0) {
         await prisma.bulletinMatiere.createMany({
           data: matieresToSave.map(m => ({
@@ -267,8 +269,12 @@ export async function POST(req: NextRequest) {
     console.log("[generer] step 14: updating bulletins with rankings");
     for (let i = 0; i < bulletinsGlobalAverages.length; i++) {
       const b = bulletinsGlobalAverages[i];
-      await prisma.bulletin.update({
-        where: { eleveId_periodeId: { eleveId: b.eleveId, periodeId } },
+      // `updateMany` plutôt qu'`update` : la contrainte unique (eleveId,
+      // periodeId) désigne la même ligne, mais le `where` accepte ici
+      // `tenantId`, ce qui interdit d'écrire sur le bulletin d'un autre
+      // établissement si un identifiant venait à être forgé.
+      await prisma.bulletin.updateMany({
+        where: { eleveId: b.eleveId, periodeId, tenantId },
         data: {
           rang: b.moyenne !== null ? i + 1 : null,
           moyenneClasse,

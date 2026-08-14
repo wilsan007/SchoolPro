@@ -2,6 +2,7 @@
  * Générateur d'attestation de scolarité PDF — EcolPro
  * Calqué sur bulletin-generator.ts, utilise les données existantes (Eleve, Classe, Tenant).
  */
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 
 export type AttestationData = {
   ecoleName: string;
@@ -38,12 +39,13 @@ export async function getAttestationData(
   eleveId: string,
   tenantId: string,
   honorifique: string,
-  titre: string
+  titre: string,
+  claims: SessionSiteClaims
 ): Promise<AttestationData | null> {
   const { default: prisma } = await import("@/lib/prisma");
 
   const eleve = await prisma.eleve.findFirst({
-    where: { id: eleveId, tenantId },
+    where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", claims) },
     include: { classe: true },
   });
 

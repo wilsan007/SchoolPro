@@ -10,6 +10,10 @@ import {
   Users,
   ClipboardList,
   BookOpen,
+  Target,
+  Sparkles,
+  Gauge,
+  HandHeart,
   Calendar,
   GraduationCap,
   MessageSquare,
@@ -56,6 +60,15 @@ const navGroups: NavGroup[] = [
     groupKey: null,
     items: [
       { labelKey: "dashboard", icon: LayoutDashboard, href: "/dashboard", color: "text-blue-500" },
+      { labelKey: "direction", icon: Gauge, href: "/direction", color: "text-sky-600", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"] },
+      { labelKey: "monEspace", icon: Briefcase, href: "/mon-espace", color: "text-emerald-600", roles: ["TEACHER", "CLASS_TEACHER"] },
+      { labelKey: "maClasse", icon: Users, href: "/ma-classe", color: "text-teal-600", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "COUNSELOR"] },
+      // Espaces personnels : ces écrans se résolvent par le périmètre
+      // relationnel de celui qui est connecté. Ils n'ont rien à montrer à un
+      // adulte de l'établissement qui les visiterait — d'où le rôle unique.
+      { labelKey: "monParcours", icon: HandHeart, href: "/parent", color: "text-pink-500", roles: ["PARENT"] },
+      { labelKey: "monParcoursEleve", icon: Target, href: "/eleve", color: "text-violet-500", roles: ["STUDENT"] },
+      { labelKey: "entrainement", icon: Sparkles, href: "/entrainement", color: "text-amber-500", roles: ["STUDENT"] },
     ],
   },
   {
@@ -63,6 +76,8 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: "eleves", icon: Users, href: "/eleves", color: "text-violet-500" },
       { labelKey: "notes", icon: BookOpen, href: "/notes", color: "text-green-500" },
+      { labelKey: "curriculum", icon: Target, href: "/curriculum", color: "text-fuchsia-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"] },
+      { labelKey: "recommandations", icon: Sparkles, href: "/recommandations", color: "text-rose-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER", "COUNSELOR"] },
       { labelKey: "examens", icon: GraduationCap, href: "/evaluations", color: "text-yellow-500" },
       { labelKey: "cours", icon: PlayCircle, href: "/cours", color: "text-indigo-500" },
       { labelKey: "emploi", icon: Calendar, href: "/emploi-du-temps", color: "text-cyan-500" },
@@ -172,7 +187,7 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
   return (
     <aside
       className={cn(
-        "relative flex flex-col h-screen bg-slate-950 text-slate-100 transition-all duration-300 ease-in-out border-r border-slate-800/60 shadow-xl shadow-indigo-950/10",
+        "relative flex flex-col h-screen bg-slate-950 text-slate-100 transition-all duration-300 ease-in-out border-r border-slate-800/60 shadow-xl shadow-indigo-950/10 print:hidden",
         collapsed ? "w-20" : "w-72"
       )}
     >

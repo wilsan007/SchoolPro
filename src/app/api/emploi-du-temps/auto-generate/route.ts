@@ -99,14 +99,14 @@ export async function POST(req: NextRequest) {
     // Fetch all data needed
     const [classe, allMatieres, enseignants, allSalles, existingCreneaux, disponibilites] = await Promise.all([
       prisma.classe.findFirst({ where: { id: classeId, tenantId, ...classeFilter }, select: { id: true, nom: true, siteId: true } }),
-      prisma.matiere.findMany({ where: { tenantId }, orderBy: { coefficient: "desc" } }),
+      prisma.matiere.findMany({ where: { tenantId, ...siteFilterForModel("matiere", session.user) }, orderBy: { coefficient: "desc" } }),
       prisma.enseignant.findMany({
-        where: { tenantId },
+        where: { tenantId, ...siteFilterForModel("enseignant", session.user) },
         include: { user: { select: { name: true } } },
       }),
       prisma.salle.findMany({ where: { tenantId, ...salleFilter } }),
       prisma.emploiTemps.findMany({ where: { tenantId, ...emploiFilter, annee } }),
-      prisma.disponibiliteEnseignant.findMany({ where: { tenantId } }),
+      prisma.disponibiliteEnseignant.findMany({ where: { tenantId, ...siteFilterForModel("disponibiliteEnseignant", session.user) } }),
     ]);
 
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });

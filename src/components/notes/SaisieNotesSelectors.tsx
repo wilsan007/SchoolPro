@@ -3,7 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-// Let's use standard select from ui if available, or a native select for maximum compatibility and simplicity
 interface Props {
   classes: { id: string; nom: string }[];
   matieres: { id: string; nom: string }[];

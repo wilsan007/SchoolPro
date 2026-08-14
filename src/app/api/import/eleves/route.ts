@@ -5,7 +5,7 @@ import { getSchoolGroup } from "@/lib/school-groups";
 import type { StructureType, Sexe } from "@prisma/client";
 import { siteFilterForModel, requireSiteIdForCreate, mergeFilters } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 import { preparerPlan, dernierMatricule } from "@/lib/import-eleves-server";
 import { matriculeGenerator, parseDate, type Action, type LignePlan } from "@/lib/import-eleves";
 import { identityKey } from "@/lib/eleve-identity";
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     };
 
     const buffer = await file.arrayBuffer();
-    const { plan, rows } = await preparerPlan(acteur, buffer);
+    const { plan, rows } = await preparerPlan(acteur, buffer, targetSiteId);
     // Les lignes lues portent les colonnes secondaires (sexe, lieu de
     // naissance, nationalité, régime) que le plan ne transporte pas.
     const srcDe = new Map(rows.map((r) => [r.ligne, r]));
@@ -189,8 +189,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Classes ─────────────────────────────────────────────────
+    // Filtrer les classes par site cible pour éviter de réutiliser une
+    // classe homonyme d'un autre site. On ne remplace que `siteId` (le site
+    // "sélectionné") — `siteIds` (les sites réellement autorisés de
+    // l'appelant) reste inchangé, afin qu'un site cible hors du périmètre
+    // autorisé soit rejeté par siteFilterForModel plutôt que silencieusement
+    // accepté (cf. src/lib/import-eleves-server.ts, même correctif).
+    const classeFilter = siteFilterForModel(
+      "classe",
+      targetSiteId ? { ...session.user, siteId: targetSiteId } : session.user
+    );
     const existingClasses = await prisma.classe.findMany({
-      where: mergeFilters({ tenantId }, siteFilterForModel("classe", session.user)),
+      where: mergeFilters({ tenantId }, classeFilter),
       select: { id: true, nom: true, siteId: true },
     });
     const classByName = new Map(existingClasses.map((c) => [c.nom, { id: c.id, siteId: c.siteId }]));
@@ -263,7 +273,7 @@ export async function POST(req: NextRequest) {
 
         return {
           tenantId,
-          siteId: targetSiteId || classe.siteId,
+          siteId: classe.siteId,
           matricule: l.matricule || prochainMatricule(),
           nom: l.nom,
           prenom: l.prenom,
@@ -308,6 +318,8 @@ export async function POST(req: NextRequest) {
           // d.identité, remise à NULL au moment de l.archivage.
           ...(l.existant!.archive ? { deletedAt: null, statut: "ACTIF" as const } : {}),
           ...(date ? { identiteKey: identityKey({ nom: l.nom, prenom: l.prenom, dateNaissance: date }) } : {}),
+          // L'élève hérite du site de sa classe, unique source de vérité
+          ...(classe ? { siteId: classe.siteId } : {}),
         },
       });
       updated++;
@@ -334,6 +346,9 @@ export async function POST(req: NextRequest) {
     });
 
     revalidateTag("eleves-stats");
+    // Les effectifs par classe affichés dans Paramètres → Pédagogie.
+    revalidatePath("/parametres");
+    revalidatePath("/eleves");
     revalidateTag("dashboard-data");
     revalidateTag("classes-list");
 

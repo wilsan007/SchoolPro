@@ -21,6 +21,9 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
     },
     ficheRH: {
+      // Vérification d'appartenance avant l'écriture (congesPris/absencesCount) :
+      // par défaut la fiche existe, comme dans le comportement historique du mock.
+      findFirst: vi.fn().mockResolvedValue({ enseignantId: "e1" }),
       update: vi.fn().mockResolvedValue({}),
     },
     enseignant: {
@@ -52,6 +55,7 @@ const mockPrisma = prisma as unknown as {
     update: ReturnType<typeof vi.fn>;
   };
   ficheRH: {
+    findFirst: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
   enseignant: {

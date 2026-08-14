@@ -108,7 +108,7 @@ export function BulletinMatrix({ classeId, periodeId, classeNom }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [classeId, periodeId]);
+  }, [classeId, periodeId, t]);
 
   useEffect(() => {
     fetchData();

@@ -25,10 +25,19 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const statut = searchParams.get("statut");
   const niveau = searchParams.get("niveau");
+  const requestedSiteId = searchParams.get("siteId");
 
-  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  const sessionSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
+  let activeSiteId: string | null = sessionSiteId;
+  if (requestedSiteId === "all") activeSiteId = null;
+  else if (requestedSiteId) activeSiteId = requestedSiteId;
 
-  const siteFilter = siteFilterForModel("cours", session.user);
+  const claims = {
+    ...session.user,
+    siteId: activeSiteId,
+  };
+
+  const siteFilter = siteFilterForModel("cours", claims);
   const cours = await prisma.cours.findMany({
     where: {
       tenantId: session.user.tenantId,
@@ -37,12 +46,19 @@ export async function GET(req: NextRequest) {
       ...(niveau && { niveau: niveau as "DEBUTANT" | "INTERMEDIAIRE" | "AVANCE" }),
     },
     include: {
+      site: { select: { nom: true } },
       _count: { select: { contenus: true, progressions: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ cours });
+  return NextResponse.json({
+    cours: cours.map((c) => ({
+      ...c,
+      siteId: c.siteId,
+      siteNom: c.site?.nom ?? null,
+    })),
+  });
 }
 
 export async function POST(req: NextRequest) {

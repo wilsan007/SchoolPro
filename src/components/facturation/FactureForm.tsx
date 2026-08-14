@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { ArrowLeft, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { createFacture, type FactureFormData } from "@/lib/actions/facture";
+import { StudentSearch } from "./StudentSearch";
 import { useTranslations } from "next-intl";
 
 interface EleveOption {
@@ -19,7 +20,12 @@ interface EleveOption {
   nom: string;
   prenom: string;
   matricule: string;
-  classe: { nom: string } | null;
+  classe: { id: string; nom: string } | null;
+}
+
+interface ClasseOption {
+  id: string;
+  nom: string;
 }
 
 const FormSchema = z.object({
@@ -29,18 +35,39 @@ const FormSchema = z.object({
   echeance: z.string().optional(),
 });
 
-export function FactureForm({ eleves }: { eleves: EleveOption[] }) {
+export function FactureForm({
+  eleves,
+  classes,
+  eleveIdPreselected,
+}: {
+  eleves: EleveOption[];
+  classes: ClasseOption[];
+  eleveIdPreselected?: string;
+}) {
   const t = useTranslations("facturation");
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [form, setForm] = useState<FactureFormData>({
-    eleveId: "",
+    eleveId: eleveIdPreselected ?? "",
     libelle: "",
     montant: 0,
     devise: "DJF",
     echeance: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedClasseId, setSelectedClasseId] = useState("");
+
+  useEffect(() => {
+    if (eleveIdPreselected) {
+      const eleve = eleves.find((e) => e.id === eleveIdPreselected);
+      if (eleve?.classe?.id) setSelectedClasseId(eleve.classe.id);
+    }
+  }, [eleveIdPreselected, eleves]);
+
+  const filteredEleves = useMemo(() => {
+    if (!selectedClasseId) return eleves;
+    return eleves.filter((e) => e.classe?.id === selectedClasseId);
+  }, [eleves, selectedClasseId]);
 
   function updateField<K extends keyof FactureFormData>(field: K, value: FactureFormData[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -99,19 +126,36 @@ export function FactureForm({ eleves }: { eleves: EleveOption[] }) {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="eleveId">{t("formStudent")}</Label>
-            <select
-              id="eleveId"
-              value={form.eleveId}
-              onChange={(e) => updateField("eleveId", e.target.value)}
-              className={cn("h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring", errors.eleveId && "border-destructive")}
-            >
-              <option value="">{t("formSelectStudent")}</option>
-              {eleves.map((el) => (
-                <option key={el.id} value={el.id}>
-                  {el.prenom} {el.nom} — {el.matricule} ({el.classe?.nom ?? "N/A"})
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className={cn("sm:col-span-1", classes.length === 0 && "hidden")}>
+                <select
+                  id="classeFilter"
+                  value={selectedClasseId}
+                  onChange={(e) => {
+                    setSelectedClasseId(e.target.value);
+                    updateField("eleveId", "");
+                  }}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">{t("allClasses")}</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <StudentSearch
+                  students={filteredEleves}
+                  value={form.eleveId}
+                  onChange={(id) => updateField("eleveId", id)}
+                  placeholder={t("studentSearchPlaceholder")}
+                  emptyMessage={t("noStudentFound")}
+                  className={cn(errors.eleveId && "[&_input]:border-destructive")}
+                />
+              </div>
+            </div>
             {errors.eleveId && <p className="text-xs text-destructive">{errors.eleveId}</p>}
           </div>
 

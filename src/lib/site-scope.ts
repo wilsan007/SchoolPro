@@ -292,7 +292,15 @@ export type SitePath =
   | "column"
   | "tenant"
   | { one: string }
-  | { many: string };
+  | { many: string }
+  /**
+   * Chaîne de relations à-un menant à un modèle qui porte réellement
+   * `siteId` (ex: `ficheRH -> enseignant -> user.siteId`, deux sauts).
+   * `{ one: string }` suppose que la cible immédiate porte `siteId` ; ce
+   * n'est pas toujours le cas (`FicheRH` et `Enseignant` n'ont pas de
+   * colonne `siteId` propre), d'où cette variante multi-sauts.
+   */
+  | { chain: string[] };
 
 export const SITE_PATHS: Record<string, SitePath> = {
   // --- colonne siteId directe ---
@@ -351,23 +359,63 @@ export const SITE_PATHS: Record<string, SitePath> = {
 
   // --- rattachement via l'utilisateur (personnel) ---
   parent: { one: "user" },
-  ficheRH: { one: "enseignant" },
+  // FicheRH n'a pas de colonne siteId propre : Enseignant non plus (il est
+  // multi-site via EnseignantSite). Le seul chemin direct vers une colonne
+  // siteId est FicheRH -> Enseignant -> User.siteId.
+  ficheRH: { chain: ["enseignant", "user"] },
 
   // --- rattachement via une relation vers-plusieurs ---
   // Un enseignant est rattaché à ses sites par EnseignantSite.
   enseignant: { many: "sites" },
 
   // --- rattachement indirect ---
-  sanction: { one: "incident" },
-  bulletinMatiere: { one: "bulletin" },
+  // Incident et Bulletin n'ont pas de siteId propre (seul Eleve en a un).
+  sanction: { chain: ["incident", "eleve"] },
+  bulletinMatiere: { chain: ["bulletin", "eleve"] },
   contenuCours: { one: "cours" },
-  absencePersonnel: { one: "enseignant" },
-  congePersonnel: { one: "enseignant" },
-  bulletinPaie: { one: "ficheRH" },
+  absencePersonnel: { chain: ["enseignant", "user"] },
+  congePersonnel: { chain: ["enseignant", "user"] },
+  bulletinPaie: { chain: ["ficheRH", "enseignant", "user"] },
+
+  // --- LEARNOS (docs/learnos-integration-plan.md) — toutes portent siteId ---
+  chapitre: "column",
+  competence: "column",
+  learningEvidence: "column",
+  studentLearningProfile: "column",
+  studentIntervention: "column",
+  aiDecisionLog: "column",
+  learnosEvent: "column",
+  evaluationCompetence: "column",
+  seuilsRecommandation: "column",
+  recommandation: "column",
+  planProgression: "column",
+  planificationChapitre: "column",
+  kpiSnapshot: "column",
+  // EtapePlan n'a pas de siteId : son rattachement passe par le plan.
+  etapePlan: { one: "plan" },
+  question: "column",
+  feuilleExercices: "column",
+  // Ni l'exercice servi ni la réponse ne portent de siteId : ils appartiennent
+  // à la feuille, qui appartient à l'élève. Un siteId propre pourrait diverger
+  // du sien si l'élève change de site en cours d'année.
+  exerciceAssigne: { one: "feuille" },
+  exerciceReponse: { chain: ["exercice", "feuille"] },
+  alerteParent: "column",
+  echangeParent: "column",
 
   // --- données de référence, partagées par tous les sites du tenant ---
+  // Les préférences d'une famille suivent la famille, pas l'établissement :
+  // un enfant qui change de site ne remet pas à zéro le consentement de ses
+  // parents. Le modèle ne porte donc pas de `siteId`.
+  preferencesParent: "tenant",
   periode: "tenant",
   anneesScolaires: "tenant",
+  evenementCalendaire: "tenant",
+  planificationCompetence: "column",
+  patternPedagogique: "column",
+  predictionDifficulte: "column",
+  calibrationSeuil: "column",
+  journalApprentissage: "column",
   reglesAppreciation: "tenant",
   document: "tenant",
   tenant: "tenant",
@@ -377,6 +425,8 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // Le journal d'audit est transverse : il trace aussi les actions menées
   // hors périmètre de site (connexion, changement de tenant).
   auditLog: "tenant",
+  // Cache technique d'appels LLM — aucune donnée nominative, aucune notion de site.
+  aiCache: "tenant",
   account: "tenant",
   session: "tenant",
   verificationToken: "tenant",
@@ -447,6 +497,13 @@ export function siteFilterForModel(
 
   if (path === "column") return { AND: [inSites] };
   if ("one" in path) return { AND: [{ [path.one]: inSites }] };
+  if ("chain" in path) {
+    const nested = path.chain.reduceRight<Record<string, unknown>>(
+      (acc, relation) => ({ [relation]: acc }),
+      inSites
+    );
+    return { AND: [nested] };
+  }
 
   // Relation vers-plusieurs : rattaché à l'un de mes sites, ou rattaché à aucun
   // site (enregistrement partagé au niveau du tenant).

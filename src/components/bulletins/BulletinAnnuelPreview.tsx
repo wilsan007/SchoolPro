@@ -178,8 +178,16 @@ export function BulletinAnnuelPreview({ data }: Props) {
             {data.ecoleVille}, le {formatDateFr(data.generatedAt)}
           </p>
           {data.chefEtablissement && <p className="font-bold">{data.chefEtablissement}</p>}
+          {/*
+            `next/image` est inapplicable ici : le cachet et la signature sont
+            téléversés par chaque établissement (URL de stockage arbitraire ou
+            `data:`), donc hors des `remotePatterns` de next.config, et ce bloc
+            est dimensionné en millimètres pour l'impression — l'habillage de
+            `next/image` en casserait la mise en page.
+          */}
           <div className="relative mt-1 h-[26mm] flex items-center justify-center">
             {data.cachetUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={data.cachetUrl}
                 alt="Cachet"
@@ -187,6 +195,7 @@ export function BulletinAnnuelPreview({ data }: Props) {
               />
             )}
             {data.signatureUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={data.signatureUrl}
                 alt="Signature"

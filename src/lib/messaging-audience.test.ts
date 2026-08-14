@@ -6,6 +6,7 @@ import {
   deriveConversationType,
   type AudienceSelector,
 } from "@/lib/messaging-audience";
+import { mergeFilters } from "@/lib/site-scope";
 import type { Role } from "@prisma/client";
 
 /**
@@ -36,12 +37,20 @@ describe("allowedScopeKinds", () => {
     expect(allowedScopeKinds("CLASS_TEACHER")).toEqual(["CLASSE"]);
   });
 
-  it("interdit toute diffusion aux parents, élèves et rôles support", () => {
-    const sansDiffusion: Role[] = ["PARENT", "STUDENT", "NURSE", "ACCOUNTANT"];
+  it("interdit toute diffusion aux élèves et aux rôles support", () => {
+    const sansDiffusion: Role[] = ["STUDENT", "NURSE", "ACCOUNTANT"];
     for (const role of sansDiffusion) {
       expect(allowedScopeKinds(role)).toEqual([]);
       expect(allowedGroups(role)).toEqual([]);
     }
+  });
+
+  // Un parent peut écrire aux autres parents des classes de ses enfants —
+  // et à rien d'autre. La restriction aux classes de ses enfants est
+  // appliquée en base par `parentClasseFilter`.
+  it("limite le parent à la classe, et au seul public des parents", () => {
+    expect(allowedScopeKinds("PARENT")).toEqual(["CLASSE"]);
+    expect(allowedGroups("PARENT")).toEqual(["PARENTS"]);
   });
 });
 
@@ -61,15 +70,50 @@ describe("canTarget", () => {
     expect(canTarget("TEACHER", target({ kind: "CLASSE", id: "c1" }, "PERSONNEL"))).toBe(false);
   });
 
-  it("n'accorde aucun ciblage à un parent", () => {
-    expect(canTarget("PARENT", target({ kind: "CLASSE", id: "c1" }, "PARENTS"))).toBe(false);
-    expect(canTarget("PARENT", target({ kind: "TENANT" }, "ALL"))).toBe(false);
+  it("laisse un parent écrire aux parents d'une classe, et rien de plus", () => {
+    expect(canTarget("PARENT", target({ kind: "CLASSE", id: "c1" }, "PARENTS"))).toBe(true);
+    // Ni les élèves, ni les enseignants, ni le personnel.
+    expect(canTarget("PARENT", target({ kind: "CLASSE", id: "c1" }, "ELEVES"))).toBe(false);
+    expect(canTarget("PARENT", target({ kind: "CLASSE", id: "c1" }, "ENSEIGNANTS"))).toBe(false);
+    expect(canTarget("PARENT", target({ kind: "CLASSE", id: "c1" }, "ALL"))).toBe(false);
+    // Et jamais au-delà de la classe.
+    expect(canTarget("PARENT", target({ kind: "TENANT" }, "PARENTS"))).toBe(false);
+    expect(canTarget("PARENT", target({ kind: "SITE", id: "s1" }, "PARENTS"))).toBe(false);
+    expect(canTarget("PARENT", target({ kind: "NIVEAU", value: "6e" }, "PARENTS"))).toBe(false);
   });
 
   it("autorise la direction générale sur toute la combinatoire", () => {
     expect(canTarget("TENANT_ADMIN", target({ kind: "TENANT" }, "ALL"))).toBe(true);
     expect(canTarget("TENANT_ADMIN", target({ kind: "SITE", id: "s1" }, "ENSEIGNANTS"))).toBe(true);
     expect(canTarget("TENANT_ADMIN", target({ kind: "NIVEAU", value: "CM2" }, "PARENTS"))).toBe(true);
+  });
+});
+
+describe("restriction de périmètre — résistance à l'écrasement", () => {
+  // Régression : `parentClasseFilter` renvoyait `{ id: { in: [...] } }`, une
+  // clé de premier niveau. `mergeFilters` ne concatène que `AND` et écrase
+  // tout le reste : le `{ id: scope.id }` de la portée CLASSE effaçait donc
+  // la restriction, et un parent pouvait cibler n'importe quelle classe en
+  // passant son identifiant. Encapsuler dans `AND` rend le filtre inviolable.
+  it("préserve une restriction encapsulée dans AND face à une clé homonyme", () => {
+    const restriction = { AND: [{ id: { in: ["classe-de-mon-enfant"] } }] };
+    const portee = { id: "classe-d-un-autre" };
+
+    const fusion = mergeFilters({ tenantId: "t1" }, restriction, portee);
+
+    expect(fusion.AND).toEqual([{ id: { in: ["classe-de-mon-enfant"] } }]);
+    expect(fusion.id).toBe("classe-d-un-autre");
+  });
+
+  it("montre qu'une clé de premier niveau serait, elle, effacée", () => {
+    const restrictionFragile = { id: { in: ["classe-de-mon-enfant"] } };
+    const portee = { id: "classe-d-un-autre" };
+
+    const fusion = mergeFilters({ tenantId: "t1" }, restrictionFragile, portee);
+
+    // Plus aucune trace de la restriction : c'était la faille.
+    expect(fusion.id).toBe("classe-d-un-autre");
+    expect(fusion.AND).toBeUndefined();
   });
 });
 

@@ -77,7 +77,7 @@ export default function TestTelegramPage() {
           Test Telegram
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Envoyez un vrai message Telegram pour vérifier l'intégration
+          Envoyez un vrai message Telegram pour vérifier l&apos;intégration
         </p>
       </div>
 
@@ -103,7 +103,7 @@ export default function TestTelegramPage() {
                   <li>Ajoutez <code>TELEGRAM_BOT_TOKEN=votre_token</code> dans <code>.env.local</code></li>
                   <li>Redémarrez le serveur</li>
                   <li>Ouvrez votre bot dans Telegram et envoyez <code>/start</code></li>
-                  <li>Cliquez sur "Récupérer les chat_id" ci-dessous</li>
+                  <li>Cliquez sur &quot;Récupérer les chat_id&quot; ci-dessous</li>
                 </ol>
               </div>
             )}
@@ -156,16 +156,16 @@ export default function TestTelegramPage() {
               className="w-full"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              ID numérique du chat. Utilisez "Récupérer les chat_id" ou envoyez /start au bot puis vérifiez.
+              ID numérique du chat. Utilisez &quot;Récupérer les chat_id&quot; ou envoyez /start au bot puis vérifiez.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium block mb-1">Nom de l'élève</label>
+              <label className="text-sm font-medium block mb-1">Nom de l&apos;élève</label>
               <Input value={eleveNom} onChange={(e) => setEleveNom(e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">Nom de l'école</label>
+              <label className="text-sm font-medium block mb-1">Nom de l&apos;école</label>
               <Input value={ecoleNom} onChange={(e) => setEcoleNom(e.target.value)} />
             </div>
           </div>
@@ -198,7 +198,7 @@ export default function TestTelegramPage() {
               ) : (
                 <XCircle className="w-5 h-5 text-red-500" />
               )}
-              Résultat de l'envoi
+              Résultat de l&apos;envoi
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">

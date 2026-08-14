@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
         where: { tenantId, ...siteFilter, classeId: data.classeId },
         include: {
           parents: {
+            where: siteFilterForModel("eleveParent", session.user),
             include: { parent: { select: { phone: true } } },
           },
         },
@@ -50,10 +51,11 @@ export async function POST(request: NextRequest) {
         .flatMap((e) => e.parents.map((ep) => ep.parent.phone))
         .filter(Boolean);
     } else if (data.destinataires === "eleve" && data.eleveId) {
-      const eleve = await prisma.eleve.findUnique({
-        where: { id: data.eleveId, tenantId },
+      const eleve = await prisma.eleve.findFirst({
+        where: { id: data.eleveId, tenantId, ...siteFilter },
         include: {
           parents: {
+            where: siteFilterForModel("eleveParent", session.user),
             include: { parent: { select: { phone: true } } },
           },
         },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -41,7 +41,7 @@ export function RapportClasseTable({ classes, periodes }: { classes: ClasseInfo[
   const [matieres, setMatieres] = useState<{ code: string; nom: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function fetchRapport() {
+  const fetchRapport = useCallback(async () => {
     if (!classeId || !periodeId) return;
     setLoading(true);
     try {
@@ -55,11 +55,11 @@ export function RapportClasseTable({ classes, periodes }: { classes: ClasseInfo[
     } finally {
       setLoading(false);
     }
-  }
+  }, [classeId, periodeId]);
 
   useEffect(() => {
-    if (classeId && periodeId) fetchRapport();
-  }, [classeId, periodeId]);
+    fetchRapport();
+  }, [fetchRapport]);
 
   const columns: ExportColumn<RapportRow>[] = [
     { header: t("rapportColMatricule"), key: "matricule", width: 14 },

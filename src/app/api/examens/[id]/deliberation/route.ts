@@ -15,7 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params;
     const tenantId = session.user.tenantId;
 
-    const examen = await prisma.examen.findFirst({ where: { id, tenantId } });
+    const examen = await prisma.examen.findFirst({
+      where: { id, tenantId, ...siteFilterForModel("examen", session.user) },
+    });
     if (!examen) return NextResponse.json({ error: "Examen introuvable" }, { status: 404 });
 
     if (examen.statut !== "TERMINE") {

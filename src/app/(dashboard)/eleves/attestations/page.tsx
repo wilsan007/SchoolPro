@@ -16,7 +16,7 @@ export default async function AttestationsPage() {
       where: { tenantId: session.user.tenantId, ...siteFilter },
       include: {
         eleves: {
-          where: { statut: "ACTIF" },
+          where: { statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
           select: { id: true, nom: true, prenom: true, matricule: true, sexe: true, dateNaissance: true },
           orderBy: { prenom: "asc" },
         },

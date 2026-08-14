@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { sendPaymentWhatsApp } from "@/lib/notifications/whatsapp";
+import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
 import { z } from "zod";
 
 // ============================================================
@@ -73,6 +75,12 @@ export async function deleteTarif(tarifId: string) {
     throw new Error("Permissions insuffisantes");
   }
 
+  const existant = await prisma.tarifNiveau.findFirst({
+    where: { id: tarifId, tenantId: session.user.tenantId },
+    select: { id: true },
+  });
+  if (!existant) throw new Error("Tarif introuvable");
+
   await prisma.tarifNiveau.delete({
     where: { id: tarifId },
   });
@@ -105,7 +113,7 @@ export async function genererMensualites(params: {
 
   // Récupérer tous les élèves actifs avec leur classe (pour le niveau)
   const eleves = await prisma.eleve.findMany({
-    where: { tenantId, statut: "ACTIF" },
+    where: mergeFilters({ tenantId, statut: "ACTIF" }, siteFilterForModel("eleve", session.user)),
     include: { classe: { select: { niveau: true, nom: true } } },
   });
 
@@ -134,11 +142,10 @@ export async function genererMensualites(params: {
     // Vérifier si une facture existe déjà pour cet élève et ce mois
     const libelle = `Scolarité ${moisNom} ${annee}`;
     const existing = await prisma.facture.findFirst({
-      where: {
-        tenantId,
-        eleveId: eleve.id,
-        libelle,
-      },
+      where: mergeFilters(
+        { tenantId, eleveId: eleve.id, libelle },
+        siteFilterForModel("facture", session.user)
+      ),
       select: { id: true },
     });
     if (existing) {
@@ -154,12 +161,17 @@ export async function genererMensualites(params: {
     // Échéance = fin du mois
     const echeance = new Date(parseInt(annee.split("-")[0]), mois, 0);
 
+    // Compteur de numérotation volontairement tenant-wide (voir facture.ts createFacture) :
+    // "numero" ne porte aucune contrainte d'unicité en base et préserve une séquence globale
+    // continue entre sites plutôt que de la fragmenter silencieusement.
+    // eslint-disable-next-line ecolpro/require-site-filter
     const factureCount = await prisma.facture.count({ where: { tenantId } });
     const numero = `FAC-${annee.split("-")[0]}-${String(factureCount + 1).padStart(5, "0")}`;
 
     await prisma.facture.create({
       data: {
         tenantId,
+        siteId: eleve.siteId,
         eleveId: eleve.id,
         numero,
         libelle,
@@ -209,7 +221,7 @@ export async function genererFraisInscription(params: {
 
   for (const eleveId of eleveIds) {
     const eleve = await prisma.eleve.findFirst({
-      where: { id: eleveId, tenantId },
+      where: mergeFilters({ id: eleveId, tenantId }, siteFilterForModel("eleve", session.user)),
       include: { classe: { select: { niveau: true } } },
     });
     if (!eleve) { skipped++; continue; }
@@ -224,18 +236,21 @@ export async function genererFraisInscription(params: {
 
     // Vérifier si déjà facturé
     const existing = await prisma.facture.findFirst({
-      where: { tenantId, eleveId, libelle },
+      where: mergeFilters({ tenantId, eleveId, libelle }, siteFilterForModel("facture", session.user)),
       select: { id: true },
     });
     if (existing) { skipped++; continue; }
 
     const montant = type === "INSCRIPTION" ? tarif.fraisInscription : tarif.fraisRenouvellement;
+    // Compteur tenant-wide volontaire (voir genererMensualites ci-dessus).
+    // eslint-disable-next-line ecolpro/require-site-filter
     const factureCount = await prisma.facture.count({ where: { tenantId } });
     const numero = `FAC-${annee.split("-")[0]}-${String(factureCount + 1).padStart(5, "0")}`;
 
     await prisma.facture.create({
       data: {
         tenantId,
+        siteId: eleve.siteId,
         eleveId,
         numero,
         libelle,
@@ -266,11 +281,29 @@ export async function envoyerRelance(factureId: string, canal: string) {
   }
 
   const facture = await prisma.facture.findFirst({
-    where: { id: factureId, tenantId: session.user.tenantId },
+    where: mergeFilters(
+      { id: factureId, tenantId: session.user.tenantId },
+      siteFilterForModel("facture", session.user)
+    ),
     include: {
-      eleve: { select: { nom: true, prenom: true, matricule: true } },
-      paiements: true,
-      relances: { orderBy: { niveau: "desc" }, take: 1 },
+      eleve: {
+        select: {
+          nom: true,
+          prenom: true,
+          matricule: true,
+          parents: {
+            where: { isGardien: true },
+            take: 1,
+            include: { parent: { select: { phone: true, prenom: true, nom: true } } },
+          },
+        },
+      },
+      paiements: { where: siteFilterForModel("paiement", session.user) },
+      relances: {
+        where: siteFilterForModel("relance", session.user),
+        orderBy: { niveau: "desc" },
+        take: 1,
+      },
     },
   });
   if (!facture) throw new Error("Facture non trouvée");
@@ -300,6 +333,25 @@ export async function envoyerRelance(factureId: string, canal: string) {
       envoyeeParId: session.user.id,
     },
   });
+
+  // Envoi réel pour les canaux supportés
+  if (canal === "whatsapp") {
+    const tuteur = facture.eleve.parents[0]?.parent;
+    if (tuteur?.phone) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: session.user.tenantId },
+        select: { name: true },
+      });
+      await sendPaymentWhatsApp(
+        tuteur.phone,
+        `${facture.eleve.prenom} ${facture.eleve.nom}`,
+        restant,
+        facture.devise,
+        facture.numero,
+        tenant?.name ?? "EcolPro"
+      );
+    }
+  }
 
   revalidatePath("/facturation");
   revalidatePath(`/facturation/${factureId}`);
@@ -351,7 +403,15 @@ export async function exclureEleve(params: {
     },
   });
 
-  // Marquer l'élève comme exclu
+  // Marquer l'élève comme exclu (appartenance déjà vérifiée par le existing.eleveId
+  // ci-dessus, lui-même filtré par tenantId — mais eleveId provient des params
+  // d'entrée : revérifier explicitement avant d'écrire).
+  const eleveAExclure = await prisma.eleve.findFirst({
+    where: mergeFilters({ id: eleveId, tenantId: session.user.tenantId }, siteFilterForModel("eleve", session.user)),
+    select: { id: true },
+  });
+  if (!eleveAExclure) throw new Error("Élève introuvable");
+
   await prisma.eleve.update({
     where: { id: eleveId },
     data: { statut: "EXCLU" },
@@ -385,7 +445,17 @@ export async function leverExclusion(exclusionId: string) {
     },
   });
 
-  // Réactiver l'élève
+  // Réactiver l'élève (revérifier l'appartenance : exclusion.eleveId est une donnée
+  // relue, mais l'écriture qui suit doit être garantie dans le même périmètre).
+  const eleveAReactiver = await prisma.eleve.findFirst({
+    where: mergeFilters(
+      { id: exclusion.eleveId, tenantId: session.user.tenantId },
+      siteFilterForModel("eleve", session.user)
+    ),
+    select: { id: true },
+  });
+  if (!eleveAReactiver) throw new Error("Élève introuvable");
+
   await prisma.eleve.update({
     where: { id: exclusion.eleveId },
     data: { statut: "ACTIF" },
@@ -421,15 +491,22 @@ export async function detecterFacturesEnRetard() {
   const now = new Date();
 
   const factures = await prisma.facture.findMany({
-    where: {
-      tenantId: session.user.tenantId,
-      statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
-      echeance: { lt: now },
-    },
+    where: mergeFilters(
+      {
+        tenantId: session.user.tenantId,
+        statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
+        echeance: { lt: now },
+      },
+      siteFilterForModel("facture", session.user)
+    ),
     include: {
       eleve: { select: { nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } } },
-      paiements: true,
-      relances: { orderBy: { niveau: "desc" }, take: 1 },
+      paiements: { where: siteFilterForModel("paiement", session.user) },
+      relances: {
+        where: siteFilterForModel("relance", session.user),
+        orderBy: { niveau: "desc" },
+        take: 1,
+      },
     },
     orderBy: { echeance: "asc" },
   });

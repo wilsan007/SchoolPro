@@ -22,7 +22,7 @@ export default function OfflinePage() {
           Réessayer
         </button>
         <p className="text-xs text-gray-400 mt-6">
-          EcolPro · Gestion scolaire pour l'Afrique
+          EcolPro · Gestion scolaire pour l&apos;Afrique
         </p>
       </div>
     </div>

@@ -113,6 +113,32 @@ model Tenant {
   tarifsNiveau       TarifNiveau[]
   relances           Relance[]
   exclusionsEleve    ExclusionEleve[]
+  progressionsEleves ProgressionEleve[]
+
+  // LEARNOS
+  learnosChapitres     Chapitre[]
+  learnosCompetences   Competence[]
+  learnosEvidences     LearningEvidence[]
+  learnosProfils       StudentLearningProfile[]
+  learnosInterventions StudentIntervention[]
+  learnosAiDecisions   AiDecisionLog[]
+  learnosEvents        LearnosEvent[]
+  learnosEvalCompetences EvaluationCompetence[]
+  learnosSeuils        SeuilsRecommandation[]
+  learnosRecommandations Recommandation[]
+  learnosPlans         PlanProgression[]
+  learnosPlanifications PlanificationChapitre[]
+  learnosPlanificationsCompetences PlanificationCompetence[]
+  learnosKpis          KpiSnapshot[]
+  learnosQuestions     Question[]
+  learnosAlertesParent AlerteParent[]
+  learnosEchangesParent EchangeParent[]
+  learnosPreferencesParent PreferencesParent[]
+  learnosFeuilles      FeuilleExercices[]
+  learnosPatterns      PatternPedagogique[]
+  learnosPredictions   PredictionDifficulte[]
+  learnosCalibrations  CalibrationSeuil[]
+  learnosJournal       JournalApprentissage[]
 
   @@map("tenants")
 }
@@ -159,6 +185,33 @@ model Site {
 
   // Tarifs par niveau
   tarifsNiveau TarifNiveau[]
+
+  // LEARNOS
+  learnosChapitres     Chapitre[]
+  learnosCompetences   Competence[]
+  learnosEvidences     LearningEvidence[]
+  learnosProfils       StudentLearningProfile[]
+  learnosInterventions StudentIntervention[]
+  learnosAiDecisions   AiDecisionLog[]
+  learnosEvents        LearnosEvent[]
+  learnosEvalCompetences EvaluationCompetence[]
+  learnosSeuils        SeuilsRecommandation[]
+  learnosRecommandations Recommandation[]
+  learnosPlans         PlanProgression[]
+  learnosPlanifications PlanificationChapitre[]
+  learnosPlanificationsCompetences PlanificationCompetence[]
+  learnosKpis          KpiSnapshot[]
+  learnosQuestions     Question[]
+  learnosAlertesParent AlerteParent[]
+  learnosEchangesParent EchangeParent[]
+  // Pas de `PreferencesParent` ici : les préférences appartiennent à la
+  // famille, pas au site. Un parent dont l'enfant change d'établissement
+  // garde son consentement et sa langue.
+  learnosFeuilles      FeuilleExercices[]
+  learnosPatterns      PatternPedagogique[]
+  learnosPredictions   PredictionDifficulte[]
+  learnosCalibrations  CalibrationSeuil[]
+  learnosJournal       JournalApprentissage[]
 
   // Soft-delete / purge planifiée (Option B — industry standard)
   deletedAt        DateTime?
@@ -245,10 +298,37 @@ model AnneesScolaires {
   dateFin   DateTime
   isCurrent Boolean  @default(false)
 
-  periodes Periode[]
+  periodes       Periode[]
+  evenements     EvenementCalendaire[]
+  learnosPlanifications PlanificationChapitre[]
+  planificationsCompetences PlanificationCompetence[]
 
   @@index([tenantId])
   @@map("annees_scolaires")
+}
+
+/// Événement du calendrier scolaire : vacances, examen, jour férié.
+///
+/// Défini par le chef d'établissement dans Paramètres → Calendrier scolaire.
+/// La planification annuelle s'en sert pour ne pas répartir de chapitres
+/// sur des semaines sans cours, et pour réserver les semaines d'examen.
+model EvenementCalendaire {
+  id      String @id @default(cuid())
+  anneeId String
+  annee   AnneesScolaires @relation(fields: [anneeId], references: [id], onDelete: Cascade)
+
+  /// VACANCE_SCOLAIRE | EXAMEN | JOUR_FERIE | AUTRE
+  type     String
+  libelle  String // "Vacances de la Toussaint", "Examen blanc du 1er trimestre"
+  dateDebut DateTime
+  dateFin   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([anneeId])
+  @@index([anneeId, type])
+  @@map("evenements_calendaires")
 }
 
 model Periode {
@@ -364,6 +444,10 @@ model User {
   absencesPersonnelSaisies AbsencePersonnel[] @relation("AbsencePersonnelSaisiePar")
   congesDemandes           CongePersonnel[]   @relation("CongeDemandePar")
   congesApprouves          CongePersonnel[]   @relation("CongeApprouvePar")
+
+  // LEARNOS : interventions dont cet utilisateur est responsable
+  learnosInterventionsResponsable StudentIntervention[] @relation("InterventionResponsible")
+  learnosPlansResponsable        PlanProgression[]     @relation("PlanResponsable")
 
   @@index([tenantId])
   @@index([siteId])
@@ -489,6 +573,8 @@ model Classe {
 
   eleves      Eleve[]
   emploiTemps EmploiTemps[]
+  learnosPlanifications PlanificationChapitre[]
+  planificationsCompetences PlanificationCompetence[]
   notes       Note[]
   evaluations Evaluation[]
   conversations Conversation[] @relation("ConversationClasse")
@@ -518,6 +604,12 @@ model Matiere {
   bulletinMatieres BulletinMatiere[]
   evaluations      Evaluation[]
   dispenses        DispenseMatiere[]
+
+  learnosChapitres Chapitre[]
+  learnosEvidences LearningEvidence[]
+  learnosSeuils    SeuilsRecommandation[]
+  learnosPlans     PlanProgression[]
+  learnosFeuilles  FeuilleExercices[]
 
   @@index([tenantId])
   @@index([siteId])
@@ -606,6 +698,17 @@ model Eleve {
   parcours  ParcoursScolaire[]
   dispenses DispenseMatiere[]
   exclusions ExclusionEleve[]
+  progressions ProgressionEleve[]
+
+  learnosEvidences     LearningEvidence[]
+  learnosProfils       StudentLearningProfile[]
+  learnosInterventions StudentIntervention[]
+  learnosRecommandations Recommandation[]
+  learnosPlans           PlanProgression[]
+  learnosFeuilles        FeuilleExercices[]
+  learnosAlertesParent   AlerteParent[]
+  learnosEchangesParent  EchangeParent[]
+  learnosPredictions     PredictionDifficulte[]
 
   @@unique([tenantId, matricule])
   /// Rend le doublon impossible, et non plus seulement détectable. Les fiches
@@ -652,6 +755,10 @@ model Parent {
   updatedAt DateTime @updatedAt
 
   enfants EleveParent[]
+
+  learnosPreferences    PreferencesParent?
+  learnosAlertes        AlerteParent[]
+  learnosEchanges       EchangeParent[]
 
   @@index([tenantId])
   @@index([userId])
@@ -863,6 +970,8 @@ model Evaluation {
   statut      String   @default("PLANIFIE") // PLANIFIE, TERMINE
 
   notes Note[]
+  learnosEvidences LearningEvidence[]
+  learnosCompetences EvaluationCompetence[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -902,6 +1011,8 @@ model Note {
 
   evaluationId String?
   evaluation   Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+
+  learnosEvidences LearningEvidence[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1967,12 +2078,16 @@ model ContenuCours {
 }
 
 model ProgressionEleve {
-  id      String @id @default(cuid())
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   coursId String
   cours   Cours  @relation(fields: [coursId], references: [id], onDelete: Cascade)
 
-  eleveNom String // nom complet de l'élève
+  eleveNom String // nom complet de l'élève — conservé pour compatibilité des données existantes
   eleveId  String? // lien optionnel vers le modèle Eleve
+  eleve    Eleve?  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
   // Progression
   contenusVus   String[] // IDs des contenus vus
@@ -1985,6 +2100,8 @@ model ProgressionEleve {
   updatedAt DateTime @updatedAt
 
   @@unique([coursId, eleveNom])
+  @@index([tenantId])
+  @@index([eleveId])
   @@map("progressions_eleves")
 }
 
@@ -2073,4 +2190,1445 @@ model AuditLog {
   @@index([verdict])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================
+// LEARNOS — couche d'intelligence pédagogique (docs/learnos-integration-plan.md)
+// Remplace un ancien schéma learnos_* non relié à Prisma/au code applicatif
+// (structure vide, aucune donnée, supprimée lors d'un `db push` le 2026-08-12).
+// ============================================================
+
+enum MasteryStatus {
+  UNKNOWN
+  EMERGING
+  DEVELOPING
+  PROFICIENT
+  MASTERED
+  NEEDS_REVIEW
+}
+
+enum EvidenceType {
+  DEVOIR
+  EXAMEN
+  QUIZ
+  EXERCICE
+  PROJET
+  ORAL
+  OBSERVATION
+  RETEST
+  /// Entraînement fait seul, hors surveillance.
+  ///
+  /// Type distinct de `EXERCICE` — et non un simple drapeau — parce que la
+  /// différence n'est pas administrative mais épistémique : personne n'atteste
+  /// que l'élève a produit cette réponse. Le score reste ce qu'il est ; c'est
+  /// la *confiance* qu'on lui accorde qui s'effondre (cf. `FIABILITE_PAR_TYPE`).
+  /// Baisser le score à la place inventerait un échec qu'on n'a pas observé.
+  AUTO_ENTRAINEMENT
+}
+
+enum ErrorType {
+  CONCEPTUAL_ERROR
+  PROCEDURAL_ERROR
+  CALCULATION_ERROR
+  READING_ERROR
+  MISINTERPRETATION
+  MISSING_PREREQUISITE
+  INCOMPLETE_REASONING
+  CARELESS_ERROR
+  GUESS
+  UNKNOWN
+}
+
+/// Bandes de recommandation — couvrent tout le spectre, y compris le haut.
+/// `CONSOLIDE` ne produit délibérément aucune recommandation : c'est ce
+/// silence qui donne du poids aux autres.
+enum NiveauRecommandation {
+  CRITIQUE
+  FRAGILE
+  CONSOLIDE
+  AVANCE
+  EXCELLENCE
+}
+
+/// Les trois premiers sont posés par le système ; les deux derniers sont des
+/// décisions humaines, que le recalcul ne doit jamais écraser.
+enum StatutRecommandation {
+  OBLIGATOIRE
+  RECOMMANDEE
+  PROPOSEE
+  ACCEPTEE
+  ECARTEE
+}
+
+enum StatutPlan {
+  BROUILLON
+  PROPOSE
+  ACTIF
+  EN_REVUE
+  TERMINE
+  ABANDONNE
+}
+
+enum StatutEtape {
+  A_FAIRE
+  EN_COURS
+  FAIT
+  VALIDE
+  ECHOUE
+}
+
+enum InterventionStatus {
+  PROPOSED
+  APPROVED
+  ACTIVE
+  UNDER_REVIEW
+  COMPLETED
+  REJECTED
+}
+
+/// Gravité d'une information envoyée à une famille.
+///
+/// Le niveau n'est pas décoratif : il commande le plafond d'envois et le seuil
+/// de désinscription. Un établissement qui classerait tout en `URGENT` verrait
+/// les familles couper les notifications — et manquerait les vraies urgences.
+enum NiveauAlerteParent {
+  INFO
+  ATTENTION
+  URGENT
+}
+
+/// Boîte d'envoi (outbox) des événements métier observés par LEARNOS.
+///
+/// POURQUOI UNE TABLE PLUTÔT QU'UN APPEL DIRECT
+/// L'ERP tourne en serverless : passé la réponse HTTP, la fonction peut être
+/// gelée à tout instant. Une réaction lancée « en tâche de fond » y serait
+/// perdue sans trace. L'écriture d'une ligne ici est en revanche synchrone et
+/// brève (un INSERT), puis le traitement — potentiellement long, appelant un
+/// LLM — est drainé à part. L'ERP n'attend jamais LEARNOS, et aucun événement
+/// ne disparaît si le traitement échoue : il reste à retraiter.
+model LearnosEvent {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Ex. "note.recorded" — voir LEARNOS_EVENT_TYPES dans src/lib/learnos/events.ts.
+  eventType     String
+  /// Entité concernée, ex. "note".
+  aggregateType String
+  aggregateId   String
+
+  /// Instantané autosuffisant : le traitement ne relit pas la source, ce qui
+  /// garde l'événement exploitable même si l'entité d'origine a changé depuis.
+  payload Json
+
+  occurredAt  DateTime  @default(now())
+  processedAt DateTime?
+  /// Nombre de traitements tentés — au-delà du seuil, l'événement est abandonné.
+  attempts    Int       @default(0)
+  lastError   String?
+
+  @@index([tenantId])
+  @@index([siteId])
+  /// Sert la requête de drainage : les non traités, du plus ancien au plus récent.
+  @@index([processedAt, occurredAt])
+  @@index([aggregateType, aggregateId])
+  @@map("learnos_events")
+}
+
+/// Chapitre d'une matière (LEARNOS — Curriculum Knowledge Graph).
+model Chapitre {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String? // null = chapitre partagé entre tous les sites du tenant
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  matiereId String
+  matiere   Matiere @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+
+  nom    String
+  niveau String // "Terminale", "CM2" — aligné sur Classe.niveau
+  ordre  Int    @default(0)
+
+  competences Competence[]
+  planifications PlanificationChapitre[]
+  predictions   PredictionDifficulte[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([matiereId])
+  @@map("learnos_chapitres")
+}
+
+/// Compétence évaluable, avec ses prérequis.
+model Competence {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  chapitreId String
+  chapitre   Chapitre @relation(fields: [chapitreId], references: [id], onDelete: Cascade)
+
+  code        String
+  libelle     String
+  description String?
+  ordre       Int     @default(0)
+
+  /// Auto-relation many-to-many : prérequis ↔ dépendants.
+  prerequis  Competence[] @relation("CompetencePrerequis")
+  dependants Competence[] @relation("CompetencePrerequis")
+
+  evidences     LearningEvidence[]
+  profils       StudentLearningProfile[]
+  interventions StudentIntervention[]
+  evaluations   EvaluationCompetence[]
+  recommandations Recommandation[]
+  etapesPlan      EtapePlan[]
+  questions       Question[]
+  exercices       ExerciceAssigne[]
+  attestations    FeuilleExercices[] @relation("AttestationsCompetence")
+  planifications  PlanificationCompetence[]
+  patterns        PatternPedagogique[]
+  predictions     PredictionDifficulte[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([chapitreId])
+  @@map("learnos_competences")
+}
+
+/// Rattachement d'une évaluation de l'ERP aux compétences qu'elle mesure.
+///
+/// Table côté LEARNOS, et non colonne ajoutée à `Evaluation` : la couche
+/// d'intelligence observe l'ERP sans en modifier les tables. Le champ inverse
+/// déclaré sur `Evaluation` n'ajoute aucune colonne à `evaluations` — la clé
+/// étrangère vit ici.
+///
+/// C'est ce rattachement qui fait passer une preuve d'apprentissage de la
+/// granularité « matière » à la granularité « compétence ». Il est saisi par
+/// l'enseignant (P2-B) ; en son absence, le moteur de preuves reste
+/// opérationnel, simplement moins précis.
+model EvaluationCompetence {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  evaluationId String
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// Part de l'évaluation consacrée à cette compétence (0..1). Sert à répartir
+  /// le signal quand une même évaluation en mesure plusieurs.
+  poids Float @default(1)
+
+  createdAt DateTime @default(now())
+
+  @@unique([evaluationId, competenceId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([competenceId])
+  @@map("learnos_evaluation_competences")
+}
+
+/// Preuve d'apprentissage. N'altère JAMAIS la note officielle (Note.valeur).
+model LearningEvidence {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  /// NULL tant que le curriculum ne rattache pas l'évaluation d'origine à une
+  /// compétence. La preuve est alors de granularité « matière » : elle mesure
+  /// déjà quelque chose d'utile, et gagne en précision dès que le rattachement
+  /// existe (il suffit de rejouer les événements). Exiger la compétence aurait
+  /// rendu le moteur inerte tant que le curriculum n'est pas saisi.
+  competenceId String?
+  competence   Competence? @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  matiereId String?
+  matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: SetNull)
+
+  /// Traçabilité vers la production d'origine.
+  sourceType String // "note" | "evaluation" | "examen" | "observation"
+  sourceId   String
+
+  noteId       String?
+  note         Note?       @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  evaluationId String?
+  evaluation   Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+
+  evidenceType EvidenceType
+  rawScore     Float?
+  maxScore     Float?
+
+  /// Date du DEVOIR, distincte de `createdAt` qui est la date d'écriture de la
+  /// ligne. C'est elle qui doit pondérer la récence : sans cette distinction,
+  /// une preuve issue d'un contrôle de septembre paraîtrait aussi fraîche
+  /// qu'une preuve de la semaine dernière dès lors qu'elle vient d'être
+  /// calculée — et la pondération par récence deviendrait inopérante.
+  occurredAt DateTime @default(now())
+  /// Signal normalisé 0..1 — PAS une note officielle.
+  masterySignal Float
+  /// Confiance dans CE signal, distincte de la maîtrise.
+  confidence    Float
+  /// Poids de la preuve, configurable par type.
+  weight        Float        @default(1)
+
+  errorType       ErrorType?
+  errorConfidence Float?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([eleveId, competenceId])
+  @@index([sourceType, sourceId])
+  @@map("learnos_learning_evidences")
+}
+
+/// Jumeau d'apprentissage : état estimé par compétence.
+model StudentLearningProfile {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// 0..1 — estimation de maîtrise. N'est PAS une note officielle.
+  masteryScore    Float         @default(0)
+  /// 0..1 — confiance dans l'estimation ci-dessus. Distincte de masteryScore.
+  confidenceScore Float         @default(0)
+  masteryStatus   MasteryStatus @default(UNKNOWN)
+
+  evidenceCount  Int       @default(0)
+  lastEvidenceAt DateTime?
+  /// "hausse" | "stable" | "baisse" | "indetermine". `indetermine` — et non
+  /// `stable` — tant qu'il y a trop peu de preuves : affirmer la stabilité
+  /// serait une conclusion, alors qu'on n'a rien observé.
+  trend          String    @default("indetermine")
+
+  errorPatterns      Json?
+  prerequisiteStatus Json?
+  recommendedAction  String?
+
+  computedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([eleveId, competenceId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([competenceId, masteryStatus])
+  @@map("learnos_student_learning_profiles")
+}
+
+/// Intervention pédagogique recommandée par l'IA, validée par un enseignant.
+model StudentIntervention {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  reason            String   // explicabilité obligatoire
+  evidenceRefs      String[] // ids des LearningEvidence qui fondent la recommandation
+  interventionType  String   // "remediation" | "retest" | "prerequisite_review"
+  recommendedAction String
+
+  responsibleUserId String?
+  responsible       User?   @relation("InterventionResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  status InterventionStatus @default(PROPOSED)
+
+  startDate  DateTime?
+  reviewDate DateTime?
+  outcome    String?
+  masteryBefore Float?
+  masteryAfter  Float?
+
+  createdByAi Boolean   @default(true)
+  approvedBy  String?
+  approvedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([eleveId, status])
+  @@map("learnos_student_interventions")
+}
+
+/// Seuils de recommandation, réglables par établissement.
+///
+/// Une ligne peut viser tout le tenant, ou n'affiner qu'un niveau scolaire ou
+/// une matière : 0,55 de maîtrise ne dit pas la même chose en CE1 et en
+/// terminale. La résolution retient la ligne **la plus spécifique**. En
+/// l'absence de toute ligne, des valeurs par défaut s'appliquent — le système
+/// fonctionne sans configuration préalable.
+model SeuilsRecommandation {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Niveau scolaire visé ("6ème"), NULL = tous.
+  niveau    String?
+  /// Matière visée, NULL = toutes.
+  matiereId String?
+  matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+
+  /// Bornes des bandes, en maîtrise 0..1.
+  seuilCritique  Float @default(0.35)
+  seuilFragile   Float @default(0.55)
+  seuilConsolide Float @default(0.8)
+  seuilAvance    Float @default(0.92)
+
+  /// Sous ce seuil de confiance, aucune recommandation n'est émise :
+  /// « nous n'en savons pas assez » n'est pas « il ne maîtrise pas ».
+  confianceMinimale Float @default(0.5)
+
+  /// Nombre de compétences en aval au-delà duquel une bande CRITIQUE devient
+  /// obligatoire : le caractère impératif se déduit de la structure du savoir,
+  /// pas d'un seuil arbitraire.
+  prerequisBloquantsMin Int @default(2)
+
+  /// Nombre de compétences CRITIQUE à partir duquel un plan de remédiation est
+  /// proposé.
+  declenchementPlanCritiques Int @default(2)
+  /// Idem pour l'approfondissement : un élève qui plafonne mérite un parcours
+  /// autant qu'un élève en difficulté.
+  declenchementPlanAvances   Int @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@map("learnos_seuils_recommandation")
+}
+
+/// Une recommandation, toujours justifiée et traçable.
+///
+/// Une seule par couple (élève, compétence) : le recalcul met à jour la ligne
+/// existante au lieu d'en empiler. Les statuts décidés par un humain
+/// (`ACCEPTEE`, `ECARTEE`) survivent au recalcul — sans quoi le système
+/// ressusciterait sans fin une recommandation qu'un enseignant a écartée.
+model Recommandation {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  niveau NiveauRecommandation
+  statut StatutRecommandation
+
+  /// Rendu en clair, conservé comme SECOURS et pour l'audit : il fige ce qui a
+  /// été dit au moment de la décision, même si les libellés changent ensuite.
+  /// L'affichage, lui, recompose depuis `regleDeclenchee` + `motifParams`.
+  motif           String
+  actionProposee  String
+
+  /// Règle déclenchée — sert de clé de traduction (learnos.regles.*).
+  regleDeclenchee String
+  /// Paramètres de la phrase : compétence visée, prérequis manquants, etc.
+  ///
+  /// C'est ce couple clé + paramètres qui rend le texte traduisible. Stocker
+  /// une phrase française figée interdirait au bot parent de s'adresser à une
+  /// famille en somali ou en arabe — et changer la langue de l'établissement
+  /// ne retraduirait rien.
+  motifParams Json?
+
+  /// Prérequis non acquis qui expliquent le blocage.
+  prerequisManquants Json?
+  /// Compétences en aval que celle-ci conditionne.
+  competencesBloquees Int @default(0)
+
+  /// Décision humaine.
+  decideParId String?
+  decideeLe   DateTime?
+
+  /// Renseigné quand la maîtrise atteint la bande consolidée : la
+  /// recommandation a porté ses fruits. Conservée pour l'historique plutôt
+  /// que supprimée.
+  resolueLe DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eleveId, competenceId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([competenceId])
+  @@index([niveau, statut])
+  @@map("learnos_recommandations")
+}
+
+/// Répartition d'un chapitre sur le calendrier de l'année.
+///
+/// C'est ce qui fait passer le système de *constatatif* à *anticipatif* :
+/// sachant qu'un chapitre démarre en semaine 14 et qu'il exige tel prérequis,
+/// on peut prévenir en semaine 11 les élèves qui ne l'ont pas — au lieu
+/// d'attendre qu'ils échouent.
+///
+/// Les semaines sont numérotées dans l'ANNÉE SCOLAIRE (1 = première semaine de
+/// cours), et non en semaines ISO : une année scolaire chevauche deux années
+/// civiles, et « semaine 12 » parle à un enseignant là où « semaine ISO 47 »
+/// ne dit rien.
+model PlanificationChapitre {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  anneeId String
+  annee   AnneesScolaires @relation(fields: [anneeId], references: [id], onDelete: Cascade)
+
+  chapitreId String
+  chapitre   Chapitre @relation(fields: [chapitreId], references: [id], onDelete: Cascade)
+
+  /// NULL = s'applique à toutes les classes du niveau. Renseigné quand une
+  /// classe suit un rythme propre.
+  classeId String?
+  classe   Classe? @relation(fields: [classeId], references: [id], onDelete: Cascade)
+
+  /// Plan COURANT, ajustable à tout moment par l'enseignant.
+  semaineDebut Int
+  semaineFin   Int
+  heuresPrevues Int?
+
+  /// Plan INITIAL, figé à la première sauvegarde et jamais modifié ensuite.
+  ///
+  /// Sans cette photographie, ajuster le planning ferait disparaître l'écart :
+  /// un enseignant en retard décalerait ses dates et le système conclurait que
+  /// tout va bien. C'est précisément cet écart que la direction cherche à voir.
+  semaineDebutInitiale Int?
+  semaineFinInitiale   Int?
+
+  /// "PREVU" | "EN_COURS" | "TRAITE"
+  statut     String    @default("PREVU")
+  demarreLe  DateTime?
+  traiteLe   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([anneeId, chapitreId, classeId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([anneeId, semaineDebut])
+  @@map("learnos_planification_chapitres")
+}
+
+/// Planification d'une compétence à l'intérieur d'un chapitre.
+///
+/// Tant que ce modèle est vide, les compétences héritent de la plage du
+/// chapitre (semaineDebut → semaineFin). Dès qu'une ligne existe pour une
+/// compétence donnée, elle surcharge la plage héritée : l'enseignant peut
+/// ainsi déclarer « telle compétence est visée en semaine 4, telle autre en
+/// semaine 5 » à l'intérieur d'un chapitre qui s'étend sur les semaines 3-6.
+model PlanificationCompetence {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  anneeId String
+  annee   AnneesScolaires @relation(fields: [anneeId], references: [id], onDelete: Cascade)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// NULL = s'applique à toutes les classes du niveau.
+  classeId String?
+  classe   Classe? @relation(fields: [classeId], references: [id], onDelete: Cascade)
+
+  semaineDebut Int
+  semaineFin   Int
+
+  /// "PREVU" | "EN_COURS" | "TRAITE" — même cycle que PlanificationChapitre.
+  statut String @default("PREVU")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([anneeId, competenceId, classeId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([anneeId, semaineDebut])
+  @@index([competenceId])
+  @@map("learnos_planification_competences")
+}
+
+/// Parcours daté, attribué et vérifié.
+///
+/// Quand les recommandations s'accumulent, elles cessent d'être une liste et
+/// deviennent un plan. **Aucun plan ne devient actif sans signature humaine**
+/// (`valideParId`) : le système propose, l'enseignant engage l'établissement.
+model PlanProgression {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  /// Matière du parcours. Un plan = une matière = un enseignant responsable ;
+  /// un plan qui mélangerait maths et histoire n'aurait aucun propriétaire.
+  matiereId String?
+  matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: SetNull)
+
+  /// "remediation" | "approfondissement" — même mécanique, finalité opposée.
+  type    String
+  /// "automatique" | "manuel"
+  origine String     @default("automatique")
+  statut  StatutPlan @default(PROPOSE)
+
+  /// Rendu en clair — secours et trace de ce qui a été dit à la décision.
+  motif           String
+  /// Règle déclenchée : clé de traduction (learnos.regles.*).
+  regleDeclenchee String
+  /// Paramètres de la phrase, pour un rendu dans la langue du lecteur.
+  motifParams Json?
+
+  responsableUserId String?
+  responsable       User?   @relation("PlanResponsable", fields: [responsableUserId], references: [id], onDelete: SetNull)
+  valideParId       String?
+  valideLe          DateTime?
+
+  dateDebut  DateTime?
+  dateRevue  DateTime?
+  dateFin    DateTime?
+
+  /// Le parent a-t-il été informé du plan ? (bot parent, P11)
+  parentInforme Boolean @default(false)
+
+  /// Mesure de l'effet : ces deux valeurs disent si le dispositif a servi.
+  masteryAvant Float?
+  masteryApres Float?
+  resultat     String?
+
+  etapes EtapePlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([eleveId, statut])
+  @@index([eleveId, matiereId, statut])
+  @@map("learnos_plans_progression")
+}
+
+/// Une étape du parcours, close par une preuve — jamais par une déclaration.
+model EtapePlan {
+  id     String          @id @default(cuid())
+  planId String
+  plan   PlanProgression @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  ordre  Int
+  action String
+  /// "enseignant" | "parent" | "eleve" — qui porte cette étape.
+  responsable String @default("enseignant")
+  echeance    DateTime?
+
+  statut StatutEtape @default(A_FAIRE)
+
+  /// Jalon de vérification : l'évaluation qui atteste l'étape, et la preuve
+  /// qu'elle a produite. La boucle se referme sur le moteur existant — aucun
+  /// mécanisme de suivi parallèle.
+  evaluationJalonId   String?
+  evidenceValidanteId String?
+  valideeLe           DateTime?
+
+  /// Feuilles d'exercices servant de jalon à cette étape.
+  feuilles FeuilleExercices[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([planId])
+  @@index([competenceId])
+  @@map("learnos_etapes_plan")
+}
+
+/// Journal de toute décision IA — traçabilité obligatoire (human-in-the-loop).
+model AiDecisionLog {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  actorType String // "AI" | "USER"
+  actorId   String?
+  action    String // "evidence.classify", "twin.recompute", "intervention.propose"…
+
+  inputRef   String?
+  output     Json
+  confidence Float?
+
+  providerName  String
+  modelName     String
+  modelVersion  String
+  promptVersion String
+
+  approvedBy String?
+  approvedAt DateTime?
+  rejectedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([action])
+  @@index([inputRef])
+  @@map("learnos_ai_decision_logs")
+}
+
+/// Photographie périodique d'un indicateur.
+///
+/// POURQUOI STOCKER PLUTÔT QUE RECALCULER
+/// Un indicateur affiché seul ne dit rien : « 62 % de couverture » n'a de sens
+/// qu'à côté des 71 % du mois dernier. La tendance est ce qui déclenche une
+/// action, et elle exige de garder l'historique — le calcul instantané, lui,
+/// ne peut la produire.
+model KpiSnapshot {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Rôle destinataire — un même indicateur peut n'intéresser qu'un rôle.
+  role   String
+  /// Identifiant de l'indicateur (learnos.kpi.*).
+  kpiKey String
+
+  valeur Float
+  cible  Float?
+
+  /// Début de la période mesurée (jour), pour comparer d'un jour à l'autre.
+  periode DateTime
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, siteId, role, kpiKey, periode])
+  @@index([tenantId, role])
+  @@map("learnos_kpi_snapshots")
+}
+
+// ============================================================
+// LEARNOS — EXERCICES ADAPTÉS À L'ÉLÈVE
+// ============================================================
+
+/// Palier de difficulté, de la restitution à l'ouverture.
+///
+/// Cinq marches et non un score continu : un enseignant doit pouvoir ranger une
+/// question dans une case sans arbitrer entre 0,62 et 0,68. Le palier est
+/// **déduit** de la maîtrise estimée (`palierPour`), jamais saisi par l'élève.
+enum PalierExercice {
+  /// Refaire ce qui a été montré, à l'identique.
+  RESTITUTION
+  /// Appliquer la règle sur un cas voisin, guidé.
+  APPLICATION
+  /// Enchaîner plusieurs étapes sans guidage.
+  CONSOLIDATION
+  /// Réinvestir dans un contexte non vu en cours.
+  TRANSFERT
+  /// Problème ouvert, plusieurs chemins valides.
+  OUVERTURE
+}
+
+/// Forme d'interaction d'une question — commande la saisie ET la correction.
+///
+/// Le format n'est pas un habillage : il décide de ce qui peut être corrigé
+/// sans enseignant. `SAISIE_LIBRE` exige un correcteur humain ; tous les autres
+/// se corrigent par comparaison, donc sans appel de modèle au moment où l'élève
+/// répond. C'est cette frontière qui rend l'entraînement autonome tenable — un
+/// LLM interrogé à chaque réponse coûterait à chaque clic, répondrait en
+/// secondes là où l'élève attend un retour immédiat, et corrigerait deux fois
+/// différemment la même copie.
+///
+/// La génération par IA rédige les énoncés **en amont**, dans la banque ; elle
+/// n'intervient jamais pendant la séance.
+enum FormatQuestion {
+  /// Rédaction. Non auto-corrigeable : réservée au travail relevé.
+  SAISIE_LIBRE
+  /// Une valeur courte attendue : nombre, mot, expression.
+  SAISIE_COURTE
+  /// Une bonne réponse parmi plusieurs propositions.
+  CHOIX_UNIQUE
+  /// Suite d'étapes courtes révélées une à une, chacune saisie ou choisie.
+  ETAPES_GUIDEES
+  /// Remettre des éléments dans le bon ordre.
+  REMISE_EN_ORDRE
+  /// Relier chaque élément de gauche à son correspondant à droite.
+  APPARIEMENT
+}
+
+/// Cycle de vie d'une feuille d'exercices.
+///
+/// `PROPOSEE` n'existe que pour les feuilles-jalons : celles qui attestent une
+/// étape de plan engagent l'établissement et exigent la signature d'un
+/// enseignant. Une feuille d'entraînement naît directement `ASSIGNEE` — imposer
+/// une validation à chaque cycle d'entraînement ferait abandonner le dispositif
+/// avant la fin du trimestre.
+enum StatutFeuille {
+  PROPOSEE
+  ASSIGNEE
+  EN_COURS
+  TERMINEE
+  REFUSEE
+}
+
+/// Question de la banque, rattachée à UNE compétence et à UN palier.
+///
+/// POURQUOI UNE SEULE COMPÉTENCE PAR QUESTION
+/// C'est toute la différence avec `EvaluationCompetence`, qui répartit un même
+/// score entre plusieurs compétences faute de mieux (poids 1/n). Ici le grain
+/// est l'item : un score de 1 sur cette question dit quelque chose de *cette*
+/// compétence, et de rien d'autre. Une question qui en mobiliserait deux doit
+/// être scindée — sinon on réintroduit exactement le flou qu'on cherche à
+/// éliminer.
+///
+/// La banque se remplit à la main ou par génération (P8) ; `origine` tranche.
+model Question {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  palier PalierExercice
+
+  enonce  String
+  corrige String?
+
+  format FormatQuestion @default(SAISIE_LIBRE)
+
+  /// Étapes, propositions et réponses attendues. Schéma validé à l'écriture
+  /// par `parseStructure` (src/lib/learnos/entrainement.ts) : une structure
+  /// mal formée doit être refusée à la saisie, pas découverte par un élève au
+  /// milieu d'un exercice. NULL pour `SAISIE_LIBRE`, qui n'a rien à décrire.
+  ///
+  /// NE JAMAIS renvoyer ce champ tel quel à un élève : il contient les
+  /// réponses attendues. `vueEleve()` est le seul chemin de sortie autorisé.
+  structure Json?
+
+  /// Barème de l'item. Sert de `maxScore` à la preuve produite en retour.
+  bareme Float @default(1)
+
+  /// "humain" | "ia" — une question générée n'a pas la même valeur probante
+  /// qu'une question écrite par l'enseignant tant que personne ne l'a relue.
+  origine String @default("humain")
+
+  /// Relecture humaine d'une question générée.
+  ///
+  /// Une question générée est servie **sans attendre** cette relecture : la
+  /// mettre en quarantaine ferait dépendre tout le dispositif d'une file
+  /// d'attente que personne ne viderait, et l'entraînement n'aurait jamais
+  /// lieu. En contrepartie, tant que ces champs sont vides, la preuve produite
+  /// vaut moins (cf. `FACTEUR_QUESTION_NON_RELUE`) — parce qu'un énoncé non
+  /// relu peut être faux, et qu'une réponse juste y serait comptée fausse.
+  /// Une question écrite à la main n'a rien à relire : elle l'est d'origine.
+  relueParId String?
+  relueLe    DateTime?
+
+  /// Retirée de la banque sans être supprimée : les exercices déjà servis
+  /// gardent leur énoncé, et l'historique reste lisible.
+  actif Boolean @default(true)
+
+  exercices ExerciceAssigne[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  /// Sert le tirage : les questions actives d'une compétence, à un palier donné.
+  @@index([competenceId, palier, actif])
+  @@map("learnos_questions")
+}
+
+/// Lot d'exercices composé pour UN élève à UN moment.
+///
+/// La feuille est datée et figée : elle enregistre ce que le sélecteur a décidé
+/// ce jour-là, avec les motifs qui l'ont conduit là. Recomposer à la volée à
+/// chaque affichage rendrait impossible de répondre à « pourquoi mon fils
+/// a-t-il eu ces exercices en mars ? ».
+model FeuilleExercices {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  matiereId String?
+  matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: SetNull)
+
+  /// "entrainement" | "diagnostic" | "jalon" | "attestation".
+  ///
+  /// `diagnostic` sonde une compétence dont on ne sait rien ; `jalon` atteste
+  /// une étape de plan et conditionne sa clôture ; `attestation` fait vérifier
+  /// EN CLASSE une compétence que l'entraînement autonome donne pour acquise.
+  /// Le type commande la validation exigée (cf. `StatutFeuille`).
+  ///
+  /// `attestation` est la contrepartie du plafond posé sur le travail fait
+  /// seul : sans elle, un élève qui réussit tout chez lui resterait bloqué à
+  /// « en cours d'acquisition » sans jamais savoir comment en sortir. C'est le
+  /// chemin de sortie, et il passe par un adulte — c'est tout l'intérêt.
+  type   String
+  statut StatutFeuille @default(ASSIGNEE)
+
+  /// Étape du parcours que cette feuille atteste, le cas échéant. C'est par ce
+  /// lien que la boucle se referme : l'étape se clôt sur les preuves produites
+  /// ici, sans mécanisme de suivi parallèle.
+  etapePlanId String?
+  etapePlan   EtapePlan? @relation(fields: [etapePlanId], references: [id], onDelete: SetNull)
+
+  /// Compétence dont cette feuille demande la vérification en classe.
+  ///
+  /// Renseignée pour `type = "attestation"` uniquement. Pendant qu'elle l'est
+  /// et que la feuille n'est pas close, aucune seconde attestation n'est
+  /// proposée sur la même compétence — sans quoi chaque séance d'entraînement
+  /// réussie en empilerait une de plus sur le bureau de l'enseignant, et il
+  /// cesserait de les lire.
+  competenceAttesteeId String?
+  competenceAttestee   Competence? @relation("AttestationsCompetence", fields: [competenceAttesteeId], references: [id], onDelete: SetNull)
+
+  /// Signature humaine — obligatoire pour `jalon` et `attestation`, absente
+  /// sinon.
+  valideParId String?
+  valideeLe   DateTime?
+
+  assigneeLe DateTime?
+  termineeLe DateTime?
+
+  exercices ExerciceAssigne[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([eleveId, statut])
+  @@map("learnos_feuilles_exercices")
+}
+
+/// Un exercice servi à un élève, et la raison pour laquelle il l'a reçu.
+///
+/// `competenceId` est la compétence RÉELLEMENT travaillée, qui n'est pas
+/// toujours celle qui a déclenché la sélection : un élève en difficulté
+/// critique sur C7 reçoit des exercices sur C2, son prérequis manquant.
+/// `competenceVisee` conserve la cible d'origine — sans quoi l'élève verrait
+/// des fractions sans comprendre qu'on prépare la proportionnalité.
+model ExerciceAssigne {
+  id String @id @default(cuid())
+
+  feuilleId String
+  feuille   FeuilleExercices @relation(fields: [feuilleId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// Compétence à l'origine de la sélection, quand elle diffère de celle
+  /// travaillée. NULL quand les deux coïncident.
+  competenceViseeId String?
+
+  ordre  Int
+  palier PalierExercice
+
+  /// Règle déclenchée — clé de traduction (learnos.regles.exercice_*).
+  ///
+  /// Même patron que `Recommandation` : figer une phrase française en base
+  /// interdirait d'expliquer l'exercice à une famille en somali ou en arabe.
+  /// C'est ce couple clé + paramètres qui rend l'exercice justifiable.
+  regleDeclenchee String
+  motifParams     Json?
+
+  /// Rang de priorité au moment de la composition, conservé pour l'audit :
+  /// il explique pourquoi cet exercice a été retenu et un autre écarté.
+  priorite Int
+
+  reponse ExerciceReponse?
+
+  createdAt DateTime @default(now())
+
+  @@index([feuilleId])
+  @@index([competenceId])
+  @@map("learnos_exercices_assignes")
+}
+
+/// Réponse de l'élève. Ne devient une preuve qu'une fois corrigée.
+model ExerciceReponse {
+  id String @id @default(cuid())
+
+  exerciceAssigneId String          @unique
+  exercice          ExerciceAssigne @relation(fields: [exerciceAssigneId], references: [id], onDelete: Cascade)
+
+  reponse String?
+
+  /// Déroulé étape par étape : ce qui a été saisi, en combien de tentatives,
+  /// en combien de temps (schéma `EtapeFaite`).
+  ///
+  /// C'est la seule trace qui distingue « il a compris » de « il a fini par
+  /// tomber juste », et le seul signal disponible sans surveillance pour
+  /// pondérer la confiance d'une séance faite seul. Un score final nu ne
+  /// permettrait ni l'un ni l'autre.
+  etapes Json?
+
+  /// Tentatives cumulées sur l'ensemble des étapes.
+  tentatives Int @default(0)
+
+  /// Temps de travail effectif, en millisecondes. NULL si non mesuré.
+  ///
+  /// Mesuré serveur, entre deux soumissions d'étape — jamais annoncé par le
+  /// client, qui n'a aucune raison d'être cru sur ce point précis.
+  dureeMs Int?
+
+  /// NULL tant que la copie n'est pas corrigée : une réponse non corrigée ne
+  /// dit rien du niveau, et lui prêter un score par défaut fabriquerait une
+  /// preuve fausse.
+  score    Float?
+  maxScore Float?
+
+  /// Qui a corrigé. NULL = correction automatique (QCM, réponse exacte).
+  corrigeParId String?
+  corrigeeLe   DateTime?
+
+  /// Preuve produite en retour, s'il y en a une. Simple identifiant, sans
+  /// relation — même parti pris que `EtapePlan.evidenceValidanteId` : la trace
+  /// suffit, et une contrainte forte ferait échouer la correction si la preuve
+  /// a été purgée.
+  evidenceId String?
+
+  repondueLe DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([evidenceId])
+  @@map("learnos_exercices_reponses")
+}
+
+/// Cache d'appels LLM — évite de repayer une génération identique.
+model AiCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  response  Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("learnos_ai_cache")
+}
+
+// ============================================================
+// LEARNOS — Bot parent (P11)
+// ============================================================
+
+/// Préférences et consentement d'une famille.
+///
+/// POURQUOI CE MODÈLE EXISTE
+/// Sans lui, la seule façon pour un parent d'arrêter des messages qu'il ne
+/// veut plus est de bloquer le numéro — et l'établissement perd alors aussi
+/// le canal des vraies urgences. Se désinscrire des alertes ne coupe JAMAIS
+/// les réponses aux questions posées : ce sont deux choses différentes.
+model PreferencesParent {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  parentId String @unique
+  parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  /// Langue des messages sortants : "fr" | "en" | "so". `null` = langue de
+  /// l'établissement. C'est ce champ qui rend l'i18n des textes générés utile.
+  langue String?
+
+  /// Le parent accepte-t-il les messages non sollicités ?
+  alertesActives Boolean @default(true)
+
+  /// En deçà de ce niveau, rien n'est envoyé. Un parent peut ainsi ne garder
+  /// que l'essentiel plutôt que de tout couper.
+  niveauMinimal NiveauAlerteParent @default(INFO)
+
+  /// Plafond d'envois sortants par semaine. Protection contre le harcèlement
+  /// involontaire : un moteur qui s'emballe ne doit pas pouvoir inonder une
+  /// famille.
+  plafondHebdomadaire Int @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("learnos_preferences_parent")
+}
+
+/// Message sortant vers une famille — file d'attente et journal d'envoi.
+///
+/// Le contenu est stocké en **clé + paramètres**, jamais en phrase figée : la
+/// langue de lecture n'est connue qu'au moment de l'envoi, et elle peut
+/// changer entre la détection et la remise.
+model AlerteParent {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  parentId String
+  parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  niveau NiveauAlerteParent
+
+  /// Clé de traduction (learnos.alertes.*) et ses paramètres.
+  cle    String
+  params Json?
+
+  /// "whatsapp" | "sms" | "telegram"
+  canal String @default("whatsapp")
+
+  /// "EN_ATTENTE" | "ENVOYEE" | "ECHOUEE" | "SUPPRIMEE"
+  ///
+  /// `SUPPRIMEE` trace une alerte détectée mais non envoyée (préférences,
+  /// plafond atteint). La garder permet de répondre à « pourquoi n'ai-je pas
+  /// été prévenu ? » — la supprimer effacerait la réponse.
+  statut String @default("EN_ATTENTE")
+
+  motifSuppression String?
+  envoyeeLe        DateTime?
+  erreur           String?
+
+  /// Empreinte du déclencheur : rend l'envoi idempotent. Le cron passe
+  /// plusieurs fois par jour ; sans elle, la même absence produirait un
+  /// message par passage.
+  empreinte String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([parentId, createdAt])
+  @@index([statut])
+  @@map("learnos_alertes_parent")
+}
+
+/// Journal des échanges à la demande — une question, une réponse.
+///
+/// Obligatoire pour la contestation : quand une famille dit « on m'a répondu
+/// que », il faut pouvoir retrouver quoi, quand, et sur quelles données.
+model EchangeParent {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  parentId String
+  parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  /// Enfant concerné. `null` quand la question n'a pas pu être rattachée —
+  /// cas fréquent d'une fratrie sans prénom cité.
+  eleveId String?
+  eleve   Eleve?  @relation(fields: [eleveId], references: [id], onDelete: SetNull)
+
+  canal    String @default("whatsapp")
+  question String
+
+  /// Intention retenue : "progression" | "difficultes" | "aider" | "assiduite"
+  /// | "solde" | "inconnue". C'est elle qui a choisi la requête SQL.
+  intention String
+
+  /// Réponse effectivement envoyée, telle quelle. Contrairement aux alertes,
+  /// on fige ici le texte : c'est une trace de ce qui a été dit, pas un
+  /// gabarit à réafficher.
+  reponse String
+
+  /// Fournisseur ayant servi à comprendre la question, `null` si la détection
+  /// est restée déterministe (mots-clés).
+  modele String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([parentId, createdAt])
+  @@map("learnos_echanges_parent")
+}
+
+// ============================================================
+// LEARNOS — APPRENTISSAGE & INTELLIGENCE PÉDAGOGIQUE
+// ============================================================
+//
+// Le système était entièrement déterministe : les seuils (0.35, 0.55, 0.8,
+// 0.92) étaient identiques pour tous les établissements, tous les niveaux,
+// toutes les matières. C'est sûr, mais c'est aveugle : un seuil de 0.55 en
+// mathématiques en Terminale S ne signifie pas la même chose qu'en 6ème en
+// arts plastiques.
+//
+// Ces tables permettent au système d'apprendre de l'historique sans
+// abandonner le déterminisme :
+//
+//   1. `PatternPedagogique` — patterns détectés dans les résultats passés
+//      (ex : « les élèves de 3ème ont en moyenne 42% de maîtrise sur les
+//      fractions en semaine 12 »).
+//
+//   2. `PredictionDifficulte` — prédictions émises AVANT qu'un chapitre ne
+//      démarre, avec leur précision mesurée a posteriori. C'est ce qui permet
+//      au système de savoir s'il prédit bien ou mal, et de s'améliorer.
+//
+//   3. `CalibrationSeuil` — seuils ajustés par niveau × matière, dérivés des
+//      patterns historiques. Le moteur de recommandation les lit au lieu des
+//      constantes par défaut quand ils existent.
+//
+//   4. `JournalApprentissage` — trace de chaque analyse, pour l'explicabilité
+//      et l'audit. L'enseignant peut voir CE QUE le système a appris et QUAND.
+//
+// Le principe reste : le système apprend des DONNÉES, pas du modèle de
+// langage. Aucun LLM n'est impliqué dans l'analyse ou la prédiction — ce
+// sont des statistiques et du raisonnement sur graphe. L'IA générative
+// reste cantonnée à l'import de programme et à la génération de questions.
+
+/// Pattern pédagogique détecté dans l'historique des résultats.
+///
+/// Un pattern dit : « pour ce niveau, cette matière, cette compétence,
+/// voici ce qui s'est passé les années précédentes ». C'est une moyenne,
+/// pas une prédiction individuelle — la prédiction vient ensuite, et elle
+/// tient compte du profil spécifique de l'élève.
+model PatternPedagogique {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Périmètre du pattern : niveau (ex : "Terminale"), matière, compétence.
+  /// `competenceId` est optionnel : un pattern peut porter sur une matière
+  /// entière sans descendre à la compétence.
+  niveau        String
+  matiereId     String?
+  competenceId  String?
+  competence    Competence? @relation(fields: [competenceId], references: [id], onDelete: SetNull)
+
+  /// Statistiques observées sur la période analysée.
+  masteryMoyenne  Float
+  confidenceMoyenne Float
+  /// Nombre d'élèves concernés par cette moyenne.
+  effectif        Int
+  /// Écart-type des scores — mesure la dispersion.
+  ecartType       Float
+  /// Taux d'échec (score < seuil critique) observé.
+  tauxEchec       Float
+
+  /// Période couverte par le pattern.
+  periodeDebut  DateTime
+  periodeFin    DateTime
+  /// Nombre d'années scolaires incluses dans l'analyse.
+  anneesCouvertes Int
+
+  /// Détail optionnel : semaine du chapitre où ce pattern a été mesuré.
+  /// Permet de dire « en semaine 8, les élèves ont en moyenne X sur cette
+  /// compétence » — utile pour prédire le moment optimal d'une remédiation.
+  semaineChapitre Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, siteId, niveau, matiereId, competenceId, periodeDebut])
+  @@index([tenantId, niveau, matiereId])
+  @@index([competenceId])
+  @@map("learnos_patterns_pedago")
+}
+
+/// Prédiction de difficulté émise avant qu'un chapitre ne démarre.
+///
+/// Le système émet une prédiction pour chaque élève avant qu'un chapitre
+/// ne commence : « cet élève a 72% de chances de réussir cette compétence ».
+/// Une fois le chapitre traité et les résultats enregistrés, on compare la
+/// prédiction à la réalité, et on enregistre la précision. C'est cette
+/// boucle qui permet au système de s'améliorer.
+model PredictionDifficulte {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId      String
+  eleve        Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// Chapitre concerné par la prédiction.
+  chapitreId   String?
+  chapitre     Chapitre? @relation(fields: [chapitreId], references: [id], onDelete: SetNull)
+
+  /// Année scolaire.
+  anneeId      String
+
+  /// Prédiction : probabilité de réussite (0..1) estimée AVANT le chapitre.
+  probaReussite Float
+  /// Niveau de difficulté prédit : "FACILE" | "MODERE" | "DIFFICILE" | "CRITIQUE".
+  difficultePredite String
+
+  /// Données utilisées pour la prédiction (snapshot du profil à cet instant).
+  masteryAvant      Float?
+  confidenceAvant   Float?
+  prerequisManquants Int?
+
+  /// Résultat réel, rempli après l'évaluation.
+  masteryApres      Float?
+  /// `true` si la prédiction était correcte (à ±0.15 près).
+  predictionCorrecte Boolean?
+  /// Écart entre prédiction et réalité.
+  ecart             Float?
+
+  /// Date d'émission de la prédiction.
+  emiseLe     DateTime @default(now())
+  /// Date de vérification (remplie quand le résultat réel est connu).
+  verifieeLe  DateTime?
+
+  @@index([tenantId, anneeId])
+  @@index([eleveId, competenceId])
+  @@index([competenceId, anneeId])
+  @@map("learnos_predictions")
+}
+
+/// Seuils calibrés par niveau × matière, dérivés de l'historique.
+///
+/// Au lieu d'utiliser les constantes `SEUILS_PAR_DEFAUT` (0.35, 0.55, 0.8,
+/// 0.92) pour tous, le système peut ajuster ces seuils par niveau et par
+/// matière quand suffisamment de données historiques existent.
+///
+/// Exemple : si en Terminale S en mathématiques, le seuil critique de 0.35
+/// produit trop de faux positifs (élèves étiquetés critiques qui réussissent
+/// finalement), le système peut le baisser à 0.30.
+///
+/// La calibration ne remplace JAMAIS le jugement de l'enseignant : elle
+/// ajuste les bornes du système pour qu'elles correspondent mieux à la
+/// réalité observée, mais l'enseignant peut toujours surcharger.
+model CalibrationSeuil {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Périmètre : niveau + matière (optionnel). Si `matiereId` est null,
+  /// la calibration s'applique à toutes les matières du niveau.
+  niveau    String
+  matiereId String?
+
+  /// Seuils calibrés.
+  seuilCritique     Float
+  seuilFragile      Float
+  seuilConsolide    Float
+ seuilAvance       Float
+  confianceMinimale Float
+
+  /// Qualité de la calibration : nombre de données utilisées.
+  echantillon Int
+  /// `true` si la calibration a amélioré la précision des prédictions.
+  ameliorationMesuree Boolean?
+  /// Gain de précision par rapport aux seuils par défaut (en points de %).
+  gainPrecision Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, siteId, niveau, matiereId])
+  @@index([tenantId, niveau])
+  @@map("learnos_calibration_seuils")
+}
+
+/// Journal d'apprentissage — trace de chaque analyse.
+///
+/// Chaque fois que le système analyse l'historique, émet des prédictions,
+/// ou recalibre des seuils, une entrée est ajoutée ici. C'est la trace
+/// d'audit : l'enseignant ou le directeur peut voir CE QUE le système a
+/// appris, QUAND, et sur quelles données.
+model JournalApprentissage {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Type d'analyse : "pattern_detection" | "prediction" | "calibration".
+  typeAnalyse String
+
+  /// Résumé lisible de ce qui a été appris.
+  resume String
+  /// Détail technique (JSON) : paramètres, données, résultats.
+  detail String
+
+  /// Nombre de données analysées.
+  echantillon Int
+  /// Périmètre concerné (niveau, matière, période).
+  perimetre String
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, typeAnalyse, createdAt])
+  @@map("learnos_journal_apprentissage")
 }

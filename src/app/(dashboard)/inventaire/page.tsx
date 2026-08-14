@@ -11,7 +11,7 @@ export default async function InventairePage() {
     auth(),
     getTranslations("inventaire"),
   ]);
-  guardPage(session, "inventaire:read");
+  await guardPage(session, "inventaire:read");
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header

@@ -17,9 +17,18 @@ export interface ToolCall {
   arguments: string; // JSON brut renvoyé par le modèle — à parser et valider par l'appelant
 }
 
+/**
+ * Fragment d'un message multimodal (format OpenAI, accepté tel quel par
+ * OpenRouter). Défini ici et non importé de `provider.ts` : ce client est plus
+ * ancien que l'abstraction de fournisseur et ne doit pas en dépendre.
+ */
+export type ChatContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
+  content: string | ChatContentPart[] | null;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[];
   tool_call_id?: string;
 }
@@ -95,10 +104,23 @@ function stripToolCallTags(content: string): string {
  */
 export async function generateChat(
   messages: ChatMessage[],
-  options?: { temperature?: number; maxTokens?: number; reasoning?: boolean; tools?: ToolDefinition[] }
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+    reasoning?: boolean;
+    tools?: ToolDefinition[];
+    /**
+     * Modèle à employer pour cet appel, à la place de `GLM_MODEL`.
+     *
+     * Existe pour la lecture d'images : le modèle texte configuré ne sait pas
+     * les lire, et un modèle multimodal n'a pas de raison de traiter les
+     * appréciations. Absent, le comportement est inchangé.
+     */
+    model?: string;
+  }
 ): Promise<ChatResult> {
   const apiKey = process.env.GLM_API_KEY;
-  const model = process.env.GLM_MODEL;
+  const model = options?.model ?? process.env.GLM_MODEL;
 
   if (!apiKey || !model) {
     throw new AiConfigError(

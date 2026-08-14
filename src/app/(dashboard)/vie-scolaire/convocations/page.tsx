@@ -16,10 +16,13 @@ export default async function ConvocationsPage() {
       where: { tenantId: session.user.tenantId, ...siteFilter },
       include: {
         eleves: {
-          where: { statut: "ACTIF" },
+          where: { statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
           select: {
             id: true, nom: true, prenom: true, matricule: true,
-            parents: { include: { parent: { select: { id: true, nom: true, prenom: true, phone: true, email: true } } } },
+            parents: {
+              where: siteFilterForModel("eleveParent", session.user),
+              include: { parent: { select: { id: true, nom: true, prenom: true, phone: true, email: true } } },
+            },
           },
           orderBy: { nom: "asc" },
         },

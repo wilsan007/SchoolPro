@@ -5,8 +5,14 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { siteFilterForModel, siteIdForCreate, requireSiteIdForCreate } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  siteIdForCreate,
+  requireSiteIdForCreate,
+  type SessionSiteClaims,
+} from "@/lib/site-scope";
 import { niveauRequiresProfPrincipal } from "@/lib/utils-classe";
+import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import type { Role } from "@prisma/client";
 
 // ============================================================
@@ -109,21 +115,16 @@ export async function getUsersForTenant() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
-  const isAdmin = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
-  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
-  const siteIds = (session.user as { siteIds?: string[] }).siteIds;
-
+  // Le périmètre était reconstruit à la main ici, et il était fail-open :
+  // sans site sélectionné, `{ siteId: siteId ?? undefined }` devenait une
+  // clause vide, l'`OR` était donc satisfait par tout le monde et l'annuaire
+  // complet de l'établissement remontait à un compte pourtant borné à un
+  // site. Le helper partagé, lui, ne renvoie rien faute de périmètre.
   return prisma.user.findMany({
-    where: isAdmin
-      ? { tenantId: session.user.tenantId }
-      : {
-          tenantId: session.user.tenantId,
-          OR: [
-            { siteId: siteId ?? undefined },
-            ...(siteIds && siteIds.length > 0 ? [{ siteId: { in: siteIds } }] : []),
-            { userSites: { some: { siteId: siteId ?? "" } } },
-          ],
-        },
+    where: {
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("user", session.user),
+    },
     select: {
       id: true,
       name: true,
@@ -151,6 +152,11 @@ export async function createUser(data: UserFormData) {
   }
 
   const v = parsed.data;
+  // `User.email` est unique au niveau de la plateforme entière, pas du tenant :
+  // le contrôle d'unicité doit donc être inter-tenants et inter-sites, sinon on
+  // laisserait créer un doublon qui échouerait ensuite en base. Seule
+  // l'existence est utilisée, aucune donnée de l'autre tenant n'est exposée.
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
   const existing = await prisma.user.findUnique({ where: { email: v.email } });
   if (existing) throw new Error("Un utilisateur avec cet email existe déjà");
 
@@ -219,7 +225,11 @@ export async function toggleUserActive(userId: string) {
   }
 
   const user = await prisma.user.findFirst({
-    where: { id: userId, tenantId: session.user.tenantId },
+    where: {
+      id: userId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("user", session.user),
+    },
   });
   if (!user) throw new Error("Utilisateur non trouvé");
 
@@ -242,7 +252,11 @@ export async function deleteUser(userId: string) {
   if (userId === session.user.id) throw new Error("Vous ne pouvez pas supprimer votre propre compte");
 
   const user = await prisma.user.findFirst({
-    where: { id: userId, tenantId: session.user.tenantId },
+    where: {
+      id: userId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("user", session.user),
+    },
   });
   if (!user) throw new Error("Utilisateur non trouvé");
 
@@ -250,6 +264,13 @@ export async function deleteUser(userId: string) {
   await prisma.enseignant.deleteMany({ where: { userId, tenantId: session.user.tenantId } }).catch(() => {});
   await prisma.parent.deleteMany({ where: { userId, tenantId: session.user.tenantId } }).catch(() => {});
   await prisma.userSite.deleteMany({ where: { userId } }).catch(() => {});
+  // Le compte lui-même est supprimé juste après : ses adhésions doivent toutes
+  // partir, y compris celles d'autres établissements, sinon la clé étrangère
+  // bloque la suppression. L'appartenance au tenant appelant vient d'être
+  // vérifiée ci-dessus.
+  // LIMITE ASSUMÉE : un compte partagé entre plusieurs établissements perd
+  // aussi ses accès aux autres, puisque la ligne User disparaît.
+  // eslint-disable-next-line ecolpro/require-tenant-id
   await prisma.userTenant.deleteMany({ where: { userId } }).catch(() => {});
 
   await prisma.user.delete({ where: { id: userId } });
@@ -286,7 +307,9 @@ export async function getClassesForSettings() {
   return prisma.classe.findMany({
     where: { tenantId: session.user.tenantId, ...siteFilter },
     include: {
-      _count: { select: { eleves: true } },
+      // Sans ce filtre, l'effectif affiché inclut les fiches archivées :
+      // les classes annonçaient jusqu'à 63 élèves pour 29 réels.
+      _count: { select: { eleves: ELEVE_NON_ARCHIVE } },
       profPrincipal: { select: { user: { select: { name: true } } } },
       structure: { select: { id: true, nom: true, type: true } },
     },
@@ -327,7 +350,11 @@ export async function createClasse(data: ClasseFormData) {
   // Vérifier que le prof principal existe et appartient au tenant
   if (v.profPrincipalId) {
     const ens = await prisma.enseignant.findFirst({
-      where: { id: v.profPrincipalId, tenantId: session.user.tenantId },
+      where: {
+        id: v.profPrincipalId,
+        tenantId: session.user.tenantId,
+        ...siteFilterForModel("enseignant", session.user),
+      },
       select: { id: true },
     });
     if (!ens) throw new Error("Enseignant introuvable dans cet établissement");
@@ -360,8 +387,14 @@ export async function deleteClasse(classeId: string) {
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
   const classe = await prisma.classe.findFirst({
-    where: { id: classeId, tenantId: session.user.tenantId },
-    include: { _count: { select: { eleves: true } } },
+    where: {
+      id: classeId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    // Seules les fiches encore présentes s'opposent à la suppression : une
+    // classe ne contenant plus que des archives doit pouvoir être supprimée.
+    include: { _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
   });
   if (!classe) throw new Error("Classe non trouvée");
   if (classe._count.eleves > 0) throw new Error("Impossible de supprimer une classe avec des élèves");
@@ -395,7 +428,10 @@ export async function getMatieresForSettings() {
   if (!session?.user?.tenantId) return [];
 
   return prisma.matiere.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: {
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("matiere", session.user),
+    },
     orderBy: { nom: "asc" },
   });
 }
@@ -430,7 +466,11 @@ export async function deleteMatiere(matiereId: string) {
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
   const matiere = await prisma.matiere.findFirst({
-    where: { id: matiereId, tenantId: session.user.tenantId },
+    where: {
+      id: matiereId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("matiere", session.user),
+    },
   });
   if (!matiere) throw new Error("Matière non trouvée");
 
@@ -457,17 +497,50 @@ const ParentSchema = z.object({
 
 export type ParentFormData = z.infer<typeof ParentSchema>;
 
+/**
+ * Périmètre de site d'un parent.
+ *
+ * `Parent` ne porte pas de `siteId` et son `userId` est facultatif : passer par
+ * `siteFilterForModel("parent", …)`, qui emprunte la relation `user`, ferait
+ * disparaître tous les parents sans compte — c'est-à-dire la majorité. Le
+ * rattachement réel d'un parent, c'est le site de ses enfants.
+ *
+ * Un parent sans aucun enfant reste visible : il ne porte encore aucune donnée
+ * d'un autre site, et c'est l'état transitoire d'un parent qu'on vient de créer
+ * avant de le rattacher. Même règle que `siteFilterForModel` pour les relations
+ * vers-plusieurs (`{ some: … } OR { none: {} }`).
+ */
+function parentSiteScope(claims: SessionSiteClaims): Record<string, unknown> {
+  const filtreEleve = siteFilterForModel("eleve", claims);
+  if (Object.keys(filtreEleve).length === 0) return {};
+  return {
+    AND: [
+      {
+        OR: [
+          { enfants: { some: { eleve: filtreEleve } } },
+          { enfants: { none: {} } },
+        ],
+      },
+    ],
+  };
+}
+
 export async function getParentsForSettings() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
-  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
-  const siteIds = (session.user as { siteIds?: string[] }).siteIds;
-
+  // Isolation portée par la relation : le filtre de site est appliqué aux
+  // enfants (voir `parentSiteScope`), donc imbriqué et invisible pour la règle.
+  // Le modèle nommé était d'ailleurs faux ici — « parent » au lieu de
+  // « eleve » — ce qui greffait un prédicat `user.siteId` sur un `Eleve`.
+  // eslint-disable-next-line ecolpro/require-site-filter
   return prisma.parent.findMany({
-    where: { tenantId: session.user.tenantId, enfants: { some: { eleve: { ...siteFilterForModel("parent", session.user) } } } },
+    where: { tenantId: session.user.tenantId, ...parentSiteScope(session.user) },
     include: {
       enfants: {
+        // Un parent peut avoir des enfants sur plusieurs sites : sans ce
+        // filtre, la fiche affichait ceux des sites hors périmètre.
+        where: siteFilterForModel("eleveParent", session.user),
         include: {
           eleve: {
             select: { id: true, nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } },
@@ -528,7 +601,22 @@ export async function createParent(data: ParentFormData & { eleveIds?: string[] 
 
   // Link to students if provided
   if (data.eleveIds && data.eleveIds.length > 0) {
-    for (const eleveId of data.eleveIds) {
+    // Les identifiants viennent du formulaire : sans ce filtrage, on pouvait
+    // rattacher un parent à l'élève de n'importe quel site — voire de n'importe
+    // quel établissement — en forgeant la liste.
+    const elevesAutorises = await prisma.eleve.findMany({
+      where: {
+        id: { in: data.eleveIds },
+        tenantId: session.user.tenantId,
+        ...siteFilterForModel("eleve", session.user),
+      },
+      select: { id: true },
+    });
+
+    for (const { id: eleveId } of elevesAutorises) {
+      // Identifiant déjà autorisé par la requête site-filtrée ci-dessus, et la
+      // clé composite ne peut de toute façon désigner que ce parent-ci.
+      // eslint-disable-next-line ecolpro/require-site-filter
       const existing = await prisma.eleveParent.findUnique({
         where: { eleveId_parentId: { eleveId, parentId: parent.id } },
       });
@@ -551,12 +639,32 @@ export async function linkParentToEleves(parentId: string, eleveIds: string[], l
     throw new Error("Permissions insuffisantes");
   }
 
+  // Isolation portée par la relation enfants → élève (voir `parentSiteScope`).
+  // eslint-disable-next-line ecolpro/require-site-filter
   const parent = await prisma.parent.findFirst({
-    where: { id: parentId, tenantId: session.user.tenantId },
+    where: {
+      id: parentId,
+      tenantId: session.user.tenantId,
+      ...parentSiteScope(session.user),
+    },
   });
   if (!parent) throw new Error("Parent non trouvé");
 
-  for (const eleveId of eleveIds) {
+  // Même raison que dans `createParent` : la liste d'élèves arrive du client et
+  // doit être ramenée au périmètre de l'appelant avant tout rattachement.
+  const elevesAutorises = await prisma.eleve.findMany({
+    where: {
+      id: { in: eleveIds },
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("eleve", session.user),
+    },
+    select: { id: true },
+  });
+
+  for (const { id: eleveId } of elevesAutorises) {
+    // Élève et parent tous deux validés ci-dessus ; la clé composite ne peut
+    // désigner qu'un couple déjà autorisé.
+    // eslint-disable-next-line ecolpro/require-site-filter
     const existing = await prisma.eleveParent.findUnique({
       where: { eleveId_parentId: { eleveId, parentId } },
     });
@@ -594,7 +702,7 @@ export async function updateParentPhone(parentId: string, phone: string, telegra
   }
 
   const parent = await prisma.parent.findFirst({
-    where: { id: parentId, tenantId: session.user.tenantId },
+    where: { id: parentId, tenantId: session.user.tenantId, ...siteFilterForModel("parent", session.user) },
   });
   if (!parent) throw new Error("Parent non trouvé");
 
@@ -618,7 +726,7 @@ export async function deleteParent(parentId: string) {
   }
 
   const parent = await prisma.parent.findFirst({
-    where: { id: parentId, tenantId: session.user.tenantId },
+    where: { id: parentId, tenantId: session.user.tenantId, ...siteFilterForModel("parent", session.user) },
   });
   if (!parent) throw new Error("Parent non trouvé");
 
@@ -636,7 +744,7 @@ export async function updateUserPhone(userId: string, phone: string) {
   }
 
   const user = await prisma.user.findFirst({
-    where: { id: userId, tenantId: session.user.tenantId },
+    where: { id: userId, tenantId: session.user.tenantId, ...siteFilterForModel("user", session.user) },
   });
   if (!user) throw new Error("Utilisateur non trouvé");
 
@@ -648,7 +756,7 @@ export async function updateUserPhone(userId: string, phone: string) {
   // Also update parent phone if user is linked to a parent
   if (phone) {
     await prisma.parent.updateMany({
-      where: { userId: userId },
+      where: { userId: userId, tenantId: session.user.tenantId },
       data: { phone },
     });
   }
@@ -720,7 +828,7 @@ export async function getSitesForSettings() {
       _count: {
         select: {
           classes: true,
-          eleves: true,
+          eleves: ELEVE_NON_ARCHIVE,
           salles: true,
           userSites: true,
           factures: true,
@@ -927,7 +1035,7 @@ export async function getDeletedSites() {
       _count: {
         select: {
           classes: true,
-          eleves: true,
+          eleves: ELEVE_NON_ARCHIVE,
           salles: true,
         },
       },
@@ -944,7 +1052,7 @@ export async function assignUserSites(userId: string, sites: { siteId: string; r
   }
 
   const user = await prisma.user.findFirst({
-    where: { id: userId, tenantId: session.user.tenantId },
+    where: { id: userId, tenantId: session.user.tenantId, ...siteFilterForModel("user", session.user) },
   });
   if (!user) throw new Error("Utilisateur non trouvé");
 
@@ -1007,10 +1115,139 @@ export async function getUserSites(userId: string): Promise<{ siteId: string; ro
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
+  // UserSite ne porte pas de tenantId propre : vérifier explicitement que l'utilisateur
+  // appartient bien au tenant/périmètre de l'appelant avant de lire ses rattachements —
+  // sans ce contrôle, un userId d'un autre tenant renverrait ses sites sans erreur.
+  const user = await prisma.user.findFirst({
+    where: { id: userId, tenantId: session.user.tenantId, ...siteFilterForModel("user", session.user) },
+    select: { id: true },
+  });
+  if (!user) throw new Error("Utilisateur non trouvé");
+
   const userSites = await prisma.userSite.findMany({
-    where: { userId },
+    where: { userId, ...siteFilterForModel("userSite", session.user) },
     select: { siteId: true, role: true },
   });
 
   return userSites.map((us) => ({ siteId: us.siteId, role: us.role }));
+}
+
+// ============================================================
+// ANNÉES SCOLAIRES
+// ============================================================
+
+const AnneeScolaireSchema = z.object({
+  libelle: z.string().min(1, "Le libellé est requis"),
+  dateDebut: z.string().min(1, "La date de début est requise"),
+  dateFin: z.string().min(1, "La date de fin est requise"),
+});
+
+export async function getAnneesScolaires() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  return prisma.anneesScolaires.findMany({
+    where: { tenantId: session.user.tenantId },
+    orderBy: { dateDebut: "desc" },
+  });
+}
+
+export async function createAnneeScolaire(data: z.infer<typeof AnneeScolaireSchema>) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const parsed = AnneeScolaireSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const v = parsed.data;
+  const dateDebut = new Date(v.dateDebut);
+  const dateFin = new Date(v.dateFin);
+
+  if (dateFin <= dateDebut) {
+    throw new Error("La date de fin doit être postérieure à la date de début");
+  }
+
+  const existing = await prisma.anneesScolaires.findFirst({
+    where: { tenantId: session.user.tenantId, libelle: v.libelle },
+  });
+  if (existing) {
+    throw new Error("Une année scolaire avec ce libellé existe déjà");
+  }
+
+  await prisma.anneesScolaires.create({
+    data: {
+      tenantId: session.user.tenantId,
+      libelle: v.libelle,
+      dateDebut,
+      dateFin,
+      isCurrent: false,
+    },
+  });
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function activateAnneeScolaire(anneeId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const annee = await prisma.anneesScolaires.findFirst({
+    where: { id: anneeId, tenantId: session.user.tenantId },
+  });
+  if (!annee) throw new Error("Année scolaire introuvable");
+
+  await prisma.$transaction([
+    prisma.anneesScolaires.updateMany({
+      where: { tenantId: session.user.tenantId, isCurrent: true },
+      data: { isCurrent: false },
+    }),
+    prisma.anneesScolaires.update({
+      where: { id: anneeId },
+      data: { isCurrent: true },
+    }),
+    prisma.tenant.update({
+      where: { id: session.user.tenantId },
+      data: { currentYear: annee.libelle },
+    }),
+  ]);
+
+  revalidatePath("/parametres");
+  return { success: true };
+}
+
+export async function deleteAnneeScolaire(anneeId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permissions insuffisantes");
+  }
+
+  const annee = await prisma.anneesScolaires.findFirst({
+    where: { id: anneeId, tenantId: session.user.tenantId },
+  });
+  if (!annee) throw new Error("Année scolaire introuvable");
+  if (annee.isCurrent) throw new Error("Impossible de supprimer l'année scolaire active");
+
+  const hasPeriodes = await prisma.periode.count({
+    where: { anneeId },
+  });
+  if (hasPeriodes > 0) {
+    throw new Error("Impossible de supprimer une année scolaire liée à des périodes");
+  }
+
+  await prisma.anneesScolaires.delete({
+    where: { id: anneeId },
+  });
+
+  revalidatePath("/parametres");
+  return { success: true };
 }

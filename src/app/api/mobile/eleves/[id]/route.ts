@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, personalScopeFilter, mergeFilters } from "@/lib/site-scope";
 
 export async function GET(
   req: NextRequest,
@@ -20,7 +20,13 @@ export async function GET(
   // parents). Bornée au seul tenant, elle permettait à un personnel du site A
   // de lire le dossier d'un élève du site B.
 
-  const siteFilter = siteFilterForModel("eleve", user);
+  // Pour un compte PARENT ou STUDENT le filtre de site est neutre par construction
+  // (leur périmètre est familial, pas géographique) : sans `personalScopeFilter`,
+  // un parent authentifié lisait le dossier de n'importe quel élève du tenant.
+  const siteFilter = mergeFilters(
+    siteFilterForModel("eleve", user),
+    personalScopeFilter(user, null)
+  );
   const eleve = await prisma.eleve.findFirst({
     where: { id, tenantId: user.tenantId, ...siteFilter },
     select: {
@@ -47,7 +53,11 @@ export async function GET(
     return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
   }
 
+  // Les quatre requêtes suivantes portent sur `id`, dont l'appartenance au tenant,
+  // au périmètre de sites et — pour un parent — au foyer vient d'être vérifiée par
+  // le `findFirst` ci-dessus, suivi d'un 404 : la portée est acquise en amont.
   const [parents, notes, absences, incidents] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.eleveParent.findMany({
       where: { eleveId: id },
       select: {
@@ -58,6 +68,7 @@ export async function GET(
         },
       },
     }),
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.note.findMany({
       where: { eleveId: id, tenantId: user.tenantId },
       select: {
@@ -72,12 +83,14 @@ export async function GET(
       orderBy: { date: "desc" },
       take: 20,
     }),
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.absence.findMany({
       where: { eleveId: id, tenantId: user.tenantId },
       select: { id: true, date: true, isRetard: true, statut: true, motif: true },
       orderBy: { date: "desc" },
       take: 10,
     }),
+    // eslint-disable-next-line ecolpro/require-site-filter
     prisma.incident.findMany({
       where: { eleveId: id, tenantId: user.tenantId },
       select: { id: true, type: true, statut: true, gravite: true, description: true, date: true },

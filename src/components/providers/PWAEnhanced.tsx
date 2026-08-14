@@ -71,7 +71,7 @@ export function PWAEnhanced() {
             </button>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Accédez rapidement à EcolPro depuis votre écran d'accueil.
+            Accédez rapidement à EcolPro depuis votre écran d&apos;accueil.
           </p>
           <button
             onClick={handleInstall}

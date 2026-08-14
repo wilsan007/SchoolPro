@@ -34,7 +34,12 @@ export async function POST(request: NextRequest) {
     if (body.text && body.from) {
       console.log(`[SMS Webhook] Message entrant de ${body.from}: ${body.text}`);
 
-      // Chercher le parent par numéro de téléphone
+      // Webhook entrant : aucune session, donc aucun tenant ni site connu à
+      // l'avance. C'est le numéro de téléphone qui détermine le tenant — la
+      // recherche est inter-tenants/inter-sites par nécessité.
+      // Limite connue : si deux établissements enregistrent le même numéro,
+      // le message est rattaché arbitrairement au premier trouvé.
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
       const parent = await prisma.parent.findFirst({
         where: { phone: body.from },
         include: { tenant: true },

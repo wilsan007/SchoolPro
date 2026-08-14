@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
+import { publishEvents, type NoteRecordedPayload } from "@/lib/learnos/events";
 import { revalidateTag } from "next/cache";
 
 const NoteSchema = z.object({
@@ -130,10 +131,14 @@ export async function POST(req: NextRequest) {
     // pas vérifié du tout : on pouvait saisir des notes sur un élève d'un autre
     // site, voire d'un autre établissement.
     const eleveIds = [...new Set(notes.map((n) => n.eleveId).filter(Boolean))];
+    // Le site de chaque élève sert aussi à situer les événements LEARNOS émis
+    // plus bas : `Note` n'a pas de `siteId`, il découle de l'élève — et non du
+    // site « sélectionné » par l'utilisateur, qui peut différer.
+    const siteParEleve = new Map<string, string | null>();
     if (eleveIds.length > 0) {
       const autorises = await prisma.eleve.findMany({
         where: { id: { in: eleveIds }, tenantId, ...eleveFilter },
-        select: { id: true },
+        select: { id: true, siteId: true },
       });
       if (autorises.length !== eleveIds.length) {
         return NextResponse.json(
@@ -141,13 +146,14 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
+      for (const e of autorises) siteParEleve.set(e.id, e.siteId);
     }
 
     // Idem pour les matières visées.
     const matiereIds = [...new Set(notes.map((n) => n.matiereId).filter(Boolean))];
     if (matiereIds.length > 0) {
       const matieres = await prisma.matiere.count({
-        where: { id: { in: matiereIds as string[] }, tenantId },
+        where: { id: { in: matiereIds as string[] }, tenantId, ...siteFilterForModel("matiere", session.user) },
       });
       if (matieres !== matiereIds.length) {
         return NextResponse.json(
@@ -169,6 +175,34 @@ export async function POST(req: NextRequest) {
           },
         })
       )
+    );
+
+    // Observation LEARNOS — après la transaction, donc sans jamais peser sur
+    // elle : `publishEvents` n'échoue pas, la saisie reste acquise quoi qu'il
+    // arrive côté couche d'intelligence (cf. src/lib/learnos/events.ts).
+    await publishEvents(
+      created.map((note) => ({
+        tenantId,
+        siteId: siteParEleve.get(note.eleveId) ?? null,
+        eventType: "note.recorded" as const,
+        aggregateType: "note",
+        aggregateId: note.id,
+        payload: {
+          noteId: note.id,
+          eleveId: note.eleveId,
+          classeId: note.classeId,
+          matiereId: note.matiereId,
+          periodeId: note.periodeId,
+          evaluationId: note.evaluationId,
+          valeur: note.valeur,
+          noteMax: note.noteMax,
+          coefficient: note.coefficient,
+          type: note.type,
+          intitule: note.intitule,
+          date: note.date.toISOString(),
+          saisieParId: note.saisieParId,
+        } satisfies NoteRecordedPayload,
+      }))
     );
 
     revalidateTag("dashboard-data");

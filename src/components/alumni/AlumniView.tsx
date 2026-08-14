@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   GraduationCap, Users, Briefcase, TrendingUp, Plus, Search,
@@ -66,12 +66,16 @@ export function AlumniView() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [isPending, startTransition] = useTransition();
 
-  const load = async (q = search, st = filterStatut, an = filterAnnee) => {
+  // Les filtres pilotent le chargement via l'effet ci-dessous, comme dans
+  // InventaireView et SuperAdminView. Auparavant `load` recevait les valeurs
+  // en paramètres et chaque gestionnaire de filtre devait penser à l'appeler
+  // lui-même — l'effet, lui, était monté à vide.
+  const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (q) params.set("search", q);
-    if (st !== "all") params.set("statut", st);
-    if (an !== "all") params.set("annee", an);
+    if (search) params.set("search", search);
+    if (filterStatut !== "all") params.set("statut", filterStatut);
+    if (filterAnnee !== "all") params.set("annee", filterAnnee);
     const res = await fetch(`/api/alumni?${params}`);
     if (res.ok) {
       const data = await res.json();
@@ -79,9 +83,9 @@ export function AlumniView() {
       setStats(data.stats);
     }
     setLoading(false);
-  };
+  }, [search, filterStatut, filterAnnee]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); };
   const openEdit = (a: Alumni) => {
@@ -174,14 +178,14 @@ export function AlumniView() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); load(e.target.value, filterStatut, filterAnnee); }}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           />
         </div>
         <select
           value={filterStatut}
-          onChange={(e) => { setFilterStatut(e.target.value); load(search, e.target.value, filterAnnee); }}
+          onChange={(e) => setFilterStatut(e.target.value)}
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
         >
           <option value="all">{t("allStatuses")}</option>
@@ -191,7 +195,7 @@ export function AlumniView() {
         </select>
         <select
           value={filterAnnee}
-          onChange={(e) => { setFilterAnnee(e.target.value); load(search, filterStatut, e.target.value); }}
+          onChange={(e) => setFilterAnnee(e.target.value)}
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
         >
           <option value="all">{t("allYears")}</option>

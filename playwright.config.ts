@@ -9,7 +9,10 @@ export default defineConfig({
   reporter: "html",
   timeout: 30000,
   use: {
-    baseURL: "http://localhost:3001",
+    // Surchargeable : plusieurs sessions de développement peuvent tourner en
+    // parallèle sur des ports différents, et démarrer un second serveur Next
+    // sur le même dossier fait se disputer le répertoire `.next`.
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3001",
     trace: "on-first-retry",
     headless: true,
   },
@@ -20,8 +23,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3001",
+    command: "pnpm run dev",
+    url: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3001",
     reuseExistingServer: true,
     timeout: 60000,
   },

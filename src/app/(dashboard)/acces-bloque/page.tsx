@@ -14,7 +14,7 @@ export default async function AccessBlockedPage() {
   if (!session?.user) redirect("/login");
   if (!session.user.tenantId) redirect("/select-tenant");
 
-  const block = await checkUserFinancialBlock(session.user.id, session.user.tenantId);
+  const block = await checkUserFinancialBlock(session.user.id, session.user.tenantId, session.user);
 
   if (!block.blocked) redirect("/dashboard");
 

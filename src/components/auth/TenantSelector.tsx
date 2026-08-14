@@ -76,6 +76,9 @@ export function TenantSelector({ tenants, userName }: TenantSelectorProps) {
               {/* Logo / icône */}
               <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 flex items-center justify-center overflow-hidden">
                 {tenant.tenantLogo ? (
+                  // Logo téléversé par l'établissement : URL arbitraire, hors des
+                  // `remotePatterns` de next.config — `next/image` la rejetterait.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={tenant.tenantLogo} alt={tenant.tenantName} className="w-full h-full object-cover" />
                 ) : (
                   <Building2 className="w-6 h-6 text-indigo-500" />

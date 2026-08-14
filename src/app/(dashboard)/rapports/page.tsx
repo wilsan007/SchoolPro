@@ -9,7 +9,7 @@ export default async function RapportsPage() {
     auth(),
     getTranslations("rapports"),
   ]);
-  guardPage(session, "rapports:read");
+  await guardPage(session, "rapports:read");
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header

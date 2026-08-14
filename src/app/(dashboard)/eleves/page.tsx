@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { guardPage } from "@/lib/guard-page";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { ElevesTable } from "@/components/eleves/ElevesTable";
@@ -13,6 +14,8 @@ import { unstable_cache } from "next/cache";
 import { ImportElevesButton } from "@/components/eleves/ImportElevesButton";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getSitesForUser } from "@/lib/actions/eleve";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getSiteColorMap } from "@/lib/site-colors";
 import type { Prisma } from "@prisma/client";
 
 /**
@@ -80,7 +83,7 @@ async function getElevesStats(where: Prisma.EleveWhereInput) {
  * chargées sous-estimerait donc les effectifs au-delà de ce plafond, en
  * silence. Un `groupBy` donne le compte exact quel que soit le volume.
  */
-async function getEffectifsParClasse(where: Prisma.EleveWhereInput) {
+async function getEffectifsParClasse(where: Prisma.EleveWhereInput, tenantId: string) {
   // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
   const parClasse = await prisma.eleve.groupBy({
     by: ["classeId"],
@@ -88,17 +91,12 @@ async function getEffectifsParClasse(where: Prisma.EleveWhereInput) {
     _count: true,
   });
 
-  const ids = parClasse.map((c) => c.classeId).filter((id): id is string => !!id);
-  // eslint-disable-next-line ecolpro/require-site-filter -- restreint aux classes déjà atteintes par le where filtré
-  const classes = ids.length
-    ? await prisma.classe.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true } })
-    : [];
-  const nomDe = new Map(classes.map((c) => [c.id, c.nom]));
-
   const effectifs: Record<string, number> = {};
   for (const c of parClasse) {
-    const nom = c.classeId ? (nomDe.get(c.classeId) ?? "Sans classe") : "Sans classe";
-    effectifs[nom] = (effectifs[nom] ?? 0) + c._count;
+    // Cle unique = classeId pour eviter l'ambiguite entre deux classes
+    // homonymes situees sur des sites differents.
+    const key = c.classeId ?? "Sans classe";
+    effectifs[key] = (effectifs[key] ?? 0) + c._count;
   }
   return effectifs;
 }
@@ -108,10 +106,14 @@ const getClassesList = unstable_cache(
     // eslint-disable-next-line ecolpro/require-site-filter -- where includes ...siteFilter spread, not detectable inside unstable_cache
     const classes = await prisma.classe.findMany({
       where: { tenantId, ...siteFilter } as Prisma.ClasseWhereInput,
-      select: { nom: true },
-      orderBy: { nom: "asc" },
+      select: { id: true, nom: true, site: { select: { nom: true } } },
+      orderBy: [{ site: { nom: "asc" } }, { nom: "asc" }],
     });
-    return Array.from(new Set(classes.map((c) => c.nom)));
+    const seen = new Map<string, { id: string; nom: string; siteNom: string | null }>();
+    for (const c of classes) {
+      seen.set(c.id, { id: c.id, nom: c.nom, siteNom: c.site?.nom ?? null });
+    }
+    return Array.from(seen.values());
   },
   ["classes-list"],
   { revalidate: 300, tags: ["classes-list"] }
@@ -149,16 +151,18 @@ async function getElevesData(
       where,
       include: {
         // eslint-disable-next-line ecolpro/require-site-filter -- classe is a 1:1 relation, site filter applied at parent query level
-        classe: { select: { nom: true, niveau: true } },
+        classe: { select: { id: true, nom: true, niveau: true, site: { select: { id: true, nom: true } } } },
+        // Le lien élève↔parent n'a pas de site propre : il est borné par
+        // l'élève, déjà filtré par le `where` racine. Un parent peut par
+        // ailleurs avoir des enfants sur plusieurs sites.
+        // eslint-disable-next-line ecolpro/require-site-filter
         parents: {
-          // eslint-disable-next-line ecolpro/require-site-filter -- parent site filter applied via eleve-level where
           include: { parent: { select: { nom: true, prenom: true, phone: true } } },
           where: { isGardien: true },
           take: 1,
         },
       },
       orderBy: [{ classe: { nom: "asc" } }, { prenom: "asc" }],
-      take: 500,
     }),
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.count({ where }),
@@ -168,7 +172,7 @@ async function getElevesData(
     // naturellement l'utilisateur en additionnant les classes.
     getElevesStats(base),
     getClassesList(tenantId, classeSiteFilter),
-    getEffectifsParClasse(where),
+    getEffectifsParClasse(where, tenantId),
   ]);
 
   return { eleves, total, stats, classeNoms, effectifs };
@@ -179,12 +183,14 @@ export default async function ElevesPage({
 }: {
   searchParams: Promise<{ q?: string; classeId?: string; statut?: string }>;
 }) {
-  const [session, t, sp] = await Promise.all([
+  const [session, t, tCommon, sp] = await Promise.all([
     auth(),
     getTranslations("eleves"),
+    getTranslations("common"),
     searchParams,
   ]);
   if (!session?.user?.tenantId) redirect("/login");
+  await guardPage(session, "eleves:read");
 
   const { q, classeId, statut } = sp;
 
@@ -192,8 +198,10 @@ export default async function ElevesPage({
   const classeSiteFilter = siteFilterForModel("classe", session.user);
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const tenantHasSites = (session.user as { tenantHasSites?: boolean }).tenantHasSites ?? false;
-  const [sites, { eleves, total, stats, classeNoms, effectifs }] = await Promise.all([
+  const [sites, anneeCourante, siteColors, { eleves, total, stats, classeNoms, effectifs }] = await Promise.all([
     getSitesForUser(),
+    getAnneeCouranteLibelle(session.user.tenantId),
+    getSiteColorMap(session.user.tenantId),
     getElevesData(session.user.tenantId, siteFilter, classeSiteFilter, {
       q,
       classeId,
@@ -201,11 +209,20 @@ export default async function ElevesPage({
     }, session.user.role),
   ]);
 
+  const currentSiteName = currentSiteId
+    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? "Site inconnu")
+    : session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN"
+      ? tCommon("allSites")
+      : "Aucun site";
+  const currentSiteColor = currentSiteId ? siteColors[currentSiteId] : undefined;
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
         title={t("title")}
-        subtitle={`${stats.actifs} — 2025-2026`}
+        subtitle={`${stats.actifs} — ${anneeCourante ?? "—"}`}
+        site={currentSiteName}
+        siteColor={currentSiteColor}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
@@ -232,6 +249,7 @@ export default async function ElevesPage({
           total={total}
           effectifs={effectifs}
           classes={classeNoms}
+          siteColors={siteColors}
           initialQuery={q ?? ""}
           initialClasse={classeId ?? ""}
           initialStatut={statut ?? ""}

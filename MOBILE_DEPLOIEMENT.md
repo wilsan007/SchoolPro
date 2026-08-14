@@ -46,9 +46,9 @@ front Next.js (Vercel recommandé) et noter l'URL de production, ex.
 # Définir l'URL de prod (sinon valeur par défaut de capacitor.config.ts)
 export CAP_SERVER_URL=https://app.ecolpro.app
 
-npm run cap:add:ios       # crée ./ios
-npm run cap:add:android   # crée ./android
-npm run cap:sync          # installe les plugins natifs + applique la config
+pnpm run cap:add:ios       # crée ./ios
+pnpm run cap:add:android   # crée ./android
+pnpm run cap:sync          # installe les plugins natifs + applique la config
 ```
 
 ---
@@ -56,10 +56,10 @@ npm run cap:sync          # installe les plugins natifs + applique la config
 ## 3. Icônes & splash screen
 
 ```bash
-npm i -D @capacitor/assets
+pnpm add -D @capacitor/assets
 # Déposer un logo 1024×1024 dans ./assets/icon.png et ./assets/splash.png (2732×2732)
 npx @capacitor/assets generate --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#4f46e5'
-npm run cap:sync
+pnpm run cap:sync
 ```
 
 ---
@@ -69,7 +69,7 @@ npm run cap:sync
 ### Android (FCM)
 1. Créer un projet **Firebase** → ajouter une app Android (`app.ecolpro.mobile`).
 2. Télécharger `google-services.json` → le placer dans `android/app/`.
-3. `npm run cap:sync`.
+3. `pnpm run cap:sync`.
 
 ### iOS (APNs)
 1. Dans Firebase, ajouter une app iOS (`app.ecolpro.mobile`) → `GoogleService-Info.plist`
@@ -101,7 +101,7 @@ psql "$DATABASE_URL" -f migration_device_tokens.sql
 
 ### iOS → App Store
 ```bash
-npm run cap:ios          # ouvre Xcode
+pnpm run cap:ios          # ouvre Xcode
 ```
 Dans Xcode : choisir l'équipe de signature → *Product › Archive* →
 *Distribute App › App Store Connect*. Puis sur **App Store Connect** :
@@ -109,7 +109,7 @@ fiche app, captures (6.7" + 5.5"), confidentialité, soumettre à la revue.
 
 ### Android → Play Store
 ```bash
-npm run cap:android      # ouvre Android Studio
+pnpm run cap:android      # ouvre Android Studio
 ```
 Dans Android Studio : *Build › Generate Signed Bundle (AAB)* (créer un keystore,
 **le sauvegarder précieusement**). Puis sur **Play Console** : créer l'app,
@@ -138,4 +138,4 @@ uploader l'`.aab` en test interne → production, fiche + captures, soumettre.
 | Enregistrement du token push | `src/app/api/mobile/register-device/route.ts` |
 | Modèle `DeviceToken` + migration | `prisma/schema.prisma`, `migration_device_tokens.sql` |
 | Page de repli hors-ligne native | `mobile/www/index.html` |
-| Scripts npm (`cap:*`) | `package.json` |
+| Scripts pnpm (`cap:*`) | `package.json` |

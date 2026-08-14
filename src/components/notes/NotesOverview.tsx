@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { getNoteColor } from "@/lib/utils";
 import { PenLine, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { ClassSelector } from "@/components/sites/ClassSelector";
+import type { SiteColor } from "@/lib/site-colors";
 
 interface Matiere {
   id: string;
@@ -23,9 +25,21 @@ interface Classe {
   id: string;
   nom: string;
   niveau: string;
+  siteId: string | null;
+  siteNom: string | null;
 }
 
-export function NotesOverview({ matieres, classes, selectedClasseId = "" }: { matieres: Matiere[]; classes: Classe[]; selectedClasseId?: string }) {
+export function NotesOverview({
+  matieres,
+  classes,
+  siteColors,
+  selectedClasseId = "",
+}: {
+  matieres: Matiere[];
+  classes: Classe[];
+  siteColors: Record<string, SiteColor>;
+  selectedClasseId?: string;
+}) {
   const t = useTranslations("notes");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,30 +59,25 @@ export function NotesOverview({ matieres, classes, selectedClasseId = "" }: { ma
   return (
     <div className="space-y-4">
       {/* Filtre classe */}
-      <div className="flex gap-2 flex-wrap">
-        <button
-          onClick={() => handleClasseFilter("")}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            !selectedClasseId
-              ? "bg-primary text-white"
-              : "bg-muted hover:bg-muted/80 text-muted-foreground"
-          }`}
-        >
-          {t("allClasses")}
-        </button>
-        {classes.map((classe) => (
+      <div className="space-y-3">
+        <div className="flex gap-2 flex-wrap">
           <button
-            key={classe.id}
-            onClick={() => handleClasseFilter(classe.id)}
+            onClick={() => handleClasseFilter("")}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              selectedClasseId === classe.id
+              !selectedClasseId
                 ? "bg-primary text-white"
                 : "bg-muted hover:bg-muted/80 text-muted-foreground"
             }`}
           >
-            {classe.nom}
+            {t("allClasses")}
           </button>
-        ))}
+        </div>
+        <ClassSelector
+          classes={classes}
+          siteColors={siteColors}
+          selectedId={selectedClasseId}
+          onSelect={handleClasseFilter}
+        />
       </div>
 
       {/* Grille matières */}

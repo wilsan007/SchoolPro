@@ -4,14 +4,19 @@ import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { ParentsView } from "@/components/parents/ParentsView";
 import { getTranslations } from "next-intl/server";
-import { siteFilterForModel } from "@/lib/site-filter";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-filter";
 
-async function getParentsData(tenantId: string, siteFilter: Record<string, unknown>) {
+async function getParentsData(tenantId: string, claims: SessionSiteClaims) {
   const parents = await prisma.parent.findMany({
-    where: { tenantId, enfants: { some: { eleve: { ...siteFilter } } } },
+    // `Parent` n'a pas de colonne `siteId` : le rattachement passe par l'utilisateur
+    // (chemin canonique déclaré dans SITE_PATHS, identique à tout le reste du code).
+    where: { tenantId, ...siteFilterForModel("parent", claims) },
     include: {
       user: { select: { id: true, name: true, email: true, avatarUrl: true, lastLoginAt: true } },
       enfants: {
+        // Un parent scopé visible peut avoir des enfants sur d'autres sites que
+        // celui de l'appelant : ne pas les exposer au-delà de son périmètre.
+        where: siteFilterForModel("eleveParent", claims),
         include: {
           eleve: {
             select: {
@@ -42,9 +47,7 @@ export default async function ParentsPage() {
   ]);
   if (!session?.user?.tenantId) redirect("/login");
 
-  // `Parent` n'a pas de colonne `siteId` : le rattachement passe par l'utilisateur.
-  const siteFilter = siteFilterForModel("parent", session.user);
-  const { parents: rawParents } = await getParentsData(session.user.tenantId, siteFilter);
+  const { parents: rawParents } = await getParentsData(session.user.tenantId, session.user);
 
   // Mapper 'enfants' (relation Prisma) → 'eleves' (prop attendue par ParentsView)
   const parents = rawParents.map((p) => ({

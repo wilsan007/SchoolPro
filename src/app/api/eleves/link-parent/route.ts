@@ -34,10 +34,11 @@ export async function POST(req: NextRequest) {
   const eleve = await prisma.eleve.findFirst({ where: { id: eleveId, tenantId, ...siteFilter } });
   if (!eleve) return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
 
-  const parent = await prisma.parent.findFirst({ where: { id: parentId, tenantId } });
+  const parent = await prisma.parent.findFirst({ where: { id: parentId, tenantId, ...siteFilterForModel("parent", session.user) } });
   if (!parent) return NextResponse.json({ error: "Parent introuvable" }, { status: 404 });
 
-  // Check if link already exists
+  // Check if link already exists — isolé via la relation eleve
+  // eslint-disable-next-line ecolpro/require-site-filter -- eleveParent isolé via eleve.tenantId + siteFilter validé au findFirst ci-dessus (ligne 34)
   const existing = await prisma.eleveParent.findUnique({
     where: { eleveId_parentId: { eleveId, parentId } },
   });
@@ -62,18 +63,18 @@ export async function GET(req: NextRequest) {
   const eleveId = searchParams.get("eleveId");
 
   if (eleveId) {
+    // eslint-disable-next-line ecolpro/require-site-filter -- eleveParent isolé via la relation eleve (tenantId + siteFilter sur eleve)
     const parents = await prisma.eleveParent.findMany({
-      where: { eleveId },
+      where: { eleveId, eleve: { tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) } },
       include: { parent: { select: { id: true, nom: true, prenom: true, phone: true, email: true } } },
     });
     return NextResponse.json({ parents });
   }
 
   // List all links with eleve and parent info
-  const siteFilterGet = siteFilterForModel("eleveParent", session.user);
-
+  // eslint-disable-next-line ecolpro/require-site-filter -- eleveParent isolé via la relation eleve (tenantId + siteFilter sur eleve)
   const links = await prisma.eleveParent.findMany({
-    where: { eleve: { tenantId: session.user.tenantId, ...siteFilterForModel("eleveParent", session.user) } },
+    where: { eleve: { tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) } },
     include: {
       eleve: { select: { id: true, nom: true, prenom: true, matricule: true } },
       parent: { select: { id: true, nom: true, prenom: true, phone: true, email: true } },

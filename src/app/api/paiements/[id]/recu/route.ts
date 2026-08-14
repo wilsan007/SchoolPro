@@ -14,6 +14,7 @@ export async function GET(
     }
 
     const { id } = await params;
+    // eslint-disable-next-line ecolpro/require-site-filter -- paiement n'a pas de siteId, contrôle de site via canAccessSite(facture.siteId) ligne 55
     const paiement = await prisma.paiement.findUnique({
       where: { id },
       include: {

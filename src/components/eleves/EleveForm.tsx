@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, Upload, X, User, MapPin, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Upload, X, User, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,6 @@ interface EleveFormData {
   nationalite?: string;
   sexe: "M" | "F";
   classeId?: string;
-  siteId?: string;
   statut?: "ACTIF" | "TRANSFERE" | "DIPLOME" | "EXCLU" | "ABANDONNE";
   groupeSanguin?: string;
   allergies?: string;
@@ -86,7 +85,6 @@ const FormSchema = z.object({
   dateNaissance: z.string().min(1, "La date de naissance est requise"),
   sexe: z.enum(["M", "F"]),
   classeId: z.string().optional(),
-  siteId: z.string().optional(),
   statut: z.enum(["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
   regime: z.enum(["interne", "demi-pensionnaire", "externe"]).optional(),
   parentEmail: z.string().email().optional().or(z.literal("")),
@@ -104,7 +102,6 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
     nationalite: initialData?.nationalite ?? "SN",
     sexe: initialData?.sexe ?? "M",
     classeId: initialData?.classeId ?? "",
-    siteId: initialData?.siteId ?? currentSiteId ?? "",
     statut: initialData?.statut ?? "ACTIF",
     groupeSanguin: initialData?.groupeSanguin ?? "",
     allergies: initialData?.allergies ?? "",
@@ -140,12 +137,6 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
-
-    if (tenantHasSites && sites.length > 0 && !form.siteId) {
-      setErrors({ siteId: "Veuillez sélectionner un site pour cet élève" });
-      toast.error("Veuillez sélectionner un site pour cet élève");
-      return;
-    }
 
     const parsed = FormSchema.safeParse(form);
     if (!parsed.success) {
@@ -268,29 +259,6 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
               <p className="text-xs text-gray-400">{t("photoHint")}</p>
             </div>
           </div>
-
-          {tenantHasSites && sites.length > 0 && (
-            <div className="space-y-1.5">
-              <Label htmlFor="siteId" className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                Site de rattachement
-              </Label>
-              <select
-                id="siteId"
-                value={form.siteId}
-                onChange={(e) => updateField("siteId", e.target.value)}
-                className={cn("h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring", !form.siteId && "border-destructive")}
-              >
-                <option value="">— Sélectionner un site —</option>
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>{s.nom}{s.code ? ` (${s.code})` : ""}</option>
-                ))}
-              </select>
-              {!form.siteId && (
-                <p className="text-xs text-destructive">Veuillez sélectionner un site pour cet élève</p>
-              )}
-            </div>
-          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1.5">

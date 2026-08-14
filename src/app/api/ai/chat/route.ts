@@ -239,6 +239,11 @@ Pour toute question sur l'emploi du temps, les classes, les enseignants ou les s
   const parent = await prisma.parent.findFirst({
     where: { userId, tenantId },
     include: {
+      // `enfants` est la liste des liens de CE parent, retrouvé par son propre
+      // `userId` : le périmètre est personnel, pas géographique. Un parent peut
+      // d'ailleurs avoir des enfants sur plusieurs sites, filtrer par site serait
+      // faux (voir RELATION_SCOPED_ROLES dans site-scope.ts).
+      // eslint-disable-next-line ecolpro/require-site-filter
       enfants: {
         include: {
           // eslint-disable-next-line ecolpro/require-site-filter -- eleve scoping via parent.userId (personal scope)

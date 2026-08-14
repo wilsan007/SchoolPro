@@ -47,7 +47,7 @@ export async function deriveClaims(
   userId: string,
   preferredTenantId?: string | null
 ): Promise<TenantSiteClaims | null> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- claims derivation: computing site claims themselves, filtering would be circular
+  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- claims derivation: computing site/tenant claims themselves, filtering would be circular; userId provient du token authentifié, pas d'une entrée cliente
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -202,7 +202,7 @@ export async function resolveSiteAccess(
   });
   if (!site) return null;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- site access resolution, filtering would be circular
+  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- site access resolution, filtering would be circular; userId provient du token authentifié
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true, tenantId: true },

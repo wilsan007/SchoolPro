@@ -15,7 +15,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
     const tenantId = session.user.tenantId;
 
-    const existing = await prisma.emploiTemps.findFirst({ where: { id, tenantId } });
+    const existing = await prisma.emploiTemps.findFirst({
+      where: { id, tenantId, ...siteFilterForModel("emploiTemps", session.user) },
+    });
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
     await prisma.emploiTemps.delete({ where: { id } });
@@ -39,7 +41,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const tenantId = session.user.tenantId;
     const body = await req.json();
 
-    const existing = await prisma.emploiTemps.findFirst({ where: { id, tenantId } });
+    const existing = await prisma.emploiTemps.findFirst({
+      where: { id, tenantId, ...siteFilterForModel("emploiTemps", session.user) },
+    });
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
     const newJour = body.jour ?? existing.jour;
@@ -62,6 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
           { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
         ],
+        ...siteFilterForModel("emploiTemps", session.user),
       },
     });
 
@@ -97,6 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
             { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
           ],
+          ...siteFilterForModel("emploiTemps", session.user),
         },
       });
       if (teacherConflict) {
@@ -117,6 +123,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
             { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
           ],
+          ...siteFilterForModel("emploiTemps", session.user),
         },
       });
       if (roomConflict) {

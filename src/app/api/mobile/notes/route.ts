@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       take: 50,
     }),
     prisma.matiere.findMany({
-      where: { tenantId: user.tenantId },
+      where: { tenantId: user.tenantId, ...siteFilterForModel("matiere", user) },
       select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
       orderBy: { nom: "asc" },
     }),

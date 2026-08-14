@@ -1,37 +1,30 @@
 "use client";
 
 /**
- * Composeur de conversation
- * =========================
+ * Composeur de conversation — version redesignée
+ * ===============================================
  *
- * Ce que font les logiciels scolaires historiques (Pronote, EcoleDirecte) :
- * un arbre de cases à cocher site → niveau → classe → public. Le ciblage est
- * complet mais l'écran est intimidant et lent à parcourir.
+ * Deux modes de ciblage, complémentaires :
  *
- * Ce que font les messageries grand public (WhatsApp, Remind) : deux clics,
- * mais aucun ciblage — impossible d'écrire « aux parents de 6e B ».
+ *   1. **Mode Audience** — pour les diffusions et annonces groupées.
+ *      L'utilisateur choisit une portée (établissement, site, structure,
+ *      niveau, classe) puis coche les publics voulus (parents, élèves,
+ *      enseignants, personnel, direction). Plusieurs publics peuvent être
+ *      cochés simultanément — « parents + enseignants de 6e B » en un seul
+ *      envoi. Un aperçu chiffré se met à jour en temps réel.
  *
- * On garde la puissance des premiers et la rapidité des secondes :
+ *   2. **Mode Personnes** — pour les messages directs et petits groupes.
+ *      Recherche individuelle par nom, avec filtrage par rôle.
  *
- *   • **un seul champ** qui cherche simultanément les personnes et les
- *     audiences (« 6e B », « parents », « Diallo ») — le principe de la
- *     palette de commandes (Linear, Superhuman) appliqué au ciblage ;
- *   • **des pastilles** pour ce qui est sélectionné, comme un champ « À : »
- *     de messagerie (Gmail) ;
- *   • **un aperçu chiffré** des destinataires avant l'envoi (Intercom) — on
- *     ne diffuse jamais à l'aveugle ;
- *   • **trois intentions** au lieu de huit types techniques : le type stocké
- *     en base est déduit côté serveur.
- *
- * Le clavier suffit de bout en bout : ↑ ↓ pour parcourir, Entrée pour
- * choisir, Retour arrière pour retirer la dernière pastille, ⌘/Ctrl+Entrée
- * pour envoyer.
+ * Trois intentions (Message / Annonce / Groupe) déterminent le type
+ * technique stocké en base, déduit côté serveur.
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Search, X, Users, User, GraduationCap, Building2, Layers,
   Megaphone, MessageSquare, Hash, Loader2, AlertTriangle, Send, UserCheck,
+  CheckSquare, Square, ChevronRight, School,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -68,17 +61,6 @@ interface Person {
   avatarUrl: string | null;
 }
 
-interface AudiencePick {
-  scope: AudienceScope;
-  group: AudienceGroup;
-  label: string;
-  sublabel: string;
-}
-
-type Suggestion =
-  | ({ kind: "person" } & Person)
-  | ({ kind: "audience" } & AudiencePick);
-
 interface Preview {
   count: number;
   breakdown: { group: AudienceGroup; count: number }[];
@@ -87,14 +69,16 @@ interface Preview {
   max: number;
 }
 
+type ComposerMode = "audience" | "persons";
+
 // ------------------------------------------------------------
 // Libellés
 // ------------------------------------------------------------
 
-const INTENTS: { id: Intent; label: string; hint: string; icon: typeof Send }[] = [
-  { id: "MESSAGE", label: "Message", hint: "Chacun peut répondre", icon: MessageSquare },
-  { id: "ANNONCE", label: "Annonce", hint: "Diffusion, lecture seule", icon: Megaphone },
-  { id: "GROUPE", label: "Groupe", hint: "Espace de discussion durable", icon: Hash },
+const INTENTS: { id: Intent; label: string; hint: string; icon: typeof Send; color: string }[] = [
+  { id: "MESSAGE", label: "Message", hint: "Chacun peut répondre", icon: MessageSquare, color: "text-blue-500" },
+  { id: "ANNONCE", label: "Annonce", hint: "Diffusion, lecture seule", icon: Megaphone, color: "text-orange-500" },
+  { id: "GROUPE", label: "Groupe", hint: "Espace de discussion durable", icon: Hash, color: "text-purple-500" },
 ];
 
 const GROUP_LABEL: Record<AudienceGroup, string> = {
@@ -106,14 +90,38 @@ const GROUP_LABEL: Record<AudienceGroup, string> = {
   DIRECTION: "La direction",
 };
 
-/** Mots que l'utilisateur tape naturellement pour désigner un public. */
-const GROUP_KEYWORDS: Record<AudienceGroup, string[]> = {
-  ALL: ["tout", "tous", "toute", "monde"],
-  PARENTS: ["parent", "parents", "famille", "familles", "tuteur"],
-  ELEVES: ["eleve", "eleves", "élève", "élèves", "etudiant"],
-  ENSEIGNANTS: ["enseignant", "enseignants", "prof", "profs", "professeur"],
-  PERSONNEL: ["personnel", "staff", "equipe", "équipe"],
-  DIRECTION: ["direction", "administration", "admin", "secretariat"],
+const GROUP_ICON: Record<AudienceGroup, typeof Users> = {
+  ALL: Users,
+  PARENTS: UserCheck,
+  ELEVES: GraduationCap,
+  ENSEIGNANTS: Users,
+  PERSONNEL: Users,
+  DIRECTION: Building2,
+};
+
+const GROUP_COLOR: Record<AudienceGroup, string> = {
+  ALL: "text-gray-500",
+  PARENTS: "text-purple-500",
+  ELEVES: "text-green-500",
+  ENSEIGNANTS: "text-blue-500",
+  PERSONNEL: "text-teal-500",
+  DIRECTION: "text-indigo-500",
+};
+
+const SCOPE_LABEL: Record<AudienceScope["kind"], string> = {
+  TENANT: "Tout l'établissement",
+  SITE: "Un site",
+  STRUCTURE: "Une structure",
+  NIVEAU: "Un niveau",
+  CLASSE: "Une classe",
+};
+
+const SCOPE_ICON: Record<AudienceScope["kind"], typeof Building2> = {
+  TENANT: Building2,
+  SITE: School,
+  STRUCTURE: Layers,
+  NIVEAU: Layers,
+  CLASSE: GraduationCap,
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -130,28 +138,9 @@ const ROLE_LABEL: Record<string, string> = {
   STUDENT: "Élève",
 };
 
-/** Comparaison insensible à la casse et aux accents : « eleve » trouve « élève ». */
+/** Comparaison insensible à la casse et aux accents. */
 function norm(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-}
-
-function scopeIcon(kind: AudienceScope["kind"]) {
-  switch (kind) {
-    case "TENANT": return Building2;
-    case "SITE": return Building2;
-    case "STRUCTURE": return Layers;
-    case "NIVEAU": return Layers;
-    case "CLASSE": return GraduationCap;
-  }
-}
-
-function groupIcon(group: AudienceGroup) {
-  switch (group) {
-    case "PARENTS": return UserCheck;
-    case "ELEVES": return GraduationCap;
-    case "ENSEIGNANTS": return Users;
-    default: return Users;
-  }
 }
 
 // ------------------------------------------------------------
@@ -166,28 +155,34 @@ export function NewConversationComposer({
   onCreated: (conv: { id: string } & Record<string, unknown>) => void;
 }) {
   const [intent, setIntent] = useState<Intent>("MESSAGE");
-  const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<ComposerMode>("audience");
   const [options, setOptions] = useState<TargetingOptions | null>(null);
-  const [people, setPeople] = useState<Person[]>([]);
-  const [loadingPeople, setLoadingPeople] = useState(false);
   const [optionsError, setOptionsError] = useState<string | null>(null);
 
-  const [selectedPeople, setSelectedPeople] = useState<Person[]>([]);
-  const [audience, setAudience] = useState<AudiencePick | null>(null);
+  // Audience mode state
+  const [selectedScope, setSelectedScope] = useState<AudienceScope | null>(null);
+  const [selectedGroups, setSelectedGroups] = useState<Set<AudienceGroup>>(new Set());
+  const [scopeStep, setScopeStep] = useState<AudienceScope["kind"] | null>(null);
 
+  // Persons mode state
+  const [query, setQuery] = useState("");
+  const [people, setPeople] = useState<Person[]>([]);
+  const [loadingPeople, setLoadingPeople] = useState(false);
+  const [selectedPeople, setSelectedPeople] = useState<Person[]>([]);
+
+  // Preview
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
+  // Message
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
 
-  // --- Options de ciblage : un seul appel à l'ouverture ---
+  // --- Options de ciblage ---
   useEffect(() => {
     let cancelled = false;
     fetch("/api/messages/audience")
@@ -195,16 +190,23 @@ export function NewConversationComposer({
         if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `Erreur ${r.status}`);
         return r.json();
       })
-      .then((data: TargetingOptions) => { if (!cancelled) setOptions(data); })
-      // Les erreurs sont affichées, pas avalées : c'est précisément ce qui
-      // rendait l'ancien sélecteur de classe vide et muet.
+      .then((data: TargetingOptions) => {
+        if (cancelled) return;
+        setOptions(data);
+        // Si l'utilisateur n'a aucune portée (parent, élève), basculer en mode personnes
+        if (data.scopes.length === 0) setMode("persons");
+        // Pré-sélectionner la première portée disponible
+        if (data.scopes.length > 0) {
+          setScopeStep(data.scopes[0]);
+        }
+      })
       .catch((e: Error) => { if (!cancelled) setOptionsError(e.message); });
     return () => { cancelled = true; };
   }, []);
 
-  // --- Recherche de personnes, débouncée et faite côté serveur ---
+  // --- Recherche de personnes (mode personnes) ---
   useEffect(() => {
-    if (audience) { setPeople([]); return; }
+    if (mode !== "persons") return;
     let cancelled = false;
     setLoadingPeople(true);
     const timer = setTimeout(() => {
@@ -217,171 +219,100 @@ export function NewConversationComposer({
         .finally(() => { if (!cancelled) setLoadingPeople(false); });
     }, 200);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [query, audience]);
+  }, [query, mode]);
 
-  // --- Aperçu de l'audience ---
+  // --- Aperçu de l'audience (mode audience) ---
+  const activeGroups = useMemo(() => {
+    if (selectedGroups.has("ALL")) return ["ALL" as AudienceGroup];
+    return [...selectedGroups];
+  }, [selectedGroups]);
+
+  const hasAudience = selectedScope && activeGroups.length > 0;
+
   useEffect(() => {
-    if (!audience) { setPreview(null); return; }
+    if (!hasAudience) { setPreview(null); return; }
     let cancelled = false;
     setPreviewLoading(true);
     fetch("/api/messages/audience", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scope: audience.scope, group: audience.group }),
+      body: JSON.stringify({
+        scope: selectedScope,
+        group: activeGroups[0],
+        groups: activeGroups.length > 1 ? activeGroups : undefined,
+      }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (!cancelled) setPreview(data); })
       .catch(() => { if (!cancelled) setPreview(null); })
       .finally(() => { if (!cancelled) setPreviewLoading(false); });
     return () => { cancelled = true; };
-  }, [audience]);
+    // `activeGroups` est mémoïsé sur `selectedGroups` : son identité ne change
+    // qu'à une vraie modification de la sélection. La clé `activeGroups.join(",")`
+    // utilisée auparavant était une expression composée, que le linter ne peut
+    // pas vérifier — et elle n'apportait rien de plus.
+  }, [selectedScope, activeGroups, hasAudience]);
 
-  // --- Génération des suggestions d'audience ---
-  const audienceSuggestions = useMemo<AudiencePick[]>(() => {
-    if (!options || audience) return [];
-    const q = norm(query);
-    const out: AudiencePick[] = [];
-    const groups = options.groups;
-
-    // Quel public l'utilisateur est-il en train de nommer ?
-    const namedGroups = groups.filter((g) =>
-      q.length >= 2 && GROUP_KEYWORDS[g].some((k) => norm(k).startsWith(q) || q.startsWith(norm(k)))
-    );
-    // Une annonce s'adresse rarement aux élèves seuls : on met les parents en
-    // tête, c'est le cas d'usage dominant en établissement.
-    const defaultGroups = (namedGroups.length > 0 ? namedGroups : groups).slice(0, 3);
-
-    const push = (scope: AudienceScope, group: AudienceGroup, label: string, sublabel: string) => {
-      if (!groups.includes(group)) return;
-      out.push({ scope, group, label, sublabel });
-    };
-
-    // Classes — la portée la plus utilisée, donc la première proposée.
-    if (options.scopes.includes("CLASSE")) {
-      const matches = options.classes.filter(
-        (c) => !q || norm(c.nom).includes(q) || norm(c.niveau).includes(q) || namedGroups.length > 0
-      );
-      for (const c of matches.slice(0, q ? 6 : 4)) {
-        for (const g of defaultGroups) {
-          push({ kind: "CLASSE", id: c.id }, g, `${GROUP_LABEL[g]} de ${c.nom}`, c.niveau);
-        }
+  // --- Toggle group checkbox ---
+  const toggleGroup = (g: AudienceGroup) => {
+    setSelectedGroups((prev) => {
+      const next = new Set(prev);
+      if (g === "ALL") {
+        // ALL is exclusive
+        if (next.has("ALL")) next.clear();
+        else { next.clear(); next.add("ALL"); }
+      } else {
+        next.delete("ALL");
+        if (next.has(g)) next.delete(g);
+        else next.add(g);
       }
-    }
-
-    // Niveaux
-    if (options.scopes.includes("NIVEAU")) {
-      const matches = options.niveaux.filter((n) => !q || norm(n).includes(q) || namedGroups.length > 0);
-      for (const n of matches.slice(0, q ? 4 : 2)) {
-        for (const g of defaultGroups.slice(0, 2)) {
-          push({ kind: "NIVEAU", value: n }, g, `${GROUP_LABEL[g]} du niveau ${n}`, "Toutes les classes du niveau");
-        }
-      }
-    }
-
-    // Structures (Maternelle, Primaire, Collège, Lycée)
-    if (options.scopes.includes("STRUCTURE")) {
-      const matches = options.structures.filter((s) => !q || norm(s.nom).includes(q) || namedGroups.length > 0);
-      for (const s of matches.slice(0, 3)) {
-        for (const g of defaultGroups.slice(0, 2)) {
-          push({ kind: "STRUCTURE", id: s.id }, g, `${GROUP_LABEL[g]} — ${s.nom}`, "Cycle complet");
-        }
-      }
-    }
-
-    // Sites
-    if (options.scopes.includes("SITE")) {
-      const matches = options.sites.filter((s) => !q || norm(s.nom).includes(q) || namedGroups.length > 0);
-      for (const s of matches.slice(0, 3)) {
-        for (const g of defaultGroups.slice(0, 2)) {
-          push({ kind: "SITE", id: s.id }, g, `${GROUP_LABEL[g]} — ${s.nom}`, "Site entier");
-        }
-      }
-    }
-
-    // Établissement entier — volontairement en dernier : la portée la plus
-    // large ne doit jamais être le choix par défaut du curseur.
-    if (options.scopes.includes("TENANT")) {
-      for (const g of defaultGroups.slice(0, 2)) {
-        push({ kind: "TENANT" }, g, `${GROUP_LABEL[g]} — tout l'établissement`, "Toutes classes, tous sites");
-      }
-    }
-
-    return out.slice(0, 12);
-  }, [options, query, audience]);
-
-  const suggestions = useMemo<Suggestion[]>(() => {
-    if (audience) return [];
-    const selected = new Set(selectedPeople.map((p) => p.id));
-    return [
-      ...audienceSuggestions.map((a) => ({ kind: "audience" as const, ...a })),
-      ...people.filter((p) => !selected.has(p.id)).map((p) => ({ kind: "person" as const, ...p })),
-    ];
-  }, [audienceSuggestions, people, selectedPeople, audience]);
-
-  useEffect(() => { setHighlight(0); }, [query, intent]);
-
-  // --- Sélection ---
-  const choose = useCallback((s: Suggestion) => {
-    if (s.kind === "person") {
-      setSelectedPeople((prev) => (prev.some((p) => p.id === s.id) ? prev : [...prev, s]));
-    } else {
-      // Une audience est exclusive : mélanger « les parents de 6e B » et trois
-      // personnes nommées produit une conversation dont plus personne ne sait
-      // qui la compose.
-      setSelectedPeople([]);
-      setAudience({ scope: s.scope, group: s.group, label: s.label, sublabel: s.sublabel });
-    }
-    setQuery("");
-    inputRef.current?.focus();
-  }, []);
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlight((h) => Math.min(h + 1, suggestions.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlight((h) => Math.max(h - 1, 0));
-    } else if (e.key === "Enter" && suggestions[highlight]) {
-      e.preventDefault();
-      choose(suggestions[highlight]);
-    } else if (e.key === "Backspace" && query === "") {
-      if (audience) setAudience(null);
-      else setSelectedPeople((prev) => prev.slice(0, -1));
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
+      return next;
+    });
   };
 
-  useEffect(() => {
-    listRef.current?.querySelector<HTMLElement>(`[data-idx="${highlight}"]`)
-      ?.scrollIntoView({ block: "nearest" });
-  }, [highlight]);
+  // --- Scope selection helpers ---
+  const availableScopes = options?.scopes ?? [];
+  const hasScopeChoice = availableScopes.length > 1;
+
+  const selectScope = (scope: AudienceScope) => {
+    setSelectedScope(scope);
+  };
 
   // --- Envoi ---
-  const recipientCount = audience ? (preview?.count ?? null) : selectedPeople.length;
+  const recipientCount = mode === "audience"
+    ? (preview?.count ?? null)
+    : selectedPeople.length;
+
   const canSend =
     message.trim().length > 0 &&
     !creating &&
-    (audience ? (preview?.count ?? 0) > 0 : selectedPeople.length > 0);
+    (mode === "audience"
+      ? (preview?.count ?? 0) > 0 && hasAudience
+      : selectedPeople.length > 0);
 
   const handleCreate = async () => {
     if (!canSend) return;
     setCreating(true);
     setError(null);
     try {
+      const body: Record<string, unknown> = {
+        intent,
+        firstMessage: message.trim(),
+        subject: subject.trim() || undefined,
+      };
+      if (mode === "audience" && hasAudience) {
+        body.audience = {
+          scope: selectedScope,
+          group: activeGroups[0],
+          groups: activeGroups.length > 1 ? activeGroups : undefined,
+        };
+      } else {
+        body.participantIds = selectedPeople.map((p) => p.id);
+      }
       const res = await fetch("/api/messages/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          intent,
-          firstMessage: message.trim(),
-          subject: subject.trim() || undefined,
-          ...(audience
-            ? { audience: { scope: audience.scope, group: audience.group } }
-            : { participantIds: selectedPeople.map((p) => p.id) }),
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Échec de la création");
@@ -393,7 +324,171 @@ export function NewConversationComposer({
     }
   };
 
-  const AudienceIcon = audience ? scopeIcon(audience.scope.kind) : Users;
+  const audienceLabel = useMemo(() => {
+    if (!hasAudience) return "";
+    const groupPart = activeGroups.includes("ALL")
+      ? "Tout le monde"
+      : activeGroups.map((g) => GROUP_LABEL[g]).join(" + ");
+    const scopePart = selectedScope
+      ? (selectedScope.kind === "TENANT" ? "tout l'établissement"
+        : selectedScope.kind === "SITE" ? (options?.sites.find((s) => s.id === selectedScope.id)?.nom ?? "site")
+        : selectedScope.kind === "STRUCTURE" ? (options?.structures.find((s) => s.id === selectedScope.id)?.nom ?? "structure")
+        : selectedScope.kind === "NIVEAU" ? `niveau ${selectedScope.value}`
+        : selectedScope.kind === "CLASSE" ? (options?.classes.find((c) => c.id === selectedScope.id)?.nom ?? "classe")
+        : "")
+      : "";
+    return `${groupPart} — ${scopePart}`;
+  }, [hasAudience, activeGroups, selectedScope, options]);
+
+  // --- Available groups for current scope ---
+  const availableGroups = options?.groups ?? [];
+
+  // --- Render scope selector tree ---
+  const renderScopeSelector = () => {
+    if (!options || availableScopes.length === 0) return null;
+
+    // If only one scope kind, auto-select it
+    if (availableScopes.length === 1 && !selectedScope) {
+      const kind = availableScopes[0];
+      if (kind === "TENANT") {
+        selectScope({ kind: "TENANT" });
+        return null;
+      }
+    }
+
+    return (
+      <div className="space-y-2">
+        {/* Scope kind selector (if multiple) */}
+        {hasScopeChoice && (
+          <div className="flex flex-wrap gap-1.5">
+            {availableScopes.map((kind) => {
+              const SIcon = SCOPE_ICON[kind];
+              const isActive = scopeStep === kind || selectedScope?.kind === kind;
+              return (
+                <button
+                  key={kind}
+                  onClick={() => { setScopeStep(kind); setSelectedScope(null); }}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all",
+                    isActive ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <SIcon className="h-3.5 w-3.5" />
+                  {SCOPE_LABEL[kind]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Scope value selector based on current step */}
+        {(!hasScopeChoice || scopeStep) && (
+          <div className="border rounded-lg overflow-hidden">
+            {/* TENANT — no value needed */}
+            {(scopeStep === "TENANT" || (!hasScopeChoice && availableScopes[0] === "TENANT")) && (
+              <button
+                onClick={() => selectScope({ kind: "TENANT" })}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors",
+                  selectedScope?.kind === "TENANT" ? "bg-accent" : "hover:bg-accent/50"
+                )}
+              >
+                <Building2 className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm">Tout l&apos;établissement</span>
+                {selectedScope?.kind === "TENANT" && <CheckSquare className="h-4 w-4 text-primary ml-auto" />}
+              </button>
+            )}
+
+            {/* SITE */}
+            {scopeStep === "SITE" && options.sites.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => selectScope({ kind: "SITE", id: s.id })}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b last:border-0",
+                  selectedScope?.kind === "SITE" && selectedScope.id === s.id ? "bg-accent" : "hover:bg-accent/50"
+                )}
+              >
+                <School className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm">{s.nom}</span>
+                {selectedScope?.kind === "SITE" && selectedScope.id === s.id && <CheckSquare className="h-4 w-4 text-primary ml-auto" />}
+              </button>
+            ))}
+
+            {/* STRUCTURE */}
+            {scopeStep === "STRUCTURE" && options.structures.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => selectScope({ kind: "STRUCTURE", id: s.id })}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b last:border-0",
+                  selectedScope?.kind === "STRUCTURE" && selectedScope.id === s.id ? "bg-accent" : "hover:bg-accent/50"
+                )}
+              >
+                <Layers className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm">{s.nom}</span>
+                {selectedScope?.kind === "STRUCTURE" && selectedScope.id === s.id && <CheckSquare className="h-4 w-4 text-primary ml-auto" />}
+              </button>
+            ))}
+
+            {/* NIVEAU */}
+            {scopeStep === "NIVEAU" && options.niveaux.map((n) => (
+              <button
+                key={n}
+                onClick={() => selectScope({ kind: "NIVEAU", value: n })}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b last:border-0",
+                  selectedScope?.kind === "NIVEAU" && selectedScope.value === n ? "bg-accent" : "hover:bg-accent/50"
+                )}
+              >
+                <Layers className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm">Niveau {n}</span>
+                {selectedScope?.kind === "NIVEAU" && selectedScope.value === n && <CheckSquare className="h-4 w-4 text-primary ml-auto" />}
+              </button>
+            ))}
+
+            {/* CLASSE — grouped by niveau */}
+            {scopeStep === "CLASSE" && (
+              <div className="max-h-48 overflow-y-auto">
+                {options.classes.length === 0 ? (
+                  <div className="p-3 text-xs text-muted-foreground text-center">
+                    Aucune classe disponible pour votre périmètre.
+                  </div>
+                ) : (
+                  Object.entries(
+                    options.classes.reduce<Record<string, typeof options.classes>>((acc, c) => {
+                      (acc[c.niveau] ??= []).push(c);
+                      return acc;
+                    }, {})
+                  ).map(([niveau, classes]) => (
+                    <div key={niveau}>
+                      <div className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30 sticky top-0">
+                        {niveau}
+                      </div>
+                      {classes.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => selectScope({ kind: "CLASSE", id: c.id })}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b last:border-0",
+                            selectedScope?.kind === "CLASSE" && selectedScope.id === c.id ? "bg-accent" : "hover:bg-accent/50"
+                          )}
+                        >
+                          <GraduationCap className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-sm">{c.nom}</span>
+                          {selectedScope?.kind === "CLASSE" && selectedScope.id === c.id && <CheckSquare className="h-4 w-4 text-primary ml-auto" />}
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -401,13 +496,14 @@ export function NewConversationComposer({
       onClick={onClose}
     >
       <div
-        className="bg-background rounded-xl shadow-2xl w-full max-w-xl my-auto overflow-hidden border"
+        className="bg-background rounded-xl shadow-2xl w-full max-w-2xl my-auto overflow-hidden border"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleCreate(); }
+          if (e.key === "Escape") { e.preventDefault(); onClose(); }
         }}
       >
-        {/* Intention — trois choix, pas huit types techniques */}
+        {/* Intention — trois choix */}
         <div className="flex border-b">
           {INTENTS.map((it) => {
             const Icon = it.icon;
@@ -421,7 +517,7 @@ export function NewConversationComposer({
                   active ? "text-primary" : "text-muted-foreground hover:bg-accent/50"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={cn("h-4 w-4", active && it.color)} />
                 <span className="font-medium">{it.label}</span>
                 <span className="text-[10px] opacity-70 hidden sm:block">{it.hint}</span>
                 {active && <div className="absolute bottom-0 inset-x-0 h-0.5 bg-primary" />}
@@ -430,187 +526,232 @@ export function NewConversationComposer({
           })}
         </div>
 
-        <div className="p-4 space-y-3">
-          {/* Champ unique : personnes ET audiences */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              À qui ?
-            </label>
-            <div className="border rounded-lg focus-within:ring-2 focus-within:ring-primary/30 transition-shadow">
-              <div className="flex flex-wrap items-center gap-1.5 p-1.5">
-                {audience && (
-                  <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary rounded-md pl-2 pr-1 py-1 text-xs font-medium max-w-full">
-                    <AudienceIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{audience.label}</span>
-                    <button
-                      onClick={() => setAudience(null)}
-                      className="hover:bg-primary/20 rounded p-0.5 shrink-0"
-                      aria-label="Retirer l'audience"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
+        <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Mode selector: Audience vs Personnes */}
+          {availableScopes.length > 0 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMode("audience")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all",
+                  mode === "audience" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
                 )}
-                {selectedPeople.map((p) => (
-                  <span
-                    key={p.id}
-                    className="inline-flex items-center gap-1.5 bg-muted rounded-md pl-1 pr-1 py-0.5 text-xs max-w-full"
-                  >
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={p.avatarUrl ?? undefined} />
-                      <AvatarFallback className="text-[9px]">{p.name?.[0] ?? "?"}</AvatarFallback>
-                    </Avatar>
-                    <span className="truncate">{p.name}</span>
-                    <button
-                      onClick={() => setSelectedPeople((prev) => prev.filter((x) => x.id !== p.id))}
-                      className="hover:bg-background rounded p-0.5 shrink-0"
-                      aria-label={`Retirer ${p.name}`}
+              >
+                <Users className="h-4 w-4" />
+                Diffusion à un groupe
+              </button>
+              <button
+                onClick={() => setMode("persons")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all",
+                  mode === "persons" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <User className="h-4 w-4" />
+                Personnes individuelles
+              </button>
+            </div>
+          )}
+
+          {optionsError && (
+            <div className="flex items-center gap-2 p-3 text-xs text-destructive bg-destructive/10 rounded-lg">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Ciblage indisponible : {optionsError}
+            </div>
+          )}
+
+          {/* === MODE AUDIENCE === */}
+          {mode === "audience" && (
+            <div className="space-y-4">
+              {/* 1. Portée */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                  1. Portée — à qui s&apos;adresse le message ?
+                </label>
+                {renderScopeSelector()}
+              </div>
+
+              {/* 2. Publics — cases à cocher */}
+              {selectedScope && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                    2. Publics — cochez un ou plusieurs
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {availableGroups.map((g) => {
+                      const GIcon = GROUP_ICON[g];
+                      const checked = selectedGroups.has(g);
+                      return (
+                        <button
+                          key={g}
+                          onClick={() => toggleGroup(g)}
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-all text-left",
+                            checked
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border hover:bg-accent/50 text-muted-foreground"
+                          )}
+                        >
+                          {checked ? (
+                            <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
+                          ) : (
+                            <Square className="h-4 w-4 shrink-0" />
+                          )}
+                          <GIcon className={cn("h-3.5 w-3.5 shrink-0", checked && GROUP_COLOR[g])} />
+                          <span className="truncate">{GROUP_LABEL[g]}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Aperçu chiffré */}
+              {hasAudience && (
+                <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-2">
+                  {previewLoading ? (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Calcul des destinataires…
+                    </span>
+                  ) : preview ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 font-medium text-sm">
+                        <Users className="h-4 w-4" />
+                        {preview.count} destinataire{preview.count > 1 ? "s" : ""}
+                        <span className="text-muted-foreground font-normal text-xs ml-1">
+                          · {audienceLabel}
+                        </span>
+                      </div>
+                      {preview.breakdown.length > 1 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {preview.breakdown.map((b) => {
+                            const BIcon = GROUP_ICON[b.group];
+                            return (
+                              <span key={b.group} className="flex items-center gap-1 bg-background rounded-md px-2 py-1 text-[11px]">
+                                <BIcon className={cn("h-3 w-3", GROUP_COLOR[b.group])} />
+                                {GROUP_LABEL[b.group]} · <strong>{b.count}</strong>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {preview.sansCompte > 0 && (
+                        <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-500">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                          <span>
+                            {preview.sansCompte} personne{preview.sansCompte > 1 ? "s" : ""} sans compte
+                            ne recevront pas ce message
+                          </span>
+                        </div>
+                      )}
+                      {preview.truncated && (
+                        <div className="flex items-start gap-1.5 text-destructive">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                          <span>Plus de {preview.max} personnes : affinez la portée</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    !previewLoading && <span className="text-muted-foreground">Sélectionnez une portée et au moins un public.</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* === MODE PERSONNES === */}
+          {mode === "persons" && (
+            <div className="space-y-3">
+              {/* Selected people chips */}
+              {selectedPeople.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedPeople.map((p) => (
+                    <span
+                      key={p.id}
+                      className="inline-flex items-center gap-1.5 bg-muted rounded-md pl-1 pr-1 py-0.5 text-xs max-w-full"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-                <div className="flex items-center gap-1.5 flex-1 min-w-[140px] px-1">
-                  <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={p.avatarUrl ?? undefined} />
+                        <AvatarFallback className="text-[9px]">{p.name?.[0] ?? "?"}</AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{p.name}</span>
+                      <button
+                        onClick={() => setSelectedPeople((prev) => prev.filter((x) => x.id !== p.id))}
+                        className="hover:bg-background rounded p-0.5 shrink-0"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Search input */}
+              <div className="border rounded-lg focus-within:ring-2 focus-within:ring-primary/30 transition-shadow">
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                   <input
                     ref={inputRef}
                     autoFocus
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={onKeyDown}
-                    placeholder={
-                      audience ? "Audience définie" : "Une classe, un public, ou un nom…"
-                    }
-                    disabled={!!audience}
-                    className="flex-1 bg-transparent outline-none text-sm py-1 disabled:cursor-not-allowed"
+                    placeholder="Rechercher une personne par nom…"
+                    className="flex-1 bg-transparent outline-none text-sm"
                   />
                 </div>
-              </div>
 
-              {/* Suggestions */}
-              {!audience && (
-                <div ref={listRef} className="max-h-64 overflow-y-auto border-t">
-                  {optionsError && (
-                    <div className="flex items-center gap-2 p-3 text-xs text-destructive">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
-                      Ciblage indisponible : {optionsError}
+                {/* Results */}
+                <div className="max-h-56 overflow-y-auto border-t">
+                  {loadingPeople ? (
+                    <div className="p-4 text-center">
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
                     </div>
-                  )}
-                  {!optionsError && suggestions.length === 0 && (
+                  ) : people.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
-                      {loadingPeople || !options ? (
-                        <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                      ) : (
-                        "Aucun résultat"
-                      )}
+                      {query ? "Aucun résultat" : "Tapez un nom pour rechercher"}
                     </div>
-                  )}
-                  {suggestions.map((s, i) => {
-                    const active = i === highlight;
-                    if (s.kind === "audience") {
-                      const Icon = scopeIcon(s.scope.kind);
-                      const GIcon = groupIcon(s.group);
+                  ) : (
+                    people.map((p) => {
+                      const selected = selectedPeople.some((sp) => sp.id === p.id);
                       return (
                         <button
-                          key={`a-${s.scope.kind}-${"id" in s.scope ? s.scope.id : "value" in s.scope ? s.scope.value : "t"}-${s.group}`}
-                          data-idx={i}
-                          onMouseEnter={() => setHighlight(i)}
-                          onClick={() => choose(s)}
+                          key={p.id}
+                          onClick={() => {
+                            if (!selected) setSelectedPeople((prev) => [...prev, p]);
+                          }}
+                          disabled={selected}
                           className={cn(
-                            "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
-                            active ? "bg-accent" : "hover:bg-accent/50"
+                            "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b last:border-0",
+                            selected ? "opacity-50 cursor-not-allowed" : "hover:bg-accent/50"
                           )}
                         >
-                          <div className="relative shrink-0">
-                            <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center">
-                              <Icon className="h-3.5 w-3.5 text-primary" />
-                            </div>
-                            <GIcon className="h-3 w-3 absolute -bottom-1 -right-1 bg-background rounded-full p-[1px] text-muted-foreground" />
-                          </div>
+                          <Avatar className="h-7 w-7 shrink-0">
+                            <AvatarImage src={p.avatarUrl ?? undefined} />
+                            <AvatarFallback className="text-[10px]">{p.name?.[0] ?? "?"}</AvatarFallback>
+                          </Avatar>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm truncate">{s.label}</div>
-                            <div className="text-[11px] text-muted-foreground truncate">{s.sublabel}</div>
+                            <div className="text-sm truncate">{p.name}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {ROLE_LABEL[p.role] ?? p.role}
+                            </div>
                           </div>
+                          {selected ? (
+                            <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                          ) : (
+                            <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
                         </button>
                       );
-                    }
-                    return (
-                      <button
-                        key={`p-${s.id}`}
-                        data-idx={i}
-                        onMouseEnter={() => setHighlight(i)}
-                        onClick={() => choose(s)}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
-                          active ? "bg-accent" : "hover:bg-accent/50"
-                        )}
-                      >
-                        <Avatar className="h-7 w-7 shrink-0">
-                          <AvatarImage src={s.avatarUrl ?? undefined} />
-                          <AvatarFallback className="text-[10px]">{s.name?.[0] ?? "?"}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm truncate">{s.name}</div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {ROLE_LABEL[s.role] ?? s.role}
-                          </div>
-                        </div>
-                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      </button>
-                    );
-                  })}
+                    })
+                  )}
                 </div>
-              )}
-            </div>
-
-            {/* Aperçu chiffré — on ne diffuse jamais à l'aveugle */}
-            {audience && (
-              <div className="mt-2 rounded-lg bg-muted/50 p-2.5 text-xs">
-                {previewLoading ? (
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Calcul des destinataires…
-                  </span>
-                ) : preview ? (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <Users className="h-3.5 w-3.5" />
-                      {preview.count} destinataire{preview.count > 1 ? "s" : ""}
-                    </div>
-                    {preview.breakdown.length > 1 && (
-                      <div className="flex flex-wrap gap-1">
-                        {preview.breakdown.map((b) => (
-                          <span key={b.group} className="bg-background rounded px-1.5 py-0.5 text-[11px]">
-                            {GROUP_LABEL[b.group]} · {b.count}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {preview.sansCompte > 0 && (
-                      <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-500">
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
-                        <span>
-                          {preview.sansCompte} personne{preview.sansCompte > 1 ? "s" : ""} sans compte
-                          ne recevront pas ce message
-                        </span>
-                      </div>
-                    )}
-                    {preview.truncated && (
-                      <div className="flex items-start gap-1.5 text-destructive">
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
-                        <span>Plus de {preview.max} personnes : affinez la portée</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">Aperçu indisponible</span>
-                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Sujet — utile dès qu'il y a plus de deux personnes */}
-          {(audience || selectedPeople.length > 1 || intent !== "MESSAGE") && (
+          {/* Sujet */}
+          {(hasAudience || selectedPeople.length > 1 || intent !== "MESSAGE") && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 Objet <span className="opacity-60">(optionnel)</span>
@@ -618,7 +759,7 @@ export function NewConversationComposer({
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder={audience ? audience.label : "Objet de la conversation"}
+                placeholder={hasAudience ? audienceLabel : "Objet de la conversation"}
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-background outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
@@ -649,7 +790,7 @@ export function NewConversationComposer({
           )}
         </div>
 
-        {/* Pied : rappel de l'effet + envoi */}
+        {/* Pied */}
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-muted/30">
           <p className="text-[11px] text-muted-foreground leading-tight">
             {intent === "ANNONCE"

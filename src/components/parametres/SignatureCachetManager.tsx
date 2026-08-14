@@ -95,6 +95,10 @@ export function SignatureCachetManager({ tenant: initial }: { tenant: TenantSign
           <div className="space-y-2">
             <Label>{t("signature")}</Label>
             <div className="flex items-center gap-3">
+              {/* Aperçu du fichier que l'utilisateur vient de téléverser : l'URL
+                  est une `data:`/`blob:` locale ou une URL de stockage arbitraire,
+                  que `next/image` ne sait pas traiter. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               {signatureUrl && <img src={signatureUrl} alt={t("signature")} className="h-16 object-contain border rounded" />}
               <Button variant="outline" size="sm" onClick={() => handleUpload("signature")} className="gap-2">
                 <Upload className="h-4 w-4" /> {t("upload")}
@@ -104,6 +108,8 @@ export function SignatureCachetManager({ tenant: initial }: { tenant: TenantSign
           <div className="space-y-2">
             <Label>{t("cachet")}</Label>
             <div className="flex items-center gap-3">
+              {/* Même raison que pour la signature ci-dessus. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               {cachetUrl && <img src={cachetUrl} alt={t("cachet")} className="h-16 object-contain border rounded" />}
               <Button variant="outline" size="sm" onClick={() => handleUpload("cachet")} className="gap-2">
                 <Upload className="h-4 w-4" /> {t("upload")}

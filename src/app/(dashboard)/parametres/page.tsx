@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { Header } from "@/components/layout/Header";
 import { ParametresTabs } from "@/components/parametres/ParametresTabs";
@@ -13,6 +14,7 @@ import {
   getReglesAppreciation,
   getPeriodesForCloture,
   getSitesForSettings,
+  getAnneesScolaires,
 } from "@/lib/actions/parametres";
 
 export default async function ParametresPage() {
@@ -24,10 +26,13 @@ export default async function ParametresPage() {
   if (!session.user.tenantId) {
     redirect(session.user.role === "SUPER_ADMIN" ? "/super-admin" : "/select-tenant");
   }
+  // Réservé à la direction et au super-admin : les paramètres exposent
+  // utilisateurs, classes, matières, périodes — pas le périmètre d'un enseignant.
+  await guardPage(session, "eleves:write");
 
   const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN" || session.user.role === "PRINCIPAL";
 
-  const [etablissement, users, parents, eleves, classes, matieres, regles, periodes, sites] = await Promise.all([
+  const [etablissement, users, parents, eleves, classes, matieres, regles, periodes, sites, annees] = await Promise.all([
     getEtablissementData(),
     getUsersForTenant(),
     getParentsForSettings(),
@@ -37,6 +42,7 @@ export default async function ParametresPage() {
     getReglesAppreciation(),
     getPeriodesForCloture(),
     getSitesForSettings(),
+    getAnneesScolaires(),
   ]);
   if (!etablissement) return redirect("/login");
 
@@ -59,6 +65,7 @@ export default async function ParametresPage() {
           regles={regles}
           periodes={periodes}
           sites={sites}
+          annees={annees}
           canManage={canManage}
           availableTenants={session.user.availableTenants}
         />

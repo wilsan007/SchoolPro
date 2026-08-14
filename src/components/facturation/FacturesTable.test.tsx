@@ -26,7 +26,7 @@ const mockFactures = [
       matricule: "MAT001",
       classe: { nom: "6ème A" },
     },
-    paiements: [{ montant: 50000 }],
+    paiements: [{ montant: 50000, methode: "waffi" }],
     createdBy: { id: "u1", name: "Admin" },
   },
   {
@@ -45,7 +45,7 @@ const mockFactures = [
       matricule: "MAT002",
       classe: { nom: "5ème B" },
     },
-    paiements: [{ montant: 10000 }],
+    paiements: [{ montant: 10000, methode: "espèces" }],
     createdBy: null,
   },
   {
@@ -138,7 +138,7 @@ describe("FacturesTable", () => {
   it("filters by statut when filter selected", () => {
     render(<FacturesTable factures={mockFactures} />);
     fireEvent.click(screen.getByText("filters"));
-    const select = screen.getByRole("combobox");
+    const select = screen.getByTestId("status-filter");
     fireEvent.change(select, { target: { value: "PAYEE" } });
     expect(screen.getByText("FAC-2025-00001")).toBeInTheDocument();
     expect(screen.queryByText("FAC-2025-00002")).not.toBeInTheDocument();

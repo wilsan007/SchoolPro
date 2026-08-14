@@ -90,7 +90,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         const { email, password } = parsed.data;
 
-        // eslint-disable-next-line ecolpro/require-site-filter -- login: no session exists yet, user must be looked up across all sites
+        // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- login: no session exists yet, user must be looked up across all sites/tenants
         const user = await prisma.user.findUnique({
           where: { email },
           select: {
@@ -129,7 +129,11 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           return null;
         }
 
-        // Mettre à jour lastLoginAt
+        // Mettre à jour lastLoginAt — l'id provient du compte dont le mot de
+        // passe vient d'être vérifié ci-dessus (ligne 118), pas d'une entrée
+        // utilisateur : aucune vérification d'appartenance supplémentaire
+        // n'est possible ni nécessaire à ce stade (avant même l'émission du JWT).
+        // eslint-disable-next-line ecolpro/require-tenant-id
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },

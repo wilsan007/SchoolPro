@@ -103,7 +103,7 @@ export function DeleteSiteDialog({
           </div>
           <DialogDescription className="text-xs leading-relaxed">
             Cette action va marquer ce site pour suppression. Le site sera immédiatement
-            désactivé et invisible dans l'application. Les données seront conservées pendant
+            désactivé et invisible dans l&apos;application. Les données seront conservées pendant
             <strong> 90 jours</strong> avant purge définitive. Vous pouvez annuler la suppression
             durant cette période.
           </DialogDescription>

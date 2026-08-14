@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Zap, AlertTriangle, Ban, Unlock, RefreshCw } from "lucide-react";
+import { Loader2, Zap, AlertTriangle, Ban, Unlock, RefreshCw, Banknote } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   genererMensualites,
@@ -18,6 +18,7 @@ import {
   leverExclusion,
   getExclusionsForTenant,
 } from "@/lib/actions/facturation-avancee";
+import { PaiementParNumero } from "./PaiementParNumero";
 
 interface FactureEnRetard {
   id: string;
@@ -47,6 +48,7 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
   const t = useTranslations("facturation");
   const [isPending, setIsPending] = useState(false);
   const [showGenModal, setShowGenModal] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
   const [showRetardModal, setShowRetardModal] = useState(false);
   const [showExcluModal, setShowExcluModal] = useState(false);
 
@@ -150,6 +152,10 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
           <Zap className="h-4 w-4" />
           {t("generateMonthly")}
         </Button>
+        <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowPayModal(!showPayModal)}>
+          <Banknote className="h-4 w-4" />
+          {t("payByInvoiceNumber")}
+        </Button>
         <Button size="sm" variant="outline" className="gap-2" onClick={handleDetecterRetard} disabled={loadingRetard}>
           {loadingRetard ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
           {t("detectOverdue")}
@@ -159,6 +165,9 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
           {t("exclusions")} ({exclusions.length})
         </Button>
       </div>
+
+      {/* Modal: Paiement par numéro */}
+      {showPayModal && <PaiementParNumero open={showPayModal} onClose={() => setShowPayModal(false)} />}
 
       {/* Modal: Génération mensualités */}
       {showGenModal && (

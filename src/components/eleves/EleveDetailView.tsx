@@ -9,13 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CompetencesEleve } from "@/components/learnos/CompetencesEleve";
 import { getInitials, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Edit, User, Phone, MapPin, BookOpen,
   CalendarX, AlertTriangle, CreditCard, TrendingUp,
-  Clock, CheckCircle2, XCircle, AlertCircle, ShieldOff, Lock,
-  Trash2, Loader2,
+  Clock, CheckCircle2, XCircle, AlertCircle, ShieldOff, Lock, Target,
+  Trash2, Loader2, Plus, Banknote, FileText,
 } from "lucide-react";
 import { DispenseMatiereManager } from "./DispenseMatiereManager";
 import { useTranslations } from "next-intl";
@@ -418,6 +419,10 @@ export function EleveDetailView({
             <BookOpen className="h-3.5 w-3.5" />
             {t("tabNotes")}
           </TabsTrigger>
+          <TabsTrigger value="competences" className="gap-1.5">
+            <Target className="h-3.5 w-3.5" />
+            Compétences
+          </TabsTrigger>
           <TabsTrigger value="absences" className="gap-1.5">
             <CalendarX className="h-3.5 w-3.5" />
             {t("tabAbsences")}
@@ -439,6 +444,11 @@ export function EleveDetailView({
             {t("tabDispenses")}
           </TabsTrigger>
         </TabsList>
+
+        {/* ─ Compétences (LEARNOS) ─ */}
+        <TabsContent value="competences" className="mt-4">
+          <CompetencesEleve eleveId={eleve.id} />
+        </TabsContent>
 
         {/* ─ Notes ─ */}
         <TabsContent value="notes" className="mt-4">
@@ -602,6 +612,22 @@ export function EleveDetailView({
 
         {/* ─ Facturation ─ */}
         <TabsContent value="facturation" className="mt-4">
+          {/* Actions rapides */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Button asChild size="sm" variant="default" className="gap-2">
+              <Link href={`/facturation/nouvelle?eleveId=${eleve.id}`}>
+                <Plus className="h-4 w-4" />
+                {t("createInvoice")}
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="gap-2">
+              <Link href="/facturation">
+                <FileText className="h-4 w-4" />
+                {t("viewAllInvoices")}
+              </Link>
+            </Button>
+          </div>
+
           {/* Situation financière résumé */}
           {situationFinanciere && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -665,11 +691,14 @@ export function EleveDetailView({
               {eleve.factures.map((f) => {
                 const paye = f.paiements.reduce((s, p) => s + p.montant, 0);
                 const restant = f.montant - paye;
+                const isPayable = f.statut !== "PAYEE" && f.statut !== "ANNULEE" && restant > 0;
                 return (
                   <Card key={f.id} className="p-4">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
-                        <p className="font-semibold text-sm">{f.libelle}</p>
+                        <Link href={`/facturation/${f.id}`} className="font-semibold text-sm hover:underline">
+                          {f.libelle}
+                        </Link>
                         <p className="text-xs text-muted-foreground font-mono">{f.numero}</p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -686,7 +715,7 @@ export function EleveDetailView({
                         </span>
                       </div>
                     </div>
-                    <div className="mt-3 flex gap-6 text-sm">
+                    <div className="mt-3 flex flex-wrap items-center gap-6 text-sm">
                       <div>
                         <p className="text-xs text-muted-foreground">{t("amount")}</p>
                         <p className="font-semibold">{f.montant.toLocaleString()} {f.devise}</p>
@@ -701,6 +730,14 @@ export function EleveDetailView({
                           {restant.toLocaleString()} {f.devise}
                         </p>
                       </div>
+                      {isPayable && (
+                        <Button asChild size="sm" variant="outline" className="gap-1 ml-auto">
+                          <Link href={`/facturation/${f.id}?action=paiement`}>
+                            <Banknote className="h-3.5 w-3.5" />
+                            {t("collect")}
+                          </Link>
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );

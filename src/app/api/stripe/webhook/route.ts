@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
 
         if (!factureId || !tenantId) break;
 
+        // eslint-disable-next-line ecolpro/require-site-filter -- webhook Stripe externe sans session utilisateur, tenantId provient des metadata Stripe
         const facture = await prisma.facture.findFirst({
           where: { id: factureId, tenantId },
           include: { paiements: true },

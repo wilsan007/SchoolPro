@@ -21,6 +21,7 @@ const ScopeSchema: z.ZodType<AudienceScope> = z.union([
 const PreviewSchema = z.object({
   scope: ScopeSchema,
   group: z.enum(["ALL", "PARENTS", "ELEVES", "ENSEIGNANTS", "PERSONNEL", "DIRECTION"]),
+  groups: z.array(z.enum(["ALL", "PARENTS", "ELEVES", "ENSEIGNANTS", "PERSONNEL", "DIRECTION"])).optional(),
 });
 
 /**

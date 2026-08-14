@@ -1,17 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, CheckCircle, XCircle, Plus, FileText, Printer, CreditCard, Download } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Plus,
+  FileText,
+  Printer,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { enregistrerPaiement, annulerFacture, type PaiementFormData } from "@/lib/actions/facture";
+import { getPaymentMethodsForSelect, getPaymentMethodType, getPaymentMethodColor } from "@/lib/payment-methods";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 
 interface Paiement {
   id: string;
@@ -60,11 +71,32 @@ function formatMoney(amount: number, devise: string) {
   return new Intl.NumberFormat("fr-DJ", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
+function PaymentMethodBadge({ method, t }: { method: string; t: (k: string) => string }) {
+  const type = getPaymentMethodType(method);
+  const pm = getPaymentMethodsForSelect().find((m) => m.id === method);
+  const label = pm ? t(pm.labelKey) : method;
+
+  const variantByType: Record<string, "default" | "success" | "warning" | "secondary" | "destructive"> = {
+    CASH: "success",
+    MOBILE_MONEY: "default",
+    BANK: "secondary",
+    CARD: "warning",
+  };
+
+  return (
+    <Badge variant={variantByType[type ?? ""] ?? "secondary"} className="capitalize">
+      {label}
+    </Badge>
+  );
+}
+
 export function FactureDetail({ facture }: FactureDetailProps) {
   const t = useTranslations("facturation");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const openPaymentFromUrl = searchParams?.get("action") === "paiement";
   const [isPending, setIsPending] = useState(false);
-  const [showPaiement, setShowPaiement] = useState(false);
+  const [showPaiement, setShowPaiement] = useState(openPaymentFromUrl);
   const [paiement, setPaiement] = useState<PaiementFormData>({
     montant: 0,
     methode: "espèces",
@@ -72,10 +104,11 @@ export function FactureDetail({ facture }: FactureDetailProps) {
   });
   const [lastPaiementId, setLastPaiementId] = useState<string | null>(null);
 
-  const totalPaye = facture.paiements.reduce((sum, p) => sum + p.montant, 0);
+  const totalPaye = useMemo(() => facture.paiements.reduce((sum, p) => sum + p.montant, 0), [facture.paiements]);
   const restant = facture.montant - totalPaye;
   const cfg = statutConfig[facture.statut] ?? statutConfig.EN_ATTENTE;
   const tuteur = facture.eleve.parents[0]?.parent;
+  const canPay = facture.statut !== "ANNULEE" && facture.statut !== "PAYEE" && restant > 0;
 
   async function handlePaiement(e: React.FormEvent) {
     e.preventDefault();
@@ -112,62 +145,63 @@ export function FactureDetail({ facture }: FactureDetailProps) {
     }
   }
 
+  function startFullPayment() {
+    setPaiement((prev) => ({ ...prev, montant: restant }));
+    setShowPaiement(true);
+  }
+
   return (
     <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <Button asChild variant="outline" size="sm" className="gap-2">
           <Link href="/facturation">
             <ArrowLeft className="h-4 w-4" />
             {t("backToInvoices")}
           </Link>
         </Button>
-        {facture.statut !== "ANNULEE" && facture.statut !== "PAYEE" && (
-          <div className="flex gap-2">
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <a href={`/api/factures/${facture.id}/pdf`} target="_blank" rel="noopener noreferrer">
-                <FileText className="h-4 w-4" />
-                {t("printInvoice")}
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 text-destructive"
-              onClick={handleAnnuler}
-              disabled={isPending}
-            >
-              <XCircle className="h-4 w-4" />
-              {t("cancel")}
-            </Button>
-            <Button
-              size="sm"
-              className="gap-2"
-              onClick={() => setShowPaiement(!showPaiement)}
-              disabled={isPending}
-            >
-              <Plus className="h-4 w-4" />
-              {t("collectPayment")}
-            </Button>
-          </div>
-        )}
-        {facture.statut === "PAYEE" && (
-          <div className="flex gap-2">
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <a href={`/api/factures/${facture.id}/pdf`} target="_blank" rel="noopener noreferrer">
-                <FileText className="h-4 w-4" />
-                {t("printInvoice")}
-              </a>
-            </Button>
-            {facture.paiements.length > 0 && (
-              <Button asChild size="sm" variant="outline" className="gap-2">
-                <a href={`/api/paiements/${facture.paiements[0].id}/recu`} target="_blank" rel="noopener noreferrer">
-                  <Printer className="h-4 w-4" />
-                  {t("printReceipt")}
-                </a>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <a href={`/api/factures/${facture.id}/pdf`} target="_blank" rel="noopener noreferrer">
+              <FileText className="h-4 w-4" />
+              {t("printInvoice")}
+            </a>
+          </Button>
+          {canPay && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-destructive"
+                onClick={handleAnnuler}
+                disabled={isPending}
+              >
+                <XCircle className="h-4 w-4" />
+                {t("cancel")}
               </Button>
-            )}
-          </div>
-        )}
+              <Button variant="outline" size="sm" className="gap-2" onClick={startFullPayment} disabled={isPending}>
+                <Wallet className="h-4 w-4" />
+                {t("payBalance")}
+              </Button>
+              <Button
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowPaiement(!showPaiement)}
+                disabled={isPending}
+              >
+                <Plus className="h-4 w-4" />
+                {t("collectPayment")}
+              </Button>
+            </>
+          )}
+          {facture.statut === "PAYEE" && facture.paiements.length > 0 && (
+            <Button asChild size="sm" variant="outline" className="gap-2">
+              <a href={`/api/paiements/${facture.paiements[0].id}/recu`} target="_blank" rel="noopener noreferrer">
+                <Printer className="h-4 w-4" />
+                {t("printReceipt")}
+              </a>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Facture header */}
@@ -249,7 +283,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">{t("remaining")}</p>
-            <p className={`text-lg font-bold ${restant > 0 ? "text-red-600" : "text-green-600"}`}>
+            <p className={cn("text-lg font-bold", restant > 0 ? "text-red-600" : "text-green-600")}>
               {formatMoney(restant, facture.devise)}
             </p>
           </CardContent>
@@ -257,23 +291,34 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       </div>
 
       {/* Formulaire de paiement */}
-      {showPaiement && (
+      {showPaiement && canPay && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">{t("collectPayment")}</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg flex flex-wrap items-center gap-3 text-sm">
+              <span className="text-muted-foreground">{t("invoice")}:</span>
+              <span className="font-mono font-semibold">{facture.numero}</span>
+              <span className="text-muted-foreground">· {facture.eleve.prenom} {facture.eleve.nom}</span>
+              <span className="text-muted-foreground">· {t("remaining")}: </span>
+              <span className="font-semibold text-red-600">{formatMoney(restant, facture.devise)}</span>
+            </div>
             <form onSubmit={handlePaiement} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="montant">{t("amount")} ({facture.devise}) *</Label>
                 <Input
                   id="montant"
                   type="number"
-                  min="0"
+                  min="0.01"
+                  max={restant}
                   step="0.01"
                   value={paiement.montant || ""}
                   onChange={(e) => setPaiement({ ...paiement, montant: parseFloat(e.target.value) || 0 })}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {t("remaining")}: {formatMoney(restant, facture.devise)}
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="methode">{t("method")} *</Label>
@@ -283,13 +328,11 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                   onChange={(e) => setPaiement({ ...paiement, methode: e.target.value })}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  <option value="espèces">{t("cash")}</option>
-                  <option value="waffi">{t("waffi")}</option>
-                  <option value="cac_pay">{t("cacPay")}</option>
-                  <option value="dahab_plus">{t("dahabPlus")}</option>
-                  <option value="saba_pay">{t("sabaPay")}</option>
-                  <option value="faida">{t("faida")}</option>
-                  <option value="virement">{t("transfer")}</option>
+                  {getPaymentMethodsForSelect().map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {t(m.labelKey)}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -359,7 +402,9 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                     <tr key={p.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-2">{new Date(p.date).toLocaleDateString("fr-FR")}</td>
                       <td className="px-4 py-2 text-right font-medium text-green-600">{formatMoney(p.montant, p.devise)}</td>
-                      <td className="px-4 py-2 capitalize">{p.methode}</td>
+                      <td className="px-4 py-2">
+                        <PaymentMethodBadge method={p.methode} t={t} />
+                      </td>
                       <td className="px-4 py-2 text-muted-foreground">{p.reference ?? "—"}</td>
                       <td className="px-4 py-2 text-muted-foreground">{p.enregistrePar?.name ?? "—"}</td>
                       <td className="px-4 py-2 text-center">

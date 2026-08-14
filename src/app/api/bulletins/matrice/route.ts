@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     // 1. Récupérer élèves + bulletins + notes en parallèle (3 requêtes simultanées)
     const [eleves, bulletins, notes] = await Promise.all([
       prisma.eleve.findMany({
-        where: { classeId, tenantId, statut: "ACTIF" },
+        where: { classeId, tenantId, statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
         select: {
           id: true, nom: true, prenom: true, matricule: true,
           sexe: true, dateNaissance: true,
@@ -31,13 +31,24 @@ export async function GET(req: NextRequest) {
         orderBy: [{ prenom: "asc" }, { nom: "asc" }],
       }),
       prisma.bulletin.findMany({
-        where: { eleve: { classeId, tenantId, statut: "ACTIF" }, periodeId, tenantId },
+        where: {
+          eleve: { classeId, tenantId, statut: "ACTIF" },
+          periodeId,
+          tenantId,
+          ...siteFilterForModel("bulletin", session.user),
+        },
         include: {
+          // Les lignes de matière suivent le bulletin parent, déjà borné au
+          // tenant et au périmètre de sites : elles ne peuvent appartenir qu'à
+          // un bulletin autorisé. `BulletinMatiere` n'offre par ailleurs aucun
+          // chemin de site propre (elle passe par le bulletin, qui n'a pas de
+          // colonne `siteId`).
+          // eslint-disable-next-line ecolpro/require-site-filter
           matieres: { include: { matiere: { select: { id: true, nom: true, code: true } } } },
         },
       }),
       prisma.note.findMany({
-        where: { classeId, periodeId, tenantId },
+        where: { classeId, periodeId, tenantId, ...siteFilterForModel("note", session.user) },
         select: {
           id: true, eleveId: true, matiereId: true,
           valeur: true, noteMax: true, coefficient: true,
@@ -70,7 +81,7 @@ export async function GET(req: NextRequest) {
     const missingMatiereIds = [...new Set(notes.map((n) => n.matiereId))].filter((id) => !matiereMap.has(id));
     if (missingMatiereIds.length > 0) {
       const missingMatieres = await prisma.matiere.findMany({
-        where: { id: { in: missingMatiereIds } },
+        where: { id: { in: missingMatiereIds }, tenantId, ...siteFilterForModel("matiere", session.user) },
         select: { id: true, nom: true, code: true },
       });
       for (const m of missingMatieres) matiereMap.set(m.id, m);
@@ -186,7 +197,12 @@ export async function GET(req: NextRequest) {
       // Batch: récupérer tous les bulletins de toutes les périodes en une seule requête
       const allPeriodeIds = allPeriodes.map((p) => p.id);
       const allBullTrim = await prisma.bulletin.findMany({
-        where: { eleveId: { in: eleveIds }, periodeId: { in: allPeriodeIds }, tenantId },
+        where: {
+          eleveId: { in: eleveIds },
+          periodeId: { in: allPeriodeIds },
+          tenantId,
+          ...siteFilterForModel("bulletin", session.user),
+        },
         select: { eleveId: true, periodeId: true, moyenneGenerale: true, rang: true },
       });
 
