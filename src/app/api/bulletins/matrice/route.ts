@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,10 +24,25 @@ export async function GET(req: NextRequest) {
 
     const tenantId = session.user.tenantId;
 
+    // Cette route ne contrôle aucune permission : n'importe quel compte
+    // authentifié l'atteint, y compris un PARENT ou un élève. Or pour ces deux
+    // rôles le filtre de site est NEUTRE (périmètre relationnel, voir
+    // `RELATION_SCOPED_ROLES` dans site-scope.ts) : la matrice livrait toutes
+    // les notes, moyennes et rangs nominatifs de la classe demandée. Seul
+    // `personalScopeFilter` les borne à leurs propres enfants, et il ne change
+    // rien pour le personnel (il renvoie `{}`).
+    const eleveScope = personalScopeFilter(session.user, null);
+    const relationScope = personalScopeFilter(session.user, "eleve");
+
     // 1. Récupérer élèves + bulletins + notes en parallèle (3 requêtes simultanées)
     const [eleves, bulletins, notes] = await Promise.all([
       prisma.eleve.findMany({
-        where: { classeId, tenantId, statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
+        where: {
+          classeId,
+          tenantId,
+          statut: "ACTIF",
+          ...mergeFilters(siteFilterForModel("eleve", session.user), eleveScope),
+        },
         select: {
           id: true, nom: true, prenom: true, matricule: true,
           sexe: true, dateNaissance: true,
@@ -35,7 +54,10 @@ export async function GET(req: NextRequest) {
           eleve: { classeId, tenantId, statut: "ACTIF" },
           periodeId,
           tenantId,
-          ...siteFilterForModel("bulletin", session.user),
+          ...mergeFilters(
+            siteFilterForModel("bulletin", session.user),
+            relationScope
+          ),
         },
         include: {
           // Les lignes de matière suivent le bulletin parent, déjà borné au
@@ -48,7 +70,12 @@ export async function GET(req: NextRequest) {
         },
       }),
       prisma.note.findMany({
-        where: { classeId, periodeId, tenantId, ...siteFilterForModel("note", session.user) },
+        where: {
+          classeId,
+          periodeId,
+          tenantId,
+          ...mergeFilters(siteFilterForModel("note", session.user), relationScope),
+        },
         select: {
           id: true, eleveId: true, matiereId: true,
           valeur: true, noteMax: true, coefficient: true,
@@ -201,7 +228,10 @@ export async function GET(req: NextRequest) {
           eleveId: { in: eleveIds },
           periodeId: { in: allPeriodeIds },
           tenantId,
-          ...siteFilterForModel("bulletin", session.user),
+          ...mergeFilters(
+            siteFilterForModel("bulletin", session.user),
+            relationScope
+          ),
         },
         select: { eleveId: true, periodeId: true, moyenneGenerale: true, rang: true },
       });

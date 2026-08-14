@@ -4,9 +4,13 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { ConvocationForm } from "@/components/vie-scolaire/ConvocationForm";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function ConvocationsPage() {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
 

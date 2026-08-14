@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +16,16 @@ export async function GET(req: NextRequest) {
     }
     const denied = checkPermission(session.user.role, "bulletins:read");
     if (denied) return denied;
-    const siteFilter = siteFilterForModel("eleve", session.user);
+    // `bulletins:read` est accordé à PARENT et STUDENT. Pour ces rôles à
+    // périmètre relationnel, `siteFilterForModel` renvoie un fragment VIDE
+    // (cf. site-scope.ts) : la route livrait donc, pour n'importe quel
+    // `classeId`, le bilan annuel nominatif de TOUS les élèves de la classe.
+    // `personalScopeFilter` les borne à leurs propres enfants et reste neutre
+    // pour le personnel.
+    const siteFilter = mergeFilters(
+      siteFilterForModel("eleve", session.user),
+      personalScopeFilter(session.user, null)
+    );
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");

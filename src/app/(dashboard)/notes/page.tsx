@@ -74,7 +74,7 @@ export default async function NotesPage({
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
-  await guardPage(session, "notes:read");
+  await guardPage(session);
 
   const [t, tCommon, sp, sites, siteColors] = await Promise.all([
     getTranslations("notes"),

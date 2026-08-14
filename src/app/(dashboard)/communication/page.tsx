@@ -11,7 +11,7 @@ export default async function CommunicationPage() {
     auth(),
     getTranslations("communication"),
   ]);
-  await guardPage(session, "communication:read");
+  await guardPage(session);
 
   const notifFilter = siteFilterForModel("notification", session!.user);
   const classeFilter = siteFilterForModel("classe", session!.user);

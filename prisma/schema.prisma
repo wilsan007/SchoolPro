@@ -115,6 +115,10 @@ model Tenant {
   exclusionsEleve    ExclusionEleve[]
   progressionsEleves ProgressionEleve[]
 
+  // INFIRMERIE
+  passagesInfirmerie PassageInfirmerie[]
+  fichesSanitaires   FicheSanitaire[]
+
   // LEARNOS
   learnosChapitres     Chapitre[]
   learnosCompetences   Competence[]
@@ -140,7 +144,307 @@ model Tenant {
   learnosCalibrations  CalibrationSeuil[]
   learnosJournal       JournalApprentissage[]
 
+  // Modules activables
+  modulesActives    ModuleActivation[]
+
+  // Gouvernance
+  conseils          Conseil[]
+  resolutions       Résolution[]
+
+  // Mentorat
+  mentorats         Mentorat[]
+
   @@map("tenants")
+}
+
+// ============================================================
+// GOUVERNANCE
+// ============================================================
+
+/// Conseil d'administration ou instance de gouvernance d'un tenant.
+/// Un tenant peut avoir plusieurs instances (CA, conseil de discipline,
+/// conseil pédagogique, etc.).
+model Conseil {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  nom       String // "Conseil d'administration", "Conseil de discipline"
+  type      String // "ADMINISTRATION" | "DISCIPLINE" | "PEDAGOGIQUE" | "AUTRE"
+  description String?
+
+  /// Fréquence des réunions : "MENSUEL" | "TRIMESTRIEL" | "ANNUEL" | "PONCTUEL"
+  frequence  String @default("TRIMESTRIEL")
+
+  membres   MembreConseil[]
+  reunions  Réunion[]
+  resolutions Résolution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("conseils")
+}
+
+/// Membre d'un conseil de gouvernance.
+model MembreConseil {
+  id        String @id @default(cuid())
+  conseilId String
+  conseil   Conseil @relation(fields: [conseilId], references: [id], onDelete: Cascade)
+
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Rôle dans le conseil : "PRESIDENT" | "SECRETAIRE" | "MEMBRE" | "OBSERVATEUR"
+  role      String  @default("MEMBRE")
+
+  /// Nom affiché si pas d'utilisateur lié (membre externe)
+  nomExterne String?
+
+  /// Date de début et fin de mandat
+  debutMandat  DateTime?
+  finMandat    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([conseilId])
+  @@index([userId])
+  @@map("membres_conseil")
+}
+
+/// Réunion d'un conseil.
+model Réunion {
+  id        String @id @default(cuid())
+  conseilId String
+  conseil   Conseil @relation(fields: [conseilId], references: [id], onDelete: Cascade)
+
+  titre     String
+  date      DateTime
+  lieu      String?
+
+  /// Ordre du jour (liste de points)
+  ordreDuJour String?
+
+  /// "PLANIFIEE" | "EN_COURS" | "TERMINEE" | "ANNULEE"
+  statut    String @default("PLANIFIEE")
+
+  /// Compte-rendu (texte libre)
+  compteRendu String?
+
+  /// Présences (JSON : array of { userId, present })
+  presences Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conseilId])
+  @@index([date])
+  @@map("reunions")
+}
+
+/// Résolution adoptée par un conseil.
+model Résolution {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conseilId String?
+  conseil   Conseil? @relation(fields: [conseilId], references: [id], onDelete: SetNull)
+
+  titre     String
+  description String?
+
+  /// "ADOPTÉE" | "REJETÉE" | "EN_ATTENTE" | "RETIRÉE"
+  statut    String @default("EN_ATTENTE")
+
+  /// Date de vote
+  dateVote  DateTime?
+
+  /// Résultats du vote (JSON : { pour, contre, abstentions })
+  resultats Json?
+
+  /// Date d'effet
+  dateEffet DateTime?
+
+  /// Date de fin d'application (null = indéterminée)
+  dateFin   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([conseilId])
+  @@map("resolutions")
+}
+
+// ============================================================
+// MENTORAT
+// ============================================================
+
+/// Relation de mentorat entre un mentor (enseignant ou membre externe)
+/// et un mentoré (élève, enseignant junior, ou tout autre utilisateur).
+model Mentorat {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Mentor — utilisateur qui accompagne
+  mentorId  String
+  mentor    User   @relation("MentoratMentor", fields: [mentorId], references: [id], onDelete: Cascade)
+
+  /// Mentoré — utilisateur accompagné
+  mentoreId String
+  mentore   User   @relation("MentoratMentore", fields: [mentoreId], references: [id], onDelete: Cascade)
+
+  /// Type de mentorat : "ACADEMIQUE" | "PROFESSIONNEL" | "PERSONNEL"
+  type      String @default("ACADEMIQUE")
+
+  /// "ACTIF" | "SUSPENDU" | "TERMINE" | "ANNULE"
+  statut    String @default("ACTIF")
+
+  /// Période de mentorat
+  dateDebut DateTime @default(now())
+  dateFin   DateTime?
+
+  /// Fréquence des rencontres : "HEBDOMADAIRE" | "BIHEBDOMADAIRE" | "MENSUEL" | "PONCTUEL"
+  frequence String @default("MENSUEL")
+
+  /// Notes générales sur la relation de mentorat
+  notes     String?
+
+  objectifs ObjectifMentorat[]
+  seances   SeanceMentorat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([mentorId, mentoreId])
+  @@index([tenantId])
+  @@index([mentorId])
+  @@index([mentoreId])
+  @@map("mentorats")
+}
+
+/// Objectif défini dans le cadre d'un mentorat.
+model ObjectifMentorat {
+  id         String @id @default(cuid())
+  mentoratId String
+  mentorat   Mentorat @relation(fields: [mentoratId], references: [id], onDelete: Cascade)
+
+  titre       String
+  description String?
+
+  /// "EN_COURS" | "ATTEINT" | "NON_ATTEINT" | "ABANDONNE"
+  statut      String @default("EN_COURS")
+
+  /// Priorité : 1 (haute) à 5 (basse)
+  priorite    Int @default(3)
+
+  /// Date cible d'atteinte
+  dateCible   DateTime?
+
+  /// Progression : 0 à 100
+  progression Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mentoratId])
+  @@map("objectifs_mentorat")
+}
+
+/// Séance de mentorat — rencontre entre mentor et mentoré.
+model SeanceMentorat {
+  id         String @id @default(cuid())
+  mentoratId String
+  mentorat   Mentorat @relation(fields: [mentoratId], references: [id], onDelete: Cascade)
+
+  date       DateTime
+  duree      Int? // en minutes
+
+  /// "PLANIFIEE" | "EFFECTUEE" | "ANNULEE" | "REPORTÉE"
+  statut     String @default("PLANIFIEE")
+
+  /// Compte-rendu de la séance
+  compteRendu String?
+
+  /// Lieu ou lien visio
+  lieu        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mentoratId])
+  @@index([date])
+  @@map("seances_mentorat")
+}
+
+/// Catalogue des modules disponibles dans l'application.
+/// Un module est une fonctionnalité optionnelle qu'un tenant peut
+/// activer ou désactiver selon son plan ou ses besoins.
+/// Exemples : LEARNOS, MESSAGERIE, RH, INVENTAIRE, ALUMNI, ORIENTATION…
+model Module {
+  id          String @id @default(cuid())
+  code        String @unique // "LEARNOS", "MESSAGERIE", "RH"…
+  nom         String // nom affiché (clé de traduction : module.{code}.nom)
+  description String?
+
+  /// Plan minimum requis pour ce module
+  planMinimum PlanType @default(STARTER)
+
+  /// Module activé par défaut pour les nouveaux tenants
+  actifParDefaut Boolean @default(false)
+
+  /// Module payant (nécessite un abonnement spécifique)
+  payant Boolean @default(false)
+
+  /// Prix mensuel optionnel si le module est payant séparément
+  prixMensuel Float?
+
+  /// Ordre d'affichage dans la liste des modules
+  ordre Int @default(0)
+
+  activations ModuleActivation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("modules")
+}
+
+/// Activation d'un module pour un tenant spécifique.
+/// Permet de suivre quand un module a été activé, par qui, et
+/// s'il est actuellement actif ou désactivé.
+model ModuleActivation {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  moduleId  String
+  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  /// ACTIF | DESACTIVE | ESSAI
+  statut    String @default("ACTIF")
+
+  /// Date d'activation
+  activeAt  DateTime @default(now())
+
+  /// Date de désactivation (null si actif)
+  desactiveAt DateTime?
+
+  /// Utilisateur qui a activé/désactivé
+  activeParId   String?
+  desactiveParId String?
+
+  /// Date de fin d'essai (si statut = ESSAI)
+  finEssaiAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, moduleId])
+  @@index([tenantId])
+  @@index([moduleId])
+  @@map("module_activations")
 }
 
 // ============================================================
@@ -212,6 +516,10 @@ model Site {
   learnosPredictions   PredictionDifficulte[]
   learnosCalibrations  CalibrationSeuil[]
   learnosJournal       JournalApprentissage[]
+
+  // Infirmerie & santé
+  passagesInfirmerie PassageInfirmerie[]
+  fichesSanitaires   FicheSanitaire[]
 
   // Soft-delete / purge planifiée (Option B — industry standard)
   deletedAt        DateTime?
@@ -298,12 +606,20 @@ model AnneesScolaires {
   dateFin   DateTime
   isCurrent Boolean  @default(false)
 
+  // Clôture / archivage d'année
+  statut       String   @default("OUVERTE") // OUVERTE | CLOTUREE | ARCHIVEE
+  cloturedAt   DateTime?
+  archiveeAt   DateTime?
+  cloturePar   String?  // ID utilisateur qui a clôturé
+  archiveePar  String?  // ID utilisateur qui a archivé
+
   periodes       Periode[]
   evenements     EvenementCalendaire[]
   learnosPlanifications PlanificationChapitre[]
   planificationsCompetences PlanificationCompetence[]
 
   @@index([tenantId])
+  @@index([tenantId, statut])
   @@map("annees_scolaires")
 }
 
@@ -369,6 +685,8 @@ enum Role {
   COUNSELOR // Conseiller d'orientation / CPE
   NURSE // Infirmier(e)
   ACCOUNTANT // Gestionnaire financier
+  SUPERVISOR // Surveillant / Vie scolaire
+  SUBJECT_LEAD // Coordinateur de matière
   PARENT // Parent / Tuteur légal
   STUDENT // Élève
 }
@@ -393,6 +711,13 @@ model User {
   role        Role      @default(TEACHER)
   isActive    Boolean   @default(true)
   lastLoginAt DateTime?
+
+  // 2FA / TOTP
+  twoFactorEnabled Boolean   @default(false)
+  totpSecret       String?   // secret TOTP chiffré (base32)
+  totpSecretIv     String?   // IV de chiffrement du secret
+  backupCodes      String[]  @default([]) // codes de secours hashés
+  twoFactorVerifiedAt DateTime? // dernière vérification 2FA réussie
 
   // Préférences
   langue        String @default("fr")
@@ -425,6 +750,13 @@ model User {
   // Appareils mobiles (push)
   devices DeviceToken[] @relation("UserDevices")
 
+  // Gouvernance
+  conseilsMembre MembreConseil[]
+
+  // Mentorat
+  mentoratsEnTantQueMentor  Mentorat[] @relation("MentoratMentor")
+  mentoratsEnTantQueMentore Mentorat[] @relation("MentoratMentore")
+
   // Multi-tenant: liste des tenants accessibles
   userTenants UserTenant[]
 
@@ -448,6 +780,9 @@ model User {
   // LEARNOS : interventions dont cet utilisateur est responsable
   learnosInterventionsResponsable StudentIntervention[] @relation("InterventionResponsible")
   learnosPlansResponsable        PlanProgression[]     @relation("PlanResponsable")
+
+  // Infirmerie : passages saisis par cet utilisateur (infirmier)
+  passagesInfirmerieSaisis PassageInfirmerie[] @relation("PassageInfirmier")
 
   @@index([tenantId])
   @@index([siteId])
@@ -710,6 +1045,9 @@ model Eleve {
   learnosEchangesParent  EchangeParent[]
   learnosPredictions     PredictionDifficulte[]
 
+  passagesInfirmerie PassageInfirmerie[]
+  ficheSanitaire     FicheSanitaire?
+
   @@unique([tenantId, matricule])
   /// Rend le doublon impossible, et non plus seulement détectable. Les fiches
   /// archivées portent `identiteKey = NULL` : PostgreSQL traitant les NULL
@@ -935,6 +1273,67 @@ model Absence {
 }
 
 // ============================================================
+// INFIRMERIE & SANTÉ
+// ============================================================
+
+model PassageInfirmerie {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId    String?
+  site      Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId   String
+  eleve      Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  date      DateTime
+  motif     String   // maux de tête, blessure, malaise…
+  soin      String?  // description du soin dispensé
+  suite     String   // "retour_en_cours", "renvoi_domicile", "hospitalisation"
+  retourCours Boolean @default(true)
+  dureeMin  Int?
+  infirmierId String?
+  infirmier  User?   @relation("PassageInfirmier", fields: [infirmierId], references: [id], onDelete: SetNull)
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([eleveId])
+  @@index([siteId])
+  @@map("passages_infirmerie")
+}
+
+model FicheSanitaire {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId    String?
+  site      Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId   String   @unique
+  eleve      Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  allergies     String[] // liste d'allergies connues
+  traitements   Json?    // traitements en cours (médicament, posologie, durée)
+  contreIndicationsSport Boolean @default(false)
+  contactsUrgence Json?  // [{ nom, relation, telephone }]
+  protocoleUrgence String? // protocole spécifique (asthme, diabète, épilepsie)
+  vaccinations  Json?    // [{ vaccin, date, rappel }]
+  remarques     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([eleveId])
+  @@map("fiches_sanitaires")
+}
+
+// ============================================================
 // NOTES & ÉVALUATIONS
 // ============================================================
 
@@ -1115,6 +1514,12 @@ model Examen {
   dateDebut   DateTime
   dateFin     DateTime
 
+  /// Lien optionnel avec une feuille d'exercices LEARNOS.
+  /// Permet de transformer un examen en feuille d'évaluation
+  /// pédagogique avec exercices assignés et auto-correction.
+  feuilleExercicesId String?
+  feuilleExercices   FeuilleExercices? @relation(fields: [feuilleExercicesId], references: [id], onDelete: SetNull)
+
   sessions SessionExamen[]
 
   @@index([tenantId])
@@ -1170,6 +1575,8 @@ model Facture {
 
   paiements Paiement[]
   relances  Relance[]
+  echeances EcheancePaiement[]
+  echeancier Echeancier?
 
   createdById String? // User who created the invoice
   createdBy   User?   @relation("FactureCreePar", fields: [createdById], references: [id], onDelete: SetNull)
@@ -1182,6 +1589,71 @@ model Facture {
   @@index([tenantId, statut])
   @@index([siteId])
   @@map("factures")
+}
+
+// ============================================================
+// ÉCHÉANCIER DE PAIEMENT (paiements échelonnés)
+// ============================================================
+
+/// Plan de paiement échelonné pour une facture.
+/// Permet de découper une facture en plusieurs échéances avec dates
+/// d'échéance et montants prédéfinis, plutôt qu'un seul champ `echeance`.
+model Echeancier {
+  id        String @id @default(cuid())
+  factureId String @unique
+  facture   Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
+
+  /// Nombre total d'échéances prévues
+  nbEcheances Int
+
+  /// Intervalle en jours entre deux échéances (0 = dates libres)
+  intervalleJours Int @default(30)
+
+  /// Date de la première échéance
+  datePremiereEcheance DateTime
+
+  /// Statut du plan : ACTIF | COMPLETE | ANNULE
+  statut String @default("ACTIF")
+
+  echeances EcheancePaiement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([factureId])
+  @@map("echeanciers")
+}
+
+/// Une échéance individuelle d'un plan de paiement.
+model EcheancePaiement {
+  id           String @id @default(cuid())
+  echeancierId String
+  echeancier   Echeancier @relation(fields: [echeancierId], references: [id], onDelete: Cascade)
+  factureId    String
+  facture      Facture    @relation(fields: [factureId], references: [id], onDelete: Cascade)
+
+  numero       Int // 1, 2, 3...
+  montant      Float
+  devise       String  @default("DJF")
+  dateEcheance DateTime
+
+  /// EN_ATTENTE | PAYEE | EN_RETARD | ANNULEE
+  statut       String  @default("EN_ATTENTE")
+
+  /// Lien vers le paiement qui a réglé cette échéance (nullable, 1:1)
+  paiementId   String? @unique
+  paiement     Paiement? @relation(fields: [paiementId], references: [id], onDelete: SetNull)
+
+  payeeLe      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([echeancierId, numero])
+  @@index([echeancierId])
+  @@index([factureId])
+  @@index([dateEcheance])
+  @@map("echeances_paiement")
 }
 
 model Paiement {
@@ -1198,6 +1670,8 @@ model Paiement {
 
   enregistreParId String? // User who recorded the payment
   enregistrePar   User?   @relation("PaiementEnregistrePar", fields: [enregistreParId], references: [id], onDelete: SetNull)
+
+  echeancePaiement EcheancePaiement? // si ce paiement règle une échéance spécifique
 
   @@index([factureId])
   @@map("paiements")
@@ -3159,6 +3633,10 @@ model FeuilleExercices {
   termineeLe DateTime?
 
   exercices ExerciceAssigne[]
+
+  /// Lien optionnel avec un examen : permet de servir une feuille
+  /// d'exercices comme support d'évaluation d'examen.
+  examens Examen[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

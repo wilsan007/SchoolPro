@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { FactureDetail } from "@/components/facturation/FactureDetail";
 import { getFactureForDetail } from "@/lib/actions/facture";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function FactureDetailPage({
   params,
@@ -10,6 +11,9 @@ export default async function FactureDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const { id } = await params;

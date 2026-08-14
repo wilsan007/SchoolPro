@@ -105,7 +105,7 @@ async function getDonnees(tenantId: string, claims: SessionSiteClaims) {
 
 export default async function CurriculumPage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.curriculum")]);
-  await guardPage(session, "evaluations:read");
+  await guardPage(session);
 
   const { annee, matieres, classes, chapitres, planifications, alertes, evenementsCalendaires, planificationsCompetences } = await getDonnees(
     session!.user.tenantId!,

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,7 +28,20 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId;
 
     const eleves = await prisma.eleve.findMany({
-      where: { classeId, tenantId, statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
+      // `bulletins:read` ouvre cette route à PARENT et STUDENT. Le filtre de
+      // site ne les borne PAS (périmètre relationnel : `siteFilterForModel`
+      // renvoie `{}`), si bien qu'un parent obtenait les moyennes, rangs et
+      // appréciations nominatifs de toute la classe. `personalScopeFilter` est
+      // le seul filtre qui isole ces rôles ; il est neutre pour le personnel.
+      where: {
+        classeId,
+        tenantId,
+        statut: "ACTIF",
+        ...mergeFilters(
+          siteFilterForModel("eleve", session.user),
+          personalScopeFilter(session.user, null)
+        ),
+      },
       select: {
         id: true,
         nom: true,

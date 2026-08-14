@@ -102,7 +102,7 @@ async function getPlansAValider(
 
 export default async function RecommandationsPage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.recommandations")]);
-  await guardPage(session, "eleves:read");
+  await guardPage(session);
 
   const scope = isTeacherRole(session!.user.role as Role)
     ? await getTeacherScope(

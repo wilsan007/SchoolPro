@@ -32,7 +32,7 @@ export default async function ParentPage({
     auth(),
     getTranslations("learnos.dossier"),
   ]);
-  await guardPage(session, "notes:read");
+  await guardPage(session);
 
   // Cet écran n'a de sens que pour un parent : le personnel dispose de la
   // fiche élève complète, qui en dit davantage.

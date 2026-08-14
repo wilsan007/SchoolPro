@@ -70,7 +70,7 @@ export default async function RHPage() {
     auth(),
     getTranslations("rh"),
   ]);
-  await guardPage(session, "rh:read");
+  await guardPage(session);
 
   const { enseignants, absencesPersonnel, congesPersonnel } = await getEnseignantsRH(session!.user.tenantId!, session!.user);
 

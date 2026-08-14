@@ -18,7 +18,7 @@ import { SeanceEntrainement } from "@/components/learnos/SeanceEntrainement";
  */
 export default async function EntrainementPage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.entrainement")]);
-  await guardPage(session, "entrainement:write");
+  await guardPage(session);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

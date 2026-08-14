@@ -22,7 +22,7 @@ export default async function AdmissionsPage() {
     auth(),
     getTranslations("admissions"),
   ]);
-  await guardPage(session, "admissions:read");
+  await guardPage(session);
 
   const siteFilter = siteFilterForModel("candidature", session!.user);
   const { candidatures } = await getCandidatures(session!.user.tenantId!, siteFilter);

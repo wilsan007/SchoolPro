@@ -191,7 +191,7 @@ export default async function ElevesPage({
     searchParams,
   ]);
   if (!session?.user?.tenantId) redirect("/login");
-  await guardPage(session, "eleves:read");
+  await guardPage(session);
 
   const { q, classeId, statut } = sp;
 

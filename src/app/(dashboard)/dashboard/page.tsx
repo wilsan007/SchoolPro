@@ -8,75 +8,108 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AbsenceChart } from "@/components/dashboard/AbsenceChart";
 import { getTranslations, getLocale } from "next-intl/server";
 import { unstable_cache } from "next/cache";
-import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { isRelationScopedRole } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
-import type { Prisma } from "@prisma/client";
+import { guardPage } from "@/lib/guard-page";
+import { accueilPourRole } from "@/lib/accueil-par-role";
+import {
+  buildDashboardWheres,
+  dashboardCacheKey,
+  type DashboardScopeClaims,
+} from "./dashboard-scope";
 
-const getDashboardData = unstable_cache(
-  async (tenantId: string, claims: SessionSiteClaims) => {
-    const baseWhere = { tenantId, ...siteFilterForModel("eleve", claims), deletedAt: null } as Prisma.EleveWhereInput;
-    const classeWhere = { tenantId, ...siteFilterForModel("classe", claims) } as Prisma.ClasseWhereInput;
-    const absenceWhere = { tenantId, ...siteFilterForModel("absence", claims) } as Prisma.AbsenceWhereInput;
-    const noteWhere = { tenantId, ...siteFilterForModel("note", claims) } as Prisma.NoteWhereInput;
-    const examenWhere = { tenantId, ...siteFilterForModel("examen", claims) } as Prisma.ExamenWhereInput;
+async function fetchDashboardData(tenantId: string, claims: DashboardScopeClaims) {
+  const wheres = buildDashboardWheres(tenantId, claims);
+  // Les filtres `where` sont construits par `buildDashboardWheres` (dans
+  // `dashboard-scope.ts`), qui combine `siteFilterForModel` + `personalScopeFilter`
+  // pour chaque modèle. Le linter `ecolpro/require-site-filter` ne remonte pas
+  // l'appel depuis un autre fichier : on désactive donc la règle sur ce bloc.
 
-    const [
-      eleveStats,
-      totalClasses,
-      absencesAujourdhui,
-      absencesNonJustifiees,
-      notesRecentes,
-      prochainExamen,
-    ] = await Promise.all([
-      prisma.eleve.groupBy({
-        by: ["statut"],
-        where: baseWhere,
-        _count: true,
-      }),
-      prisma.classe.count({ where: classeWhere }),
-      prisma.absence.count({
-        where: {
-          ...absenceWhere,
-          date: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lt: new Date(new Date().setHours(23, 59, 59, 999)),
-          },
+  const [
+    eleveStats,
+    totalClasses,
+    absencesAujourdhui,
+    absencesNonJustifiees,
+    notesRecentes,
+    prochainExamen,
+  ] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    prisma.eleve.groupBy({
+      by: ["statut"],
+      where: wheres.eleve,
+      _count: true,
+    }),
+    // Inutile d'interroger la base pour un périmètre relationnel : le filtre
+    // est de toute façon fail-closed (cf. `buildDashboardWheres`).
+    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    wheres.relationScoped ? Promise.resolve(0) : prisma.classe.count({ where: wheres.classe }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    prisma.absence.count({
+      where: {
+        ...wheres.absence,
+        date: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lt: new Date(new Date().setHours(23, 59, 59, 999)),
         },
-      }),
-      prisma.absence.count({
-        where: { ...absenceWhere, statut: "INJUSTIFIEE" },
-      }),
-      prisma.note.findMany({
-        where: noteWhere,
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        include: {
-          eleve: { select: { nom: true, prenom: true } },
-          matiere: { select: { nom: true, couleur: true } },
-        },
-      }),
-      prisma.examen.findFirst({
-        where: { ...examenWhere, statut: "PROGRAMME", dateDebut: { gte: new Date() } },
-        orderBy: { dateDebut: "asc" },
-      }),
-    ]);
+      },
+    }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    prisma.absence.count({
+      where: { ...wheres.absence, statut: "INJUSTIFIEE" },
+    }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    prisma.note.findMany({
+      where: wheres.note,
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: {
+        eleve: { select: { nom: true, prenom: true } },
+        matiere: { select: { nom: true, couleur: true } },
+      },
+    }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    wheres.relationScoped
+      ? Promise.resolve(null)
+      // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+      : prisma.examen.findFirst({
+          where: { ...wheres.examen, statut: "PROGRAMME", dateDebut: { gte: new Date() } },
+          orderBy: { dateDebut: "asc" },
+        }),
+  ]);
 
-    const statutMap = Object.fromEntries(eleveStats.map((s) => [s.statut, s._count]));
-    const totalEleves = Object.values(statutMap).reduce((a, b) => a + b, 0);
+  const statutMap = Object.fromEntries(eleveStats.map((s) => [s.statut, s._count]));
+  const totalEleves = Object.values(statutMap).reduce((a, b) => a + b, 0);
 
-    return {
-      totalEleves,
-      totalElevesActifs: statutMap["ACTIF"] ?? 0,
-      totalClasses,
-      absencesAujourdhui,
-      absencesNonJustifiees,
-      notesRecentes,
-      prochainExamen,
-    };
+  return {
+    totalEleves,
+    totalElevesActifs: statutMap["ACTIF"] ?? 0,
+    totalClasses,
+    absencesAujourdhui,
+    absencesNonJustifiees,
+    notesRecentes,
+    prochainExamen,
+  };
+}
+
+const getCachedDashboardData = unstable_cache(
+  // Le premier argument ne sert qu'à la clé de cache (cf. `dashboardCacheKey`).
+  async (scopeKey: string, tenantId: string, claims: DashboardScopeClaims) => {
+    void scopeKey;
+    return fetchDashboardData(tenantId, claims);
   },
   ["dashboard-data"],
   { revalidate: 30, tags: ["dashboard-data"] }
 );
+
+async function getDashboardData(tenantId: string, claims: DashboardScopeClaims) {
+  // Aucune mise en cache pour les périmètres personnels : les données sont
+  // nominatives et propres à une famille, on refuse de les faire transiter par
+  // un cache partagé (ceinture et bretelles, en plus de la clé explicite).
+  if (isRelationScopedRole(claims.role)) {
+    return fetchDashboardData(tenantId, claims);
+  }
+  return getCachedDashboardData(dashboardCacheKey(tenantId, claims), tenantId, claims);
+}
 
 export default async function DashboardPage() {
   const [session, t, tc, locale] = await Promise.all([
@@ -86,10 +119,23 @@ export default async function DashboardPage() {
     getLocale(),
   ]);
 
-  if (session?.user?.role === "SUPER_ADMIN") {
-    redirect("/super-admin");
+  // Aiguillage par rôle. L'ordre est important :
+  //  1. `guardPage` d'abord : un visiteur non authentifié doit partir vers
+  //     `/login` (et un compte sans tenant vers `/select-tenant`), pas vers un
+  //     espace applicatif ;
+  //  2. la redirection ensuite, AVANT toute requête Prisma : inutile de payer
+  //     six requêtes pour une page qu'on ne rendra pas.
+  // `redirect()` lève `NEXT_REDIRECT` : jamais dans un try/catch.
+  await guardPage(session);
+  // L'aiguillage précède le contrôle de `tenantId` : un SUPER_ADMIN n'a pas de
+  // tenant actif et doit partir vers `/super-admin`, pas vers `/login`.
+  const accueil = accueilPourRole(session?.user?.role);
+  if (accueil) {
+    redirect(accueil);
   }
 
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
@@ -105,7 +151,7 @@ export default async function DashboardPage() {
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const currentSiteName = currentSiteId
     ? (sites.find((s) => s.id === currentSiteId)?.nom ?? tc("unknownSite"))
-    : session.user.role === "TENANT_ADMIN" || (session.user.role as string) === "SUPER_ADMIN"
+    : session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN"
       ? tc("allSites")
       : tc("noSite");
 
@@ -167,7 +213,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Actions rapides */}
-          <QuickActions />
+          <QuickActions role={session.user.role} />
         </div>
 
         {/* Activité récente */}

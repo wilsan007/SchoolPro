@@ -210,6 +210,10 @@ const CATALOGUE = {
   // — Configuration et serveur —
   CONFIGURATION_MANQUANTE: { statut: 500, fr: "Configuration non définie" },
   ERREUR_SERVEUR: { statut: 500, fr: "Erreur serveur" },
+
+  // — Facturation —
+  FACTURE_INTROUVABLE: { statut: 404, fr: "Facture introuvable" },
+  ECHEANCIER_INTROUVABLE: { statut: 404, fr: "Échéancier introuvable" },
 } as const satisfies Record<string, Definition>;
 
 export type CodeErreur = keyof typeof CATALOGUE;

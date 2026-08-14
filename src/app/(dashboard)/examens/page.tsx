@@ -8,6 +8,7 @@ import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getSitesForUser } from "@/lib/actions/eleve";
 import { getSiteColorMap } from "@/lib/site-colors";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 // Les fragments d'isolation sont construits ici, au plus près des requêtes :
 // passés en paramètres, ils n'étaient plus rattachables à leur origine, ni par
@@ -44,6 +45,9 @@ export default async function ExamensPage({
   searchParams: Promise<{ siteId?: string }>;
 }) {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const [tCommon, sites, siteColors, sp] = await Promise.all([

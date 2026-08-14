@@ -41,13 +41,21 @@ import { useState, useMemo, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { canAccessRoute } from "@/lib/permissions";
+import { accueilPourRole } from "@/lib/accueil-par-role";
 
+/**
+ * Un élément de menu ne porte plus de liste de rôles. Sa visibilité est
+ * déduite de `canAccessRoute`, la même fonction qui décide dans le middleware
+ * et dans `guardPage`. Les listes codées en dur ici divergeaient de la matrice
+ * de permissions : un parent voyait « Élèves », « Notes » et « Absences » —
+ * les entrées sans `roles` étaient affichées à tout le monde.
+ */
 type NavItem = {
   labelKey: string;
   icon: LucideIcon;
   href: string;
   color: string;
-  roles?: string[];
 };
 
 type NavGroup = {
@@ -60,15 +68,23 @@ const navGroups: NavGroup[] = [
     groupKey: null,
     items: [
       { labelKey: "dashboard", icon: LayoutDashboard, href: "/dashboard", color: "text-blue-500" },
-      { labelKey: "direction", icon: Gauge, href: "/direction", color: "text-sky-600", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"] },
-      { labelKey: "monEspace", icon: Briefcase, href: "/mon-espace", color: "text-emerald-600", roles: ["TEACHER", "CLASS_TEACHER"] },
-      { labelKey: "maClasse", icon: Users, href: "/ma-classe", color: "text-teal-600", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "COUNSELOR"] },
+      { labelKey: "direction", icon: Gauge, href: "/direction", color: "text-sky-600" },
+      { labelKey: "monEspace", icon: Briefcase, href: "/mon-espace", color: "text-emerald-600" },
+      { labelKey: "maClasse", icon: Users, href: "/ma-classe", color: "text-teal-600" },
       // Espaces personnels : ces écrans se résolvent par le périmètre
       // relationnel de celui qui est connecté. Ils n'ont rien à montrer à un
       // adulte de l'établissement qui les visiterait — d'où le rôle unique.
-      { labelKey: "monParcours", icon: HandHeart, href: "/parent", color: "text-pink-500", roles: ["PARENT"] },
-      { labelKey: "monParcoursEleve", icon: Target, href: "/eleve", color: "text-violet-500", roles: ["STUDENT"] },
-      { labelKey: "entrainement", icon: Sparkles, href: "/entrainement", color: "text-amber-500", roles: ["STUDENT"] },
+      { labelKey: "monParcours", icon: HandHeart, href: "/parent", color: "text-pink-500" },
+      { labelKey: "monParcoursEleve", icon: Target, href: "/eleve", color: "text-violet-500" },
+      { labelKey: "monEmploi", icon: Calendar, href: "/mon-emploi", color: "text-cyan-500" },
+      { labelKey: "entrainement", icon: Sparkles, href: "/entrainement", color: "text-amber-500" },
+      // Espaces dédiés par métier — chacun est l'accueil d'un rôle qui n'avait
+      // pas d'espace à lui. La visibilité est déduite de `canAccessRoute`,
+      // comme pour tout le reste du menu.
+      { labelKey: "secretariat", icon: FileText, href: "/secretariat", color: "text-teal-600" },
+      { labelKey: "conseiller", icon: Compass, href: "/conseiller", color: "text-indigo-600" },
+      { labelKey: "infirmerie", icon: HandHeart, href: "/infirmerie", color: "text-rose-500" },
+      { labelKey: "comptabilite", icon: Receipt, href: "/comptabilite", color: "text-emerald-600" },
     ],
   },
   {
@@ -76,8 +92,8 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: "eleves", icon: Users, href: "/eleves", color: "text-violet-500" },
       { labelKey: "notes", icon: BookOpen, href: "/notes", color: "text-green-500" },
-      { labelKey: "curriculum", icon: Target, href: "/curriculum", color: "text-fuchsia-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"] },
-      { labelKey: "recommandations", icon: Sparkles, href: "/recommandations", color: "text-rose-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER", "COUNSELOR"] },
+      { labelKey: "curriculum", icon: Target, href: "/curriculum", color: "text-fuchsia-500" },
+      { labelKey: "recommandations", icon: Sparkles, href: "/recommandations", color: "text-rose-500" },
       { labelKey: "examens", icon: GraduationCap, href: "/evaluations", color: "text-yellow-500" },
       { labelKey: "cours", icon: PlayCircle, href: "/cours", color: "text-indigo-500" },
       { labelKey: "emploi", icon: Calendar, href: "/emploi-du-temps", color: "text-cyan-500" },
@@ -87,33 +103,33 @@ const navGroups: NavGroup[] = [
     groupKey: "groupVieScolaire",
     items: [
       { labelKey: "absences", icon: ClipboardList, href: "/absences", color: "text-orange-500" },
-      { labelKey: "vieScolaire", icon: Shield, href: "/vie-scolaire", color: "text-red-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "COUNSELOR", "CLASS_TEACHER"] },
-      { labelKey: "parents", icon: UserCheck, href: "/parents", color: "text-pink-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER", "CLASS_TEACHER"] },
+      { labelKey: "vieScolaire", icon: Shield, href: "/vie-scolaire", color: "text-red-500" },
+      { labelKey: "parents", icon: UserCheck, href: "/parents", color: "text-pink-500" },
     ],
   },
   {
     groupKey: "groupGestion",
     items: [
-      { labelKey: "admissions", icon: UserPlus, href: "/admissions", color: "text-teal-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY"] },
-      { labelKey: "facturation", icon: Receipt, href: "/facturation", color: "text-emerald-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
-      { labelKey: "rh", icon: Briefcase, href: "/rh", color: "text-amber-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
-      { labelKey: "inventaire", icon: Package, href: "/inventaire", color: "text-stone-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
+      { labelKey: "admissions", icon: UserPlus, href: "/admissions", color: "text-teal-500" },
+      { labelKey: "facturation", icon: Receipt, href: "/facturation", color: "text-emerald-500" },
+      { labelKey: "rh", icon: Briefcase, href: "/rh", color: "text-amber-500" },
+      { labelKey: "inventaire", icon: Package, href: "/inventaire", color: "text-stone-500" },
     ],
   },
   {
     groupKey: "groupCommunication",
     items: [
       { labelKey: "messages", icon: MessageSquare, href: "/messages", color: "text-indigo-500" },
-      { labelKey: "communication", icon: Bell, href: "/communication", color: "text-sky-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY"] },
+      { labelKey: "communication", icon: Bell, href: "/communication", color: "text-sky-500" },
     ],
   },
   {
     groupKey: "groupRapports",
     items: [
-      { labelKey: "rapports", icon: FileText, href: "/rapports", color: "text-slate-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "ACCOUNTANT"] },
-      { labelKey: "analytics", icon: BarChart3, href: "/analytics", color: "text-red-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
-      { labelKey: "orientation", icon: Compass, href: "/orientation", color: "text-lime-600", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "COUNSELOR", "CLASS_TEACHER"] },
-      { labelKey: "alumni", icon: Archive, href: "/alumni", color: "text-purple-500", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY"] },
+      { labelKey: "rapports", icon: FileText, href: "/rapports", color: "text-slate-500" },
+      { labelKey: "analytics", icon: BarChart3, href: "/analytics", color: "text-red-500" },
+      { labelKey: "orientation", icon: Compass, href: "/orientation", color: "text-lime-600" },
+      { labelKey: "alumni", icon: Archive, href: "/alumni", color: "text-purple-500" },
     ],
   },
   {
@@ -157,13 +173,15 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
       .map((group) => ({
         ...group,
         items: group.items.filter((item) => {
-          if (item.href === "/super-admin") return isSuperAdmin;
-          if (!item.roles) return true;
-          return item.roles.includes(roleKey);
+          // `/dashboard` est un aiguillage : les rôles qui ont un accueil
+          // dédié (`accueilPourRole` non null) y sont redirigés automatiquement.
+          // Afficher l'entrée ne mènerait qu'à un rebond — on la masque.
+          if (item.href === "/dashboard" && accueilPourRole(roleKey)) return false;
+          return canAccessRoute(roleKey, item.href);
         }),
       }))
       .filter((group) => group.items.length > 0),
-    [isSuperAdmin, roleKey]
+    [roleKey]
   );
 
   const isItemActive = (href: string) =>
@@ -340,7 +358,9 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
         })}
       </nav>
 
-      {/* Paramètres */}
+      {/* Paramètres — même règle que le reste du menu : le lien n'apparaît
+          que pour les rôles qui peuvent réellement ouvrir la page. */}
+      {canAccessRoute(roleKey, "/parametres") && (
       <div className="px-3 pb-4 border-t border-slate-800/40 pt-4">
         <Link
           href="/parametres"
@@ -353,6 +373,7 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
           {!collapsed && <span>{t("parametres")}</span>}
         </Link>
       </div>
+      )}
 
       {/* Profil utilisateur */}
       {!collapsed && (

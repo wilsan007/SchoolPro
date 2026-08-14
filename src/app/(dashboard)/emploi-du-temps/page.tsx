@@ -9,6 +9,9 @@ import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getSitesForUser } from "@/lib/actions/eleve";
 import { getSiteColorMap } from "@/lib/site-colors";
+import { guardPage } from "@/lib/guard-page";
+import { isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 // Les fragments d'isolation sont construits ici, au plus près des requêtes :
 // passés en paramètres, ils n'étaient plus rattachables à leur origine, ni par
@@ -83,6 +86,9 @@ async function getEmploiData(tenantId: string, claims: SessionSiteClaims) {
 
 export default async function EmploiDuTempsPage() {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const [t, tCommon, sites, siteColors] = await Promise.all([
@@ -96,6 +102,26 @@ export default async function EmploiDuTempsPage() {
     session.user.tenantId, session.user
   );
 
+  // Un enseignant consulte son service, il n'édite pas la grille de
+  // l'établissement : on restreint les données à ses créneaux et à ses
+  // classes, et on passe la vue en lecture seule.
+  const role = session.user.role as Role;
+  const estEnseignant = isTeacherRole(role);
+  let mesClasses = classes;
+  let mesEmplois = emplois;
+  if (estEnseignant) {
+    // eslint-disable-next-line ecolpro/require-site-filter -- résolution de l'enseignant par userId+tenantId
+    const ens = await prisma.enseignant.findFirst({
+      where: { userId: session.user.id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+    if (ens) {
+      mesEmplois = emplois.filter((e) => e.enseignantId === ens.id);
+      const mesClasseIds = new Set(mesEmplois.map((e) => e.classeId).filter(Boolean) as string[]);
+      mesClasses = classes.filter((c) => mesClasseIds.has(c.id));
+    }
+  }
+
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const currentSiteName = currentSiteId
     ? (sites.find((s) => s.id === currentSiteId)?.nom ?? tCommon("unknownSite"))
@@ -108,7 +134,7 @@ export default async function EmploiDuTempsPage() {
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
         title={t("title")}
-        subtitle={t("subtitle")}
+        subtitle={estEnseignant ? t("subtitleConsultation") : t("subtitle")}
         site={currentSiteName}
         siteColor={currentSiteColor}
         userName={session.user.name}
@@ -116,14 +142,15 @@ export default async function EmploiDuTempsPage() {
       />
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
         <EmploiDuTempsView
-          classes={classes}
+          classes={mesClasses}
           matieres={matieres}
           enseignants={enseignants}
-          emplois={emplois as unknown as React.ComponentProps<typeof EmploiDuTempsView>["emplois"]}
+          emplois={mesEmplois as unknown as React.ComponentProps<typeof EmploiDuTempsView>["emplois"]}
           matiereToEnseignants={matiereToEnseignants}
           salles={salles}
           disponibilites={disponibilites}
           tenantId={session.user.tenantId}
+          readOnly={estEnseignant}
         />
       </div>
     </div>

@@ -7,6 +7,7 @@ import { ArrowLeft, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
 import { CompetencesEvaluation } from "@/components/evaluations/CompetencesEvaluation";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function SaisieNotesPage({
   params
@@ -14,6 +15,9 @@ export default async function SaisieNotesPage({
   params: Promise<{ id: string }>
 }) {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const { id: evaluationId } = await params;

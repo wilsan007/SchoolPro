@@ -4,8 +4,9 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
+import { siteFilterForModel, siteFilterForRelation, isRelationScopedRole } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import type { Jour } from "@prisma/client";
 
 const CreateSchema = z.object({
   classeId: z.string().min(1),
@@ -24,6 +25,14 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "emploi-du-temps:read");
     if (denied) return denied;
+
+    // L'EDT est un outil du personnel : un PARENT / STUDENT qui a
+    // `emploi-du-temps:read` pour l'EDT de son enfant ne doit pas voir celui de
+    // toutes les classes du tenant. Les familles accèdent à l'EDT via les routes
+    // mobiles dédiées qui appliquent `eleveScopeFilter`.
+    if (isRelationScopedRole(session.user.role)) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
@@ -69,9 +78,6 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = session.user.tenantId;
-    const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
-    const siteIds = (session.user as { siteIds?: string[] }).siteIds;
-    const classeFilter = siteFilterForModel("classe", session.user);
     const emploiFilter = siteFilterForRelation(session.user, "classe");
     const annee = await getAnneeCouranteLibelle(tenantId);
     if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
@@ -104,7 +110,7 @@ export async function POST(req: NextRequest) {
       const teacherConflict = await prisma.emploiTemps.findFirst({
         where: { tenantId, ...emploiFilter,
           enseignantId,
-          jour: jour as never,
+          jour: jour as Jour,
           annee,
           OR: [
             { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
@@ -123,7 +129,7 @@ export async function POST(req: NextRequest) {
       const roomConflict = await prisma.emploiTemps.findFirst({
         where: { tenantId, ...emploiFilter,
           salle,
-          jour: jour as never,
+          jour: jour as Jour,
           annee,
           OR: [
             { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },

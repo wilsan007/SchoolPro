@@ -3,7 +3,11 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 import {
   analyserPatterns,
   detecterCorrelations,
@@ -46,7 +50,21 @@ export async function GET(req: NextRequest) {
     }),
     anneeId
       ? prisma.predictionDifficulte.findMany({
-          where: { tenantId, anneeId, ...siteFilterForModel("predictionDifficulte", session.user) },
+          // Le commentaire de tête présente cet écran comme réservé à la
+          // direction et aux enseignants, mais `entrainement:read` est aussi
+          // accordé à PARENT et STUDENT. Pour ces rôles le filtre de site est
+          // NEUTRE (périmètre relationnel, cf. site-scope.ts) : la liste des
+          // prédictions, nominative (`eleve.nom`/`prenom`), leur était donc
+          // servie en entier. `personalScopeFilter` la borne à leurs enfants
+          // sans rien changer pour le personnel.
+          where: {
+            tenantId,
+            anneeId,
+            ...mergeFilters(
+              siteFilterForModel("predictionDifficulte", session.user),
+              personalScopeFilter(session.user, "eleve")
+            ),
+          },
           select: {
             id: true,
             difficultePredite: true,

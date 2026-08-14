@@ -28,7 +28,7 @@ export default async function EvaluationsPage({
     searchParams,
   ]);
   if (!session?.user?.tenantId) redirect("/login");
-  await guardPage(session, "evaluations:read");
+  await guardPage(session);
 
   const tenantId = session.user.tenantId;
   const { matiereId } = sp;

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +22,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
-    const siteFilter = siteFilterForModel("bulletin", session.user);
+    // Route sans contrôle de permission : elle est atteignable par un PARENT
+    // ou un élève, pour qui le filtre de site est neutre (périmètre
+    // relationnel, cf. site-scope.ts). Le compte ne renseignait donc pas
+    // « mes enfants » mais l'état de génération de n'importe quelle classe.
+    // `personalScopeFilter` borne ces rôles sans rien changer au personnel.
+    const siteFilter = mergeFilters(
+      siteFilterForModel("bulletin", session.user),
+      personalScopeFilter(session.user, "eleve")
+    );
 
     const count = await prisma.bulletin.count({
       where: {

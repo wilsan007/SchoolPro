@@ -16,7 +16,7 @@ import type { Role } from "@prisma/client";
  */
 export default async function MonEspacePage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.kpi")]);
-  await guardPage(session, "eleves:read");
+  await guardPage(session);
 
   const role = session!.user.role as Role;
   // Un enseignant est borné à ses classes ; la direction voit tout.

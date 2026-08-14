@@ -5,6 +5,7 @@ import { FactureForm } from "@/components/facturation/FactureForm";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function NouvelleFacturePage({
   searchParams,
@@ -12,6 +13,9 @@ export default async function NouvelleFacturePage({
   searchParams: Promise<{ eleveId?: string }>;
 }) {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const tf = await getTranslations("facturation");

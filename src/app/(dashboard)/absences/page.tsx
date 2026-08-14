@@ -11,6 +11,7 @@ import { startOfDay, endOfDay, subDays } from "date-fns";
 import { getTranslations } from "next-intl/server";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { guardPage } from "@/lib/guard-page";
 
 async function getAbsencesData(
   tenantId: string,
@@ -73,6 +74,9 @@ export default async function AbsencesPage() {
     auth(),
     getTranslations("absences"),
   ]);
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const siteFilter = siteFilterForModel("absence", session.user);

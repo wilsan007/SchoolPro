@@ -3,12 +3,16 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { MessagerieView } from "@/components/messages/MessagerieView";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function MessagesPage() {
   const [session, t] = await Promise.all([
     auth(),
     getTranslations("messages"),
   ]);
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   return (

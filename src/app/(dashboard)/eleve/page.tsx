@@ -22,7 +22,7 @@ export default async function EleveEspacePage() {
     auth(),
     getTranslations("learnos.dossier"),
   ]);
-  await guardPage(session, "notes:read");
+  await guardPage(session);
 
   if (session!.user.role !== "STUDENT") redirect("/dashboard");
 

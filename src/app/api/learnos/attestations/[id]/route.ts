@@ -4,8 +4,13 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 import { ouvrirAttestation, signerAttestation } from "@/lib/learnos/attestation";
+import type { Prisma } from "@prisma/client";
 
 const Schema = z.object({ decision: z.enum(["valider", "ecarter", "demarrer"]) });
 
@@ -40,13 +45,14 @@ export async function POST(
 
   const tenantId = session.user.tenantId;
 
+  // Périmètre personnel : sans `personalScopeFilter`, un PARENT / STUDENT
+  // pourrait agir sur l'attestation de n'importe quel élève du tenant.
   const feuille = await prisma.feuilleExercices.findFirst({
-    where: {
-      id,
-      tenantId,
-      type: "attestation",
-      ...siteFilterForModel("feuilleExercices", session.user),
-    },
+    where: mergeFilters(
+      { id, tenantId, type: "attestation" },
+      siteFilterForModel("feuilleExercices", session.user),
+      personalScopeFilter(session.user, "eleve")
+    ) as Prisma.FeuilleExercicesWhereInput,
     select: { id: true, statut: true, assigneeLe: true },
   });
   if (!feuille) return erreurJson("ATTESTATION_INTROUVABLE");

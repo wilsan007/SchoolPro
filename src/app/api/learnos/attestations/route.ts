@@ -3,9 +3,14 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+  isRelationScopedRole,
+} from "@/lib/site-scope";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
-import type { Role } from "@prisma/client";
+import type { Role, Prisma } from "@prisma/client";
 
 /**
  * Attestations en attente de signature.
@@ -30,21 +35,31 @@ export async function GET(_req: NextRequest) {
     ? await getTeacherScope(tenantId, session.user.id, role)
     : undefined;
 
+  // Périmètre personnel pour PARENT / STUDENT : `siteFilterForModel` seul
+  // renvoie un filtre vide pour ces rôles (périmètre relationnel), ce qui
+  // exposerait les attestations — données nominatives (nom, prénom, classe de
+  // l'élève) — de tout le tenant. `personalScopeFilter` restreint via la
+  // relation `eleve` : un élève ne voit que ses propres demandes, un parent
+  // celles de ses enfants.
+  const relationFilter = personalScopeFilter(session.user, "eleve");
+
   const feuilles = await prisma.feuilleExercices.findMany({
-    where: {
-      tenantId,
-      type: "attestation",
+    where: mergeFilters(
+      { tenantId, type: "attestation" },
       // Deux états, deux gestes attendus : `PROPOSEE` demande une décision,
       // `ASSIGNEE` sans `assigneeLe` attend d'être lancée en classe. Ne montrer
       // que la première laisserait les attestations acceptées disparaître de
       // l'écran sans jamais être passées.
-      OR: [
-        { statut: "PROPOSEE" },
-        { statut: "ASSIGNEE", assigneeLe: null },
-      ],
-      ...(scope?.isRestricted ? { eleve: { classeId: { in: scope.classeIds } } } : {}),
-      ...siteFilterForModel("feuilleExercices", session.user),
-    },
+      {
+        OR: [
+          { statut: "PROPOSEE" },
+          { statut: "ASSIGNEE", assigneeLe: null },
+        ],
+      },
+      ...(scope?.isRestricted ? [{ eleve: { classeId: { in: scope.classeIds } } }] : []),
+      siteFilterForModel("feuilleExercices", session.user),
+      relationFilter,
+    ) as Prisma.FeuilleExercicesWhereInput,
     select: {
       id: true,
       statut: true,

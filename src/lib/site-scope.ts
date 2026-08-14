@@ -403,6 +403,10 @@ export const SITE_PATHS: Record<string, SitePath> = {
   alerteParent: "column",
   echangeParent: "column",
 
+  // --- Infirmerie & santé ---
+  passageInfirmerie: "column",
+  ficheSanitaire: "column",
+
   // --- données de référence, partagées par tous les sites du tenant ---
   // Les préférences d'une famille suivent la famille, pas l'établissement :
   // un enfant qui change de site ne remet pas à zéro le consentement de ses
@@ -430,6 +434,25 @@ export const SITE_PATHS: Record<string, SitePath> = {
   account: "tenant",
   session: "tenant",
   verificationToken: "tenant",
+
+  // --- Gouvernance (niveau tenant, pas de siteId) ---
+  conseil: "tenant",
+  membreConseil: "tenant",
+  réunion: "tenant",
+  résolution: "tenant",
+
+  // --- Mentorat (niveau tenant, pas de siteId) ---
+  mentorat: "tenant",
+  objectifMentorat: "tenant",
+  seanceMentorat: "tenant",
+
+  // --- Modules activables (niveau tenant, pas de siteId) ---
+  module: "tenant",
+  moduleActivation: "tenant",
+
+  // --- Échéancier de paiement (rattaché à la facture qui porte siteId) ---
+  echeancier: { one: "facture" },
+  echeancePaiement: { chain: ["echeancier", "facture"] },
 };
 
 /**

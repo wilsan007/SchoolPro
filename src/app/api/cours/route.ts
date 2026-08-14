@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
+import { siteFilterForModel, requireSiteIdForCreate, isRelationScopedRole } from "@/lib/site-scope";
 
 const CoursSchema = z.object({
   titre: z.string().min(1).max(200),
@@ -21,6 +21,14 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const denied = checkPermission(session.user.role, "cours:read");
   if (denied) return denied;
+
+  // La liste des cours est un outil du personnel : un PARENT / STUDENT qui a
+  // `cours:read` pour consulter les supports de son enfant ne doit pas voir
+  // tous les cours du tenant. Les familles accèdent aux cours via les routes
+  // mobiles dédiées qui appliquent `eleveScopeFilter`.
+  if (isRelationScopedRole(session.user.role)) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
 
   const { searchParams } = new URL(req.url);
   const statut = searchParams.get("statut");

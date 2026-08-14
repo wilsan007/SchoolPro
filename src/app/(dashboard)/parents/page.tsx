@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { ParentsView } from "@/components/parents/ParentsView";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-filter";
+import { guardPage } from "@/lib/guard-page";
 
 async function getParentsData(tenantId: string, claims: SessionSiteClaims) {
   const parents = await prisma.parent.findMany({
@@ -45,6 +46,9 @@ export default async function ParentsPage() {
     auth(),
     getTranslations("parents"),
   ]);
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const { parents: rawParents } = await getParentsData(session.user.tenantId, session.user);

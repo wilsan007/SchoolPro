@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { getSitesForUser } from "@/lib/actions/eleve";
 import { getSiteColorMap } from "@/lib/site-colors";
 import { SiteTabs } from "@/components/sites/SiteTabs";
+import { guardPage } from "@/lib/guard-page";
 
 export const metadata = { title: "Cours en ligne — LMS | EcolPro" };
 
@@ -15,6 +16,9 @@ export default async function CoursPage({
   searchParams: Promise<{ siteId?: string }>;
 }) {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const [t, tCommon, sites, siteColors, sp] = await Promise.all([

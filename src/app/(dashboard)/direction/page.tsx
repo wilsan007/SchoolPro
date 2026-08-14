@@ -17,7 +17,7 @@ import { alertesAnticipees } from "@/lib/learnos/planification";
  */
 export default async function DirectionPage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.kpi")]);
-  await guardPage(session, "analytics:read");
+  await guardPage(session);
 
   const tenantId = session!.user.tenantId!;
   const annee = await prisma.anneesScolaires.findFirst({

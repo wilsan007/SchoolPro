@@ -1,198 +1,69 @@
-import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { authConfig } from "@/auth.config";
-
-const { auth } = NextAuth(authConfig);
-
-const PUBLIC_ROUTES = ["/login", "/register", "/api/auth", "/", "/_next", "/select-tenant"];
-
-const SELF_AUTH_API = ["/api/auth", "/api/cron", "/api/webhooks"];
+import { getToken } from "next-auth/jwt";
+import { canAccessRoute } from "@/lib/permissions";
 
 /**
- * Matrice RBAC inline — évite d'importer @/lib/rbac qui entraîne Prisma
- * (incompatible avec le runtime edge du middleware).
- * Source de vérité : src/lib/rbac.ts. Ne pas diverger.
+ * Routes joignables sans session, comparées par **préfixe**.
+ * `"/"` en est volontairement absent : `"/".startsWith` étant vrai pour tout
+ * chemin, sa présence ici rendait publique la totalité de l'application. La
+ * racine est traitée à part, en égalité stricte.
  */
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  SUPER_ADMIN: ["*"],
-  TENANT_ADMIN: [
-    "eleves:*", "parents:*", "enseignants:*", "classes:*", "matieres:*",
-    "notes:*", "evaluations:*", "bulletins:*", "absences:*", "examens:*",
-    "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
-    "admissions:*", "rh:*", "finance:*", "inventaire:*", "alumni:*",
-    "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
-    "ai:*", "audit:read", "entrainement:*",
-  ],
-  PRINCIPAL: [
-    "eleves:*", "parents:*", "enseignants:*", "classes:*", "matieres:*",
-    "notes:*", "evaluations:*", "bulletins:*", "absences:*", "examens:*",
-    "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
-    "admissions:*", "rh:read", "finance:read", "inventaire:*", "alumni:*",
-    "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
-    "ai:*", "entrainement:*",
-  ],
-  SECRETARY: [
-    "eleves:*", "parents:*", "classes:read", "matieres:read",
-    "absences:*", "emploi-du-temps:*", "communication:read", "communication:send",
-    "messages:*", "admissions:*", "examens:read", "inventaire:read",
-    "documents:*", "alumni:read", "bulletins:read", "rapports:read",
-  ],
-  TEACHER: [
-    "eleves:read", "classes:read", "matieres:read",
-    "notes:*", "evaluations:*", "absences:read", "absences:write",
-    "bulletins:read", "emploi-du-temps:read", "messages:*",
-    "cours:*", "analytics:read", "examens:read", "ai:teacher",
-    "entrainement:*",
-  ],
-  CLASS_TEACHER: [
-    "eleves:read", "classes:read", "matieres:read",
-    "notes:*", "evaluations:*", "absences:*",
-    "bulletins:read", "bulletins:write", "bulletins:publish",
-    "emploi-du-temps:read", "messages:*", "cours:*",
-    "vie-scolaire:*", "orientation:read", "orientation:write",
-    "analytics:read", "examens:read", "parents:read", "ai:teacher",
-    "entrainement:*",
-  ],
-  COUNSELOR: [
-    "eleves:read", "absences:read", "vie-scolaire:*", "orientation:*",
-    "messages:*", "parents:read", "communication:read", "analytics:read",
-  ],
-  NURSE: [
-    "eleves:read", "absences:read", "messages:read", "messages:write",
-  ],
-  ACCOUNTANT: [
-    "finance:*", "rh:*", "eleves:read", "parents:read", "inventaire:*",
-    "analytics:read", "messages:*", "rapports:read",
-  ],
-  PARENT: [
-    "bulletins:read", "absences:read", "notes:read", "messages:*",
-    "communication:read", "cours:read", "orientation:read",
-    "emploi-du-temps:read", "ai:parent", "entrainement:read",
-  ],
-  STUDENT: [
-    "bulletins:read", "absences:read", "notes:read",
-    "messages:read", "messages:reply",
-    "communication:read", "cours:*", "emploi-du-temps:read",
-    "entrainement:read", "entrainement:write",
-  ],
-};
-
-function roleHasPermission(role: string, permission: string): boolean {
-  const perms = ROLE_PERMISSIONS[role] ?? [];
-  if (perms.includes("*")) return true;
-  if (perms.includes(permission)) return true;
-  const moduleName = permission.split(":")[0];
-  if (perms.includes(`${moduleName}:*`)) return true;
-  return false;
-}
-
-/**
- * Mapping route → permission requise.
- * Le middleware applique cette vérification en plus du guardPage côté page.
- */
-const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[]; roles?: string[] }[] = [
-  // Direction / pilotage
-  { pattern: /^\/direction$/, permission: "analytics:read", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT", "COUNSELOR"] },
-  { pattern: /^\/analytics$/, permission: "analytics:read" },
-  { pattern: /^\/rapports$/, permission: "rapports:read" },
-
-  // Finance
-  { pattern: /^\/facturation$/, permission: "finance:read" },
-  { pattern: /^\/inventaire$/, permission: "inventaire:read" },
-
-  // RH
-  { pattern: /^\/rh$/, permission: "rh:read" },
-
-  // Paramètres — réservé à la direction
-  { pattern: /^\/parametres$/, permission: "eleves:write" },
-
-  // Pédagogie
-  { pattern: /^\/eleves/, permission: "eleves:read" },
-  { pattern: /^\/notes(?!\/bulletins)/, permission: "notes:read" },
-  { pattern: /^\/notes\/bulletins/, permission: "bulletins:read" },
-  { pattern: /^\/evaluations/, permission: "evaluations:read" },
-  { pattern: /^\/curriculum/, permission: "evaluations:read" },
-  { pattern: /^\/recommandations/, permission: "eleves:read" },
-  { pattern: /^\/admissions/, permission: "admissions:read" },
-  { pattern: /^\/absences/, permission: "absences:read" },
-
-  // Vie scolaire
-  { pattern: /^\/vie-scolaire/, permission: "vie-scolaire:read" },
-
-  // Communication
-  { pattern: /^\/communication/, permission: "communication:read" },
-
-  // Espace enseignant
-  { pattern: /^\/mon-espace$/, permission: "eleves:read" },
-  { pattern: /^\/ma-classe$/, permission: "eleves:read" },
-
-  // Espace parent — réservé au rôle PARENT
-  { pattern: /^\/parent$/, permission: "notes:read", roles: ["PARENT"] },
-
-  // Espace élève — réservé au rôle STUDENT
-  { pattern: /^\/eleve$/, permission: "notes:read", roles: ["STUDENT"] },
-
-  // Entraînement
-  { pattern: /^\/entrainement/, permission: "entrainement:read" },
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/register",
+  "/select-tenant",
+  "/offline",
+  "/api/auth",
+  "/_next",
 ];
 
-function findRoutePermission(pathname: string): { permission: string | string[]; roles?: string[] } | null {
-  for (const route of ROUTE_PERMISSIONS) {
-    if (route.pattern.test(pathname)) {
-      return { permission: route.permission, roles: route.roles };
-    }
-  }
-  return null;
-}
+/** Chemins publics en correspondance exacte. */
+const PUBLIC_EXACT = new Set(["/", "/offline"]);
 
-export default auth(async function middleware(req: NextRequest) {
+/** Familles d'API qui portent leur propre authentification (signature, cron). */
+const SELF_AUTH_API = ["/api/auth", "/api/cron", "/api/webhooks"];
+
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+  if (PUBLIC_EXACT.has(pathname)) return NextResponse.next();
+  // Segment complet exigé : `/loginfoo` ne doit pas hériter de `/login`.
+  if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
   }
 
+  // Les routes API gardent leur propre autorisation (`authorize` /
+  // `checkPermission`), qui sait en plus filtrer les données par périmètre.
+  // Le middleware ne peut pas la remplacer : il ne voit pas la ressource.
   if (pathname.startsWith("/api/")) {
-    if (SELF_AUTH_API.some((r) => pathname.startsWith(r))) {
-      return NextResponse.next();
-    }
-    const session = (req as unknown as { auth: { user?: { id: string } } }).auth;
-    if (!session?.user) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
+    if (SELF_AUTH_API.some((r) => pathname.startsWith(r))) return NextResponse.next();
     return NextResponse.next();
   }
 
-  const session = (req as unknown as { auth: { user?: { id: string; role?: string; tenantId?: string } } }).auth;
-  if (!session?.user) {
+  // JWT décodé directement depuis le cookie. `auth()` de NextAuth ne remonte
+  // pas `role` dans le runtime Edge du middleware.
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+
+  if (!token) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Vérification RBAC au niveau du middleware
-  const routePerm = findRoutePermission(pathname);
-  if (routePerm) {
-    const role = (session.user.role ?? "") as string;
+  const role = (token.role as string) ?? "";
 
-    // Si des rôles spécifiques sont requis, vérifier d'abord
-    if (routePerm.roles && !routePerm.roles.includes(role)) {
-      const dashboardUrl = new URL("/dashboard", req.url);
-      return NextResponse.redirect(dashboardUrl);
-    }
-
-    // Vérifier la permission RBAC
-    const needed = Array.isArray(routePerm.permission) ? routePerm.permission : [routePerm.permission];
-    const allowed = needed.some((p) => roleHasPermission(role, p));
-    if (!allowed) {
-      const dashboardUrl = new URL("/dashboard", req.url);
-      return NextResponse.redirect(dashboardUrl);
-    }
+  if (!canAccessRoute(role, pathname)) {
+    return NextResponse.redirect(new URL("/acces-bloque", req.url));
   }
 
-  return NextResponse.next();
-});
+  // Le chemin est réinjecté en en-tête de requête : un Server Component n'a
+  // aucun autre moyen de savoir quelle route il sert, et `guardPage` en a
+  // besoin pour retrouver la règle sans que chaque page la redéclare.
+  const headers = new Headers(req.headers);
+  headers.set("x-pathname", pathname);
+  return NextResponse.next({ request: { headers } });
+}
 
 export const config = {
   matcher: [

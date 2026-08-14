@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForModel, personalScopeFilter, mergeFilters } from "@/lib/site-scope";
+import type { Prisma } from "@prisma/client";
 
 export async function GET() {
   const session = await auth();
@@ -10,7 +11,15 @@ export async function GET() {
   }
 
   const tenantId = session.user.tenantId;
-  const siteFilter = siteFilterForRelation(session.user, "eleve");
+  // Périmètre de site ET périmètre personnel. Le filtre de site employé seul
+  // renvoie `{}` pour PARENT / STUDENT (`resolveSiteScope` → `RELATION`) : le
+  // graphique agrégeait alors les absences de TOUT le tenant sur 8 semaines.
+  // `mergeFilters` est obligatoire ici : les deux fragments encapsulent leurs
+  // prédicats dans `AND`, un étalement écraserait le premier.
+  const scopeFilter = mergeFilters(
+    siteFilterForModel("absence", session.user),
+    personalScopeFilter(session.user, "eleve")
+  );
 
   // Calculer la date d'il y a 8 semaines
   const now = new Date();
@@ -18,11 +27,7 @@ export async function GET() {
   eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
 
   const absences = await prisma.absence.findMany({
-    where: {
-      tenantId,
-      ...siteFilter,
-      date: { gte: eightWeeksAgo },
-    },
+    where: mergeFilters({ tenantId, date: { gte: eightWeeksAgo } }, scopeFilter) as unknown as Prisma.AbsenceWhereInput,
     select: {
       date: true,
       statut: true,

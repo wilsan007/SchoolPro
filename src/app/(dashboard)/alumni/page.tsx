@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { AlumniView } from "@/components/alumni/AlumniView";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 export const metadata = { title: "Alumni — Anciens élèves | EcolPro" };
 
@@ -11,6 +12,9 @@ export default async function AlumniPage() {
     auth(),
     getTranslations("alumni"),
   ]);
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

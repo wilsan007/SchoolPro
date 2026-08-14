@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { AppelInterface } from "@/components/absences/AppelInterface";
+import { guardPage } from "@/lib/guard-page";
 
 async function getClasses(tenantId: string, claims: SessionSiteClaims) {
   return prisma.classe.findMany({
@@ -24,6 +25,9 @@ async function getClasses(tenantId: string, claims: SessionSiteClaims) {
 
 export default async function AppelPage() {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const classes = await getClasses(session.user.tenantId, session.user);

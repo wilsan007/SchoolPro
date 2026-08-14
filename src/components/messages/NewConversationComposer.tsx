@@ -351,6 +351,7 @@ export function NewConversationComposer({
         : "")
       : "";
     return `${groupPart} — ${scopePart}`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasAudience, activeGroups, selectedScope, options, t]);
 
   // --- Available groups for current scope ---

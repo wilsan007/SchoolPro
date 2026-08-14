@@ -9,7 +9,7 @@ export default async function AnalyticsPage() {
     auth(),
     getTranslations("analytics"),
   ]);
-  await guardPage(session, "analytics:read");
+  await guardPage(session);
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header

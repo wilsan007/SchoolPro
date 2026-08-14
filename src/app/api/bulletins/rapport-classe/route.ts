@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -23,7 +27,17 @@ export async function GET(req: NextRequest) {
       eleve: { classeId, tenantId: session.user.tenantId },
       periodeId,
       tenantId: session.user.tenantId,
-      ...siteFilterForModel("bulletin", session.user),
+      // Cette route ne vérifie AUCUNE permission : tout compte authentifié —
+      // donc aussi un PARENT ou un élève — l'atteint. Et pour ces deux rôles le
+      // filtre de site est neutre par construction (périmètre relationnel,
+      // cf. site-scope.ts) : le rapport de classe nominatif (moyennes, rangs,
+      // décisions, appréciations) était lisible pour n'importe quelle classe.
+      // `personalScopeFilter` est le seul filtre qui les isole ; il ne change
+      // rien pour le personnel.
+      ...mergeFilters(
+        siteFilterForModel("bulletin", session.user),
+        personalScopeFilter(session.user, "eleve")
+      ),
     },
     include: {
       eleve: { select: { id: true, nom: true, prenom: true, matricule: true } },

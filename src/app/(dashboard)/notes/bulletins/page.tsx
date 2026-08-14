@@ -11,6 +11,7 @@ import { getTranslations } from "next-intl/server";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import type { Role } from "@prisma/client";
+import { guardPage } from "@/lib/guard-page";
 
 async function getBulletinsData(
   tenantId: string,
@@ -55,6 +56,9 @@ export default async function BulletinsPage() {
     auth(),
     getTranslations("bulletins"),
   ]);
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   // Filtrer par classes de l'enseignant si applicable

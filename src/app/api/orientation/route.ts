@@ -3,7 +3,11 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 
 // GET — liste des élèves avec leur parcours et recommandation
 export async function GET(req: NextRequest) {
@@ -16,7 +20,19 @@ export async function GET(req: NextRequest) {
   const eleveId = searchParams.get("eleveId");
   const niveau = searchParams.get("niveau");
 
-  const siteFilter = siteFilterForModel("eleve", session.user);
+  // `orientation:read` est accordé à PARENT. Or pour ce rôle le filtre de site
+  // est NEUTRE par construction (périmètre relationnel, cf. site-scope.ts) :
+  // `siteFilterForModel` renvoie `{}` et n'isolait donc RIEN. Un parent
+  // pouvait lire le dossier d'orientation — parcours, notes, absences,
+  // incidents, coordonnées des parents — de n'importe quel élève du tenant en
+  // passant simplement son `eleveId`. Seul `personalScopeFilter` borne ce rôle
+  // à ses propres enfants ; il est neutre pour le personnel.
+  const siteFilter = mergeFilters(
+    siteFilterForModel("eleve", session.user),
+    personalScopeFilter(session.user, null)
+  );
+  // Même raisonnement pour les modèles rattachés à l'élève par une relation.
+  const relationScope = personalScopeFilter(session.user, "eleve");
   if (eleveId) {
     // Parcours complet d'un élève
     const [eleve, parcours, notes, absences, incidents] = await Promise.all([
@@ -38,7 +54,10 @@ export async function GET(req: NextRequest) {
         where: {
           eleveId,
           tenantId: session.user.tenantId,
-          ...siteFilterForModel("parcoursScolaire", session.user),
+          ...mergeFilters(
+            siteFilterForModel("parcoursScolaire", session.user),
+            relationScope
+          ),
         },
         orderBy: { annee: "desc" },
       }),
@@ -47,7 +66,7 @@ export async function GET(req: NextRequest) {
           eleveId,
           tenantId: session.user.tenantId,
           isPubliee: true,
-          ...siteFilterForModel("note", session.user),
+          ...mergeFilters(siteFilterForModel("note", session.user), relationScope),
         },
         select: { valeur: true, noteMax: true, coefficient: true, matiere: { select: { nom: true, code: true } }, createdAt: true },
         orderBy: { createdAt: "desc" },
@@ -57,14 +76,14 @@ export async function GET(req: NextRequest) {
           eleveId,
           tenantId: session.user.tenantId,
           statut: "INJUSTIFIEE",
-          ...siteFilterForModel("absence", session.user),
+          ...mergeFilters(siteFilterForModel("absence", session.user), relationScope),
         },
       }),
       prisma.incident.count({
         where: {
           eleveId,
           tenantId: session.user.tenantId,
-          ...siteFilterForModel("incident", session.user),
+          ...mergeFilters(siteFilterForModel("incident", session.user), relationScope),
         },
       }),
     ]);

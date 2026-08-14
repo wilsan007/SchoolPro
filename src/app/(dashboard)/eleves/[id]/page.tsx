@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { EleveDetailView } from "@/components/eleves/EleveDetailView";
 import { getSituationFinanciere, checkEleveAccess } from "@/lib/financial-guard";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<string, unknown>) {
   const eleve = await prisma.eleve.findFirst({
@@ -85,6 +86,9 @@ export default async function EleveDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const te = await getTranslations("eleves");

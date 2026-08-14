@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { EleveForm } from "@/components/eleves/EleveForm";
 import { getClassesForTenant, getEleveForEdit, updateEleve } from "@/lib/actions/eleve";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function ModifierElevePage({
   params,
@@ -11,6 +12,9 @@ export default async function ModifierElevePage({
   params: Promise<{ id: string }>;
 }) {
   const session = await auth();
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
   const [te, tc] = await Promise.all([

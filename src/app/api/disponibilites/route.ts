@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
+import { siteFilterForModel, requireSiteIdForCreate, isRelationScopedRole } from "@/lib/site-scope";
+import type { Jour } from "@prisma/client";
 
 const DispoSchema = z.object({
   enseignantId: z.string().min(1),
@@ -18,11 +19,15 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "emploi-du-temps:read");
     if (denied) return denied;
+    // Les disponibilités enseignants sont un outil du personnel : un PARENT /
+    // STUDENT n'a pas à voir les disponibilités des enseignants du tenant.
+    if (isRelationScopedRole(session.user.role)) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const enseignantId = searchParams.get("enseignantId");
     const tenantId = session.user.tenantId;
-  const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
 
     const dispos = await prisma.disponibiliteEnseignant.findMany({
       where: { tenantId, ...siteFilterForModel("disponibiliteEnseignant", session.user),
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
       data: {
         tenantId: session.user.tenantId,
         enseignantId: parsed.data.enseignantId,
-        jour: parsed.data.jour as never,
+        jour: parsed.data.jour as Jour,
         heureDebut: parsed.data.heureDebut,
         heureFin: parsed.data.heureFin,
       },

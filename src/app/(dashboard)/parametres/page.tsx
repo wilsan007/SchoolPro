@@ -28,7 +28,7 @@ export default async function ParametresPage() {
   }
   // Réservé à la direction et au super-admin : les paramètres exposent
   // utilisateurs, classes, matières, périodes — pas le périmètre d'un enseignant.
-  await guardPage(session, "eleves:write");
+  await guardPage(session);
 
   const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN" || session.user.role === "PRINCIPAL";
 

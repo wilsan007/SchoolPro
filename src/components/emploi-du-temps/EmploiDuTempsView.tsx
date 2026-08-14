@@ -314,6 +314,7 @@ export function EmploiDuTempsView({
   matiereToEnseignants,
   salles,
   disponibilites,
+  readOnly = false,
 }: {
   classes: Classe[];
   matieres: Matiere[];
@@ -323,6 +324,8 @@ export function EmploiDuTempsView({
   salles: Salle[];
   disponibilites: Disponibilite[];
   tenantId: string;
+  /** Mode consultation : masque la création, la suppression et le drag-drop. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations("emploi");
   const [emplois, setEmplois] = useState<EmploiCreneau[]>(initial);
@@ -453,14 +456,14 @@ export function EmploiDuTempsView({
               )}
               style={{ height: SLOT_HEIGHT }}
               onDragOver={(e) => {
-                if (draggedId) {
+                if (!readOnly && draggedId) {
                   e.preventDefault();
                   e.dataTransfer.dropEffect = "move";
                   setDragOverSlot({ jour, time });
                 }
               }}
               onDragEnter={(e) => {
-                if (draggedId) {
+                if (!readOnly && draggedId) {
                   e.preventDefault();
                 }
               }}
@@ -470,6 +473,7 @@ export function EmploiDuTempsView({
                 }
               }}
               onDrop={(e) => {
+                if (readOnly) return;
                 e.preventDefault();
                 e.stopPropagation();
                 if (draggedId) {
@@ -521,8 +525,9 @@ export function EmploiDuTempsView({
             return (
               <div
                 key={creneau.id}
-                draggable
+                draggable={!readOnly}
                 onDragStart={(e) => {
+                  if (readOnly) { e.preventDefault(); return; }
                   console.log('[drag-drop] dragStart on creneau', creneau.id, creneau.matiere.code);
                   setDraggedId(creneau.id);
                   e.dataTransfer.effectAllowed = "move";
@@ -533,8 +538,9 @@ export function EmploiDuTempsView({
                   setDragOverSlot(null);
                 }}
                 className={cn(
-                  "relative flex-1 min-w-0 rounded-lg border overflow-hidden group cursor-grab active:cursor-grabbing transition-all",
+                  "relative flex-1 min-w-0 rounded-lg border overflow-hidden group transition-all",
                   matiereColor(creneau.matiere.couleur),
+                  !readOnly && "cursor-grab active:cursor-grabbing",
                   draggedId === creneau.id && "opacity-50 ring-2 ring-green-500",
                   // When dragging, disable pointer-events on all cards so drop events
                   // reach the grid cells underneath. The dragged card keeps pointer-events
@@ -567,13 +573,15 @@ export function EmploiDuTempsView({
                     <p>{creneau.heureDebut}→{creneau.heureFin}</p>
                   </div>
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
-                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
-                  title={t("deleteTitle")}
-                >
-                  <Trash2 className="w-3 h-3 text-red-500" />
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
+                    title={t("deleteTitle")}
+                  >
+                    <Trash2 className="w-3 h-3 text-red-500" />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -641,32 +649,38 @@ export function EmploiDuTempsView({
             <Printer className="w-4 h-4" />
             {t("print")}
           </Button>
-          <Button
-            onClick={() => setShowSuggest(true)}
-            disabled={!selectedClasse}
-            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
-            size="sm"
-          >
-            <Sparkles className="w-4 h-4" />
-            {t("optimize")}
-          </Button>
-          <Button
-            onClick={() => setShowAdd(true)}
-            disabled={!selectedClasse}
-            className="gap-2 bg-green-600 hover:bg-green-700 text-white"
-            size="sm"
-          >
-            <Plus className="w-4 h-4" />
-            {t("addSlotBtn")}
-          </Button>
+          {!readOnly && (
+            <Button
+              onClick={() => setShowSuggest(true)}
+              disabled={!selectedClasse}
+              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+              size="sm"
+            >
+              <Sparkles className="w-4 h-4" />
+              {t("optimize")}
+            </Button>
+          )}
+          {!readOnly && (
+            <Button
+              onClick={() => setShowAdd(true)}
+              disabled={!selectedClasse}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+              size="sm"
+            >
+              <Plus className="w-4 h-4" />
+              {t("addSlotBtn")}
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Info banner */}
-      <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2 flex items-center gap-2 print:hidden">
-        <GripVertical className="w-4 h-4" />
-        <span>{t("dragHint")}</span>
-      </div>
+      {/* Info banner — masqué en consultation : pas de drag-drop à expliquer. */}
+      {!readOnly && (
+        <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2 flex items-center gap-2 print:hidden">
+          <GripVertical className="w-4 h-4" />
+          <span>{t("dragHint")}</span>
+        </div>
+      )}
 
       {/* Grille horaire */}
       {selectedClasse ? (
@@ -726,7 +740,7 @@ export function EmploiDuTempsView({
         </Card>
       )}
 
-      {showAdd && selectedClasse && (
+      {showAdd && !readOnly && selectedClasse && (
         <AddCreneauModal
           classeId={selectedClasse.id}
           classes={classes}
@@ -742,7 +756,7 @@ export function EmploiDuTempsView({
         />
       )}
 
-      {showSuggest && selectedClasse && (
+      {showSuggest && !readOnly && selectedClasse && (
         <SmartSuggestPanel
           classeId={selectedClasse.id}
           classeNom={selectedClasse.nom}

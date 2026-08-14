@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
+import { siteFilterForModel, requireSiteIdForCreate, isRelationScopedRole } from "@/lib/site-scope";
 
 const SalleSchema = z.object({
   nom: z.string().min(1).max(100),
@@ -18,6 +18,11 @@ export async function GET() {
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     const denied = checkPermission(session.user.role, "emploi-du-temps:read");
     if (denied) return denied;
+    // Les salles sont un outil du personnel : aucune raison pour qu'un PARENT /
+    // STUDENT voie l'inventaire des salles du tenant.
+    if (isRelationScopedRole(session.user.role)) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+    }
     const siteFilter = siteFilterForModel("salle", session.user);
 
     const siteId = (session.user as { siteId?: string | null }).siteId ?? null;

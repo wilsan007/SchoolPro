@@ -12,7 +12,7 @@ export default async function FacturationPage() {
     auth(),
     getTranslations("facturation"),
   ]);
-  await guardPage(session, "finance:read");
+  await guardPage(session);
 
   const factures = await getFacturesForTenant();
 

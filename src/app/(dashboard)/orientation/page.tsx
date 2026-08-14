@@ -3,12 +3,16 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { OrientationView } from "@/components/orientation/OrientationView";
 import { getTranslations } from "next-intl/server";
+import { guardPage } from "@/lib/guard-page";
 
 export default async function OrientationPage() {
   const [session, t] = await Promise.all([
     auth(),
     getTranslations("orientation"),
   ]);
+  await guardPage(session);
+  // Redondant à l'exécution — guardPage a déjà redirigé. Conservé pour
+  // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+} from "@/lib/site-scope";
 import ExcelJS from "exceljs";
 
 export async function GET(req: NextRequest) {
@@ -46,7 +50,15 @@ export async function GET(req: NextRequest) {
         eleve: { classeId, tenantId: session.user.tenantId, statut: "ACTIF" },
         periodeId,
         tenantId: session.user.tenantId,
-        ...siteFilterForModel("bulletin", session.user),
+        // `bulletins:read` est accordé à PARENT et STUDENT : pour ces rôles le
+        // filtre de site est neutre (périmètre relationnel), l'export livrait
+        // donc le classeur complet — noms, moyennes par matière, rangs,
+        // appréciations — de n'importe quelle classe. Seul
+        // `personalScopeFilter` les restreint à leurs enfants.
+        ...mergeFilters(
+          siteFilterForModel("bulletin", session.user),
+          personalScopeFilter(session.user, "eleve")
+        ),
       },
       include: {
         eleve: { select: { id: true, nom: true, prenom: true, matricule: true } },

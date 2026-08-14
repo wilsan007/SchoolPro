@@ -38,7 +38,7 @@ export default async function VieScolairePage() {
     auth(),
     getTranslations("vieScolaire"),
   ]);
-  await guardPage(session, "vie-scolaire:read");
+  await guardPage(session);
 
   const { incidents, eleves, classes } = await getVieScolaireData(session!.user.tenantId!, session!.user);
 

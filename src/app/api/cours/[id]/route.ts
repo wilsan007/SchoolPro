@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, personalScopeFilter } from "@/lib/site-scope";
 
 const UpdateSchema = z.object({
   titre: z.string().min(1).max(200).optional(),
@@ -43,7 +43,14 @@ export async function GET(req: NextRequest, { params }: Params) {
     include: {
       // eslint-disable-next-line ecolpro/require-site-filter -- contenus enfants du cours déjà filtré par site (ligne 42)
       contenus: { orderBy: { ordre: "asc" } },
-      progressions: true,
+      // `ProgressionEleve` porte le nom complet de l'élève (`eleveNom`), son
+      // pourcentage d'avancement et sa note finale. `cours:read` étant accordé
+      // à PARENT et STUDENT — rôles pour lesquels le filtre de site est neutre
+      // (périmètre relationnel, cf. site-scope.ts) — la liste complète des
+      // progressions de tous les élèves du cours leur était renvoyée.
+      // `personalScopeFilter` les restreint à leurs propres enfants et reste
+      // neutre pour le personnel.
+      progressions: { where: personalScopeFilter(session.user, "eleve") },
       _count: { select: { contenus: true, progressions: true } },
     },
   });

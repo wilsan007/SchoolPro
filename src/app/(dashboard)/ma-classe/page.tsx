@@ -21,7 +21,7 @@ export default async function MaClassePage({
   searchParams: Promise<{ classe?: string }>;
 }) {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.classe")]);
-  await guardPage(session, "eleves:read");
+  await guardPage(session);
 
   const tenantId = session!.user.tenantId!;
   const { classe: classeDemandee } = await searchParams;
