@@ -85,6 +85,7 @@ export async function PUT(req: NextRequest) {
       anneeId,
       classeId: classeId ?? null,
       chapitreId: { in: lignes.map((l) => l.chapitreId) },
+      ...siteFilterForModel("planificationChapitre", session.user),
     },
     select: {
       chapitreId: true,

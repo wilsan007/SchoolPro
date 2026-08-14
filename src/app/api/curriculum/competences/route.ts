@@ -51,6 +51,13 @@ export async function POST(req: NextRequest) {
 
   // Le code est unique par tenant : on le signale clairement plutôt que de
   // laisser remonter une violation de contrainte.
+  //
+  // Tenant-wide OBLIGATOIRE : la contrainte est `@@unique([tenantId, code])`,
+  // sans le site. Filtrer par site ici ferait conclure « code libre » pour un
+  // code déjà pris sur un autre site, et la création partirait quand même en
+  // violation de contrainte — une 500 au lieu d'un message clair. Le contrôle
+  // doit porter sur le même périmètre que la contrainte qu'il anticipe.
+  // eslint-disable-next-line ecolpro/require-site-filter -- périmètre de la contrainte d'unicité, cf. ci-dessus
   const doublon = await prisma.competence.findFirst({
     where: { tenantId, code },
     select: { id: true },

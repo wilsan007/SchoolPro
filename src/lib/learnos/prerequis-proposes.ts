@@ -352,7 +352,11 @@ export async function appliquerAretes(
   // `update` ne sait pas exprimer `tenantId` dans son `where`, et à ~192 ms
   // l'aller-retour, un contrôle par compétence rendrait l'écran poussif.
   const autorisees = await prisma.competence.findMany({
-    where: { id: { in: [...parCompetence.keys()] }, tenantId },
+    where: {
+      id: { in: [...parCompetence.keys()] },
+      tenantId,
+      ...siteFilterForModel("competence", claims),
+    },
     select: { id: true },
   });
   const idsAutorises = new Set(autorisees.map((c) => c.id));

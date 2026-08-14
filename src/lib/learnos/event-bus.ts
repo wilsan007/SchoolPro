@@ -198,10 +198,17 @@ export async function eventBacklog(tenantId: string): Promise<{
   pending: number;
   abandoned: number;
 }> {
+  // Supervision de la boîte d'envoi : on compte des ÉVÉNEMENTS EN ATTENTE, pas
+  // des données d'élève. Un compteur filtré par site sous-estimerait le retard
+  // réel du drainage et masquerait un incident d'infrastructure — exactement ce
+  // que cet indicateur existe pour rendre visible. Aucune donnée nominative
+  // n'est lue : deux entiers en sortent.
   const [pending, abandoned] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter -- compteur d'infrastructure, cf. ci-dessus
     prisma.learnosEvent.count({
       where: { tenantId, processedAt: null, attempts: { lt: MAX_ATTEMPTS } },
     }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- compteur d'infrastructure, cf. ci-dessus
     prisma.learnosEvent.count({
       where: { tenantId, processedAt: null, attempts: { gte: MAX_ATTEMPTS } },
     }),

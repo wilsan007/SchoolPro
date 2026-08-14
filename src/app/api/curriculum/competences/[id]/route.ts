@@ -37,6 +37,15 @@ async function creeUnCycle(
   if (depart.includes(cible)) return true; // une compétence ne peut être son propre prérequis
 
   for (let d = 0; d < PROFONDEUR_MAX && frontiere.length > 0; d++) {
+    // Tenant-wide À DESSEIN, contrairement au reste du fichier. Un cycle est une
+    // propriété du graphe entier : restreindre la traversée au périmètre de
+    // l'appelant ferait manquer un cycle passant par une compétence hors de sa
+    // vue, et l'écriture serait alors acceptée. Un contrôle d'intégrité qui ne
+    // voit qu'une partie du graphe ne contrôle rien.
+    // La fuite est nulle en pratique : le parcours part d'identifiants déjà
+    // validés par `validerPrerequis` sous filtre de site, et ne rend qu'un
+    // booléen. L'autorisation d'écrire, elle, est établie ligne 72.
+    // eslint-disable-next-line ecolpro/require-site-filter -- intégrité du graphe, cf. ci-dessus
     const noeuds = await prisma.competence.findMany({
       where: { tenantId, id: { in: frontiere } },
       select: { prerequis: { select: { id: true } } },

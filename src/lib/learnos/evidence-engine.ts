@@ -221,8 +221,12 @@ export async function ingererNoteCommePreuve(event: DrainedEvent): Promise<void>
   });
 
   // Compétences visées par l'évaluation, si le curriculum les a rattachées.
+  // Traitement d'un événement drainé : aucune session ici, et la lecture est
+  // bornée par l'`evaluationId` porté par l'événement — donc par l'évaluation
+  // qui a déclenché la note, elle-même rattachée à une classe d'un seul site.
   const rattachements = p.evaluationId
-    ? await prisma.evaluationCompetence.findMany({
+    ? // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, evaluationId), cf. ci-dessus
+      await prisma.evaluationCompetence.findMany({
         where: { evaluationId: p.evaluationId, tenantId: event.tenantId },
         select: { competenceId: true, poids: true },
       })

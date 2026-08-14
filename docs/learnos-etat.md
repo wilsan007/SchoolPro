@@ -15,7 +15,20 @@ il a attrapé deux fois ce que `tsc` et ESLint laissaient passer (export interdi
 dans une `route.ts`, Prisma entraîné dans un bundle client).
 
 Garde-fou : le nombre d'`eslint-disable` dans `src/` ne doit pas gonfler sans
-justification écrite (référence 131 au départ du chantier).
+justification écrite (référence 131 au départ du chantier, **185 aujourd'hui**).
+
+La règle est désormais : **tout `eslint-disable ecolpro/require-site-filter`
+porte sa raison sur la même ligne**, après `--`. Un compteur seul ne dit pas si
+la dérive est légitime ; la justification, si.
+
+```bash
+# Doit rendre 0 pour toute ligne ajoutée désormais.
+grep -rn "eslint-disable.*require-site-filter" src --include="*.ts*" | grep -vc -- "--"
+```
+
+Dette connue : **76** de ces exemptions sont antérieures et muettes
+(`api/orientation`, `api/bulletins/*`, `api/mobile/*`…). Chacune demande d'être
+relue une par une — soit elle reçoit son filtre, soit elle reçoit sa raison.
 
 ## Fait
 
@@ -65,13 +78,21 @@ idempotence sur trois passages, rendu dans la langue de la famille, envoi).
 4. Apprentissage statistique des prérequis — **bloqué** : besoin d'une année de
    données réelles. Le substrat existe : les arêtes acceptées et refusées
    passent toutes par `AiDecisionLog`.
+5. Les **76 exemptions muettes** de `require-site-filter` héritées d'avant le
+   chantier (cf. § Vérification).
 
 ## Points de vigilance
 
 - **Latence base** : ~192 ms/requête sur le pooler *session* (5432),
   ~980 ms sur le pooler *transaction* (6543, celui de `DATABASE_URL`), qui
-  coupe aussi la connexion en cours de script. Les traitements de fond
-  utilisent `prismaBackground` (5432).
+  coupe aussi la connexion en cours de script. `prismaBackground` (5432) existe
+  dans `src/lib/prisma.ts` pour ça — mais **il n'est importé nulle part** :
+  aucun traitement de fond ne l'utilise aujourd'hui, contrairement à ce que ce
+  document affirmait. Le gain de 5× est donc encore à prendre.
+  Attention avant de le brancher : les moteurs (`learning-twin`, `plan-engine`,
+  `recommendation-engine`) sont aussi appelés depuis des chemins de requête via
+  `entrainement.ts`, où le pooler *session* est précisément le mauvais choix.
+  Il faudra séparer les deux voies avant de basculer.
 - **Cron** : un seul point d'entrée (`/api/cron/dispatch`) qui répartit. Le
   palier Vercel plafonne le *nombre* de crons, pas leur fréquence — sur Hobby
   la granularité reste quotidienne.

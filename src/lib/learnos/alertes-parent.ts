@@ -192,6 +192,13 @@ async function jalonsAtteints(
   // progrès avec deux jours de retard que de le manquer si le cron a sauté.
   const depuis = new Date(maintenant.getTime() - 7 * 86_400_000);
 
+  // Détection exécutée par le cron d'alertes : aucune session, et par
+  // construction tous les sites du tenant doivent être balayés — un parent d'un
+  // site donné ne recevrait rien si la détection était bornée au périmètre d'un
+  // appelant qui n'existe pas. L'isolation est faite à l'ENVOI, où chaque alerte
+  // est adressée au parent rattaché à l'élève (`plan.siteId` est conservé pour
+  // horodater l'alerte sur le bon site).
+  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire, cf. ci-dessus
   const etapes = await prisma.etapePlan.findMany({
     where: {
       valideeLe: { gte: depuis },

@@ -78,14 +78,27 @@ export function construireKpi(
   };
 }
 
-/** Dernière valeur connue de chaque indicateur, pour calculer la variation. */
+/**
+ * Dernière valeur connue de chaque indicateur, pour calculer la variation.
+ *
+ * Le périmètre doit être le MÊME que celui des valeurs courantes. Sans le
+ * filtre de site, un directeur de site comparait sa valeur du jour à un
+ * historique agrégé sur tous les sites : la variation affichée était fausse, et
+ * son amplitude renseignait sur l'activité des autres sites.
+ */
 async function valeursPrecedentes(
   tenantId: string,
+  claims: SessionSiteClaims,
   role: string,
   avant: Date
 ): Promise<Map<string, number>> {
   const snapshots = await prisma.kpiSnapshot.findMany({
-    where: { tenantId, role, periode: { lt: avant } },
+    where: {
+      tenantId,
+      role,
+      periode: { lt: avant },
+      ...siteFilterForModel("kpiSnapshot", claims),
+    },
     orderBy: { periode: "desc" },
     select: { kpiKey: true, valeur: true },
     take: 60,
@@ -108,7 +121,7 @@ export async function kpisDirection(
   claims: SessionSiteClaims,
   maintenant: Date = new Date()
 ): Promise<Kpi[]> {
-  const precedents = await valeursPrecedentes(tenantId, "DIRECTION", jourDe(maintenant));
+  const precedents = await valeursPrecedentes(tenantId, claims, "DIRECTION", jourDe(maintenant));
 
   const annee = await prisma.anneesScolaires.findFirst({
     where: { tenantId, isCurrent: true },
@@ -204,7 +217,7 @@ export async function kpisEnseignant(
   classeIds: string[] | null,
   maintenant: Date = new Date()
 ): Promise<Kpi[]> {
-  const precedents = await valeursPrecedentes(tenantId, "ENSEIGNANT", jourDe(maintenant));
+  const precedents = await valeursPrecedentes(tenantId, claims, "ENSEIGNANT", jourDe(maintenant));
   const perimetre = classeIds ? { classeId: { in: classeIds } } : {};
 
   const [saisiesEnRetard, aTraiter, plansPortes] = await Promise.all([

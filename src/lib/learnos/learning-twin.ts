@@ -28,6 +28,22 @@
  * **3. On ne conclut pas sur trop peu.** Sous le seuil de confiance, le statut
  * est `UNKNOWN` quel que soit le score ; sous quatre preuves, la tendance est
  * `indetermine` — et non `stable`, qui serait une conclusion.
+ *
+ * ISOLATION — POURQUOI PAS DE FILTRE DE SITE ICI
+ * ----------------------------------------------
+ * Ce module est un moteur de recalcul, appelé par le drainage de l'event bus ou
+ * juste après une preuve. Il n'a pas de session : un cron n'en a pas, et lui en
+ * fabriquer une serait pire que de s'en passer.
+ *
+ * Son unité d'isolation est le couple **(tenantId, eleveId)**, et l'`eleveId`
+ * lui arrive déjà autorisé — soit par `eleveDeSeance()` (filtre de site +
+ * périmètre personnel) sur la voie requête, soit par le `tenantId` de
+ * l'événement drainé sur la voie de fond. Un élève appartient à un seul site :
+ * une fois l'élève autorisé, ses preuves et ses profils le sont aussi.
+ *
+ * Les `eslint-disable ecolpro/require-site-filter` de ce fichier renvoient tous
+ * ici. Ils ne valent QUE pour des requêtes bornées par un `eleveId` déjà
+ * autorisé. Une lecture qui ne serait pas bornée ainsi doit porter le filtre.
  */
 
 import { Prisma, type MasteryStatus } from "@prisma/client";
@@ -272,6 +288,7 @@ export async function etatDesPrerequis(
   eleveId: string,
   competenceId: string
 ): Promise<EtatPrerequis[]> {
+  // eslint-disable-next-line ecolpro/require-site-filter -- moteur hors session, cf. en-tête « ISOLATION »
   const competence = await prisma.competence.findFirst({
     where: { id: competenceId, tenantId },
     select: {
@@ -280,6 +297,7 @@ export async function etatDesPrerequis(
   });
   if (!competence || competence.prerequis.length === 0) return [];
 
+  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const profils = await prisma.studentLearningProfile.findMany({
     where: {
       tenantId,
@@ -322,6 +340,7 @@ export async function recalculerProfil(
   competenceId: string,
   maintenant: Date = new Date()
 ): Promise<ProfilCalcule> {
+  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const lignes = await prisma.learningEvidence.findMany({
     where: { tenantId, eleveId, competenceId },
     select: {
@@ -392,6 +411,7 @@ export async function recalculerProfilsApresPreuve(event: DrainedEvent): Promise
   const p = event.payload as NoteRecordedPayload;
   if (!p?.noteId || !p.eleveId) return;
 
+  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, noteId), cf. en-tête « ISOLATION »
   const preuves = await prisma.learningEvidence.findMany({
     where: {
       tenantId: event.tenantId,

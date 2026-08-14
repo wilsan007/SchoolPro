@@ -192,7 +192,11 @@ export async function syntheseClasse(
 
   const libelles = faibles.length
     ? await prisma.competence.findMany({
-        where: { id: { in: faibles.map((f) => f.competenceId) }, tenantId },
+        where: {
+          id: { in: faibles.map((f) => f.competenceId) },
+          tenantId,
+          ...siteFilterForModel("competence", claims),
+        },
         select: { id: true, libelle: true },
       })
     : [];
