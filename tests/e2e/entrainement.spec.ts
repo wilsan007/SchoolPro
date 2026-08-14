@@ -46,7 +46,11 @@ test.describe("Entraînement autonome", () => {
 
     // L'écran se résout toujours dans l'un de ces états — jamais une page
     // blanche ni un chargement infini.
-    const carte = page.locator("main, body");
+    //
+    // `body` et non `main, body` : en CSS la virgule matche les DEUX éléments,
+    // et le mode strict de Playwright refuse un locator qui en résout plusieurs.
+    // `body` contient `main`, donc l'intention est préservée sans l'ambiguïté.
+    const carte = page.locator("body");
     await expect(carte).toContainText(
       /Exercice \d+ sur \d+|Rien à travailler|Séance terminée|Vérification en classe/,
       { timeout: 25000 }

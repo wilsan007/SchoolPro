@@ -18,6 +18,12 @@ const prisma = new PrismaClient();
 const MOT_DE_PASSE = "Demo@2026!";
 const SUFFIXE = "@qa-learnos.test";
 
+/**
+ * Comptes élèves dont `tests/e2e/entrainement.spec.ts` dépend : leur
+ * rattachement à un élève ne doit pas être repris par ce script.
+ */
+const PROTEGES = ["amina@demo-learnos.test", "kadidja@demo-learnos.test"];
+
 const COMPTES = [
   { cle: "admin", email: `admin${SUFFIXE}`, name: "QA Direction", role: Role.TENANT_ADMIN },
   { cle: "prof", email: `prof${SUFFIXE}`, name: "QA Enseignant", role: Role.TEACHER },
@@ -51,11 +57,51 @@ async function main() {
   const classe = await prisma.classe.findFirst({ where: { tenantId: tenant.id } });
   if (!classe) throw new Error("Aucune classe sur le tenant demo-learnos");
 
-  const eleve = await prisma.eleve.findFirst({
-    where: { tenantId: tenant.id, classeId: classe.id },
-    orderBy: { matricule: "asc" },
-  });
-  if (!eleve) throw new Error("Aucun élève dans la classe de démonstration");
+  // Un élève NON RATTACHÉ en priorité.
+  //
+  // POURQUOI
+  // --------
+  // `Eleve.userId` est une relation 1–1 : un seul compte par élève. Ce script
+  // prenait le premier élève par matricule, soit toujours `DEMO-el1` — Amina,
+  // précisément l'élève que `demo-learnos.ts --eleves` rattache à
+  // `amina@demo-learnos.test`. Chaque passage volait donc le lien, en silence,
+  // et `tests/e2e/entrainement.spec.ts` tombait ensuite en 404
+  // (`ELEVE_INTROUVABLE`) parce qu'`eleveDeSeance()` ne retrouvait plus l'élève
+  // depuis le compte d'Amina. Le test accusait l'application ; la cause était ici.
+  const eleve =
+    (await prisma.eleve.findFirst({
+      where: { tenantId: tenant.id, classeId: classe.id, userId: null },
+      orderBy: { matricule: "asc" },
+    })) ??
+    // Repli : tous rattachés. On évite alors ceux dont le compte sert aux tests
+    // de bout en bout, sous peine de les casser à nouveau.
+    (await prisma.eleve.findFirst({
+      where: {
+        tenantId: tenant.id,
+        classeId: classe.id,
+        user: { email: { notIn: PROTEGES } },
+      },
+      orderBy: { matricule: "asc" },
+    }));
+
+  if (!eleve) {
+    throw new Error(
+      "Aucun élève disponible : tous sont rattachés à un compte servant aux tests " +
+        "de bout en bout. Ajoutez un élève à la classe de démonstration, ou " +
+        "libérez-en un (`npx tsx scripts/qa-comptes-demo.ts --clean`)."
+    );
+  }
+
+  // Le rattachement qui suit déplace le compte d'un élève : on le dit.
+  const ancien = eleve.userId
+    ? await prisma.user.findUnique({ where: { id: eleve.userId }, select: { email: true } })
+    : null;
+  if (ancien) {
+    console.warn(
+      `⚠️  ${eleve.prenom} ${eleve.nom} (${eleve.matricule}) était rattaché à ` +
+        `${ancien.email} — ce compte perd son élève.`
+    );
+  }
 
   const password = await bcrypt.hash(MOT_DE_PASSE, 12);
   const creees: Record<string, string> = {};
