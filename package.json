@@ -26,7 +26,7 @@
     "test:coverage": "vitest run --coverage",
     "audit:sites": "tsx scripts/audit-site-isolation.ts",
     "verify": "pnpm run lint && tsc --noEmit && vitest run",
-    "verify:ci": "pnpm run lint && tsc --noEmit"
+    "verify:ci": "pnpm run lint && tsc --noEmit && vitest run"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.0",
