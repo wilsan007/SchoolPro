@@ -407,6 +407,15 @@ export const SITE_PATHS: Record<string, SitePath> = {
   passageInfirmerie: "column",
   ficheSanitaire: "column",
 
+  // --- Cahier de textes / devoirs ---
+  devoir: "column",
+
+  // --- Remplacements de cours ---
+  remplacementCours: "column",
+
+  // --- Entretiens conseiller ---
+  entretienConseiller: "column",
+
   // --- données de référence, partagées par tous les sites du tenant ---
   // Les préférences d'une famille suivent la famille, pas l'établissement :
   // un enfant qui change de site ne remet pas à zéro le consentement de ses

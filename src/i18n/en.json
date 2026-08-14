@@ -115,7 +115,11 @@
     "secretariat": "Secretariat",
     "comptabilite": "Accounting",
     "conseiller": "Counselor",
-    "infirmerie": "Nurse's office"
+    "infirmerie": "Nurse's office",
+    "maMatiere": "My subject",
+    "couverture": "Coverage",
+    "devoirs": "Assignments",
+    "travail": "Homework"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -3297,6 +3301,73 @@
     "incidentsOuverts": "Open incidents",
     "orientationEnAttente": "Pending orientation",
     "elevesPlusAbsents": "Most absent students (30 days)",
-    "aucunEleveRisque": "No at-risk students in the period"
+    "aucunEleveRisque": "No at-risk students in the period",
+    "entretiensRecents": "Recent interviews",
+    "entretiensCeMois": "Interviews this month",
+    "nouvelEntretien": "New interview",
+    "date": "Date",
+    "motif": "Reason",
+    "statut": "Status",
+    "planifie": "Scheduled",
+    "realise": "Completed",
+    "annule": "Cancelled",
+    "reporte": "Postponed",
+    "aucunEntretien": "No interview recorded"
+  },
+  "maMatiere": {
+    "titre": "My subject",
+    "sousTitre": "Cross-cutting view of your subject across all classes",
+    "classes": "Classes",
+    "moyenneGenerale": "General average",
+    "chapitresCompletes": "Completed chapters",
+    "elevesEnDifficulte": "Struggling students",
+    "moyennesParClasse": "Averages by class",
+    "enseignants": "Teachers",
+    "classe": "Class",
+    "moyenne": "Average",
+    "eleves": "Students",
+    "tauxReussite": "Pass rate",
+    "aucuneClasse": "No class teaches this subject",
+    "aucunEnseignant": "No teacher intervenes in this subject"
+  },
+  "couverture": {
+    "titre": "Course coverage",
+    "sousTitre": "Replacements and orphaned slots today",
+    "absencesPersonnel": "Staff absences",
+    "creneauxOrphelins": "Orphaned slots",
+    "remplacementsProposes": "Proposed replacements",
+    "remplacementsValides": "Approved replacements",
+    "enAttente": "Pending decision",
+    "aucunRemplacement": "No replacement today",
+    "classe": "Class",
+    "matiere": "Subject",
+    "absent": "Absent",
+    "remplacant": "Substitute",
+    "statut": "Status"
+  },
+  "travail": {
+    "titre": "Homework",
+    "sousTitre": "Your homework and assignments",
+    "aucunTravail": "No homework for now",
+    "aRendre": "Due on",
+    "matiere": "Subject",
+    "rendu": "Submitted"
+  },
+  "devoirs": {
+    "titre": "Assignments",
+    "sousTitre": "Assign and track your classes' work",
+    "nouveau": "New assignment",
+    "classe": "Class",
+    "matiere": "Subject",
+    "titreDevoir": "Title",
+    "description": "Description",
+    "dateRendu": "Due date",
+    "creer": "Create",
+    "statut": "Status",
+    "aFaire": "To do",
+    "enCours": "In progress",
+    "rendu": "Submitted",
+    "corrige": "Graded",
+    "aucun": "No assignments for now"
   }
 }

@@ -253,6 +253,18 @@ export const ROUTE_RULES: RouteRule[] = [
   // est la vue lecture seule dédiée — le filtrage par élève est fait côté page.
   { pattern: /^\/mon-emploi$/, permission: "emploi-du-temps:read", roles: ["PARENT", "STUDENT"] },
 
+  // — Travail à faire (cahier de textes) —
+  // Les élèves et parents consultent les devoirs ; les enseignants aussi.
+  // La saisie se fait sur /devoirs (plus bas). Placé AVANT `/cours` pour ne
+  // pas être capturé par sa règle.
+  { pattern: /^\/travail/, permission: "cours:read", roles: ["STUDENT", "PARENT", "TEACHER", "CLASS_TEACHER"] },
+
+  // — Saisie des devoirs (enseignants) —
+  { pattern: /^\/devoirs/, permission: "notes:write", roles: ["TEACHER", "CLASS_TEACHER", "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"] },
+
+  // — Couverture des cours (direction) —
+  { pattern: /^\/couverture/, permission: "analytics:read", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"] },
+
   // — Documents imprimables, hors groupe (dashboard) —
   // Volontairement sans liste `roles` : `bulletins:read` suffit ici, et les
   // familles doivent pouvoir imprimer le bulletin de leur enfant. Le filtrage
@@ -378,6 +390,9 @@ export const ROUTE_RULES: RouteRule[] = [
   ] },
   { pattern: /^\/conseiller/, permission: "vie-scolaire:read", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "COUNSELOR",
+  ] },
+  { pattern: /^\/ma-matiere/, permission: "notes:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SUBJECT_LEAD",
   ] },
 
   // — Configuration —

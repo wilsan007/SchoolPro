@@ -53,9 +53,7 @@ export const ACCUEIL_PAR_ROLE: Record<RoleKey, string | null> = {
   // Surveillant — la vie scolaire opérationnelle est son espace naturel.
   SUPERVISOR: "/vie-scolaire",
 
-  // Coordinateur de matière — pas encore d'écran dédié : il garde le tableau
-  // de bord générique en attendant la construction de son espace.
-  SUBJECT_LEAD: null,
+  SUBJECT_LEAD: "/ma-matiere",
 
   // Pas encore d'espace dédié : ces rôles gardent le tableau de bord générique.
   // `null` veut dire « ne le redirige pas », pas « aucun accès ».

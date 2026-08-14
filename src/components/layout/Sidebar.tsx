@@ -26,6 +26,7 @@ import {
   UserCheck,
   BarChart3,
   Shield,
+  ShieldCheck,
   UserPlus,
   Briefcase,
   Bell,
@@ -35,6 +36,8 @@ import {
   Package,
   Crown,
   PlayCircle,
+  ListTodo,
+  NotebookPen,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -71,12 +74,16 @@ const navGroups: NavGroup[] = [
       { labelKey: "direction", icon: Gauge, href: "/direction", color: "text-sky-600" },
       { labelKey: "monEspace", icon: Briefcase, href: "/mon-espace", color: "text-emerald-600" },
       { labelKey: "maClasse", icon: Users, href: "/ma-classe", color: "text-teal-600" },
+      { labelKey: "maMatiere", icon: Target, href: "/ma-matiere", color: "text-fuchsia-600" },
+      { labelKey: "couverture", icon: ShieldCheck, href: "/couverture", color: "text-orange-600" },
+      { labelKey: "devoirs", icon: NotebookPen, href: "/devoirs", color: "text-indigo-500" },
       // Espaces personnels : ces écrans se résolvent par le périmètre
       // relationnel de celui qui est connecté. Ils n'ont rien à montrer à un
       // adulte de l'établissement qui les visiterait — d'où le rôle unique.
       { labelKey: "monParcours", icon: HandHeart, href: "/parent", color: "text-pink-500" },
       { labelKey: "monParcoursEleve", icon: Target, href: "/eleve", color: "text-violet-500" },
       { labelKey: "monEmploi", icon: Calendar, href: "/mon-emploi", color: "text-cyan-500" },
+      { labelKey: "travail", icon: ListTodo, href: "/travail", color: "text-violet-500" },
       { labelKey: "entrainement", icon: Sparkles, href: "/entrainement", color: "text-amber-500" },
       // Espaces dédiés par métier — chacun est l'accueil d'un rôle qui n'avait
       // pas d'espace à lui. La visibilité est déduite de `canAccessRoute`,

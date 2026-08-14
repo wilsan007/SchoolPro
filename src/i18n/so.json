@@ -104,7 +104,11 @@
     "secretariat": "Xafiiska",
     "comptabilite": "Xisaabad",
     "conseiller": "La-taliye",
-    "infirmerie": "Cudurka"
+    "infirmerie": "Cudurka",
+    "maMatiere": "Maaddadayda",
+    "couverture": "Daboolid",
+    "devoirs": "Shaqaadha",
+    "travail": "Shaqo la qabto"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -3210,6 +3214,73 @@
     "incidentsOuverts": "Dhibaatooyin furan",
     "orientationEnAttente": "Talo-siin sugaya",
     "elevesPlusAbsents": "Ardayda ugu badan ee maqan (30 maalmood)",
-    "aucunEleveRisque": "Ma jiro arday khatar ah"
+    "aucunEleveRisque": "Ma jiro arday khatar ah",
+    "entretiensRecents": "Kulamo dhawaan",
+    "entretiensCeMois": "Kulamo bishan",
+    "nouvelEntretien": "Kulan cusub",
+    "date": "Taariikh",
+    "motif": "Sabab",
+    "statut": "Xaalad",
+    "planifie": "La qorsheeyay",
+    "realise": "La sameeyay",
+    "annule": "La joojiyay",
+    "reporte": "La dhigay",
+    "aucunEntretien": "Wax kulan ah ma jiro"
+  },
+  "maMatiere": {
+    "titre": "Maaddadayda",
+    "sousTitre": "Aragti isgoysyada maaddadaada dhammaan fasasyada",
+    "classes": "Fasasyada",
+    "moyenneGenerale": "Celcelis guud",
+    "chapitresCompletes": "Cutubka la dhammeeyay",
+    "elevesEnDifficulte": "Ardayda dhibaato ku jira",
+    "moyennesParClasse": "Celceliska fasal kasta",
+    "enseignants": "Macallimiinta",
+    "classe": "Fasal",
+    "moyenne": "Celcelis",
+    "eleves": "Ardayda",
+    "tauxReussite": "Heerka guusha",
+    "aucuneClasse": "Fasal ma barto maaddadan",
+    "aucunEnseignant": "Macallin ma dhexgalo maaddadan"
+  },
+  "couverture": {
+    "titre": "Daboolidd fasalada",
+    "sousTitre": "Beddelka iyo fasalada la waayey maanta",
+    "absencesPersonnel": "Maqnaanshaha shaqaalaha",
+    "creneauxOrphelins": "Fasalada la waayey",
+    "remplacementsProposes": "Beddelo la soo jeediyay",
+    "remplacementsValides": "Beddelo la aqbalay",
+    "enAttente": "Sugaya go'aan",
+    "aucunRemplacement": "Wax beddel ah ma jiro maanta",
+    "classe": "Fasal",
+    "matiere": "Maaddo",
+    "absent": "Maqan",
+    "remplacant": "Beddel",
+    "statut": "Xaalad"
+  },
+  "travail": {
+    "titre": "Shaqo la qabto",
+    "sousTitre": "Shaqooyinkaaga ee la qabto",
+    "aucunTravail": "Wax shaqo ah ma jiro hadda",
+    "aRendre": "La qabto",
+    "matiere": "Maaddo",
+    "rendu": "La soo diray"
+  },
+  "devoirs": {
+    "titre": "Shaqaadha",
+    "sousTitre": "Bixi oo raac shaqada fasasyadaaga",
+    "nouveau": "Shaqaad cusub",
+    "classe": "Fasal",
+    "matiere": "Maaddo",
+    "titreDevoir": "Cinwaan",
+    "description": "Sharaxaad",
+    "dateRendu": "Taariikhda la qabto",
+    "creer": "Abuur",
+    "statut": "Xaalad",
+    "aFaire": "La sameeyo",
+    "enCours": "O socda",
+    "rendu": "La soo diray",
+    "corrige": "La saxay",
+    "aucun": "Wax shaqaad ah ma jiro hadda"
   }
 }

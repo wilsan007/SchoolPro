@@ -154,6 +154,11 @@ model Tenant {
   // Mentorat
   mentorats         Mentorat[]
 
+  // CAHIER DE TEXTES & REMPLACEMENTS & ENTRETIENS
+  devoirs             Devoir[]
+  remplacementsCours  RemplacementCours[]
+  entretiensConseiller EntretienConseiller[]
+
   @@map("tenants")
 }
 
@@ -521,6 +526,11 @@ model Site {
   passagesInfirmerie PassageInfirmerie[]
   fichesSanitaires   FicheSanitaire[]
 
+  // Cahier de textes & remplacements & entretiens
+  devoirs              Devoir[]
+  remplacementsCours   RemplacementCours[]
+  entretiensConseiller EntretienConseiller[]
+
   // Soft-delete / purge planifiée (Option B — industry standard)
   deletedAt        DateTime?
   deletedBy        String?
@@ -784,6 +794,12 @@ model User {
   // Infirmerie : passages saisis par cet utilisateur (infirmier)
   passagesInfirmerieSaisis PassageInfirmerie[] @relation("PassageInfirmier")
 
+  // Remplacements de cours décidés par cet utilisateur (direction)
+  remplacementsDecides RemplacementCours[] @relation("RemplacementDecidePar")
+
+  // Entretiens conseiller menés par cet utilisateur
+  entretiensConseiller EntretienConseiller[] @relation("EntretienConseiller")
+
   @@index([tenantId])
   @@index([siteId])
   @@map("users")
@@ -913,6 +929,8 @@ model Classe {
   notes       Note[]
   evaluations Evaluation[]
   conversations Conversation[] @relation("ConversationClasse")
+  devoirs      Devoir[]
+  remplacements RemplacementCours[]
 
   @@index([tenantId])
   @@index([siteId])
@@ -945,6 +963,8 @@ model Matiere {
   learnosSeuils    SeuilsRecommandation[]
   learnosPlans     PlanProgression[]
   learnosFeuilles  FeuilleExercices[]
+  devoirs          Devoir[]
+  remplacements    RemplacementCours[]
 
   @@index([tenantId])
   @@index([siteId])
@@ -1047,6 +1067,7 @@ model Eleve {
 
   passagesInfirmerie PassageInfirmerie[]
   ficheSanitaire     FicheSanitaire?
+  entretiensConseiller EntretienConseiller[]
 
   @@unique([tenantId, matricule])
   /// Rend le doublon impossible, et non plus seulement détectable. Les fiches
@@ -1141,6 +1162,9 @@ model Enseignant {
   sites              EnseignantSite[]
   absencesPersonnel  AbsencePersonnel[]
   conges             CongePersonnel[]
+  devoirs            Devoir[]
+  remplacementsAbsent    RemplacementCours[] @relation("RemplacementAbsent")
+  remplacementsRemplacant RemplacementCours[] @relation("RemplacementRemplacant")
 
   @@index([tenantId])
   @@index([userId])
@@ -1177,6 +1201,8 @@ model EmploiTemps {
   heureFin   String // "09:00"
   salle      String?
   annee      String
+
+  remplacements RemplacementCours[]
 
   @@index([tenantId])
   @@index([classeId])
@@ -4109,4 +4135,158 @@ model JournalApprentissage {
 
   @@index([tenantId, typeAnalyse, createdAt])
   @@map("learnos_journal_apprentissage")
+}
+
+// ============================================================
+// CAHIER DE TEXTES / DEVOIRS DATÉS
+// ============================================================
+
+/// Devoir donné à une classe pour une matière, par un enseignant.
+/// Le cahier de textes est la liste chronologique des devoirs d'une classe.
+/// L'élève et le parent consultent les devoirs à rendre ; l'enseignant crée
+/// et marque les devoirs comme faits en classe.
+model Devoir {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId     String?
+  site       Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  classeId   String
+  classe     Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
+
+  matiereId  String
+  matiere    Matiere  @relation(fields: [matiereId], references: [id])
+
+  enseignantId String?
+  enseignant   Enseignant? @relation(fields: [enseignantId], references: [id], onDelete: SetNull)
+
+  titre       String
+  description String?
+  dateDonne   DateTime @default(now())
+  dateRendu   DateTime
+  statut      StatutDevoir @default(A_FAIRE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([classeId, dateRendu])
+  @@index([matiereId])
+  @@index([siteId])
+  @@map("devoirs")
+}
+
+enum StatutDevoir {
+  A_FAIRE
+  EN_COURS
+  RENDU
+  CORRIGE
+}
+
+// ============================================================
+// REMPLACEMENTS DE COURS
+// ============================================================
+
+/// Remplacement d'un enseignant absent par un autre enseignant.
+/// La direction décide des remplacements à partir des absences du personnel
+/// et des créneaux orphelins de l'emploi du temps.
+model RemplacementCours {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId     String?
+  site       Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  emploiTempsId String?
+  emploiTemps   EmploiTemps? @relation(fields: [emploiTempsId], references: [id], onDelete: SetNull)
+
+  classeId   String
+  classe     Classe   @relation(fields: [classeId], references: [id])
+
+  matiereId  String
+  matiere    Matiere  @relation(fields: [matiereId], references: [id])
+
+  enseignantAbsentId   String?
+  enseignantAbsent     Enseignant? @relation("RemplacementAbsent", fields: [enseignantAbsentId], references: [id], onDelete: SetNull)
+
+  enseignantRemplacantId String?
+  enseignantRemplacant   Enseignant? @relation("RemplacementRemplacant", fields: [enseignantRemplacantId], references: [id], onDelete: SetNull)
+
+  date       DateTime
+  heureDebut String
+  heureFin   String
+  salle      String?
+
+  statut     StatutRemplacement @default(PROPOSE)
+
+  motifAbsence String?
+  notes        String?
+
+  decideParId String?
+  decidePar    User?   @relation("RemplacementDecidePar", fields: [decideParId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([date])
+  @@index([classeId])
+  @@index([siteId])
+  @@map("remplacements_cours")
+}
+
+enum StatutRemplacement {
+  PROPOSE
+  VALIDE
+  REFUSE
+  EFFECTUE
+  ANNULE
+}
+
+// ============================================================
+// ENTRETIENS CONSEILLER / CPE
+// ============================================================
+
+/// Entretien individuel entre un conseiller/CPE et un élève.
+/// Le suivi longitudinal est la liste chronologique des entretiens d'un élève.
+model EntretienConseiller {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId     String?
+  site       Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId    String
+  eleve      Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  conseillerId String?
+  conseiller   User?   @relation("EntretienConseiller", fields: [conseillerId], references: [id], onDelete: SetNull)
+
+  date       DateTime @default(now())
+  motif      String   // "absences répétées", "difficultés familiales", "orientation"…
+  compteRendu String?
+  decisions  String?
+  suivi      String?
+  statut     StatutEntretien @default(PLANIFIE)
+
+  prochainRendezVous DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([eleveId, date])
+  @@index([siteId])
+  @@map("entretiens_conseiller")
+}
+
+enum StatutEntretien {
+  PLANIFIE
+  REALISE
+  ANNULE
+  REPORTÉ
 }

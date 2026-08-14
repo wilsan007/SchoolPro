@@ -38,7 +38,7 @@ describe("table d'accueil", () => {
     ["COUNSELOR", "/conseiller"],
     ["NURSE", "/infirmerie"],
     ["ACCOUNTANT", "/comptabilite"],
-    ["SUBJECT_LEAD", null],
+    ["SUBJECT_LEAD", "/ma-matiere"],
   ];
   it.each(attendus)("aiguille %s vers %s", (role, route) => {
     expect(accueilPourRole(role)).toBe(route);

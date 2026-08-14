@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "seed:e2e": "tsx prisma/seed-e2e.ts",
     "db:reset": "prisma migrate reset --force",
     "cap:sync": "pnpm exec cap sync",
     "cap:add:ios": "pnpm exec cap add ios",

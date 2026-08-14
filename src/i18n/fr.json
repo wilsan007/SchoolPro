@@ -115,7 +115,11 @@
     "secretariat": "Secrétariat",
     "comptabilite": "Comptabilité",
     "conseiller": "Conseiller",
-    "infirmerie": "Infirmerie"
+    "infirmerie": "Infirmerie",
+    "maMatiere": "Ma matière",
+    "couverture": "Couverture",
+    "devoirs": "Devoirs",
+    "travail": "Travail à faire"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -3305,6 +3309,73 @@
     "incidentsOuverts": "Incidents ouverts",
     "orientationEnAttente": "Orientation en attente",
     "elevesPlusAbsents": "Élèves les plus absents (30 jours)",
-    "aucunEleveRisque": "Aucun élève à risque sur la période"
+    "aucunEleveRisque": "Aucun élève à risque sur la période",
+    "entretiensRecents": "Entretiens récents",
+    "entretiensCeMois": "Entretiens ce mois",
+    "nouvelEntretien": "Nouvel entretien",
+    "date": "Date",
+    "motif": "Motif",
+    "statut": "Statut",
+    "planifie": "Planifié",
+    "realise": "Réalisé",
+    "annule": "Annulé",
+    "reporte": "Reporté",
+    "aucunEntretien": "Aucun entretien enregistré"
+  },
+  "maMatiere": {
+    "titre": "Ma matière",
+    "sousTitre": "Vue transversale de votre matière à travers toutes les classes",
+    "classes": "Classes",
+    "moyenneGenerale": "Moyenne générale",
+    "chapitresCompletes": "Chapitres complétés",
+    "elevesEnDifficulte": "Élèves en difficulté",
+    "moyennesParClasse": "Moyennes par classe",
+    "enseignants": "Enseignants",
+    "classe": "Classe",
+    "moyenne": "Moyenne",
+    "eleves": "Élèves",
+    "tauxReussite": "Taux de réussite",
+    "aucuneClasse": "Aucune classe n'enseigne cette matière",
+    "aucunEnseignant": "Aucun enseignant n'intervient dans cette matière"
+  },
+  "couverture": {
+    "titre": "Couverture des cours",
+    "sousTitre": "Remplacements et créneaux orphelins du jour",
+    "absencesPersonnel": "Absences personnel",
+    "creneauxOrphelins": "Créneaux orphelins",
+    "remplacementsProposes": "Remplacements proposés",
+    "remplacementsValides": "Remplacements validés",
+    "enAttente": "En attente de décision",
+    "aucunRemplacement": "Aucun remplacement aujourd'hui",
+    "classe": "Classe",
+    "matiere": "Matière",
+    "absent": "Absent",
+    "remplacant": "Remplaçant",
+    "statut": "Statut"
+  },
+  "travail": {
+    "titre": "Travail à faire",
+    "sousTitre": "Vos devoirs et travaux à rendre",
+    "aucunTravail": "Aucun travail à faire pour le moment",
+    "aRendre": "À rendre le",
+    "matiere": "Matière",
+    "rendu": "Rendu"
+  },
+  "devoirs": {
+    "titre": "Devoirs",
+    "sousTitre": "Donner et suivre le travail de vos classes",
+    "nouveau": "Nouveau devoir",
+    "classe": "Classe",
+    "matiere": "Matière",
+    "titreDevoir": "Titre",
+    "description": "Description",
+    "dateRendu": "Date de rendu",
+    "creer": "Créer",
+    "statut": "Statut",
+    "aFaire": "À faire",
+    "enCours": "En cours",
+    "rendu": "Rendu",
+    "corrige": "Corrigé",
+    "aucun": "Aucun devoir pour le moment"
   }
 }
