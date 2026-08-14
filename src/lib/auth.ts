@@ -33,6 +33,37 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         if (result) token = result;
       }
 
+      // — Impersonation : gestion du flag et des champs de session —
+      // `unstable_update({ user: { impersonating, ... } })` est appelé par la
+      // route /api/super-admin/impersonate. On stocke ici les champs dans le
+      // token pour qu'ils soient exposés via le callback `session`.
+      if (trigger === "update" && session) {
+        const s = session as {
+          impersonating?: boolean;
+          impersonatedTenantId?: string | null;
+          impersonatedTenantName?: string | null;
+          impersonatedUserEmail?: string | null;
+          originalRole?: string | null;
+          originalTenantId?: string | null;
+          clearImpersonation?: boolean;
+        };
+        if (s.clearImpersonation) {
+          token.impersonating = false;
+          token.impersonatedTenantId = null;
+          token.impersonatedTenantName = null;
+          token.impersonatedUserEmail = null;
+          token.originalRole = null;
+          token.originalTenantId = null;
+        } else if (s.impersonating !== undefined) {
+          token.impersonating = s.impersonating;
+          token.impersonatedTenantId = s.impersonatedTenantId ?? null;
+          token.impersonatedTenantName = s.impersonatedTenantName ?? null;
+          token.impersonatedUserEmail = s.impersonatedUserEmail ?? null;
+          token.originalRole = s.originalRole ?? null;
+          token.originalTenantId = s.originalTenantId ?? null;
+        }
+      }
+
       // Ré-hydratation depuis la base — la base est la seule source de vérité
       // pour le périmètre d'accès. Déclenchée :
       //  - par `unstable_update()` après un changement de tenant ou de site ;
@@ -51,6 +82,20 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           (session as { user?: { tenantId?: string | null } } | undefined)?.user?.tenantId ??
           (token.tenantId as string | null) ??
           null;
+
+        // En impersonation, on force le tenant demandé sans passer par
+        // deriveClaims (le SUPER_ADMIN n'a pas forcément d'adhésion au tenant
+        // cible). On conserve le rôle SUPER_ADMIN mais on bascule le tenantId.
+        if (token.impersonating && token.originalTenantId) {
+          // Restaurer le tenant original si on quitte l'impersonation
+          // (géré par clearImpersonation ci-dessus), sinon garder le tenant cible
+          token.tenantId = requestedTenantId;
+          token.siteId = null;
+          token.siteIds = [];
+          token.tenantHasSites = true;
+          token.claimsVersion = CLAIMS_VERSION;
+          return token;
+        }
 
         const claims = await deriveClaims(token.id as string, requestedTenantId);
 
@@ -192,6 +237,18 @@ declare module "next-auth" {
       /** Le tenant actif possède-t-il au moins un site ? */
       tenantHasSites?: boolean;
       availableTenants?: AvailableTenant[];
+      /** Impersonation : vrai si le SUPER_ADMIN a pris le contrôle d'un tenant. */
+      impersonating?: boolean;
+      /** Tenant cible de l'impersonation. */
+      impersonatedTenantId?: string | null;
+      /** Nom du tenant cible (pour la bannière). */
+      impersonatedTenantName?: string | null;
+      /** Email de l'utilisateur cible (pour la bannière). */
+      impersonatedUserEmail?: string | null;
+      /** Rôle original avant impersonation. */
+      originalRole?: Role | null;
+      /** Tenant original avant impersonation. */
+      originalTenantId?: string | null;
     };
   }
 }

@@ -66,10 +66,17 @@ export async function loginAs(page: Page, role: string): Promise<void> {
     throw new Error(`Rôle inconnu dans E2E_CREDENTIALS : ${role}`);
   }
 
+  // Nettoyer toute session précédente pour éviter les interférences entre tests
+  // (notamment en mode serial où le contexte navigateur est partagé).
+  await page.context().clearCookies();
   await page.goto("/login");
-  // La page de login utilise un Suspense boundary : attendre que le formulaire
-  // soit réellement rendu avant d'interagir avec les inputs.
+  // La page de login utilise un Suspense boundary + hydration React :
+  // attendre que le réseau soit inactif ET que le bouton soit cliquable
+  // (non désactivé) pour garantir que le handler onSubmit est attaché.
+  await page.waitForLoadState("networkidle", { timeout: 15000 });
   await page.waitForSelector('input[type="email"]', { state: "visible", timeout: 15000 });
+  await page.waitForSelector('button[type="submit"]:not([disabled])', { timeout: 15000 });
+  await page.waitForTimeout(500);
   await page.fill('input[type="email"]', creds.email);
   await page.fill('input[type="password"]', creds.password);
   await page.click('button[type="submit"]');
@@ -79,9 +86,17 @@ export async function loginAs(page: Page, role: string): Promise<void> {
 
   // Si on est sur /select-tenant, choisir le tenant LEARNOS.
   if (page.url().includes("/select-tenant")) {
-    // Le tenant de démonstration LEARNOS est « demo-learnos ».
-    await page.click("text=demo-learnos", { timeout: 10000 });
-    await page.waitForURL(POST_TENANT_URL, { timeout: 20000 });
+    await page.waitForLoadState("networkidle", { timeout: 10000 });
+    const tenantButton = page.locator('button:has-text("demo-learnos")');
+    const hasTenant = await tenantButton.count();
+    if (hasTenant > 0) {
+      await tenantButton.first().click({ timeout: 10000 });
+      await page.waitForURL(POST_TENANT_URL, { timeout: 20000 });
+    } else {
+      // Aucun tenant à sélectionner (SUPER_ADMIN) : le middleware devrait
+      // rediriger automatiquement. Attendre la redirection finale.
+      await page.waitForURL(POST_TENANT_URL, { timeout: 20000 });
+    }
   }
 }
 

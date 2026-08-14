@@ -14,11 +14,12 @@ const TOUS_LES_ROLES: RoleKey[] = [
   "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER",
   "CLASS_TEACHER", "COUNSELOR", "NURSE", "ACCOUNTANT",
   "SUPERVISOR", "SUBJECT_LEAD",
+  "SITE_MANAGER", "INSPECTOR",
   "PARENT", "STUDENT",
 ];
 
 describe("table d'accueil", () => {
-  it("couvre les treize rôles, exactement ceux de la matrice", () => {
+  it("couvre les quinze rôles, exactement ceux de la matrice", () => {
     expect(Object.keys(ACCUEIL_PAR_ROLE).sort()).toEqual([...TOUS_LES_ROLES].sort());
     expect(Object.keys(ACCUEIL_PAR_ROLE).sort()).toEqual(
       Object.keys(ROLE_PERMISSIONS).sort()
@@ -39,6 +40,8 @@ describe("table d'accueil", () => {
     ["NURSE", "/infirmerie"],
     ["ACCOUNTANT", "/comptabilite"],
     ["SUBJECT_LEAD", "/ma-matiere"],
+    ["SITE_MANAGER", "/exploitation"],
+    ["INSPECTOR", "/inspection"],
   ];
   it.each(attendus)("aiguille %s vers %s", (role, route) => {
     expect(accueilPourRole(role)).toBe(route);

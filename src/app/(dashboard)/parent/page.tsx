@@ -76,19 +76,19 @@ export default async function ParentPage({
   // Le paramètre d'URL ne sert qu'à CHOISIR parmi les enfants déjà autorisés.
   const choisi = enfants.find((e) => e.id === demande) ?? enfants[0];
 
-  const [dossier, preferences, factures, absences] = await Promise.all([
+  const [dossier, preferences, factures, absences, isGardien] = await Promise.all([
     dossierEleve(tenantId, choisi.id, session!.user, {
       pourResponsable: "parent",
       avecFinance: true,
     }),
     preferencesDuCompte(tenantId, session!.user.id),
-    // Factures de l'enfant — le rôle PARENT n'a pas `finance:read`, mais le
-    // périmètre relationnel (eleveScopeFilter) protège l'accès : on ne remonte
-    // que les factures de *ses* enfants.
+    // Factures de l'enfant — réservées au parent GARDIEN. Un tuteur non
+    // gardien n'a pas accès aux factures : le filtre `gardienOnly` restreint
+    // les `EleveParent` à ceux où `isGardien` est `true`.
     prisma.facture.findMany({
       where: mergeFilters(
         { tenantId, eleveId: choisi.id },
-        eleveScopeFilter(session!.user, "eleve")
+        eleveScopeFilter(session!.user, "eleve", { gardienOnly: true })
       ),
       orderBy: { createdAt: "desc" },
       take: 5,
@@ -103,6 +103,7 @@ export default async function ParentPage({
       },
     }),
     // Absences injustifiées de l'enfant, pour justification par le parent.
+    // Accessibles à tous les parents rattachés (gardien ou non).
     prisma.absence.findMany({
       where: mergeFilters(
         { tenantId, eleveId: choisi.id, statut: "INJUSTIFIEE" },
@@ -118,6 +119,17 @@ export default async function ParentPage({
         isRetard: true,
       },
     }),
+    // Vérifier si le parent est gardien de cet enfant — détermine l'accès
+    // aux factures et aux bulletins.
+    // eslint-disable-next-line ecolpro/require-site-filter -- EleveParent n'a pas de siteId/tenantId propre ; le tenantId est filtré via la relation parent, et l'eleveId provient d'enfantsDuParent (déjà scopé).
+    prisma.eleveParent.findFirst({
+      where: {
+        eleveId: choisi.id,
+        parent: { userId: session!.user.id, tenantId },
+        isGardien: true,
+      },
+      select: { isGardien: true },
+    }).then((r) => !!r),
   ]);
 
   return (
@@ -158,7 +170,11 @@ export default async function ParentPage({
         {/* --- Factures de l'enfant --- */}
         {/* Le rôle PARENT n'a pas `finance:read` : la route `/facturation` lui
             est interdite. On affiche ici un résumé et un lien vers la route
-            dédiée `/parent/factures/[id]` qui vérifie le périmètre familial. */}
+            dédiée `/parent/factures/[id]` qui vérifie le périmètre familial.
+            Les factures ne sont visibles que par le parent GARDIEN
+            (isGardien: true) ; un tuteur non gardien ne voit pas cette
+            section. */}
+        {isGardien && (
         <Card>
           <CardHeader>
             <CardTitle>{t("facturesEnfant")}</CardTitle>
@@ -233,6 +249,7 @@ export default async function ParentPage({
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* --- Absences à justifier --- */}
         <Card>

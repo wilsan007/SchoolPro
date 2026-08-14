@@ -580,21 +580,65 @@ export function mergeFilters(
 }
 
 /**
+ * Options additionnelles pour `eleveScopeFilter`.
+ */
+export interface EleveScopeFilterOptions {
+  /**
+   * Restreint aux seuls `EleveParent` où `isGardien` est `true`.
+   *
+   * Un tuteur non gardien (belle-mère, oncle logé sous le même toit, etc.)
+   * n'a pas accès aux factures ni aux bulletins : seuls les gardiens légaux
+   * y ont droit. Ce drapeau injecte le prédicat `isGardien: true` dans le
+   * filtre de périmètre personnel.
+   */
+  gardienOnly?: boolean;
+}
+
+/**
  * Filtre d'isolation complet pour un modèle rattaché à `Eleve` par une relation
  * (`Note`, `Absence`, `Bulletin`, …) : isolation par site **et** périmètre
  * personnel parent/élève.
  *
  * C'est l'entrée à privilégier dans toute route accessible à PARENT / STUDENT.
+ *
+ * @param options.gardienOnly ne remonter que les élèves dont le parent
+ *   connecté est le tuteur légal (`isGardien: true`). Utilisé pour les
+ *   factures et les bulletins, inaccessibles aux tuteurs non gardiens.
  */
 export function eleveScopeFilter(
   claims: SessionSiteClaims & { userId?: string; id?: string },
-  relation: string | null = "eleve"
+  relation: string | null = "eleve",
+  options?: EleveScopeFilterOptions
 ): Record<string, unknown> {
   const scope = resolveSiteScope(claims);
   const site = relation
     ? siteWhereForRelation(scope, relation)
     : siteWhere(scope);
-  return mergeFilters(site, personalScopeFilter(claims, relation));
+
+  // Filtre de périmètre personnel, éventuellement restreint aux gardiens.
+  const personal = personalScopeFilter(claims, relation);
+
+  if (options?.gardienOnly && isRelationScopedRole(claims.role)) {
+    const userId = claims.userId ?? claims.id;
+    if (userId) {
+      // Injecter `isGardien: true` dans le prédicat `parents.some(...)`.
+      // `personalScopeFilter` construit `{ parents: { some: { parent: { userId } } } }`
+      // encapsulé dans un `AND`. On ajoute un second prédicat sur la même
+      // relation `parents` pour exiger `isGardien`.
+      const gardienPredicate =
+        claims.role === "STUDENT"
+          ? {} // Un élève est toujours « gardien » de lui-même.
+          : { parents: { some: { isGardien: true, parent: { userId } } } };
+
+      const gardienFragment = relation
+        ? { AND: [{ [relation]: gardienPredicate }] }
+        : { AND: [gardienPredicate] };
+
+      return mergeFilters(site, personal, gardienFragment);
+    }
+  }
+
+  return mergeFilters(site, personal);
 }
 
 /**

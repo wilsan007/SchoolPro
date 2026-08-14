@@ -17,7 +17,9 @@ import { ArrowLeft } from "lucide-react";
  * Le rôle PARENT n'a pas `finance:read` : il ne peut pas accéder à
  * `/facturation/[id]`. Cette route dédiée affiche la facture de son enfant
  * en lecture seule, après avoir vérifié que la facture appartient à l'un de
- * ses enfants (`eleveScopeFilter`).
+ * ses enfants (`eleveScopeFilter`) ET qu'il est le tuteur légal
+ * (`isGardien: true`). Un tuteur non gardien est redirigé vers
+ * `/acces-bloque`.
  */
 export default async function ParentFactureDetailPage({
   params,
@@ -36,11 +38,15 @@ export default async function ParentFactureDetailPage({
   const tenantId = session!.user.tenantId!;
   const { id } = await params;
 
-  // Vérifier que la facture appartient à l'un des enfants du parent.
+  // Vérifier que le parent est GARDIEN de l'élève auquel appartient cette
+  // facture. Un tuteur non gardien n'a pas accès aux factures.
+  // On récupère d'abord la facture avec le filtre gardienOnly : si elle
+  // n'existe pas, c'est que le parent n'est pas gardien (ou que la facture
+  // n'appartient pas à ses enfants).
   const facture = await prisma.facture.findFirst({
     where: mergeFilters(
       { id, tenantId },
-      eleveScopeFilter(session!.user, "eleve")
+      eleveScopeFilter(session!.user, "eleve", { gardienOnly: true })
     ),
     select: {
       id: true,
@@ -64,7 +70,23 @@ export default async function ParentFactureDetailPage({
     },
   });
 
-  if (!facture) notFound();
+  // Si la facture n'est pas trouvée avec le filtre gardienOnly, vérifier si
+  // elle existe avec le filtre normal (le parent est rattaché mais non
+  // gardien) → rediriger vers la page d'accès bloqué. Sinon, 404.
+  if (!facture) {
+    const factureSansGardien = await prisma.facture.findFirst({
+      where: mergeFilters(
+        { id, tenantId },
+        eleveScopeFilter(session!.user, "eleve")
+      ),
+      select: { id: true },
+    });
+    if (factureSansGardien) {
+      // Le parent est rattaché à cet élève mais n'est pas gardien.
+      redirect("/acces-bloque");
+    }
+    notFound();
+  }
 
   const statutConfig: Record<string, { variant: "default" | "success" | "warning" | "destructive" | "secondary"; label: string }> = {
     EN_ATTENTE: { variant: "warning", label: "En attente" },

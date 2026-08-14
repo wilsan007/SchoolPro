@@ -697,6 +697,8 @@ enum Role {
   ACCOUNTANT // Gestionnaire financier
   SUPERVISOR // Surveillant / Vie scolaire
   SUBJECT_LEAD // Coordinateur de matière
+  SITE_MANAGER // Responsable d'exploitation site (salles, équipement, personnel de service)
+  INSPECTOR    // Inspecteur MENFOP — lecture seule, pas de données nominatives inutiles
   PARENT // Parent / Tuteur légal
   STUDENT // Élève
 }

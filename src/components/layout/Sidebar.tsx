@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { SiteSwitcher } from "./SiteSwitcher";
+import { RoleSwitcher, type RoleMode } from "./RoleSwitcher";
 import {
   LayoutDashboard,
   Users,
@@ -39,6 +40,8 @@ import {
   ListTodo,
   NotebookPen,
   Sun,
+  Wrench,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -94,6 +97,8 @@ const navGroups: NavGroup[] = [
       { labelKey: "conseiller", icon: Compass, href: "/conseiller", color: "text-indigo-600" },
       { labelKey: "infirmerie", icon: HandHeart, href: "/infirmerie", color: "text-rose-500" },
       { labelKey: "comptabilite", icon: Receipt, href: "/comptabilite", color: "text-emerald-600" },
+      { labelKey: "exploitation", icon: Wrench, href: "/exploitation", color: "text-slate-600" },
+      { labelKey: "inspection", icon: ClipboardCheck, href: "/inspection", color: "text-blue-700" },
     ],
   },
   {
@@ -161,9 +166,13 @@ interface SidebarProps {
   sites?: { id: string; nom: string; code?: string | null }[];
   currentSiteId?: string | null;
   isSiteAdmin?: boolean;
+  /** Modes de rôle disponibles pour la bascule Travail/Parent. */
+  availableRoleModes?: RoleMode[];
+  /** Mode de rôle actuellement actif. */
+  currentRoleMode?: RoleMode;
 }
 
-export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École", tenantId, isSuperAdmin = false, roleKey = "TENANT_ADMIN", availableTenants = [], sites = [], currentSiteId = null, isSiteAdmin = false }: SidebarProps) {
+export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar, tenantName = "Mon École", tenantId, isSuperAdmin = false, roleKey = "TENANT_ADMIN", availableTenants = [], sites = [], currentSiteId = null, isSiteAdmin = false, availableRoleModes = [], currentRoleMode = "WORK" }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [collapsed, setCollapsed] = useState(false);
@@ -382,6 +391,17 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
           {!collapsed && <span>{t("parametres")}</span>}
         </Link>
       </div>
+      )}
+
+      {/* Bascule Travail/Parent — affichée uniquement si l'utilisateur a
+          plusieurs rôles (enseignant ET parent dans le même établissement). */}
+      {availableRoleModes.length >= 2 && !collapsed && (
+        <div className="px-3 pb-2 border-t border-slate-800/40 pt-3">
+          <RoleSwitcher
+            availableModes={availableRoleModes}
+            currentMode={currentRoleMode}
+          />
+        </div>
       )}
 
       {/* Profil utilisateur */}

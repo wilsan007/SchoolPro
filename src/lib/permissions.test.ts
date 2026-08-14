@@ -19,6 +19,7 @@ const TOUS_LES_ROLES: RoleKey[] = [
   "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER",
   "CLASS_TEACHER", "COUNSELOR", "NURSE", "ACCOUNTANT",
   "SUPERVISOR", "SUBJECT_LEAD",
+  "SITE_MANAGER", "INSPECTOR",
   "PARENT", "STUDENT",
 ];
 
@@ -302,7 +303,7 @@ describe("écrans de saisie : le personnel garde ses accès", () => {
 });
 
 describe("cohérence de la matrice", () => {
-  it("déclare les treize rôles", () => {
+  it("déclare les quinze rôles", () => {
     expect(Object.keys(ROLE_PERMISSIONS).sort()).toEqual([...TOUS_LES_ROLES].sort());
   });
 

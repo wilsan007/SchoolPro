@@ -29,7 +29,7 @@ import type { RoleKey } from "./permissions";
 
 /**
  * Table exhaustive au sens de TypeScript : `Record<RoleKey, string | null>`
- * oblige à déclarer les onze rôles. Le jour où un douzième rôle est ajouté à
+ * oblige à déclarer les treize rôles. Le jour où un quatorzième rôle est ajouté à
  * `RoleKey`, la compilation échoue ici et force la question « cet nouveau rôle
  * a-t-il un espace dédié ? » plutôt que de le laisser tomber silencieusement
  * dans un comportement par défaut.
@@ -54,6 +54,12 @@ export const ACCUEIL_PAR_ROLE: Record<RoleKey, string | null> = {
   SUPERVISOR: "/vie-scolaire",
 
   SUBJECT_LEAD: "/ma-matiere",
+
+  // Exploitation site — salles, équipement, logistique.
+  SITE_MANAGER: "/exploitation",
+
+  // Inspecteur MENFOP — vue agrégée lecture seule.
+  INSPECTOR: "/inspection",
 
   // Pas encore d'espace dédié : ces rôles gardent le tableau de bord générique.
   // `null` veut dire « ne le redirige pas », pas « aucun accès ».

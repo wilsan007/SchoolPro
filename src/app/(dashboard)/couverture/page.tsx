@@ -121,6 +121,27 @@ export default async function CouverturePage() {
     },
   });
 
+  // 6. Remplaçants disponibles aujourd'hui : enseignants qui ont une
+  //    disponibilité ce jour ET qui ne sont pas absents aujourd'hui.
+  //    On récupère les enseignantIds disponibles, puis on soustrait les
+  //    enseignants absents.
+  const disponibilites = await prisma.disponibiliteEnseignant.findMany({
+    where: {
+      tenantId,
+      jour: jourAujourdhui,
+      ...siteFilterForModel("disponibiliteEnseignant", claims),
+    },
+    select: { enseignantId: true },
+    distinct: ["enseignantId"],
+  });
+  const enseignantsDisponibles = Array.from(
+    new Set(disponibilites.map((d) => d.enseignantId))
+  );
+  // Soustraire les enseignants absents aujourd'hui.
+  const remplacantsDisponibles = enseignantsDisponibles.filter(
+    (id) => !enseignantsAbsents.includes(id)
+  ).length;
+
   // — Liste détaillée des remplacements du jour —
   const remplacements = await prisma.remplacementCours.findMany({
     where: {
@@ -147,6 +168,7 @@ export default async function CouverturePage() {
     { label: t("remplacementsProposes"), value: remplacementsProposes, color: "text-sky-600" },
     { label: t("remplacementsValides"), value: remplacementsValides, color: "text-emerald-600" },
     { label: t("enAttente"), value: enAttente, color: "text-violet-600" },
+    { label: t("remplacantsDisponibles"), value: remplacantsDisponibles, color: "text-teal-600" },
   ];
 
   return (
@@ -159,7 +181,7 @@ export default async function CouverturePage() {
       />
       <div className="flex-1 space-y-8 overflow-y-auto p-6 scrollbar-thin">
         {/* Compteurs — cartes cliquables menant à la liste détaillée. */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {compteurs.map((c) => (
             <Link key={c.label} href="#remplacements" className="group">
               <Card className="transition-all duration-200 hover:shadow-md hover:border-primary/40">

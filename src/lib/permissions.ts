@@ -19,7 +19,7 @@
  *   - "<module>:read" / ":write" / ":delete" / ":publish" / ":send" / ":valider"
  */
 
-/** Les treize rôles du schéma Prisma, redéclarés pour rester Edge-safe. */
+/** Les quinze rôles du schéma Prisma, redéclarés pour rester Edge-safe. */
 export type RoleKey =
   | "SUPER_ADMIN"
   | "TENANT_ADMIN"
@@ -32,6 +32,8 @@ export type RoleKey =
   | "ACCOUNTANT"
   | "SUPERVISOR"
   | "SUBJECT_LEAD"
+  | "SITE_MANAGER"
+  | "INSPECTOR"
   | "PARENT"
   | "STUDENT";
 
@@ -160,6 +162,25 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "ai:teacher",
   ],
 
+  // Responsable d'exploitation site — salles, équipement, personnel de service.
+  // Pas d'accès aux données pédagogiques (notes, bulletins, évaluations).
+  SITE_MANAGER: [
+    "eleves:read", "classes:read", "matieres:read",
+    "emploi-du-temps:read", "inventaire:*",
+    "messages:*", "communication:read",
+    "documents:read", "rapports:read",
+  ],
+
+  // Inspecteur MENFOP — lecture seule, statistiques agrégées.
+  // Pas de données nominatives inutiles (pas de notes par élève, pas de messages).
+  INSPECTOR: [
+    "eleves:read", "classes:read", "matieres:read",
+    "absences:read", "emploi-du-temps:read",
+    "analytics:read", "rapports:read",
+    "bulletins:read", "examens:read",
+    "curriculum:read", "cours:read",
+  ],
+
   // Parent / Tuteur — le périmètre de ses enfants, en lecture.
   //
   // `entrainement:read` lui ouvre l'évolution d'entraînement de son enfant :
@@ -279,6 +300,8 @@ export const ROUTE_RULES: RouteRule[] = [
   // — Pilotage —
   // `analytics:read` seul ne suffit pas ici : un enseignant l'a pour ses
   // propres classes, alors que ces deux écrans agrègent tout l'établissement.
+  { pattern: /^\/exploitation/, permission: "inventaire:read", roles: ["SITE_MANAGER", "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"] },
+  { pattern: /^\/inspection/, permission: "analytics:read", roles: ["INSPECTOR", "SUPER_ADMIN", "TENANT_ADMIN"] },
   { pattern: /^\/direction/, permission: "analytics:read", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
   ] },

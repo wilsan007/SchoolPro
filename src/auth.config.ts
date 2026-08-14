@@ -46,6 +46,13 @@ export const authConfig: NextAuthConfig = {
         (session.user as { tenantHasSites?: boolean }).tenantHasSites =
           (token.tenantHasSites as boolean | undefined) ?? true;
         (session.user as { availableTenants?: AvailableTenant[] }).availableTenants = token.availableTenants as AvailableTenant[] | undefined;
+        // Impersonation : expose les champs au session pour la bannière
+        (session.user as { impersonating?: boolean }).impersonating = (token.impersonating as boolean | undefined) ?? false;
+        (session.user as { impersonatedTenantId?: string | null }).impersonatedTenantId = (token.impersonatedTenantId as string | null | undefined) ?? null;
+        (session.user as { impersonatedTenantName?: string | null }).impersonatedTenantName = (token.impersonatedTenantName as string | null | undefined) ?? null;
+        (session.user as { impersonatedUserEmail?: string | null }).impersonatedUserEmail = (token.impersonatedUserEmail as string | null | undefined) ?? null;
+        (session.user as { originalRole?: Role | null }).originalRole = (token.originalRole as Role | null | undefined) ?? null;
+        (session.user as { originalTenantId?: string | null }).originalTenantId = (token.originalTenantId as string | null | undefined) ?? null;
       }
       return session;
     },

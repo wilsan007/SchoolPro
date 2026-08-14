@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import type { RoleMode } from "@/components/layout/RoleSwitcher";
 import { AiChatWidget } from "@/components/ai/AiChatWidget";
+import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
@@ -95,6 +97,29 @@ export default async function DashboardLayout({
 
   const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
 
+  // Déterminer les modes de rôle disponibles pour la bascule Travail/Parent.
+  // Un utilisateur qui est à la fois enseignant et parent dans le même
+  // établissement peut basculer entre les deux contextes sans se déconnecter.
+  const availableRoleModes: RoleMode[] = [];
+  let currentRoleMode: RoleMode = "WORK";
+  if (session.user.tenantId) {
+    const [hasParent, hasEnseignant] = await Promise.all([
+      // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, vérification d'existence du Parent
+      prisma.parent.findFirst({
+        where: { userId: session.user.id, tenantId: session.user.tenantId },
+        select: { id: true },
+      }).then((r) => !!r),
+      // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, vérification d'existence de l'Enseignant
+      prisma.enseignant.findFirst({
+        where: { userId: session.user.id, tenantId: session.user.tenantId },
+        select: { id: true },
+      }).then((r) => !!r),
+    ]);
+    if (hasParent) availableRoleModes.push("PARENT");
+    if (hasEnseignant) availableRoleModes.push("WORK");
+    currentRoleMode = session.user.role === "PARENT" ? "PARENT" : "WORK";
+  }
+
   const roleLabels: Record<string, string> = {
     SUPER_ADMIN: tRoles("SUPER_ADMIN"),
     TENANT_ADMIN: tRoles("TENANT_ADMIN"),
@@ -123,8 +148,11 @@ export default async function DashboardLayout({
         sites={sites}
         currentSiteId={siteId}
         isSiteAdmin={isSiteAdmin}
+        availableRoleModes={availableRoleModes}
+        currentRoleMode={currentRoleMode}
       />
       <main className="flex-1 flex flex-col overflow-hidden bg-background print:overflow-visible print:bg-white">
+        <ImpersonationBanner />
         {partialBlockMessage && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2 print:hidden">
             <svg className="h-4 w-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
