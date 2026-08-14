@@ -84,6 +84,7 @@ model Tenant {
   // Relations
   users          User[]
   userTenants    UserTenant[]
+  userRoles      UserRole[]
   annees         AnneesScolaires[]
   classes        Classe[]
   matieres       Matiere[]
@@ -772,6 +773,9 @@ model User {
   // Multi-tenant: liste des tenants accessibles
   userTenants UserTenant[]
 
+  // Multi-rôle: tous les rôles possédés par utilisateur × tenant
+  userRoles UserRole[]
+
   // Multi-site: liste des sites accessibles
   userSites UserSite[]
 
@@ -828,6 +832,30 @@ model UserTenant {
   @@unique([userId, tenantId]) // Un user = une seule fois par tenant
   @@index([tenantId])
   @@map("user_tenants")
+}
+
+// ============================================================
+// USER ROLE (Multi-rôle — un user peut posséder plusieurs rôles
+// dans le même tenant. UserTenant.role = rôle ACTIF, UserRole =
+// inventaire complet des rôles possédés.)
+// ============================================================
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      Role     // Un rôle possédé (parmi plusieurs possibles)
+  isActive  Boolean  @default(true) // Désactivé sans suppression (soft delete)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tenantId, role]) // Un rôle par user par tenant, mais plusieurs lignes
+  @@index([tenantId])
+  @@map("user_roles")
 }
 
 model Account {
