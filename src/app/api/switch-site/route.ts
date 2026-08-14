@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { deriveClaims, resolveSiteAccess } from "@/lib/tenant-claims";
 import { auditFire } from "@/lib/audit";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const BodySchema = z.object({
   // `null` = « tous les sites » (direction générale uniquement).
@@ -25,22 +26,22 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+      return erreurJson("NON_AUTORISE");
     }
 
     const tenantId = session.user.tenantId;
     if (!tenantId) {
-      return NextResponse.json({ error: "Aucun établissement actif" }, { status: 403 });
+      return erreurJson("ETABLISSEMENT_INTROUVABLE");
     }
 
     let parsed;
     try {
       parsed = BodySchema.safeParse(await req.json());
     } catch {
-      return NextResponse.json({ error: "Corps de requête invalide" }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES");
     }
     if (!parsed.success) {
-      return NextResponse.json({ error: "siteId invalide" }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES");
     }
 
     const { siteId } = parsed.data;
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
           resourceId: siteId,
           reason: "Accès refusé à ce site",
         });
-        return NextResponse.json({ error: "Accès refusé à ce site" }, { status: 403 });
+        return erreurJson("ACCES_REFUSE");
       }
     } else {
       // « Tous les sites » : réservé à la direction générale du tenant actif.
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
         select: { role: true, tenantId: true },
       });
       if (!fallback) {
-        return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+        return erreurJson("UTILISATEUR_INTROUVABLE");
       }
       const tenantRole =
         membership?.role ?? (fallback.tenantId === tenantId ? fallback.role : null);
@@ -89,10 +90,7 @@ export async function POST(req: Request) {
           reason: "Tentative d'accès multi-sites sans privilèges admin",
           metadata: { role: tenantRole },
         });
-        return NextResponse.json(
-          { error: "Accès refusé : seuls les administrateurs peuvent voir tous les sites" },
-          { status: 403 }
-        );
+        return erreurJson("ACCES_REFUSE");
       }
     }
 
@@ -119,7 +117,7 @@ export async function POST(req: Request) {
         verdict: "DENIED",
         reason: "deriveClaims a retourné null après bascule",
       });
-      return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+      return erreurJson("UTILISATEUR_INTROUVABLE");
     }
 
     // Liste des sites proposables, strictement bornée aux droits de l'utilisateur.
@@ -142,9 +140,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Erreur switch site:", error);
-    return NextResponse.json(
-      { error: "Erreur lors du changement de site" },
-      { status: 500 }
-    );
+    return erreurJson("ERREUR_SERVEUR");
   }
 }

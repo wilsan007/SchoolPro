@@ -4,11 +4,13 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { AttestationForm } from "@/components/eleves/AttestationForm";
+import { getTranslations } from "next-intl/server";
 
 export default async function AttestationsPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+  const te = await getTranslations("eleves");
 
   const siteFilter = siteFilterForModel("classe", session.user);
   const [classes, tenant] = await Promise.all([
@@ -38,8 +40,8 @@ export default async function AttestationsPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Attestations de Scolarité"
-        subtitle="Générer et imprimer des attestations et certificats"
+        title={te("attestations")}
+        subtitle={te("attestationsSubtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

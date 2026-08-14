@@ -98,10 +98,10 @@ export default async function EmploiDuTempsPage() {
 
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const currentSiteName = currentSiteId
-    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? "Site inconnu")
+    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? tCommon("unknownSite"))
     : session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN"
       ? tCommon("allSites")
-      : "Aucun site";
+      : tCommon("noSite");
   const currentSiteColor = currentSiteId ? siteColors[currentSiteId] : undefined;
 
   return (

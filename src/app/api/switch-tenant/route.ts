@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { deriveClaims } from "@/lib/tenant-claims";
 import { auditFire } from "@/lib/audit";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const BodySchema = z.object({
   tenantId: z.string().min(1),
@@ -19,17 +20,17 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+      return erreurJson("NON_AUTORISE");
     }
 
     let parsed;
     try {
       parsed = BodySchema.safeParse(await req.json());
     } catch {
-      return NextResponse.json({ error: "Corps de requête invalide" }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES");
     }
     if (!parsed.success) {
-      return NextResponse.json({ error: "tenantId requis" }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES");
     }
 
     const { tenantId } = parsed.data;
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
         resourceId: tenantId,
         reason: "Aucune adhésion active à ce tenant",
       });
-      return NextResponse.json({ error: "Accès refusé à ce tenant" }, { status: 403 });
+      return erreurJson("ADHESION_INTROUVABLE");
     }
 
     await prisma.$transaction([
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
         verdict: "DENIED",
         reason: "deriveClaims a retourné null après bascule",
       });
-      return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+      return erreurJson("UTILISATEUR_INTROUVABLE");
     }
 
     return NextResponse.json({
@@ -104,9 +105,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Erreur switch tenant:", error);
-    return NextResponse.json(
-      { error: "Erreur lors du changement de tenant" },
-      { status: 500 }
-    );
+    return erreurJson("ERREUR_SERVEUR");
   }
 }

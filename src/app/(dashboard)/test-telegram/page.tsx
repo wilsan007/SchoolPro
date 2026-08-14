@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { toast } from "sonner";
 import { Send, CheckCircle2, XCircle, Loader2, RefreshCw, MessageCircle } from "lucide-react";
 
 export default function TestTelegramPage() {
+  const tc = useTranslations("common");
   const [chatId, setChatId] = useState("");
   const [eleveNom, setEleveNom] = useState("Kamil Abdullahi");
   const [ecoleNom, setEcoleNom] = useState("Lycée Mohamed Hashim Ledi");
@@ -36,7 +38,7 @@ export default function TestTelegramPage() {
         toast.info("Aucun chat trouvé. Envoyez /start au bot depuis Telegram.");
       }
     } catch {
-      toast.error("Erreur");
+      toast.error(tc("error"));
     } finally {
       setLoadingChats(false);
     }
@@ -63,7 +65,7 @@ export default function TestTelegramPage() {
         toast.error(data.error ?? "Échec de l'envoi");
       }
     } catch {
-      toast.error("Erreur réseau");
+      toast.error(tc("networkError"));
     } finally {
       setLoading(false);
     }

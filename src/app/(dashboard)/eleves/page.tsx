@@ -83,7 +83,7 @@ async function getElevesStats(where: Prisma.EleveWhereInput) {
  * chargées sous-estimerait donc les effectifs au-delà de ce plafond, en
  * silence. Un `groupBy` donne le compte exact quel que soit le volume.
  */
-async function getEffectifsParClasse(where: Prisma.EleveWhereInput, tenantId: string) {
+async function getEffectifsParClasse(where: Prisma.EleveWhereInput, tenantId: string, noClassLabel: string) {
   // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
   const parClasse = await prisma.eleve.groupBy({
     by: ["classeId"],
@@ -95,7 +95,7 @@ async function getEffectifsParClasse(where: Prisma.EleveWhereInput, tenantId: st
   for (const c of parClasse) {
     // Cle unique = classeId pour eviter l'ambiguite entre deux classes
     // homonymes situees sur des sites differents.
-    const key = c.classeId ?? "Sans classe";
+    const key = c.classeId ?? noClassLabel;
     effectifs[key] = (effectifs[key] ?? 0) + c._count;
   }
   return effectifs;
@@ -125,6 +125,7 @@ async function getElevesData(
   classeSiteFilter: Record<string, unknown>,
   filters: { q?: string; classeId?: string; statut?: string },
   userRole?: string,
+  noClassLabel?: string,
 ) {
   // Périmètre de référence : ce que voit l'utilisateur, filtres d'écran mis à
   // part. Statistiques et effectifs par classe en découlent tous les deux.
@@ -172,7 +173,7 @@ async function getElevesData(
     // naturellement l'utilisateur en additionnant les classes.
     getElevesStats(base),
     getClassesList(tenantId, classeSiteFilter),
-    getEffectifsParClasse(where, tenantId),
+    getEffectifsParClasse(where, tenantId, noClassLabel ?? "Sans classe"),
   ]);
 
   return { eleves, total, stats, classeNoms, effectifs };
@@ -206,14 +207,14 @@ export default async function ElevesPage({
       q,
       classeId,
       statut,
-    }, session.user.role),
+    }, session.user.role, t("noClass")),
   ]);
 
   const currentSiteName = currentSiteId
-    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? "Site inconnu")
+    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? tCommon("unknownSite"))
     : session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN"
       ? tCommon("allSites")
-      : "Aucun site";
+      : tCommon("noSite");
   const currentSiteColor = currentSiteId ? siteColors[currentSiteId] : undefined;
 
   return (

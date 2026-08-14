@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { FactureForm } from "@/components/facturation/FactureForm";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getTranslations } from "next-intl/server";
 
 export default async function NouvelleFacturePage({
   searchParams,
@@ -12,6 +13,8 @@ export default async function NouvelleFacturePage({
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
+
+  const tf = await getTranslations("facturation");
 
   const siteFilter = siteFilterForModel("eleve", session.user);
   const [eleves, classes] = await Promise.all([
@@ -38,8 +41,8 @@ export default async function NouvelleFacturePage({
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Nouvelle facture"
-        subtitle="Créer une facture pour un élève"
+        title={tf("newInvoice")}
+        subtitle={tf("newInvoiceSubtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

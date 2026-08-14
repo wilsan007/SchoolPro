@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyWebhookSecret } from "@/lib/webhooks";
+import { erreurJson } from "@/lib/erreurs-api";
 
 /**
  * POST /api/webhooks/sms
@@ -10,7 +11,7 @@ import { verifyWebhookSecret } from "@/lib/webhooks";
 export async function POST(request: NextRequest) {
   try {
     if (!verifyWebhookSecret(request, "WEBHOOK_SMS_SECRET")) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return erreurJson("NON_AUTORISE");
     }
 
     const contentType = request.headers.get("content-type") ?? "";
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[SMS Webhook] Erreur:", err);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }
 

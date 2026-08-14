@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { sendTelegramMessage, sendAbsenceTelegram, sendRetardTelegram, getTelegramUpdates } from "@/lib/notifications/telegram";
 import { z } from "zod";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const TestSchema = z.object({
   chatId: z.string().min(1),
@@ -13,7 +14,7 @@ const TestSchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    return erreurJson("NON_AUTORISE");
   }
 
   const url = new URL(req.url);
@@ -59,13 +60,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    return erreurJson("NON_AUTORISE");
   }
 
   const body = await req.json();
   const parsed = TestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Données invalides", details: parsed.error.flatten() }, { status: 400 });
+    return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.flatten() });
   }
 
   const { chatId, type, eleveNom, ecoleNom } = parsed.data;

@@ -5,6 +5,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { EleveDetailView } from "@/components/eleves/EleveDetailView";
 import { getSituationFinanciere, checkEleveAccess } from "@/lib/financial-guard";
+import { getTranslations } from "next-intl/server";
 
 async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<string, unknown>) {
   const eleve = await prisma.eleve.findFirst({
@@ -86,6 +87,8 @@ export default async function EleveDetailPage({
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+  const te = await getTranslations("eleves");
+
   const eleveFilter = siteFilterForModel("eleve", session.user);
   const matiereFilter = siteFilterForModel("matiere", session.user);
   const dispenseFilter = siteFilterForModel("dispenseMatiere", session.user);
@@ -129,7 +132,7 @@ export default async function EleveDetailPage({
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
         title={`${eleve.prenom} ${eleve.nom}`}
-        subtitle={`${eleve.matricule} · ${eleve.classe?.nom ?? "Classe non affectée"}`}
+        subtitle={`${eleve.matricule} · ${eleve.classe?.nom ?? te("classNotAssigned")}`}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

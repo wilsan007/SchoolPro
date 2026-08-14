@@ -22,6 +22,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { deleteSite, type DeleteSiteFormData } from "@/lib/actions/parametres";
+import { useTranslations } from "next-intl";
 
 interface DeleteSiteDialogProps {
   siteId: string;
@@ -31,11 +32,11 @@ interface DeleteSiteDialogProps {
   onDeleted?: () => void;
 }
 
-const REASONS: { value: DeleteSiteFormData["reason"]; label: string }[] = [
-  { value: "FERMETURE", label: "Fermeture définitive du site" },
-  { value: "FUSION", label: "Fusion avec un autre site" },
-  { value: "ERREUR", label: "Site créé par erreur" },
-  { value: "AUTRE", label: "Autre raison" },
+const REASONS: { value: DeleteSiteFormData["reason"]; key: "FERMETURE" | "FUSION" | "ERREUR" | "AUTRE" }[] = [
+  { value: "FERMETURE", key: "FERMETURE" },
+  { value: "FUSION", key: "FUSION" },
+  { value: "ERREUR", key: "ERREUR" },
+  { value: "AUTRE", key: "AUTRE" },
 ];
 
 export function DeleteSiteDialog({
@@ -45,6 +46,8 @@ export function DeleteSiteDialog({
   onOpenChange,
   onDeleted,
 }: DeleteSiteDialogProps) {
+  const t = useTranslations("parametres");
+  const tc = useTranslations("common");
   const [isPending, setIsPending] = useState(false);
   const [reason, setReason] = useState<DeleteSiteFormData["reason"] | "">("");
   const [customReason, setCustomReason] = useState("");
@@ -79,13 +82,13 @@ export function DeleteSiteDialog({
         acknowledgeIrreversible: acknowledge,
       });
       toast.success(
-        `Site « ${siteNom} » marqué pour suppression. Purge définitive dans 90 jours (${new Date(result.scheduledPurgeAt).toLocaleDateString("fr-FR")}).`
+        t("siteMarkedForDeletion", { siteNom, date: new Date(result.scheduledPurgeAt).toLocaleDateString("fr-FR") })
       );
       reset();
       onOpenChange(false);
       onDeleted?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression");
+      toast.error(err instanceof Error ? err.message : t("errorDeletion"));
     } finally {
       setIsPending(false);
     }
@@ -99,27 +102,24 @@ export function DeleteSiteDialog({
             <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
               <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
             </div>
-            <DialogTitle className="text-base">Suppression du site « {siteNom} »</DialogTitle>
+            <DialogTitle className="text-base">{t("deleteSiteTitle", { siteNom })}</DialogTitle>
           </div>
           <DialogDescription className="text-xs leading-relaxed">
-            Cette action va marquer ce site pour suppression. Le site sera immédiatement
-            désactivé et invisible dans l&apos;application. Les données seront conservées pendant
-            <strong> 90 jours</strong> avant purge définitive. Vous pouvez annuler la suppression
-            durant cette période.
+            {t("deleteSiteDescription")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Raison */}
           <div className="space-y-1.5">
-            <Label htmlFor="reason" className="text-sm">Raison de la suppression *</Label>
+            <Label htmlFor="reason" className="text-sm">{t("deletionReason")}</Label>
             <Select value={reason} onValueChange={(v) => setReason(v as DeleteSiteFormData["reason"])}>
               <SelectTrigger id="reason">
-                <SelectValue placeholder="Sélectionnez une raison…" />
+                <SelectValue placeholder={t("selectReason")} />
               </SelectTrigger>
               <SelectContent>
                 {REASONS.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  <SelectItem key={r.value} value={r.value}>{t(`deleteReasons.${r.key}`)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -128,10 +128,10 @@ export function DeleteSiteDialog({
           {/* Raison personnalisée */}
           {reason === "AUTRE" && (
             <div className="space-y-1.5">
-              <Label htmlFor="customReason" className="text-sm">Précisez la raison *</Label>
+              <Label htmlFor="customReason" className="text-sm">{t("specifyReason")}</Label>
               <Input
                 id="customReason"
-                placeholder="Décrivez la raison…"
+                placeholder={t("describeReason")}
                 value={customReason}
                 onChange={(e) => setCustomReason(e.target.value)}
               />
@@ -141,7 +141,7 @@ export function DeleteSiteDialog({
           {/* Confirmation 1 */}
           <div className="space-y-1.5">
             <Label htmlFor="confirm1" className="text-sm">
-              Saisissez le nom exact du site : <span className="font-semibold text-red-600">{siteNom}</span>
+              {t("enterExactName")} <span className="font-semibold text-red-600">{siteNom}</span>
             </Label>
             <Input
               id="confirm1"
@@ -151,14 +151,14 @@ export function DeleteSiteDialog({
               autoComplete="off"
             />
             {confirmName1 && confirmName1 !== siteNom && (
-              <p className="text-xs text-red-500">Le nom ne correspond pas</p>
+              <p className="text-xs text-red-500">{t("nameMismatch")}</p>
             )}
           </div>
 
           {/* Confirmation 2 */}
           <div className="space-y-1.5">
             <Label htmlFor="confirm2" className="text-sm">
-              Confirmez en saisissant à nouveau : <span className="font-semibold text-red-600">{siteNom}</span>
+              {t("confirmAgain")} <span className="font-semibold text-red-600">{siteNom}</span>
             </Label>
             <Input
               id="confirm2"
@@ -168,7 +168,7 @@ export function DeleteSiteDialog({
               autoComplete="off"
             />
             {confirmName2 && confirmName2 !== siteNom && (
-              <p className="text-xs text-red-500">Le nom ne correspond pas</p>
+              <p className="text-xs text-red-500">{t("nameMismatch")}</p>
             )}
           </div>
 
@@ -182,9 +182,7 @@ export function DeleteSiteDialog({
               className="mt-0.5 rounded border-gray-300"
             />
             <Label htmlFor="acknowledge" className="text-xs font-normal cursor-pointer leading-relaxed">
-              Je comprends que cette suppression est <strong>irréversible après 90 jours</strong>.
-              Passé ce délai, toutes les données liées à ce site (élèves, classes, notes, absences,
-              factures…) seront définitivement détruites.
+              {t("acknowledgeDeletion")}
             </Label>
           </div>
         </div>
@@ -196,7 +194,7 @@ export function DeleteSiteDialog({
             onClick={() => { reset(); onOpenChange(false); }}
             disabled={isPending}
           >
-            Annuler
+            {tc("cancel")}
           </Button>
           <Button
             variant="destructive"
@@ -206,7 +204,7 @@ export function DeleteSiteDialog({
             onClick={handleSubmit}
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            Marquer pour suppression
+            {t("markForDeletion")}
           </Button>
         </DialogFooter>
       </DialogContent>

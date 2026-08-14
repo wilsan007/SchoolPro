@@ -35,11 +35,11 @@ interface Stats {
   parPlan: Record<PlanType, number>;
 }
 
-const PLAN_CONFIG: Record<PlanType, { label: string; color: string; prix: string }> = {
-  STARTER:    { label: "Starter",    color: "bg-gray-100 text-gray-700",    prix: "49€/mois" },
-  PRO:        { label: "Pro",        color: "bg-blue-100 text-blue-700",    prix: "149€/mois" },
-  BUSINESS:   { label: "Business",  color: "bg-purple-100 text-purple-700", prix: "399€/mois" },
-  ENTERPRISE: { label: "Enterprise",color: "bg-amber-100 text-amber-700",   prix: "Sur devis" },
+const PLAN_CONFIG: Record<PlanType, { color: string }> = {
+  STARTER:    { color: "bg-gray-100 text-gray-700" },
+  PRO:        { color: "bg-blue-100 text-blue-700" },
+  BUSINESS:   { color: "bg-purple-100 text-purple-700" },
+  ENTERPRISE: { color: "bg-amber-100 text-amber-700" },
 };
 
 const STATUS_CONFIG: Record<TenantStatus, { labelKey: string; icon: typeof CheckCircle; color: string }> = {
@@ -57,6 +57,18 @@ const EMPTY_FORM = {
 
 export function SuperAdminView() {
   const t = useTranslations("superAdmin");
+  const PLAN_LABELS: Record<PlanType, string> = {
+    STARTER: t("planStarter"),
+    PRO: t("planPro"),
+    BUSINESS: t("planBusiness"),
+    ENTERPRISE: t("planEnterprise"),
+  };
+  const PLAN_PRICES: Record<PlanType, string> = {
+    STARTER: t("priceStarter"),
+    PRO: t("pricePro"),
+    BUSINESS: t("priceBusiness"),
+    ENTERPRISE: t("priceEnterprise"),
+  };
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [stats, setStats] = useState<Stats>({
     total: 0, actifs: 0, trials: 0, suspendus: 0, totalEleves: 0,
@@ -195,9 +207,9 @@ export function SuperAdminView() {
             <div key={plan} className="text-center">
               <p className="text-2xl font-bold text-gray-900">{stats.parPlan[plan]}</p>
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${cfg.color}`}>
-                {cfg.label}
+                {PLAN_LABELS[plan]}
               </span>
-              <p className="text-xs text-gray-400 mt-1">{cfg.prix}</p>
+              <p className="text-xs text-gray-400 mt-1">{PLAN_PRICES[plan]}</p>
             </div>
           ))}
         </div>
@@ -222,7 +234,7 @@ export function SuperAdminView() {
         <select value={filterPlan} onChange={(e) => setFilterPlan(e.target.value)}
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none">
           <option value="all">{t("allPlans")}</option>
-          {Object.entries(PLAN_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          {Object.entries(PLAN_CONFIG).map(([k, v]) => <option key={k} value={k}>{PLAN_LABELS[k as PlanType]}</option>)}
         </select>
       </div>
 
@@ -274,7 +286,7 @@ export function SuperAdminView() {
                         className={`px-2 py-0.5 rounded-full text-xs font-medium border-0 cursor-pointer ${planCfg.color}`}
                       >
                         {(Object.entries(PLAN_CONFIG) as [PlanType, typeof planCfg][]).map(([k, v]) => (
-                          <option key={k} value={k}>{v.label}</option>
+                          <option key={k} value={k}>{PLAN_LABELS[k]}</option>
                         ))}
                       </select>
                     </td>
@@ -332,7 +344,7 @@ export function SuperAdminView() {
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">{t("schoolName")}</label>
                 <input value={form.name} onChange={(e) => f("name", e.target.value)}
-                  placeholder="Lycée Victor Hugo"
+                  placeholder={t("placeholderSchoolName")}
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
               </div>
               <div>
@@ -340,7 +352,7 @@ export function SuperAdminView() {
                 <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/30">
                   <span className="px-3 py-2 text-sm text-gray-400 bg-gray-50 border-r border-gray-200">ecolpro.app/</span>
                   <input value={form.slug} onChange={(e) => f("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    placeholder="lycee-victor-hugo"
+                    placeholder={t("placeholderSlug")}
                     className="flex-1 px-3 py-2 text-sm focus:outline-none" />
                 </div>
               </div>
@@ -355,7 +367,7 @@ export function SuperAdminView() {
                   <select value={form.plan} onChange={(e) => f("plan", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none">
                     {Object.entries(PLAN_CONFIG).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label} — {v.prix}</option>
+                      <option key={k} value={k}>{PLAN_LABELS[k as PlanType]} — {PLAN_PRICES[k as PlanType]}</option>
                     ))}
                   </select>
                 </div>
@@ -378,7 +390,7 @@ export function SuperAdminView() {
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">{t("adminName")}</label>
                 <input value={form.adminName} onChange={(e) => f("adminName", e.target.value)}
-                  placeholder="Directeur Nom Prénom"
+                  placeholder={t("placeholderAdminName")}
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
               </div>
               <div>

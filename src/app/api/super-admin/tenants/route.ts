@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import type { Session } from "next-auth";
+import { erreurJson } from "@/lib/erreurs-api";
 
 function requireSuperAdmin(session: Session | null) {
   if (!session?.user || session.user.role !== "SUPER_ADMIN") {
@@ -28,7 +29,7 @@ const CreateTenantSchema = z.object({
 export async function GET(request: NextRequest) {
   const session = await auth();
   try { requireSuperAdmin(session); } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    return erreurJson("ACCES_REFUSE");
   }
 
   const { searchParams } = new URL(request.url);
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth();
   try { requireSuperAdmin(session); } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    return erreurJson("ACCES_REFUSE");
   }
 
   try {
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
     // Vérifier slug unique
     const existing = await prisma.tenant.findUnique({ where: { slug: data.slug } });
     if (existing) {
-      return NextResponse.json({ error: "Ce slug est déjà utilisé" }, { status: 409 });
+      return erreurJson("SLUG_DEJA_UTILISE");
     }
 
     const bcrypt = await import("bcryptjs");
@@ -139,9 +140,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(tenant, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.errors }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES", undefined, { details: err.errors });
     }
     console.error("[SuperAdmin POST tenant] Erreur:", err);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }

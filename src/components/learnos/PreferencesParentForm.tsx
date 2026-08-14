@@ -30,6 +30,7 @@ export interface PreferencesParent {
  */
 export function PreferencesParentForm({ initiales }: { initiales: PreferencesParent }) {
   const t = useTranslations("learnos.preferences");
+  const tCommon = useTranslations("common");
   const tc = useTranslations("learnos.commun");
   const te = useTranslations("learnos.erreurs");
   const [prefs, setPrefs] = useState(initiales);
@@ -133,9 +134,9 @@ export function PreferencesParentForm({ initiales }: { initiales: PreferencesPar
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="auto">{t("langue_auto")}</SelectItem>
-                <SelectItem value="fr">Français</SelectItem>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="so">Soomaali</SelectItem>
+                <SelectItem value="fr">{tCommon("french")}</SelectItem>
+                <SelectItem value="en">{tCommon("english")}</SelectItem>
+                <SelectItem value="so">{tCommon("somali")}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">{t("langueAide")}</p>

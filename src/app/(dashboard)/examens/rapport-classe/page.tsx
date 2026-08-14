@@ -4,11 +4,13 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { RapportClasseTable } from "@/components/examens/RapportClasseTable";
+import { getTranslations } from "next-intl/server";
 
 export default async function RapportClassePage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+  const tx = await getTranslations("examens");
 
   const siteFilter = siteFilterForModel("classe", session.user);
   const [classes, periodes] = await Promise.all([
@@ -27,8 +29,8 @@ export default async function RapportClassePage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Rapport de Classe Matriciel"
-        subtitle="Tableau récapitulatif des notes par classe et période"
+        title={tx("matrixReportTitle")}
+        subtitle={tx("matrixReportSubtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />

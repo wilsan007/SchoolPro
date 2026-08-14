@@ -26,6 +26,7 @@ import {
   Megaphone, MessageSquare, Hash, Loader2, AlertTriangle, Send, UserCheck,
   CheckSquare, Square, ChevronRight, School,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -75,20 +76,11 @@ type ComposerMode = "audience" | "persons";
 // Libellés
 // ------------------------------------------------------------
 
-const INTENTS: { id: Intent; label: string; hint: string; icon: typeof Send; color: string }[] = [
-  { id: "MESSAGE", label: "Message", hint: "Chacun peut répondre", icon: MessageSquare, color: "text-blue-500" },
-  { id: "ANNONCE", label: "Annonce", hint: "Diffusion, lecture seule", icon: Megaphone, color: "text-orange-500" },
-  { id: "GROUPE", label: "Groupe", hint: "Espace de discussion durable", icon: Hash, color: "text-purple-500" },
+const INTENTS: { id: Intent; icon: typeof Send; color: string }[] = [
+  { id: "MESSAGE", icon: MessageSquare, color: "text-blue-500" },
+  { id: "ANNONCE", icon: Megaphone, color: "text-orange-500" },
+  { id: "GROUPE", icon: Hash, color: "text-purple-500" },
 ];
-
-const GROUP_LABEL: Record<AudienceGroup, string> = {
-  ALL: "Tout le monde",
-  PARENTS: "Les parents",
-  ELEVES: "Les élèves",
-  ENSEIGNANTS: "Les enseignants",
-  PERSONNEL: "Le personnel",
-  DIRECTION: "La direction",
-};
 
 const GROUP_ICON: Record<AudienceGroup, typeof Users> = {
   ALL: Users,
@@ -108,34 +100,12 @@ const GROUP_COLOR: Record<AudienceGroup, string> = {
   DIRECTION: "text-indigo-500",
 };
 
-const SCOPE_LABEL: Record<AudienceScope["kind"], string> = {
-  TENANT: "Tout l'établissement",
-  SITE: "Un site",
-  STRUCTURE: "Une structure",
-  NIVEAU: "Un niveau",
-  CLASSE: "Une classe",
-};
-
 const SCOPE_ICON: Record<AudienceScope["kind"], typeof Building2> = {
   TENANT: Building2,
   SITE: School,
   STRUCTURE: Layers,
   NIVEAU: Layers,
   CLASSE: GraduationCap,
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: "Super admin",
-  TENANT_ADMIN: "Direction",
-  PRINCIPAL: "Chef d'établissement",
-  SECRETARY: "Secrétariat",
-  TEACHER: "Enseignant",
-  CLASS_TEACHER: "Prof. principal",
-  COUNSELOR: "Conseiller",
-  NURSE: "Infirmerie",
-  ACCOUNTANT: "Comptabilité",
-  PARENT: "Parent",
-  STUDENT: "Élève",
 };
 
 /** Comparaison insensible à la casse et aux accents. */
@@ -154,6 +124,49 @@ export function NewConversationComposer({
   onClose: () => void;
   onCreated: (conv: { id: string } & Record<string, unknown>) => void;
 }) {
+  const t = useTranslations("messages");
+  const tCommon = useTranslations("common");
+
+  // --- Libellés traduits ---
+  const INTENT_LABEL: Record<Intent, string> = useMemo(() => ({
+    MESSAGE: t("intentMessage"),
+    ANNONCE: t("intentAnnounce"),
+    GROUPE: t("intentGroup"),
+  }), [t]);
+  const INTENT_HINT: Record<Intent, string> = useMemo(() => ({
+    MESSAGE: t("hintMessage"),
+    ANNONCE: t("hintAnnounce"),
+    GROUPE: t("hintGroup"),
+  }), [t]);
+  const GROUP_LABEL: Record<AudienceGroup, string> = useMemo(() => ({
+    ALL: t("groupAll"),
+    PARENTS: t("groupParents"),
+    ELEVES: t("groupStudents"),
+    ENSEIGNANTS: t("groupTeachers"),
+    PERSONNEL: t("groupStaff"),
+    DIRECTION: t("groupDirection"),
+  }), [t]);
+  const SCOPE_LABEL: Record<AudienceScope["kind"], string> = useMemo(() => ({
+    TENANT: t("scopeTenant"),
+    SITE: t("scopeSite"),
+    STRUCTURE: t("scopeStructure"),
+    NIVEAU: t("scopeLevel"),
+    CLASSE: t("scopeClass"),
+  }), [t]);
+  const ROLE_LABEL: Record<string, string> = useMemo(() => ({
+    SUPER_ADMIN: t("roleSuperAdmin"),
+    TENANT_ADMIN: t("roleDirection"),
+    PRINCIPAL: t("rolePrincipal"),
+    SECRETARY: t("roleSecretary"),
+    TEACHER: t("roleTeacher"),
+    CLASS_TEACHER: t("roleClassTeacher"),
+    COUNSELOR: t("roleCounselor"),
+    NURSE: t("roleNurse"),
+    ACCOUNTANT: t("roleAccountant"),
+    PARENT: t("roleParent"),
+    STUDENT: t("roleStudent"),
+  }), [t]);
+
   const [intent, setIntent] = useState<Intent>("MESSAGE");
   const [mode, setMode] = useState<ComposerMode>("audience");
   const [options, setOptions] = useState<TargetingOptions | null>(null);
@@ -315,10 +328,10 @@ export function NewConversationComposer({
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) setError(data.error ?? "Échec de la création");
+      if (!res.ok) setError(data.error ?? t("creationFailed"));
       else onCreated(data);
     } catch {
-      setError("Impossible de joindre le serveur");
+      setError(t("serverUnreachable"));
     } finally {
       setCreating(false);
     }
@@ -327,18 +340,18 @@ export function NewConversationComposer({
   const audienceLabel = useMemo(() => {
     if (!hasAudience) return "";
     const groupPart = activeGroups.includes("ALL")
-      ? "Tout le monde"
+      ? t("groupAll")
       : activeGroups.map((g) => GROUP_LABEL[g]).join(" + ");
     const scopePart = selectedScope
-      ? (selectedScope.kind === "TENANT" ? "tout l'établissement"
+      ? (selectedScope.kind === "TENANT" ? t("scopeTenant").toLowerCase()
         : selectedScope.kind === "SITE" ? (options?.sites.find((s) => s.id === selectedScope.id)?.nom ?? "site")
         : selectedScope.kind === "STRUCTURE" ? (options?.structures.find((s) => s.id === selectedScope.id)?.nom ?? "structure")
-        : selectedScope.kind === "NIVEAU" ? `niveau ${selectedScope.value}`
+        : selectedScope.kind === "NIVEAU" ? t("niveauLabel", { n: selectedScope.value })
         : selectedScope.kind === "CLASSE" ? (options?.classes.find((c) => c.id === selectedScope.id)?.nom ?? "classe")
         : "")
       : "";
     return `${groupPart} — ${scopePart}`;
-  }, [hasAudience, activeGroups, selectedScope, options]);
+  }, [hasAudience, activeGroups, selectedScope, options, t]);
 
   // --- Available groups for current scope ---
   const availableGroups = options?.groups ?? [];
@@ -394,7 +407,7 @@ export function NewConversationComposer({
                 )}
               >
                 <Building2 className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-sm">Tout l&apos;établissement</span>
+                <span className="text-sm">{t("scopeTenant")}</span>
                 {selectedScope?.kind === "TENANT" && <CheckSquare className="h-4 w-4 text-primary ml-auto" />}
               </button>
             )}
@@ -442,7 +455,7 @@ export function NewConversationComposer({
                 )}
               >
                 <Layers className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-sm">Niveau {n}</span>
+                <span className="text-sm">{t("niveauLabel", { n })}</span>
                 {selectedScope?.kind === "NIVEAU" && selectedScope.value === n && <CheckSquare className="h-4 w-4 text-primary ml-auto" />}
               </button>
             ))}
@@ -452,7 +465,7 @@ export function NewConversationComposer({
               <div className="max-h-48 overflow-y-auto">
                 {options.classes.length === 0 ? (
                   <div className="p-3 text-xs text-muted-foreground text-center">
-                    Aucune classe disponible pour votre périmètre.
+                    {t("noClassesAvailable")}
                   </div>
                 ) : (
                   Object.entries(
@@ -518,8 +531,8 @@ export function NewConversationComposer({
                 )}
               >
                 <Icon className={cn("h-4 w-4", active && it.color)} />
-                <span className="font-medium">{it.label}</span>
-                <span className="text-[10px] opacity-70 hidden sm:block">{it.hint}</span>
+                <span className="font-medium">{INTENT_LABEL[it.id]}</span>
+                <span className="text-[10px] opacity-70 hidden sm:block">{INTENT_HINT[it.id]}</span>
                 {active && <div className="absolute bottom-0 inset-x-0 h-0.5 bg-primary" />}
               </button>
             );
@@ -538,7 +551,7 @@ export function NewConversationComposer({
                 )}
               >
                 <Users className="h-4 w-4" />
-                Diffusion à un groupe
+                {t("modeAudience")}
               </button>
               <button
                 onClick={() => setMode("persons")}
@@ -548,7 +561,7 @@ export function NewConversationComposer({
                 )}
               >
                 <User className="h-4 w-4" />
-                Personnes individuelles
+                {t("modePersons")}
               </button>
             </div>
           )}
@@ -556,7 +569,7 @@ export function NewConversationComposer({
           {optionsError && (
             <div className="flex items-center gap-2 p-3 text-xs text-destructive bg-destructive/10 rounded-lg">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              Ciblage indisponible : {optionsError}
+              {t("targetingUnavailable", { error: optionsError })}
             </div>
           )}
 
@@ -566,7 +579,7 @@ export function NewConversationComposer({
               {/* 1. Portée */}
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                  1. Portée — à qui s&apos;adresse le message ?
+                  {t("step1Scope")}
                 </label>
                 {renderScopeSelector()}
               </div>
@@ -575,7 +588,7 @@ export function NewConversationComposer({
               {selectedScope && (
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                    2. Publics — cochez un ou plusieurs
+                    {t("step2Publics")}
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {availableGroups.map((g) => {
@@ -612,13 +625,15 @@ export function NewConversationComposer({
                   {previewLoading ? (
                     <span className="flex items-center gap-2 text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Calcul des destinataires…
+                      {t("calculatingRecipients")}
                     </span>
                   ) : preview ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5 font-medium text-sm">
                         <Users className="h-4 w-4" />
-                        {preview.count} destinataire{preview.count > 1 ? "s" : ""}
+                        {preview.count > 1
+                          ? t("recipientsCountPlural", { count: preview.count })
+                          : t("recipientsCount", { count: preview.count })}
                         <span className="text-muted-foreground font-normal text-xs ml-1">
                           · {audienceLabel}
                         </span>
@@ -640,20 +655,21 @@ export function NewConversationComposer({
                         <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-500">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
                           <span>
-                            {preview.sansCompte} personne{preview.sansCompte > 1 ? "s" : ""} sans compte
-                            ne recevront pas ce message
+                            {preview.sansCompte > 1
+                              ? t("noAccountWarningPlural", { count: preview.sansCompte })
+                              : t("noAccountWarning", { count: preview.sansCompte })}
                           </span>
                         </div>
                       )}
                       {preview.truncated && (
                         <div className="flex items-start gap-1.5 text-destructive">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
-                          <span>Plus de {preview.max} personnes : affinez la portée</span>
+                          <span>{t("truncatedWarning", { max: preview.max })}</span>
                         </div>
                       )}
                     </div>
                   ) : (
-                    !previewLoading && <span className="text-muted-foreground">Sélectionnez une portée et au moins un public.</span>
+                    !previewLoading && <span className="text-muted-foreground">{t("selectScopeAndGroup")}</span>
                   )}
                 </div>
               )}
@@ -696,7 +712,7 @@ export function NewConversationComposer({
                     autoFocus
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Rechercher une personne par nom…"
+                    placeholder={t("searchPerson")}
                     className="flex-1 bg-transparent outline-none text-sm"
                   />
                 </div>
@@ -709,7 +725,7 @@ export function NewConversationComposer({
                     </div>
                   ) : people.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
-                      {query ? "Aucun résultat" : "Tapez un nom pour rechercher"}
+                      {query ? tCommon("noResults") : t("typeToSearch")}
                     </div>
                   ) : (
                     people.map((p) => {
@@ -754,12 +770,12 @@ export function NewConversationComposer({
           {(hasAudience || selectedPeople.length > 1 || intent !== "MESSAGE") && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                Objet <span className="opacity-60">(optionnel)</span>
+                {t("subjectOptional")}
               </label>
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder={hasAudience ? audienceLabel : "Objet de la conversation"}
+                placeholder={hasAudience ? audienceLabel : t("conversationSubject")}
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-background outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
@@ -768,15 +784,15 @@ export function NewConversationComposer({
           {/* Message */}
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              {intent === "ANNONCE" ? "Votre annonce" : "Votre message"}
+              {intent === "ANNONCE" ? t("yourAnnouncement") : t("yourMessage")}
             </label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={
                 intent === "ANNONCE"
-                  ? "Les destinataires pourront lire sans répondre…"
-                  : "Écrivez votre message…"
+                  ? t("announcementPlaceholder")
+                  : t("messagePlaceholder")
               }
               className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] resize-y bg-background outline-none focus:ring-2 focus:ring-primary/30"
             />
@@ -794,21 +810,21 @@ export function NewConversationComposer({
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-muted/30">
           <p className="text-[11px] text-muted-foreground leading-tight">
             {intent === "ANNONCE"
-              ? "Lecture seule : seuls vous et les responsables pourront écrire."
+              ? t("footerAnnounce")
               : intent === "GROUPE"
-                ? "Tout le monde pourra écrire dans ce groupe."
-                : "Chaque destinataire pourra vous répondre."}
+                ? t("footerGroup")
+                : t("footerMessage")}
             {recipientCount !== null && recipientCount > 0 && (
-              <> · <span className="font-medium">{recipientCount}</span> destinataire{recipientCount > 1 ? "s" : ""}</>
+              <> · <span className="font-medium">{recipientCount > 1 ? t("recipientsCountPlural", { count: recipientCount }) : t("recipientsCount", { count: recipientCount })}</span></>
             )}
           </p>
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="ghost" size="sm" onClick={onClose}>Annuler</Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>{t("cancel")}</Button>
             <Button size="sm" onClick={handleCreate} disabled={!canSend}>
               {creating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <><Send className="h-4 w-4 mr-1.5" />Envoyer</>
+                <><Send className="h-4 w-4 mr-1.5" />{t("send")}</>
               )}
             </Button>
           </div>

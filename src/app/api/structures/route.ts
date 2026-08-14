@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import type { StructureType } from "@prisma/client";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const STRUCTURE_TYPES: StructureType[] = ["MATERNELLE", "PRIMAIRE", "COLLEGE", "LYCEE"];
 
@@ -15,7 +16,7 @@ export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return erreurJson("NON_AUTORISE");
     }
 
     const structures = await prisma.structure.findMany({
@@ -29,7 +30,7 @@ export async function GET() {
     return NextResponse.json(structures);
   } catch (error) {
     console.error("[API/structures] GET", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }
 
@@ -37,11 +38,11 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return erreurJson("NON_AUTORISE");
     }
 
     if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Permissions insuffisantes" }, { status: 403 });
+      return erreurJson("PERMISSIONS_INSUFFISANTES");
     }
 
     const json = await req.json();
@@ -78,10 +79,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(all, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES", undefined, { details: error.errors });
     }
     console.error("[API/structures] POST", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }
 
@@ -89,17 +90,17 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return erreurJson("NON_AUTORISE");
     }
 
     if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Permissions insuffisantes" }, { status: 403 });
+      return erreurJson("PERMISSIONS_INSUFFISANTES");
     }
 
     const { searchParams } = new URL(req.url);
     const structureId = searchParams.get("id");
     if (!structureId) {
-      return NextResponse.json({ error: "id requis" }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES");
     }
 
     // Vérifier l'appartenance de la structure au tenant et au site
@@ -128,7 +129,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/structures] DELETE", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }
 

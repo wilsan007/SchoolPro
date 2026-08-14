@@ -188,6 +188,28 @@ const CATALOGUE = {
       "Aucun service de génération n'est disponible actuellement. La banque " +
       "peut être remplie à la main en attendant.",
   },
+
+  // — Accès et périmètre (vie-scolaire, multi-tenant, multi-site) —
+  ACCES_REFUSE: { statut: 403, fr: "Accès refusé" },
+  ADHESION_INTROUVABLE: {
+    statut: 403,
+    fr: "Aucune adhésion active à ce tenant",
+  },
+  PERMISSIONS_INSUFFISANTES: { statut: 403, fr: "Permissions insuffisantes" },
+  TOKEN_INVALIDE: { statut: 401, fr: "Token invalide" },
+  SIGNATURE_INVALIDE: { statut: 401, fr: "Signature invalide" },
+
+  // — Ressources introuvables (suite) —
+  INCIDENT_INTROUVABLE: { statut: 404, fr: "Incident introuvable" },
+  ETABLISSEMENT_INTROUVABLE: { statut: 404, fr: "Établissement introuvable" },
+  UTILISATEUR_INTROUVABLE: { statut: 404, fr: "Utilisateur introuvable" },
+
+  // — Conflits (suite) —
+  SLUG_DEJA_UTILISE: { statut: 409, fr: "Ce slug est déjà utilisé" },
+
+  // — Configuration et serveur —
+  CONFIGURATION_MANQUANTE: { statut: 500, fr: "Configuration non définie" },
+  ERREUR_SERVEUR: { statut: 500, fr: "Erreur serveur" },
 } as const satisfies Record<string, Definition>;
 
 export type CodeErreur = keyof typeof CATALOGUE;

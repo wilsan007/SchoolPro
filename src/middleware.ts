@@ -2,8 +2,6 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { authConfig } from "@/auth.config";
-import { roleHasPermission, type Permission } from "@/lib/rbac";
-import type { Role } from "@prisma/client";
 
 const { auth } = NextAuth(authConfig);
 
@@ -12,28 +10,104 @@ const PUBLIC_ROUTES = ["/login", "/register", "/api/auth", "/", "/_next", "/sele
 const SELF_AUTH_API = ["/api/auth", "/api/cron", "/api/webhooks"];
 
 /**
+ * Matrice RBAC inline — évite d'importer @/lib/rbac qui entraîne Prisma
+ * (incompatible avec le runtime edge du middleware).
+ * Source de vérité : src/lib/rbac.ts. Ne pas diverger.
+ */
+const ROLE_PERMISSIONS: Record<string, string[]> = {
+  SUPER_ADMIN: ["*"],
+  TENANT_ADMIN: [
+    "eleves:*", "parents:*", "enseignants:*", "classes:*", "matieres:*",
+    "notes:*", "evaluations:*", "bulletins:*", "absences:*", "examens:*",
+    "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
+    "admissions:*", "rh:*", "finance:*", "inventaire:*", "alumni:*",
+    "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
+    "ai:*", "audit:read", "entrainement:*",
+  ],
+  PRINCIPAL: [
+    "eleves:*", "parents:*", "enseignants:*", "classes:*", "matieres:*",
+    "notes:*", "evaluations:*", "bulletins:*", "absences:*", "examens:*",
+    "emploi-du-temps:*", "communication:*", "messages:*", "vie-scolaire:*",
+    "admissions:*", "rh:read", "finance:read", "inventaire:*", "alumni:*",
+    "orientation:*", "cours:*", "analytics:*", "rapports:*", "documents:*",
+    "ai:*", "entrainement:*",
+  ],
+  SECRETARY: [
+    "eleves:*", "parents:*", "classes:read", "matieres:read",
+    "absences:*", "emploi-du-temps:*", "communication:read", "communication:send",
+    "messages:*", "admissions:*", "examens:read", "inventaire:read",
+    "documents:*", "alumni:read", "bulletins:read", "rapports:read",
+  ],
+  TEACHER: [
+    "eleves:read", "classes:read", "matieres:read",
+    "notes:*", "evaluations:*", "absences:read", "absences:write",
+    "bulletins:read", "emploi-du-temps:read", "messages:*",
+    "cours:*", "analytics:read", "examens:read", "ai:teacher",
+    "entrainement:*",
+  ],
+  CLASS_TEACHER: [
+    "eleves:read", "classes:read", "matieres:read",
+    "notes:*", "evaluations:*", "absences:*",
+    "bulletins:read", "bulletins:write", "bulletins:publish",
+    "emploi-du-temps:read", "messages:*", "cours:*",
+    "vie-scolaire:*", "orientation:read", "orientation:write",
+    "analytics:read", "examens:read", "parents:read", "ai:teacher",
+    "entrainement:*",
+  ],
+  COUNSELOR: [
+    "eleves:read", "absences:read", "vie-scolaire:*", "orientation:*",
+    "messages:*", "parents:read", "communication:read", "analytics:read",
+  ],
+  NURSE: [
+    "eleves:read", "absences:read", "messages:read", "messages:write",
+  ],
+  ACCOUNTANT: [
+    "finance:*", "rh:*", "eleves:read", "parents:read", "inventaire:*",
+    "analytics:read", "messages:*", "rapports:read",
+  ],
+  PARENT: [
+    "bulletins:read", "absences:read", "notes:read", "messages:*",
+    "communication:read", "cours:read", "orientation:read",
+    "emploi-du-temps:read", "ai:parent", "entrainement:read",
+  ],
+  STUDENT: [
+    "bulletins:read", "absences:read", "notes:read",
+    "messages:read", "messages:reply",
+    "communication:read", "cours:*", "emploi-du-temps:read",
+    "entrainement:read", "entrainement:write",
+  ],
+};
+
+function roleHasPermission(role: string, permission: string): boolean {
+  const perms = ROLE_PERMISSIONS[role] ?? [];
+  if (perms.includes("*")) return true;
+  if (perms.includes(permission)) return true;
+  const moduleName = permission.split(":")[0];
+  if (perms.includes(`${moduleName}:*`)) return true;
+  return false;
+}
+
+/**
  * Mapping route → permission requise.
  * Le middleware applique cette vérification en plus du guardPage côté page.
- * Double défense : si le guardPage ne redirige pas (bug dev mode), le
- * middleware bloque l'accès avant que la page ne rende.
  */
-const ROUTE_PERMISSIONS: { pattern: RegExp; permission: Permission | Permission[]; roles?: Role[] }[] = [
-  // Direction / pilotage — réservé à la direction et au chef d'établissement
+const ROUTE_PERMISSIONS: { pattern: RegExp; permission: string | string[]; roles?: string[] }[] = [
+  // Direction / pilotage
   { pattern: /^\/direction$/, permission: "analytics:read", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT", "COUNSELOR"] },
   { pattern: /^\/analytics$/, permission: "analytics:read" },
   { pattern: /^\/rapports$/, permission: "rapports:read" },
 
-  // Gestion financière — réservé à la direction et au comptable
+  // Finance
   { pattern: /^\/facturation$/, permission: "finance:read" },
   { pattern: /^\/inventaire$/, permission: "inventaire:read" },
 
-  // Ressources humaines — réservé à la direction
+  // RH
   { pattern: /^\/rh$/, permission: "rh:read" },
 
-  // Paramètres — réservé à la direction (expose users, classes, matières…)
+  // Paramètres — réservé à la direction
   { pattern: /^\/parametres$/, permission: "eleves:write" },
 
-  // Pédagogie — enseignants et au-dessus
+  // Pédagogie
   { pattern: /^\/eleves/, permission: "eleves:read" },
   { pattern: /^\/notes(?!\/bulletins)/, permission: "notes:read" },
   { pattern: /^\/notes\/bulletins/, permission: "bulletins:read" },
@@ -43,7 +117,7 @@ const ROUTE_PERMISSIONS: { pattern: RegExp; permission: Permission | Permission[
   { pattern: /^\/admissions/, permission: "admissions:read" },
   { pattern: /^\/absences/, permission: "absences:read" },
 
-  // Vie scolaire — PP, CPE, direction
+  // Vie scolaire
   { pattern: /^\/vie-scolaire/, permission: "vie-scolaire:read" },
 
   // Communication
@@ -59,11 +133,11 @@ const ROUTE_PERMISSIONS: { pattern: RegExp; permission: Permission | Permission[
   // Espace élève — réservé au rôle STUDENT
   { pattern: /^\/eleve$/, permission: "notes:read", roles: ["STUDENT"] },
 
-  // Entraînement — élèves et enseignants
+  // Entraînement
   { pattern: /^\/entrainement/, permission: "entrainement:read" },
 ];
 
-function findRoutePermission(pathname: string): { permission: Permission | Permission[]; roles?: Role[] } | null {
+function findRoutePermission(pathname: string): { permission: string | string[]; roles?: string[] } | null {
   for (const route of ROUTE_PERMISSIONS) {
     if (route.pattern.test(pathname)) {
       return { permission: route.permission, roles: route.roles };
@@ -90,7 +164,7 @@ export default auth(async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = (req as unknown as { auth: { user?: { id: string; role?: Role; tenantId?: string } } }).auth;
+  const session = (req as unknown as { auth: { user?: { id: string; role?: string; tenantId?: string } } }).auth;
   if (!session?.user) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
@@ -100,8 +174,7 @@ export default auth(async function middleware(req: NextRequest) {
   // Vérification RBAC au niveau du middleware
   const routePerm = findRoutePermission(pathname);
   if (routePerm) {
-    const role = session.user.role as Role;
-    console.log(`[middleware] pathname=${pathname} role=${role} perm=${JSON.stringify(routePerm.permission)}`);
+    const role = (session.user.role ?? "") as string;
 
     // Si des rôles spécifiques sont requis, vérifier d'abord
     if (routePerm.roles && !routePerm.roles.includes(role)) {

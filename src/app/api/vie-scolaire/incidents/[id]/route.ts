@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const PatchSchema = z.object({
   statut: z.enum(["OUVERT", "EN_TRAITEMENT", "RESOLU", "CLASSE"]).optional(),
@@ -22,7 +23,7 @@ const SanctionSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
-    if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
     const denied = checkPermission(session.user.role, "vie-scolaire:write");
     if (denied) return denied;
 
@@ -30,12 +31,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const tenantId = session.user.tenantId;
     const body = await req.json();
     const parsed = PatchSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 });
+    if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
     const existing = await prisma.incident.findFirst({
       where: { id, tenantId, ...siteFilterForModel("incident", session.user) },
     });
-    if (!existing) return NextResponse.json({ error: "Incident introuvable" }, { status: 404 });
+    if (!existing) return erreurJson("INCIDENT_INTROUVABLE");
 
     const updated = await prisma.incident.update({
       where: { id },
@@ -54,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API/vie-scolaire/incidents/:id PATCH]", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // POST to /:id = add a sanction
   try {
     const session = await auth();
-    if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
     const denied = checkPermission(session.user.role, "vie-scolaire:write");
     if (denied) return denied;
 
@@ -70,12 +71,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const tenantId = session.user.tenantId;
     const body = await req.json();
     const parsed = SanctionSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 });
+    if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
     const existing = await prisma.incident.findFirst({
       where: { id, tenantId, ...siteFilterForModel("incident", session.user) },
     });
-    if (!existing) return NextResponse.json({ error: "Incident introuvable" }, { status: 404 });
+    if (!existing) return erreurJson("INCIDENT_INTROUVABLE");
 
     const { type, description, dateDebut, dateFin, parentNotifie } = parsed.data;
 
@@ -99,6 +100,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json(sanction, { status: 201 });
   } catch (error) {
     console.error("[API/vie-scolaire/incidents/:id POST]", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }

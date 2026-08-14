@@ -10,11 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-const LoginSchema = z.object({
-  email: z.string().email("Email invalide"),
-  password: z.string().min(6, "Mot de passe trop court"),
-});
-
 // ─── Formulaire isolé dans un Suspense pour useSearchParams ───────────────────
 function LoginForm() {
   const router = useRouter();
@@ -25,6 +20,11 @@ function LoginForm() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const t = useTranslations("login");
+
+  const LoginSchema = z.object({
+    email: z.string().email(t("invalidEmail")),
+    password: z.string().min(6, t("passwordTooShort")),
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +48,7 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        toast.error(t("title") === "Sign In" ? "Invalid email or password" : "Email ou mot de passe incorrect");
+        toast.error(t("invalidCredentials"));
       } else {
         toast.success(t("title") === "Sign In" ? "Signed in!" : "Connexion réussie !");
         router.push("/select-tenant");

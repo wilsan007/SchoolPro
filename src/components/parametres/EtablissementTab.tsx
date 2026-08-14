@@ -34,6 +34,7 @@ interface EtablissementTabProps {
 
 export function EtablissementTab({ etablissement, canManage }: EtablissementTabProps) {
   const t = useTranslations("parametres");
+  const tc = useTranslations("common");
   const [isPending, setIsPending] = useState(false);
   const [form, setForm] = useState<EtablissementFormData>({
     name: etablissement.name,
@@ -139,19 +140,19 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
             <Label htmlFor="currency">{t("currency")}</Label>
             <select id="currency" value={form.currency} onChange={(e) => update("currency", e.target.value)} disabled={!canManage}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="DJF">FDJ (Franc Djiboutien)</option>
-              <option value="XOF">FCFA (XOF)</option>
-              <option value="EUR">Euro (€)</option>
-              <option value="USD">Dollar US ($)</option>
+              <option value="DJF">{t("currencyDJF")}</option>
+              <option value="XOF">{t("currencyXOF")}</option>
+              <option value="EUR">{t("currencyEUR")}</option>
+              <option value="USD">{t("currencyUSD")}</option>
             </select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="langue">{t("language")}</Label>
             <select id="langue" value={form.langue} onChange={(e) => update("langue", e.target.value)} disabled={!canManage}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-              <option value="ar">العربية</option>
+              <option value="fr">{tc("french")}</option>
+              <option value="en">{tc("english")}</option>
+              <option value="ar">{tc("arabic")}</option>
             </select>
           </div>
           <div className="space-y-1.5">

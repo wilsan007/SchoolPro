@@ -79,9 +79,10 @@ const getDashboardData = unstable_cache(
 );
 
 export default async function DashboardPage() {
-  const [session, t, locale] = await Promise.all([
+  const [session, t, tc, locale] = await Promise.all([
     auth(),
     getTranslations("dashboard"),
+    getTranslations("common"),
     getLocale(),
   ]);
 
@@ -103,10 +104,10 @@ export default async function DashboardPage() {
 
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const currentSiteName = currentSiteId
-    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? "Site inconnu")
+    ? (sites.find((s) => s.id === currentSiteId)?.nom ?? tc("unknownSite"))
     : session.user.role === "TENANT_ADMIN" || (session.user.role as string) === "SUPER_ADMIN"
-      ? "Tous les sites"
-      : "Aucun site";
+      ? tc("allSites")
+      : tc("noSite");
 
   const stats = [
     {
@@ -126,7 +127,7 @@ export default async function DashboardPage() {
       change: anneeCourante ?? "—",
     },
     {
-      label: t("title") === "Dashboard" ? "Absences today" : "Absences aujourd'hui",
+      label: t("absencesToday"),
       value: data.absencesAujourdhui.toString(),
       icon: "clipboard" as const,
       color: "orange" as const,
@@ -134,7 +135,7 @@ export default async function DashboardPage() {
       changePositive: data.absencesNonJustifiees === 0,
     },
     {
-      label: t("title") === "Dashboard" ? "Next exam" : "Prochain examen",
+      label: t("nextExam"),
       value: data.prochainExamen
         ? new Intl.DateTimeFormat(locale === "en" ? "en-US" : "fr-FR", { day: "numeric", month: "short" }).format(data.prochainExamen.dateDebut)
         : (locale === "en" ? "None" : "Aucun"),

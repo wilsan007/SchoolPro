@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyMetaSignature } from "@/lib/webhooks";
 import { repondreAuParent } from "@/lib/learnos/bot-parent-webhook";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN ?? "ecolpro_whatsapp_token";
 
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(challenge, { status: 200 });
   }
 
-  return NextResponse.json({ error: "Token invalide" }, { status: 403 });
+  return erreurJson("TOKEN_INVALIDE");
 }
 
 /**
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     const raw = await request.text();
     const signature = request.headers.get("x-hub-signature-256");
     if (!verifyMetaSignature(raw, signature, process.env.WHATSAPP_APP_SECRET)) {
-      return NextResponse.json({ error: "Signature invalide" }, { status: 401 });
+      return erreurJson("SIGNATURE_INVALIDE");
     }
 
     const body = JSON.parse(raw);
@@ -73,6 +74,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[WhatsApp Webhook] Erreur:", err);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }

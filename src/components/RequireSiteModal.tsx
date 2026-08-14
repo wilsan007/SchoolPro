@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { MapPin, AlertCircle, Loader2, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface SiteOption {
   id: string;
@@ -23,8 +24,10 @@ export function RequireSiteModal({
   sites,
   onClose,
   onSiteSelected,
-  message = "Vous devez sélectionner un site avant de pouvoir créer un élément. Choisissez un site dans la liste ci-dessous.",
+  message,
 }: RequireSiteModalProps) {
+  const t = useTranslations("common");
+  const defaultMessage = t("selectSiteRequired");
   const [switching, setSwitching] = useState(false);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,14 +58,14 @@ export function RequireSiteModal({
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Erreur lors du changement de site");
+        throw new Error(data.error || t("errorSwitchingSite"));
       }
 
       onSiteSelected?.(siteId);
       router.refresh();
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors du changement de site");
+      setError(err instanceof Error ? err.message : t("errorSwitchingSite"));
       setSwitching(false);
       setSwitchingTo(null);
     }
@@ -79,10 +82,10 @@ export function RequireSiteModal({
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                Sélection de site requise
+                {t("siteSelectionRequired")}
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                {message}
+                {message ?? defaultMessage}
               </p>
             </div>
           </div>
@@ -93,7 +96,7 @@ export function RequireSiteModal({
           <div className="max-h-64 overflow-y-auto space-y-1">
             {sites.length === 0 && (
               <p className="text-sm text-slate-500 text-center py-4">
-                Aucun site disponible. Contactez un administrateur.
+                {t("noSiteAvailable")}
               </p>
             )}
             {sites.map((site) => {
@@ -147,7 +150,7 @@ export function RequireSiteModal({
             disabled={switching}
             className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50"
           >
-            Annuler
+            {t("cancel")}
           </button>
         </div>
       </div>

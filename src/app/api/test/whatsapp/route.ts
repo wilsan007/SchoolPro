@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { sendWhatsAppMessage, sendAbsenceWhatsApp, sendRetardWhatsApp } from "@/lib/notifications/whatsapp";
 import { sendSMS } from "@/lib/sms/africasTalking";
 import { z } from "zod";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const TestSchema = z.object({
   phone: z.string().min(1),
@@ -14,13 +15,13 @@ const TestSchema = z.object({
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    return erreurJson("NON_AUTORISE");
   }
 
   const body = await req.json();
   const parsed = TestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Données invalides", details: parsed.error.flatten() }, { status: 400 });
+    return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.flatten() });
   }
 
   const { phone, type, eleveNom, ecoleNom } = parsed.data;

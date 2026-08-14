@@ -106,7 +106,7 @@ export default async function NotesPage({
 
   const currentSiteName = activeSite === "all"
     ? tCommon("allSites")
-    : (sites.find((s) => s.id === activeSite)?.nom ?? "Site inconnu");
+    : (sites.find((s) => s.id === activeSite)?.nom ?? tCommon("unknownSite"));
   const currentSiteColor = activeSite === "all" ? undefined : siteColors[activeSite];
   const siteFilter = siteFilterForModel("classe", noteClaims);
   const eleveFilter = siteFilterForModel("note", noteClaims);
@@ -256,7 +256,7 @@ export default async function NotesPage({
                     <Link key={c.id} href={`/notes?matiereId=${matiereId}&classeId=${c.id}`}>
                       <div className="p-4 border rounded-xl hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all cursor-pointer flex flex-col justify-between h-28 shadow-sm">
                         <span className="font-bold text-gray-800 dark:text-gray-100 text-base">{c.nom}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">{c.niveau ?? "Collège"}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">{c.niveau ?? tCommon("defaultLevel")}</span>
                       </div>
                     </Link>
                   ))}

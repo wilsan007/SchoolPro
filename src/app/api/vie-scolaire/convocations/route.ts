@@ -4,18 +4,19 @@ import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { erreurJson } from "@/lib/erreurs-api";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    return erreurJson("NON_AUTORISE");
   }
 
   const body = await req.json();
   const { eleveId, motif, motifDetail, dateConvocation } = body;
 
   if (!eleveId) {
-    return NextResponse.json({ error: "eleveId requis" }, { status: 400 });
+    return erreurJson("DONNEES_INVALIDES");
   }
 
 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (!eleve) {
-    return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
+    return erreurJson("ELEVE_INTROUVABLE");
   }
 
   const tenant = await prisma.tenant.findUnique({
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (!tenant) {
-    return NextResponse.json({ error: "Établissement introuvable" }, { status: 404 });
+    return erreurJson("ETABLISSEMENT_INTROUVABLE");
   }
 
   const parent = eleve.parents[0]?.parent;

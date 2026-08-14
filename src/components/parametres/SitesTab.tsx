@@ -56,6 +56,7 @@ interface DeletedSite {
 
 export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: boolean }) {
   const t = useTranslations("parametres");
+  const tc = useTranslations("common");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -92,14 +93,14 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
     try {
       if (editingId) {
         await updateSite(editingId, form);
-        toast.success("Site modifié avec succès");
+        toast.success(t("siteUpdated"));
       } else {
         await createSite(form);
-        toast.success("Site créé avec succès");
+        toast.success(t("siteCreated"));
       }
       resetForm();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de l'opération");
+      toast.error(err instanceof Error ? err.message : tc("errorOperation"));
     } finally {
       setIsPending(false);
     }
@@ -120,14 +121,14 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
   }
 
   async function handleRestore(siteId: string, siteNom: string) {
-    if (!confirm(`Restaurer le site « ${siteNom} » ?`)) return;
+    if (!confirm(t("confirmRestoreSite", { siteNom }))) return;
     setRestoringId(siteId);
     try {
       await restoreSite(siteId);
-      toast.success(`Site « ${siteNom} » restauré avec succès`);
+      toast.success(t("siteRestored", { siteNom }));
       await refreshDeletedSites();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de la restauration");
+      toast.error(err instanceof Error ? err.message : t("errorRestore"));
     } finally {
       setRestoringId(null);
     }
@@ -150,16 +151,16 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-            Sites & Campus
+            {t("sitesTitle")}
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Gérez les sites annexes et isolez les données par site
+            {t("sitesSubtitle")}
           </p>
         </div>
         {canManage && (
           <Button size="sm" className="gap-2" onClick={() => { resetForm(); setShowForm(!showForm); }}>
             <Plus className="h-4 w-4" />
-            Nouveau site
+            {t("newSite")}
           </Button>
         )}
       </div>
@@ -168,38 +169,38 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">
-              {editingId ? "Modifier le site" : "Créer un nouveau site"}
+              {editingId ? t("editSite") : t("createNewSite")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="nom">Nom du site *</Label>
-                <Input id="nom" placeholder="Campus Central, Annexe PK12…" value={form.nom}
+                <Label htmlFor="nom">{t("siteName")}</Label>
+                <Input id="nom" placeholder={t("placeholderSiteName")} value={form.nom}
                   onChange={(e) => f("nom", e.target.value)} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="code">Code</Label>
-                <Input id="code" placeholder="SITE-01" value={form.code ?? ""}
+                <Label htmlFor="code">{t("siteCode")}</Label>
+                <Input id="code" placeholder={t("placeholderSiteCode")} value={form.code ?? ""}
                   onChange={(e) => f("code", e.target.value)} />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="adresse">Adresse</Label>
+                <Label htmlFor="adresse">{t("address")}</Label>
                 <Input id="adresse" placeholder="Rue, quartier…" value={form.adresse ?? ""}
                   onChange={(e) => f("adresse", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ville">Ville</Label>
+                <Label htmlFor="ville">{t("city")}</Label>
                 <Input id="ville" value={form.ville ?? ""}
                   onChange={(e) => f("ville", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="telephone">Téléphone</Label>
+                <Label htmlFor="telephone">{t("phone")}</Label>
                 <Input id="telephone" value={form.telephone ?? ""}
                   onChange={(e) => f("telephone", e.target.value)} />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("email")}</Label>
                 <Input id="email" type="email" value={form.email ?? ""}
                   onChange={(e) => f("email", e.target.value)} />
               </div>
@@ -212,16 +213,16 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
                   className="rounded border-gray-300"
                 />
                 <Label htmlFor="actif" className="text-sm font-normal cursor-pointer">
-                  Site actif
+                  {t("activeSite")}
                 </Label>
               </div>
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" size="sm" className="gap-2" disabled={isPending || !form.nom}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editingId ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                  {editingId ? "Enregistrer" : "Créer le site"}
+                  {editingId ? tc("save") : t("createSite")}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={resetForm}>
-                  Annuler
+                  {tc("cancel")}
                 </Button>
               </div>
             </form>
@@ -234,7 +235,7 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
           <Card className="md:col-span-2 lg:col-span-3">
             <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Building2 className="h-10 w-10 mb-3 opacity-30" />
-              <p className="text-sm">Aucun site configuré. Créez votre premier site pour commencer.</p>
+              <p className="text-sm">{t("noSiteConfigured")}</p>
             </CardContent>
           </Card>
         ) : (
@@ -255,9 +256,9 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
                   </div>
                   <div className="flex items-center gap-1">
                     {site.actif ? (
-                      <Badge variant="success" className="text-[10px]">Actif</Badge>
+                      <Badge variant="success" className="text-[10px]">{tc("active")}</Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-[10px]">Inactif</Badge>
+                      <Badge variant="secondary" className="text-[10px]">{tc("inactive")}</Badge>
                     )}
                   </div>
                 </div>
@@ -293,11 +294,11 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
                 {canManage && (
                   <div className="flex gap-2 pt-1">
                     <Button variant="outline" size="sm" className="gap-1.5 text-xs h-7" onClick={() => handleEdit(site)}>
-                      <Edit3 className="h-3 w-3" /> Modifier
+                      <Edit3 className="h-3 w-3" /> {tc("edit")}
                     </Button>
                     <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-7 text-destructive hover:text-destructive"
                       onClick={() => setDeleteTarget(site)}>
-                      <Trash2 className="h-3 w-3" /> Supprimer
+                      <Trash2 className="h-3 w-3" /> {tc("delete")}
                     </Button>
                   </div>
                 )}
@@ -315,8 +316,8 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
             onClick={() => setShowDeletedSection(!showDeletedSection)}
           >
             <Clock className="h-3.5 w-3.5" />
-            {deletedSites.length} site{deletedSites.length > 1 ? "s" : ""} supprimé{deletedSites.length > 1 ? "s" : ""} en attente de purge
-            <span className="text-[10px]">({showDeletedSection ? "masquer" : "afficher"})</span>
+            {deletedSites.length > 1 ? t("deletedSitesCountPlural", { count: deletedSites.length }) : t("deletedSitesCount", { count: deletedSites.length })}
+            <span className="text-[10px]">({showDeletedSection ? t("hide") : t("show")})</span>
           </button>
 
           {showDeletedSection && (
@@ -334,11 +335,11 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
                           {site.code && <Badge variant="secondary" className="text-[10px]">{site.code}</Badge>}
                         </div>
                         <div className="text-xs text-muted-foreground space-y-0.5">
-                          <p>Supprimé le {formatDate(site.deletedAt)} — Raison : {site.deletedReason ?? "Non précisée"}</p>
+                          <p>{t("deletedInfo", { date: formatDate(site.deletedAt), reason: site.deletedReason ?? t("reasonNotSpecified") })}</p>
                           <p className={isUrgent ? "text-red-500 font-medium" : ""}>
-                            Purge définitive dans {daysLeft} jour{daysLeft > 1 ? "s" : ""} ({formatDate(site.scheduledPurgeAt)})
+                            {daysLeft > 1 ? t("purgeInPlural", { days: daysLeft, date: formatDate(site.scheduledPurgeAt) }) : t("purgeIn", { days: daysLeft, date: formatDate(site.scheduledPurgeAt) })}
                           </p>
-                          <p>{site._count.classes} classes, {site._count.eleves} élèves, {site._count.salles} salles seront détruits</p>
+                          <p>{t("dataWillBeDestroyed", { classes: site._count.classes, eleves: site._count.eleves, salles: site._count.salles })}</p>
                         </div>
                       </div>
                       <Button
@@ -349,7 +350,7 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
                         onClick={() => handleRestore(site.id, site.nom)}
                       >
                         {restoringId === site.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                        Restaurer
+                        {t("restore")}
                       </Button>
                     </CardContent>
                   </Card>

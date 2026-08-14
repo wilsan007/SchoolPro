@@ -41,11 +41,11 @@ const roleKeys: Record<string, string> = {
 
 type UserCategory = "all" | "admin" | "teachers" | "staff";
 
-const categoryConfig: Record<UserCategory, { label: string; icon: typeof Shield; roles: string[] }> = {
-  all: { label: "Tous", icon: UsersIcon, roles: [] },
-  admin: { label: "Administration", icon: Shield, roles: ["TENANT_ADMIN", "PRINCIPAL", "SUPER_ADMIN"] },
-  teachers: { label: "Enseignants", icon: GraduationCap, roles: ["TEACHER", "CLASS_TEACHER", "COUNSELOR"] },
-  staff: { label: "Personnel", icon: Briefcase, roles: ["SECRETARY", "NURSE", "ACCOUNTANT"] },
+const categoryConfig: Record<UserCategory, { labelKey: string; icon: typeof Shield; roles: string[] }> = {
+  all: { labelKey: "allUsers", icon: UsersIcon, roles: [] },
+  admin: { labelKey: "adminCategory", icon: Shield, roles: ["TENANT_ADMIN", "PRINCIPAL", "SUPER_ADMIN"] },
+  teachers: { labelKey: "teachersCategory", icon: GraduationCap, roles: ["TEACHER", "CLASS_TEACHER", "COUNSELOR"] },
+  staff: { labelKey: "staffCategory", icon: Briefcase, roles: ["SECRETARY", "NURSE", "ACCOUNTANT"] },
 };
 
 // Rôles masqués du sélecteur (le prof principal est défini au niveau de la classe, pas au niveau utilisateur)
@@ -118,10 +118,10 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
     setSiteLoading(true);
     try {
       await assignUserSites(siteModalUserId, selectedSiteIds.map((sid) => ({ siteId: sid, role: null })));
-      toast.success("Accès sites mis à jour");
+      toast.success(t("sitesAccessUpdated"));
       setShowSiteModal(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setSiteLoading(false);
     }
@@ -300,7 +300,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                   type="email"
                   value={tenantForm.email}
                   onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })}
-                  placeholder="prof@ecole.com"
+                  placeholder={t("placeholderEmail")}
                   required
                 />
               </div>
@@ -462,7 +462,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                 )}
               >
                 <cfg.icon className="h-3.5 w-3.5" />
-                {cfg.label}
+                {t(cfg.labelKey)}
                 <span className={cn(
                   "ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold",
                   isActive ? "bg-primary-foreground/20" : "bg-muted"
@@ -476,7 +476,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom ou email..."
+            placeholder={t("searchByNameOrEmail")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-9"

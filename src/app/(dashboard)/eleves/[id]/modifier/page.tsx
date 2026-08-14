@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { EleveForm } from "@/components/eleves/EleveForm";
 import { getClassesForTenant, getEleveForEdit, updateEleve } from "@/lib/actions/eleve";
+import { getTranslations } from "next-intl/server";
 
 export default async function ModifierElevePage({
   params,
@@ -11,6 +12,11 @@ export default async function ModifierElevePage({
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
+
+  const [te, tc] = await Promise.all([
+    getTranslations("eleves"),
+    getTranslations("common"),
+  ]);
 
   const { id } = await params;
   const [classes, eleve] = await Promise.all([
@@ -59,8 +65,8 @@ export default async function ModifierElevePage({
             parentIsGardien: eleve.parentIsGardien,
           }}
           submitAction={updateEleve.bind(null, id)}
-          submitLabel="Enregistrer"
-          title="Modifier un élève"
+          submitLabel={tc("save")}
+          title={te("editStudent")}
           backHref={`/eleves/${id}`}
         />
       </div>

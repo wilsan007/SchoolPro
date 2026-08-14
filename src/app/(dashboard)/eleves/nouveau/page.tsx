@@ -3,10 +3,16 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { EleveForm } from "@/components/eleves/EleveForm";
 import { getClassesForTenant, getSitesForUser, createEleve } from "@/lib/actions/eleve";
+import { getTranslations } from "next-intl/server";
 
 export default async function NouveauElevePage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
+
+  const [te, tc] = await Promise.all([
+    getTranslations("eleves"),
+    getTranslations("common"),
+  ]);
 
   const classes = await getClassesForTenant();
   const sites = await getSitesForUser();
@@ -16,8 +22,8 @@ export default async function NouveauElevePage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Inscrire un élève"
-        subtitle="Créer une nouvelle fiche élève"
+        title={te("registerStudent")}
+        subtitle={te("registerStudentSubtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
@@ -28,8 +34,8 @@ export default async function NouveauElevePage() {
           currentSiteId={currentSiteId}
           tenantHasSites={tenantHasSites}
           submitAction={createEleve}
-          submitLabel="Créer"
-          title="Inscrire un élève"
+          submitLabel={tc("create")}
+          title={te("registerStudent")}
           backHref="/eleves"
         />
       </div>

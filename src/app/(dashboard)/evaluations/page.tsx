@@ -21,9 +21,10 @@ export default async function EvaluationsPage({
 }: {
   searchParams: Promise<{ matiereId?: string }>;
 }) {
-  const [session, t, sp] = await Promise.all([
+  const [session, t, tc, sp] = await Promise.all([
     auth(),
     getTranslations("evaluations"),
+    getTranslations("common"),
     searchParams,
   ]);
   if (!session?.user?.tenantId) redirect("/login");
@@ -115,7 +116,7 @@ export default async function EvaluationsPage({
                   <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-100">{ev.titre}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ev.classe.nom}</td>
                   <td className="px-4 py-3">
-                    <Badge className="bg-orange-500 hover:bg-orange-600">{ev.classe.niveau ?? "Collège"}</Badge>
+                    <Badge className="bg-orange-500 hover:bg-orange-600">{ev.classe.niveau ?? tc("defaultLevel")}</Badge>
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-semibold text-gray-800 dark:text-gray-100">{ev.matiere.nom}</div>

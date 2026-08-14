@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,8 @@ import { toast } from "sonner";
 import { Send, MessageCircle, Smartphone, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 export default function TestWhatsAppPage() {
+  const tt = useTranslations("test");
+  const tc = useTranslations("common");
   const [phone, setPhone] = useState("");
   const [eleveNom, setEleveNom] = useState("Kamil Abdullahi");
   const [ecoleNom, setEcoleNom] = useState("Lycée Mohamed Hashim Ledi");
@@ -24,7 +27,7 @@ export default function TestWhatsAppPage() {
 
   async function sendTest(type: "test" | "absence" | "retard" | "sms") {
     if (!phone.trim()) {
-      toast.error("Veuillez saisir un numéro de téléphone");
+      toast.error(tt("whatsappEnterPhone"));
       return;
     }
     setLoading(true);
@@ -43,7 +46,7 @@ export default function TestWhatsAppPage() {
         toast.error(data.error ?? "Échec de l'envoi");
       }
     } catch (e) {
-      toast.error("Erreur réseau");
+      toast.error(tc("networkError"));
     } finally {
       setLoading(false);
     }

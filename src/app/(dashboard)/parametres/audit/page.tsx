@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -31,6 +32,7 @@ interface Pagination {
 }
 
 export default function AuditJournalPage() {
+  const ta = useTranslations("audit");
   const { data: session, status } = useSession();
   const router = useRouter();
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -58,7 +60,7 @@ export default function AuditJournalPage() {
 
     try {
       const res = await fetch(`/api/audit?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch audit logs");
+      if (!res.ok) throw new Error(ta("fetchError"));
       const data = await res.json();
       setLogs(data.logs);
       setPagination(data.pagination);
@@ -67,7 +69,7 @@ export default function AuditJournalPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filters]);
+  }, [page, filters, ta]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -90,7 +92,7 @@ export default function AuditJournalPage() {
   };
 
   const handleExport = () => {
-    const headers = ["Date", "Action", "Verdict", "Utilisateur", "Ressource", "Raison", "IP"];
+    const headers = [ta("date"), ta("action"), ta("verdict"), ta("user"), ta("resource"), ta("reason"), ta("ip")];
     const rows = logs.map((l) => [
       new Date(l.createdAt).toLocaleString("fr-FR"),
       l.action,
@@ -229,12 +231,12 @@ export default function AuditJournalPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Action</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Verdict</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Ressource</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Raison</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">IP</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{ta("date")}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{ta("action")}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{ta("verdict")}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{ta("resource")}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{ta("reason")}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{ta("ip")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -264,7 +266,7 @@ export default function AuditJournalPage() {
                         ) : (
                           <ShieldAlert className="w-3 h-3" />
                         )}
-                        {log.verdict === "ALLOWED" ? "Autorisé" : "Refusé"}
+                        {log.verdict === "ALLOWED" ? ta("allowed") : ta("denied")}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600">

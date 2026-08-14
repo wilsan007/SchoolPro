@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
+import { erreurJson } from "@/lib/erreurs-api";
 
 const CreateSchema = z.object({
   eleveId: z.string().min(1),
@@ -18,7 +19,7 @@ const CreateSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
     const denied = checkPermission(session.user.role, "vie-scolaire:read");
     if (denied) return denied;
 
@@ -43,24 +44,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(incidents);
   } catch (error) {
     console.error("[API/vie-scolaire/incidents GET]", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
     const denied = checkPermission(session.user.role, "vie-scolaire:write");
     if (denied) return denied;
 
     const siteError = requireSiteIdForCreate(session.user);
-    if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
+    if (siteError) return erreurJson("DONNEES_INVALIDES", undefined, { siteError });
 
     const body = await req.json();
     const parsed = CreateSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });
+      return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
     }
 
     const { eleveId, type, gravite, description, lieu, date, notes } = parsed.data;
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     const eleve = await prisma.eleve.findFirst({
       where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", session.user) },
     });
-    if (!eleve) return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
+    if (!eleve) return erreurJson("ELEVE_INTROUVABLE");
 
     const incident = await prisma.incident.create({
       data: {
@@ -95,6 +96,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(incident, { status: 201 });
   } catch (error) {
     console.error("[API/vie-scolaire/incidents POST]", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return erreurJson("ERREUR_SERVEUR");
   }
 }

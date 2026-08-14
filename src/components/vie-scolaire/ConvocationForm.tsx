@@ -35,15 +35,6 @@ const MOTIFS_PREDEFINIS = [
   "travail",
   "autre",
 ];
-const MOTIFS_VALUES = [
-  "Violence scolaire",
-  "Dégradation de biens",
-  "Insolence envers un enseignant",
-  "Exclusion de cours",
-  "Absences répétées non justifiées",
-  "Travail insuffisant",
-  "Autre",
-];
 
 interface TenantInfo {
   name: string;
@@ -56,7 +47,7 @@ export function ConvocationForm({ classes, tenant }: { classes: Classe[]; tenant
   const t = useTranslations("vieScolaire");
   const [classeId, setClasseId] = useState("");
   const [eleveId, setEleveId] = useState("");
-  const [motif, setMotif] = useState(MOTIFS_VALUES[0]);
+  const [motif, setMotif] = useState(MOTIFS_PREDEFINIS[0]);
   const [motifDetail, setMotifDetail] = useState("");
   const [dateConvocation, setDateConvocation] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -137,8 +128,8 @@ export function ConvocationForm({ classes, tenant }: { classes: Classe[]; tenant
             <Select value={motif} onValueChange={setMotif}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {MOTIFS_PREDEFINIS.map((m, i) => (
-                  <SelectItem key={m} value={MOTIFS_VALUES[i]}>{t(`convocationMotifs.${m}`)}</SelectItem>
+                {MOTIFS_PREDEFINIS.map((m) => (
+                  <SelectItem key={m} value={m}>{t(`convocationMotifs.${m}`)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

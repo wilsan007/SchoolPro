@@ -4,11 +4,13 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { CartesScolairesForm } from "@/components/eleves/CartesScolairesForm";
+import { getTranslations } from "next-intl/server";
 
 export default async function CartesScolairesPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
+  const te = await getTranslations("eleves");
 
   const siteFilter = siteFilterForModel("classe", session.user);
   const classes = await prisma.classe.findMany({
@@ -27,8 +29,8 @@ export default async function CartesScolairesPage() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="Cartes Scolaires"
-        subtitle="Générer et imprimer les cartes scolaires des élèves"
+        title={te("schoolCards")}
+        subtitle={te("schoolCardsSubtitle")}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
