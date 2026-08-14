@@ -1,5 +1,5 @@
 /**
- * Comptes de connexion pour le QA manuel des espaces LEARNOS.
+ * Comptes de connexion pour le QA manuel des espaces LEARNOS et E2E Playwright.
  *
  *   npx tsx scripts/qa-comptes-demo.ts          → crée / met à jour les comptes
  *   npx tsx scripts/qa-comptes-demo.ts --clean  → les supprime
@@ -8,6 +8,10 @@
  * (`scripts/demo-learnos.ts`) : même tenant, même site, même classe — sinon les
  * espaces `/direction`, `/mon-espace`, `/ma-classe`, `/parent` et `/eleve`
  * s'ouvriraient sur des écrans vides et ne prouveraient rien.
+ *
+ * Les 13 rôles du système sont couverts : les 5 originaux (admin, prof, pp,
+ * parent, eleve) plus les 8 rôles ajoutés (principal, secretary, counselor,
+ * nurse, accountant, supervisor, subject_lead, super_admin).
  */
 
 import { PrismaClient, Role } from "@prisma/client";
@@ -30,6 +34,16 @@ const COMPTES = [
   { cle: "pp", email: `pp${SUFFIXE}`, name: "QA Prof Principal", role: Role.CLASS_TEACHER },
   { cle: "parent", email: `parent${SUFFIXE}`, name: "QA Parent", role: Role.PARENT },
   { cle: "eleve", email: `eleve${SUFFIXE}`, name: "QA Élève", role: Role.STUDENT },
+  // ── Rôles additionnels pour couvrir les 13 espaces dédiés ──
+  { cle: "principal", email: `principal${SUFFIXE}`, name: "QA Principal", role: Role.PRINCIPAL },
+  { cle: "secretary", email: `secretary${SUFFIXE}`, name: "QA Secrétariat", role: Role.SECRETARY },
+  { cle: "counselor", email: `counselor${SUFFIXE}`, name: "QA Conseiller", role: Role.COUNSELOR },
+  { cle: "nurse", email: `nurse${SUFFIXE}`, name: "QA Infirmerie", role: Role.NURSE },
+  { cle: "accountant", email: `accountant${SUFFIXE}`, name: "QA Comptabilité", role: Role.ACCOUNTANT },
+  { cle: "supervisor", email: `supervisor${SUFFIXE}`, name: "QA Surveillant", role: Role.SUPERVISOR },
+  { cle: "subject_lead", email: `subject_lead${SUFFIXE}`, name: "QA Coordinateur", role: Role.SUBJECT_LEAD },
+  // SUPER_ADMIN n'a pas de tenant : il est créé sans rattachement.
+  { cle: "super_admin", email: `super_admin${SUFFIXE}`, name: "QA Super Admin", role: Role.SUPER_ADMIN },
 ] as const;
 
 async function nettoyer() {
@@ -107,20 +121,28 @@ async function main() {
   const creees: Record<string, string> = {};
 
   for (const compte of COMPTES) {
+    // SUPER_ADMIN n'a pas de tenant : compte plateforme global.
+    const isSuperAdmin = compte.role === Role.SUPER_ADMIN;
+    const userTenantId = isSuperAdmin ? null : tenant.id;
+    const userSiteId = isSuperAdmin ? null : site.id;
+
     const user = await prisma.user.upsert({
       where: { email: compte.email },
-      update: { password, role: compte.role, isActive: true, tenantId: tenant.id, siteId: site.id },
+      update: { password, role: compte.role, isActive: true, tenantId: userTenantId, siteId: userSiteId },
       create: {
         email: compte.email,
         name: compte.name,
         password,
         role: compte.role,
         isActive: true,
-        tenantId: tenant.id,
-        siteId: site.id,
+        tenantId: userTenantId,
+        siteId: userSiteId,
       },
     });
     creees[compte.cle] = user.id;
+
+    // Pas de UserTenant / UserSite pour SUPER_ADMIN.
+    if (isSuperAdmin) continue;
 
     await prisma.userTenant.upsert({
       where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
@@ -138,7 +160,8 @@ async function main() {
   // ── Enseignants ────────────────────────────────────────────────
   // `deriveClaims` agrège aussi `EnseignantSite` : sans cette ligne un
   // enseignant se connecte avec un périmètre de sites vide.
-  for (const cle of ["prof", "pp"] as const) {
+  // SUBJECT_LEAD est aussi un enseignant (coordinateur de matière).
+  for (const cle of ["prof", "pp", "subject_lead"] as const) {
     const userId = creees[cle];
     const existant = await prisma.enseignant.findFirst({ where: { userId, tenantId: tenant.id } });
     const enseignant =

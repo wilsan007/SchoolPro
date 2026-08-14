@@ -73,6 +73,19 @@
     "noSiteAvailable": "No site available. Contact an administrator.",
     "arabic": "العربية"
   },
+  "monEspace": {
+    "maSemaine": "My week",
+    "aucunCours": "No scheduled courses",
+    "chevauchement": "Overlap detected",
+    "jour": "Day",
+    "heure": "Time",
+    "matiere": "Subject",
+    "classe": "Class",
+    "salle": "Room",
+    "grilleCompetences": "Skills grid",
+    "aucuneEvaluation": "No skill evaluation available",
+    "eleve": "Student"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "eleves": "Students",
@@ -119,7 +132,23 @@
     "maMatiere": "My subject",
     "couverture": "Coverage",
     "devoirs": "Assignments",
-    "travail": "Homework"
+    "travail": "Homework",
+    "maJournee": "My day"
+  },
+  "maJournee": {
+    "titre": "My day",
+    "sousTitre": "Your classes, work and assessments",
+    "coursAujourdhui": "Today's classes",
+    "aucunCours": "No classes today",
+    "travailARendre": "Work to submit",
+    "aucunTravail": "No work to submit",
+    "prochaineEvaluation": "Upcoming assessments",
+    "aucuneEvaluation": "No upcoming assessment",
+    "heure": "Time",
+    "matiere": "Subject",
+    "enseignant": "Teacher",
+    "aRendre": "Due on",
+    "date": "Date"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -2689,7 +2718,17 @@
       "aucuneVariation": "first reading",
       "voir": "View",
       "rienAsignaler": "Nothing needs your attention today.",
-      "avertissementCalibrage": "Drift is not a fault: a difficult class, deliberate rigour, or a real calibration issue. It is a question to ask, never a verdict."
+      "avertissementCalibrage": "Drift is not a fault: a difficult class, deliberate rigour, or a real calibration issue. It is a question to ask, never a verdict.",
+      "comparateurSites": "Cross-site comparison",
+      "fileValidation": "Validation queue",
+      "site": "Site",
+      "effectif": "Enrollment",
+      "absencesInjustifiees": "Unjustified absences",
+      "facturesRetard": "Overdue invoices",
+      "bulletinsAValider": "Bulletins to validate",
+      "incidentsOuverts": "Open incidents",
+      "postesNonCouverts": "Uncovered positions",
+      "aucunSite": "No site to compare"
     },
     "paliers": {
       "RESTITUTION": "Recall",
@@ -2854,7 +2893,19 @@
       "soldeAJour": "Fees up to date",
       "soldeDu": "{montant} overdue",
       "soldeAide": "{n, plural, =0 {No overdue invoice} one {# invoice affected} other {# invoices affected}}",
-      "avertissement": "These indications come from assessments and submitted work. They help locate the work to be done — they do not replace the report card."
+      "avertissement": "These indications come from assessments and submitted work. They help locate the work to be done — they do not replace the report card.",
+      "facturesEnfant": "Invoices",
+      "aucuneFacture": "No invoice",
+      "numero": "Number",
+      "libelle": "Label",
+      "montant": "Amount",
+      "statut": "Status",
+      "echeance": "Due date",
+      "absencesAJustifier": "Absences to justify",
+      "aucuneAbsence": "No absence to justify",
+      "justifier": "Justify",
+      "prendreRdv": "Book appointment",
+      "voirDetails": "View details"
     },
     "attestations": {
       "titre": "To check in class",
@@ -3291,7 +3342,19 @@
     "actionsRapides": "Quick actions",
     "voirFacturation": "View billing",
     "voirRh": "View HR",
-    "voirInventaire": "View inventory"
+    "voirInventaire": "View inventory",
+    "vueFamille": "Family view",
+    "famille": "Family",
+    "eleve": "Student",
+    "montantDu": "Amount owed",
+    "nbFactures": "Invoices",
+    "elevesRetard": "Students with overdue payments",
+    "matricule": "ID",
+    "classe": "Class",
+    "bloque": "Blocked",
+    "actif": "Active",
+    "statut": "Status",
+    "aucuneFacture": "No outstanding invoice"
   },
   "conseiller": {
     "title": "Counselor",
@@ -3369,5 +3432,16 @@
     "rendu": "Submitted",
     "corrige": "Graded",
     "aucun": "No assignments for now"
+  },
+  "maClasse": {
+    "conseilClasse": "Class council",
+    "ficheConsolidee": "Consolidated student files",
+    "contacterFamille": "Contact family",
+    "moyenne": "Average",
+    "absences": "Absences",
+    "incidents": "Incidents",
+    "details": "Details",
+    "aucunParent": "No parent linked",
+    "eleve": "Student"
   }
 }

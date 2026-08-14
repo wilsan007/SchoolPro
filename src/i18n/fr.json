@@ -73,6 +73,19 @@
     "noSiteAvailable": "Aucun site disponible. Contactez un administrateur.",
     "arabic": "العربية"
   },
+  "monEspace": {
+    "maSemaine": "Ma semaine",
+    "aucunCours": "Aucun cours planifié",
+    "chevauchement": "Chevauchement détecté",
+    "jour": "Jour",
+    "heure": "Heure",
+    "matiere": "Matière",
+    "classe": "Classe",
+    "salle": "Salle",
+    "grilleCompetences": "Grille compétences",
+    "aucuneEvaluation": "Aucune évaluation de compétence disponible",
+    "eleve": "Élève"
+  },
   "nav": {
     "dashboard": "Tableau de bord",
     "eleves": "Élèves",
@@ -119,7 +132,23 @@
     "maMatiere": "Ma matière",
     "couverture": "Couverture",
     "devoirs": "Devoirs",
-    "travail": "Travail à faire"
+    "travail": "Travail à faire",
+    "maJournee": "Ma journée"
+  },
+  "maJournee": {
+    "titre": "Ma journée",
+    "sousTitre": "Vos cours, votre travail et vos évaluations",
+    "coursAujourdhui": "Cours d'aujourd'hui",
+    "aucunCours": "Aucun cours aujourd'hui",
+    "travailARendre": "Travail à rendre",
+    "aucunTravail": "Aucun travail à rendre",
+    "prochaineEvaluation": "Prochaines évaluations",
+    "aucuneEvaluation": "Aucune évaluation à venir",
+    "heure": "Heure",
+    "matiere": "Matière",
+    "enseignant": "Enseignant",
+    "aRendre": "À rendre le",
+    "date": "Date"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -2697,7 +2726,17 @@
       "aucuneVariation": "premier relevé",
       "voir": "Voir",
       "rienAsignaler": "Rien ne demande votre attention aujourd'hui.",
-      "avertissementCalibrage": "Un écart n'est pas une faute : classe difficile, exigence assumée, ou vrai problème de calibrage. C'est une question à poser, jamais un verdict."
+      "avertissementCalibrage": "Un écart n'est pas une faute : classe difficile, exigence assumée, ou vrai problème de calibrage. C'est une question à poser, jamais un verdict.",
+      "comparateurSites": "Comparaison inter-sites",
+      "fileValidation": "File de validation",
+      "site": "Site",
+      "effectif": "Effectif",
+      "absencesInjustifiees": "Absences injustifiées",
+      "facturesRetard": "Factures en retard",
+      "bulletinsAValider": "Bulletins à valider",
+      "incidentsOuverts": "Incidents ouverts",
+      "postesNonCouverts": "Postes non couverts",
+      "aucunSite": "Aucun site à comparer"
     },
     "paliers": {
       "RESTITUTION": "Restitution",
@@ -2862,7 +2901,19 @@
       "soldeAJour": "Scolarité à jour",
       "soldeDu": "{montant} en retard",
       "soldeAide": "{n, plural, =0 {Aucune facture en retard} one {# facture concernée} other {# factures concernées}}",
-      "avertissement": "Ces indications viennent des évaluations et du travail rendu. Elles aident à situer le travail à faire — elles ne remplacent pas le bulletin."
+      "avertissement": "Ces indications viennent des évaluations et du travail rendu. Elles aident à situer le travail à faire — elles ne remplacent pas le bulletin.",
+      "facturesEnfant": "Factures",
+      "aucuneFacture": "Aucune facture",
+      "numero": "Numéro",
+      "libelle": "Libellé",
+      "montant": "Montant",
+      "statut": "Statut",
+      "echeance": "Échéance",
+      "absencesAJustifier": "Absences à justifier",
+      "aucuneAbsence": "Aucune absence à justifier",
+      "justifier": "Justifier",
+      "prendreRdv": "Prendre rendez-vous",
+      "voirDetails": "Voir détails"
     },
     "attestations": {
       "titre": "À vérifier en classe",
@@ -3299,7 +3350,19 @@
     "actionsRapides": "Actions rapides",
     "voirFacturation": "Voir la facturation",
     "voirRh": "Voir les ressources humaines",
-    "voirInventaire": "Voir l'inventaire"
+    "voirInventaire": "Voir l'inventaire",
+    "vueFamille": "Vue par famille",
+    "famille": "Famille",
+    "eleve": "Élève",
+    "montantDu": "Montant dû",
+    "nbFactures": "Factures",
+    "elevesRetard": "Élèves en retard de paiement",
+    "matricule": "Matricule",
+    "classe": "Classe",
+    "bloque": "Bloqué",
+    "actif": "Actif",
+    "statut": "Statut",
+    "aucuneFacture": "Aucune facture en souffrance"
   },
   "conseiller": {
     "title": "Conseiller / CPE",
@@ -3377,5 +3440,16 @@
     "rendu": "Rendu",
     "corrige": "Corrigé",
     "aucun": "Aucun devoir pour le moment"
+  },
+  "maClasse": {
+    "conseilClasse": "Conseil de classe",
+    "ficheConsolidee": "Fiches élèves consolidées",
+    "contacterFamille": "Contacter la famille",
+    "moyenne": "Moyenne",
+    "absences": "Absences",
+    "incidents": "Incidents",
+    "details": "Détails",
+    "aucunParent": "Aucun parent rattaché",
+    "eleve": "Élève"
   }
 }

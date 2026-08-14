@@ -62,6 +62,19 @@
     "noSiteAvailable": "Goob lahayn. La xidhiidh maamulaha.",
     "arabic": "Carabi"
   },
+  "monEspace": {
+    "maSemaine": "Toddobaadkayga",
+    "aucunCours": "Wax fasal ah ma jiro la qorsheeyay",
+    "chevauchement": "Isdhaaf la ogaaday",
+    "jour": "Maalin",
+    "heure": "Saacad",
+    "matiere": "Maaddo",
+    "classe": "Fasal",
+    "salle": "Qol",
+    "grilleCompetences": "Shaxda xirfadaha",
+    "aucuneEvaluation": "Wax qiimeyn xirfad ah ma jiro",
+    "eleve": "Arday"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "eleves": "Ardayda",
@@ -108,7 +121,23 @@
     "maMatiere": "Maaddadayda",
     "couverture": "Daboolid",
     "devoirs": "Shaqaadha",
-    "travail": "Shaqo la qabto"
+    "travail": "Shaqo la qabto",
+    "maJournee": "Maalintayda"
+  },
+  "maJournee": {
+    "titre": "Maalintayda",
+    "sousTitre": "Fasaladaaga, shaqadaada iyo qiimayntaada",
+    "coursAujourdhui": "Fasalada maanta",
+    "aucunCours": "Wax fasal ah ma jiro maanta",
+    "travailARendre": "Shaqo la qabto",
+    "aucunTravail": "Wax shaqo ah ma jiro la qabto",
+    "prochaineEvaluation": "Qiimaynta soo socota",
+    "aucuneEvaluation": "Wax qiimayn ah ma jiro soo socota",
+    "heure": "Saacad",
+    "matiere": "Maaddo",
+    "enseignant": "Macallin",
+    "aRendre": "La qabto",
+    "date": "Taariikh"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -2602,7 +2631,17 @@
       "aucuneVariation": "premier relevé",
       "voir": "Voir",
       "rienAsignaler": "Rien ne demande votre attention aujourd'hui.",
-      "avertissementCalibrage": "Un écart n'est pas une faute : classe difficile, exigence assumée, ou vrai problème de calibrage. C'est une question à poser, jamais un verdict."
+      "avertissementCalibrage": "Un écart n'est pas une faute : classe difficile, exigence assumée, ou vrai problème de calibrage. C'est une question à poser, jamais un verdict.",
+      "comparateurSites": "Isbarbardhinta goobaha",
+      "fileValidation": "Hoggaanka ansixinta",
+      "site": "Goob",
+      "effectif": "Tirada",
+      "absencesInjustifiees": "Maqnaasho aan sabab lahayn",
+      "facturesRetard": "Faturada daahay",
+      "bulletinsAValider": "Warbixino la ansixiyo",
+      "incidentsOuverts": "Dhibaatooyin furan",
+      "postesNonCouverts": "Boosaska aan daboolneyn",
+      "aucunSite": "Wax goob ah ma jiro la barbardhigo"
     },
     "paliers": {
       "RESTITUTION": "Restitution",
@@ -2767,7 +2806,19 @@
       "soldeAJour": "Scolarité à jour",
       "soldeDu": "{montant} en retard",
       "soldeAide": "{n, plural, =0 {Aucune facture en retard} one {# facture concernée} other {# factures concernées}}",
-      "avertissement": "Ces indications viennent des évaluations et du travail rendu. Elles aident à situer le travail à faire — elles ne remplacent pas le bulletin."
+      "avertissement": "Ces indications viennent des évaluations et du travail rendu. Elles aident à situer le travail à faire — elles ne remplacent pas le bulletin.",
+      "facturesEnfant": "Faturada",
+      "aucuneFacture": "Wax fatur ah ma jiro",
+      "numero": "Lambarka",
+      "libelle": "Magaca",
+      "montant": "Qaddarka",
+      "statut": "Xaalad",
+      "echeance": "Taariikhda",
+      "absencesAJustifier": "Maqnaasho la sababeeyo",
+      "aucuneAbsence": "Wax maqnaasho ah ma jiro la sababeeyo",
+      "justifier": "Sabab soo gali",
+      "prendreRdv": "Ballan qabo",
+      "voirDetails": "Eeg faahfaahinta"
     },
     "attestations": {
       "titre": "In fasalka lagu hubiyo",
@@ -3204,7 +3255,19 @@
     "actionsRapides": "Hawl degdeg ah",
     "voirFacturation": "Eeg faturada",
     "voirRh": "Eeg shaqaalaha",
-    "voirInventaire": "Eeg baaritaanka"
+    "voirInventaire": "Eeg baaritaanka",
+    "vueFamille": "Aragtida qoyska",
+    "famille": "Qoyska",
+    "eleve": "Arday",
+    "montantDu": "Lacagta la leeyahay",
+    "nbFactures": "Faturada",
+    "elevesRetard": "Ardayda bixinta daahay",
+    "matricule": "Lambarka",
+    "classe": "Fasal",
+    "bloque": "La xannibay",
+    "actif": "Falan",
+    "statut": "Xaalad",
+    "aucuneFacture": "Wax fatur ah ma jiro"
   },
   "conseiller": {
     "title": "La-taliye",
@@ -3282,5 +3345,16 @@
     "rendu": "La soo diray",
     "corrige": "La saxay",
     "aucun": "Wax shaqaad ah ma jiro hadda"
+  },
+  "maClasse": {
+    "conseilClasse": "Shirka fasalka",
+    "ficheConsolidee": "Faylasha ardayda la isugu daray",
+    "contacterFamille": "La xidhiidh qoyska",
+    "moyenne": "Celcelis",
+    "absences": "Maqnaasho",
+    "incidents": "Dhibaatooyin",
+    "details": "Faahfaahin",
+    "aucunParent": "Wax waalid ah ma jiro",
+    "eleve": "Arday"
   }
 }

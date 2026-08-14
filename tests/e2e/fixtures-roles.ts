@@ -3,32 +3,33 @@ import { test as base, expect, type Page } from "@playwright/test";
 /**
  * Fixtures E2E multi-rôles
  * ============================================================
- * Chaque rôle dispose d'un compte dédié créé par le seed E2E
- * (`prisma/seed-e2e.ts`). Ces comptes ne sont jamais utilisés en
- * développement courant — ils existent uniquement pour les tests
- * Playwright, afin de ne pas polluer la base de demo.
+ * Chaque rôle dispose d'un compte dédié créé par le script LEARNOS
+ * (`scripts/qa-comptes-demo.ts`) sur le tenant `demo-learnos`.
+ * Ces comptes se greffent sur le jeu de démonstration LEARNOS
+ * (`scripts/demo-learnos.ts`) : même tenant, même site, même classe.
  *
- * Le tenant E2E est nommé « e2e-test ». Les comptes tenant-scopés
+ * Le tenant est `demo-learnos`. Les comptes tenant-scopés
  * (tout sauf SUPER_ADMIN) y sont rattachés. SUPER_ADMIN est un
  * compte plateforme sans tenant.
  */
 
-export const E2E_PASSWORD = "E2E-Test-2026!";
+export const E2E_PASSWORD = "Demo@2026!";
+const SUFFIXE = "@qa-learnos.test";
 
 export const E2E_CREDENTIALS: Record<string, { email: string; password: string }> = {
-  SUPER_ADMIN: { email: "e2e-superadmin@ecolpro.app", password: E2E_PASSWORD },
-  TENANT_ADMIN: { email: "e2e-tenantadmin@ecolpro.app", password: E2E_PASSWORD },
-  PRINCIPAL: { email: "e2e-principal@ecolpro.app", password: E2E_PASSWORD },
-  TEACHER: { email: "e2e-teacher@ecolpro.app", password: E2E_PASSWORD },
-  CLASS_TEACHER: { email: "e2e-classteacher@ecolpro.app", password: E2E_PASSWORD },
-  PARENT: { email: "e2e-parent@ecolpro.app", password: E2E_PASSWORD },
-  STUDENT: { email: "e2e-student@ecolpro.app", password: E2E_PASSWORD },
-  SUPERVISOR: { email: "e2e-supervisor@ecolpro.app", password: E2E_PASSWORD },
-  SECRETARY: { email: "e2e-secretary@ecolpro.app", password: E2E_PASSWORD },
-  COUNSELOR: { email: "e2e-counselor@ecolpro.app", password: E2E_PASSWORD },
-  NURSE: { email: "e2e-nurse@ecolpro.app", password: E2E_PASSWORD },
-  ACCOUNTANT: { email: "e2e-accountant@ecolpro.app", password: E2E_PASSWORD },
-  SUBJECT_LEAD: { email: "e2e-subjectlead@ecolpro.app", password: E2E_PASSWORD },
+  SUPER_ADMIN: { email: `super_admin${SUFFIXE}`, password: E2E_PASSWORD },
+  TENANT_ADMIN: { email: `admin${SUFFIXE}`, password: E2E_PASSWORD },
+  PRINCIPAL: { email: `principal${SUFFIXE}`, password: E2E_PASSWORD },
+  TEACHER: { email: `prof${SUFFIXE}`, password: E2E_PASSWORD },
+  CLASS_TEACHER: { email: `pp${SUFFIXE}`, password: E2E_PASSWORD },
+  PARENT: { email: `parent${SUFFIXE}`, password: E2E_PASSWORD },
+  STUDENT: { email: `eleve${SUFFIXE}`, password: E2E_PASSWORD },
+  SUPERVISOR: { email: `supervisor${SUFFIXE}`, password: E2E_PASSWORD },
+  SECRETARY: { email: `secretary${SUFFIXE}`, password: E2E_PASSWORD },
+  COUNSELOR: { email: `counselor${SUFFIXE}`, password: E2E_PASSWORD },
+  NURSE: { email: `nurse${SUFFIXE}`, password: E2E_PASSWORD },
+  ACCOUNTANT: { email: `accountant${SUFFIXE}`, password: E2E_PASSWORD },
+  SUBJECT_LEAD: { email: `subject_lead${SUFFIXE}`, password: E2E_PASSWORD },
 };
 
 /**
@@ -66,18 +67,21 @@ export async function loginAs(page: Page, role: string): Promise<void> {
   }
 
   await page.goto("/login");
+  // La page de login utilise un Suspense boundary : attendre que le formulaire
+  // soit réellement rendu avant d'interagir avec les inputs.
+  await page.waitForSelector('input[type="email"]', { state: "visible", timeout: 15000 });
   await page.fill('input[type="email"]', creds.email);
   await page.fill('input[type="password"]', creds.password);
   await page.click('button[type="submit"]');
 
   // Attendre la première redirection post-login.
-  await page.waitForURL(POST_LOGIN_URL, { timeout: 15000 });
+  await page.waitForURL(POST_LOGIN_URL, { timeout: 20000 });
 
-  // Si on est sur /select-tenant, choisir le tenant E2E.
+  // Si on est sur /select-tenant, choisir le tenant LEARNOS.
   if (page.url().includes("/select-tenant")) {
-    // Le tenant E2E est nommé « e2e-test » par le seed.
-    await page.click("text=e2e-test", { timeout: 10000 });
-    await page.waitForURL(POST_TENANT_URL, { timeout: 15000 });
+    // Le tenant de démonstration LEARNOS est « demo-learnos ».
+    await page.click("text=demo-learnos", { timeout: 10000 });
+    await page.waitForURL(POST_TENANT_URL, { timeout: 20000 });
   }
 }
 

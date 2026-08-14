@@ -28,7 +28,7 @@ describe("intégrité du registre", () => {
     // ce test plutôt que d'hériter d'un comportement par défaut.
     const ecrans = [
       "/dashboard", "/acces-bloque", "/direction", "/mon-espace", "/ma-classe",
-      "/parent", "/eleve", "/entrainement", "/eleves", "/eleves/nouveau",
+      "/parent", "/parent/factures/x", "/eleve", "/entrainement", "/eleves", "/eleves/nouveau",
       "/eleves/comptes", "/eleves/transfert", "/parents", "/notes",
       "/notes/bulletins", "/evaluations", "/examens", "/examens/rapport-classe",
       "/curriculum", "/recommandations", "/cours", "/emploi-du-temps",
@@ -74,7 +74,7 @@ describe("cloisonnement du parent", () => {
     expect(canAccessRoute("PARENT", route)).toBe(false);
   });
 
-  const autorises = ["/dashboard", "/parent", "/messages", "/bulletin/x/y"];
+  const autorises = ["/dashboard", "/parent", "/parent/factures/x", "/messages", "/bulletin/x/y"];
   it.each(autorises)("autorise %s au parent", (route) => {
     expect(canAccessRoute("PARENT", route)).toBe(true);
   });

@@ -245,6 +245,10 @@ export const ROUTE_RULES: RouteRule[] = [
   // Motifs ancrés : `/parent` non ancré capturerait `/parents`, l'annuaire
   // des familles, et le fermerait à la direction.
   { pattern: /^\/parent$/, permission: "notes:read", roles: ["PARENT"] },
+  // Détail d'une facture, vu par un parent. Le rôle PARENT n'a pas
+  // `finance:read` (la route `/facturation` lui est interdite) : cette route
+  // dédiée vérifie le périmètre familial côté serveur (`eleveScopeFilter`).
+  { pattern: /^\/parent\/factures\//, permission: "notes:read", roles: ["PARENT"] },
   { pattern: /^\/eleve$/, permission: "notes:read", roles: ["STUDENT"] },
   { pattern: /^\/entrainement/, permission: "entrainement:write", roles: ["STUDENT"] },
   // Emploi du temps en lecture pour les familles : l'éditeur `/emploi-du-temps`
@@ -258,6 +262,7 @@ export const ROUTE_RULES: RouteRule[] = [
   // La saisie se fait sur /devoirs (plus bas). Placé AVANT `/cours` pour ne
   // pas être capturé par sa règle.
   { pattern: /^\/travail/, permission: "cours:read", roles: ["STUDENT", "PARENT", "TEACHER", "CLASS_TEACHER"] },
+  { pattern: /^\/ma-journee/, permission: "cours:read", roles: ["STUDENT"] },
 
   // — Saisie des devoirs (enseignants) —
   { pattern: /^\/devoirs/, permission: "notes:write", roles: ["TEACHER", "CLASS_TEACHER", "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"] },
