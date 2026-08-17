@@ -67,6 +67,9 @@ export const ACCUEIL_PAR_ROLE: Record<RoleKey, string | null> = {
   COUNSELOR: "/conseiller",
   NURSE: "/infirmerie",
   ACCOUNTANT: "/comptabilite",
+
+  // Caissier — gestion des recettes et remises de caisse.
+  CAISSIER: "/comptabilite",
 };
 
 /** Route d'accueil propre au rôle, ou null si le rôle n'a pas d'espace dédié. */

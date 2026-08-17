@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Settings, Users, GraduationCap, BookOpen, UserCog, Settings2, Calendar, CalendarDays, Stamp, Building2,
-  School, UsersRound, BookOpenCheck, ChevronDown, DollarSign, CopyCheck,
+  School, UsersRound, BookOpenCheck, ChevronDown, DollarSign, CopyCheck, HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EtablissementTab } from "./EtablissementTab";
@@ -20,6 +20,7 @@ import { TarifsTab } from "./TarifsTab";
 import { DoublonsTab } from "./DoublonsTab";
 import { AnneesScolairesTab } from "./AnneesScolairesTab";
 import { CalendrierScolaireTab } from "./CalendrierScolaireTab";
+import { SyncTab } from "./SyncTab";
 
 import type { AvailableTenant } from "@/auth.config";
 
@@ -36,7 +37,8 @@ type Tab =
   | "signature"
   | "sites"
   | "tarifs"
-  | "doublons";
+  | "doublons"
+  | "sync";
 
 type TabDef = { id: Tab; labelKey: string; icon: typeof Settings };
 
@@ -56,6 +58,7 @@ const tabGroups: TabGroup[] = [
       { id: "calendrier", labelKey: "calendrierScolaire", icon: CalendarDays },
       { id: "sites", labelKey: "sites", icon: Building2 },
       { id: "signature", labelKey: "signature", icon: Stamp },
+      { id: "sync", labelKey: "syncBackup", icon: HardDrive },
     ],
   },
   {
@@ -135,7 +138,7 @@ export function ParametresTabs({
   return (
     <div className="space-y-4">
       {/* Niveau 1: Onglets de groupe */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-1">
         {tabGroups.map((group) => (
           <button
             key={group.groupKey}
@@ -161,7 +164,7 @@ export function ParametresTabs({
 
       {/* Niveau 2: Sous-onglets du groupe actif */}
       {expandedGroup && (
-        <div className="flex flex-wrap gap-1.5 border-b pb-px">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-thin border-b pb-px">
           {tabGroups
             .find((g) => g.groupKey === expandedGroup)
             ?.tabs.map((tab) => (
@@ -218,6 +221,7 @@ export function ParametresTabs({
           />
         )}
         {activeTab === "sites" && <SitesTab sites={sites} canManage={canManage} />}
+        {activeTab === "sync" && <SyncTab canManage={canManage} />}
         {activeTab === "tarifs" && <TarifsTab />}
         {activeTab === "doublons" && <DoublonsTab />}
       </div>

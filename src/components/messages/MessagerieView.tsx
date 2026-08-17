@@ -373,7 +373,7 @@ export function MessagerieView({ userRole }: { userRole: string }) {
     <div className="flex h-[calc(100vh-64px)]">
       {/* Sidebar: conversations list */}
       <div className={cn(
-        "w-80 border-r flex flex-col bg-muted/30 shrink-0",
+        "w-full md:w-80 border-r flex flex-col bg-muted/30 shrink-0",
         "md:flex",
         showMobileMessages && "hidden md:flex"
       )}>

@@ -48,6 +48,58 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    if (result.count > 0) {
+      try {
+        const periode = await prisma.periode.findFirst({
+          where: { id: periodeId },
+          select: { nom: true },
+        });
+        const periodeNom = periode?.nom ?? "la période";
+
+        const elevesPublies = await prisma.eleve.findMany({
+          where: { id: { in: eleveIds }, tenantId, ...siteFilterForModel("eleve", session.user) },
+          select: { id: true, nom: true, prenom: true },
+        });
+
+        for (const eleve of elevesPublies) {
+          const eleveNom = `${eleve.prenom} ${eleve.nom}`;
+          const titreNotif = `Bulletin publié - ${periodeNom}`;
+          const contenuNotif = `Le bulletin de ${eleveNom} pour ${periodeNom} est disponible.`;
+
+          await prisma.notification.create({
+            data: {
+              tenantId,
+              titre: titreNotif,
+              contenu: contenuNotif,
+              canal: "IN_APP",
+              statut: "ENVOYEE",
+              cible: "PARENTS",
+              envoyeParId: session.user.id,
+              nbDestinataires: 1,
+              nbDelivres: 1,
+              envoyeeAt: new Date(),
+            },
+          });
+          await prisma.notification.create({
+            data: {
+              tenantId,
+              titre: titreNotif,
+              contenu: contenuNotif,
+              canal: "EMAIL",
+              statut: "ENVOYEE",
+              cible: "PARENTS",
+              envoyeParId: session.user.id,
+              nbDestinataires: 1,
+              nbDelivres: 1,
+              envoyeeAt: new Date(),
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error("[API/bulletins/publier] Notification échouée:", notifError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       count: result.count,

@@ -63,5 +63,46 @@ export async function PATCH(
     }
   }
 
+  // --- Notification IN_APP à l'enseignant (APPROUVE / REFUSE) ---
+  // Non-bloquante : un échec de notification ne doit pas faire échouer la
+  // décision sur le congé.
+  if (action === "APPROUVE" || action === "REFUSE") {
+    try {
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- conge vérifié avec tenantId + siteFilter ci-dessus
+      const enseignant = await prisma.enseignant.findUnique({
+        where: { id: conge.enseignantId },
+        select: { userId: true },
+      });
+
+      if (enseignant?.userId) {
+        const dateDebutStr = conge.dateDebut.toLocaleDateString("fr-FR");
+        const dateFinStr = conge.dateFin.toLocaleDateString("fr-FR");
+        const titre = action === "APPROUVE" ? "Congé approuvé" : "Congé refusé";
+        const contenu =
+          action === "APPROUVE"
+            ? `Votre demande de congé (${conge.type}) du ${dateDebutStr} au ${dateFinStr} a été approuvée.`
+            : `Votre demande de congé (${conge.type}) du ${dateDebutStr} au ${dateFinStr} a été refusée.` +
+              (conge.motif ? `\nMotif : ${conge.motif}` : "");
+
+        await prisma.notification.create({
+          data: {
+            tenantId: session.user.tenantId,
+            titre,
+            contenu,
+            canal: "IN_APP",
+            cible: "ENSEIGNANTS",
+            envoyeParId: session.user.id,
+            nbDestinataires: 1,
+            nbDelivres: 1,
+            statut: "ENVOYEE",
+            envoyeeAt: new Date(),
+          },
+        });
+      }
+    } catch (notifError) {
+      console.error("[API/rh/conges] Notification enseignant échouée:", notifError);
+    }
+  }
+
   return NextResponse.json({ conge: updated });
 }

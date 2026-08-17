@@ -99,7 +99,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
 
   function renderAbsenceRow(absence: Absence) {
     return (
-      <div key={absence.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
+      <div key={absence.id} className="flex items-center gap-3 sm:gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
         <Avatar className="h-9 w-9 flex-shrink-0">
           {absence.eleve.photoUrl && <AvatarImage src={absence.eleve.photoUrl} />}
           <AvatarFallback className="bg-muted text-xs font-semibold">
@@ -109,7 +109,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-medium text-sm">
+            <p className="font-medium text-sm truncate">
               {absence.eleve.prenom} {absence.eleve.nom}
             </p>
             {absence.isRetard && (
@@ -131,8 +131,8 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <p className="text-xs text-muted-foreground">{formatDate(absence.date, "dd/MM/yyyy")}</p>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <p className="text-xs text-muted-foreground hidden sm:block">{formatDate(absence.date, "dd/MM/yyyy")}</p>
           <div className="flex items-center gap-1.5">
             {statutIcons[absence.statut as keyof typeof statutIcons]}
             <Badge variant={statutVariants[absence.statut as keyof typeof statutVariants] ?? "secondary"} className="text-xs">
@@ -162,7 +162,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
     <Card>
       {/* Filtres */}
       <div className="flex flex-col sm:flex-row gap-3 p-4 border-b">
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 max-w-xs w-full sm:w-auto">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("searchStudent")}
@@ -171,7 +171,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto scrollbar-thin">
           {tabs.map((tab) => (
             <Button
               key={tab.key}

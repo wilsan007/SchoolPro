@@ -2,8 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { revalidateTag } from "next/cache";
+
+/**
+ * Formate une date de naissance au format JJMMAAAA (ex: 05042012).
+ * Utilisé comme mot de passe initial pour les comptes élèves.
+ */
+function formatDOB(date: Date): string | null {
+  if (!date || isNaN(date.getTime())) return null;
+  const jj = String(date.getUTCDate()).padStart(2, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const aaaa = String(date.getUTCFullYear());
+  return `${jj}${mm}${aaaa}`;
+}
 
 const UpdateSchema = z.object({
   statut: z.enum(["SOUMISE", "EN_EXAMEN", "ADMIS", "REFUSE", "INSCRIT", "ANNULE"]).optional(),
@@ -50,6 +65,173 @@ export async function PATCH(
       ...(data.motifRefus !== undefined && { motifRefus: data.motifRefus }),
     },
   });
+
+  // --- Workflow INSCRIT : créer Eleve + Parent + compte User + notification ---
+  // Déclenché uniquement quand le statut passe à INSCRIT. Toute la chaîne est
+  // enveloppée dans un try/catch : un échec de notification ou de création de
+  // compte ne doit pas faire échouer la mise à jour de la candidature elle-même.
+  if (data.statut === "INSCRIT") {
+    const tenantId = session.user.tenantId;
+    try {
+      const anneeInscription = await getAnneeCouranteLibelle(tenantId);
+      if (!anneeInscription) {
+        throw new Error("Aucune année scolaire active pour ce tenant");
+      }
+
+      // Générer un matricule unique : ECL-<année>-<compteur>.
+      const count = await prisma.eleve.count({
+        where: { tenantId, ...siteFilterForModel("eleve", session.user) },
+      });
+      const matricule = `ECL-${anneeInscription}-${String(count + 1).padStart(4, "0")}`;
+
+      // Mapper classeVoulue (ex: "6ème") à une Classe réelle du tenant pour
+      // l'année courante, en cherchant par niveau.
+      const classe = await prisma.classe.findFirst({
+        where: {
+          tenantId,
+          niveau: candidature.classeVoulue,
+          annee: anneeInscription,
+          deletedAt: null,
+          ...siteFilterForModel("classe", session.user),
+        },
+        select: { id: true, siteId: true },
+      });
+
+      const resolvedSiteId = classe?.siteId ?? candidature.siteId ?? session.user.siteId ?? null;
+
+      // 1. Créer l'élève (même patron que createEleve dans lib/actions/eleve.ts).
+      const eleve = await prisma.eleve.create({
+        data: {
+          tenantId,
+          siteId: resolvedSiteId,
+          matricule,
+          nom: candidature.nom,
+          prenom: candidature.prenom,
+          dateNaissance: candidature.dateNaissance,
+          lieuNaissance: candidature.lieuNaissance ?? null,
+          nationalite: candidature.nationalite ?? "SN",
+          sexe: candidature.sexe,
+          classeId: classe?.id ?? null,
+          statut: "ACTIF",
+          anneeInscription,
+          dateInscription: new Date(),
+        },
+      });
+
+      // Historique de classe initial (non-bloquant).
+      if (classe) {
+        await prisma.historiqueClasse.create({
+          data: {
+            tenantId,
+            eleveId: eleve.id,
+            classeId: classe.id,
+            dateEntree: new Date(),
+            motif: "Inscription",
+          },
+        }).catch(() => {});
+      }
+
+      // 2. Créer le Parent + le lien EleveParent.
+      let parentId: string | null = null;
+      if (candidature.parentNom && candidature.parentPrenom && candidature.parentPhone) {
+        const parent = await prisma.parent.create({
+          data: {
+            tenantId,
+            nom: candidature.parentNom,
+            prenom: candidature.parentPrenom,
+            phone: candidature.parentPhone,
+            email: candidature.parentEmail || null,
+          },
+        });
+        parentId = parent.id;
+
+        await prisma.eleveParent.create({
+          data: {
+            eleveId: eleve.id,
+            parentId: parent.id,
+            lien: candidature.parentLien,
+            isGardien: true,
+          },
+        });
+      }
+
+      // 3. Créer le compte User pour l'élève (username = matricule, password = DOB).
+      // Même patron que generer-comptes/route.ts.
+      const password = formatDOB(candidature.dateNaissance);
+      if (password) {
+        // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'unicité globale par email avant création de compte élève
+        const existingUser = await prisma.user.findUnique({ where: { email: matricule } });
+        if (!existingUser) {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          const user = await prisma.user.create({
+            data: {
+              email: matricule,
+              name: `${candidature.prenom} ${candidature.nom}`,
+              password: hashedPassword,
+              role: "STUDENT",
+              tenantId,
+              locale: "fr",
+              mustChangePassword: true,
+              userTenants: {
+                create: {
+                  tenantId,
+                  role: "STUDENT",
+                  isActive: true,
+                  isDefault: true,
+                },
+              },
+              userRoles: {
+                create: {
+                  tenantId,
+                  role: "STUDENT",
+                  isActive: true,
+                },
+              },
+            },
+          });
+
+          await prisma.eleve.update({
+            where: { id: eleve.id },
+            data: { userId: user.id },
+          });
+        }
+      }
+
+      // 4. Notification IN_APP au parent (non-bloquante).
+      if (parentId) {
+        try {
+          await prisma.notification.create({
+            data: {
+              tenantId,
+              siteId: resolvedSiteId,
+              titre: `Inscription confirmée - ${candidature.prenom} ${candidature.nom}`,
+              contenu:
+                `Bonjour,\n\nNous avons le plaisir de vous confirmer l'inscription de ` +
+                `${candidature.prenom} ${candidature.nom} (matricule ${matricule})` +
+                `${classe ? ` en ${candidature.classeVoulue}` : ""}.\n\n` +
+                `Cordialement,\nL'établissement`,
+              canal: "IN_APP",
+              cible: "PARENTS",
+              envoyeParId: session.user.id,
+              nbDestinataires: 1,
+              nbDelivres: 1,
+              statut: "ENVOYEE",
+              envoyeeAt: new Date(),
+            },
+          });
+        } catch (notifError) {
+          console.error("[API/admissions] Notification parent échouée:", notifError);
+        }
+      }
+
+      revalidateTag("eleves-stats");
+      revalidateTag("dashboard-data");
+    } catch (workflowError) {
+      // La chaîne d'inscription a échoué : on loggue sans faire échouer la
+      // réponse — la candidature est bien passée à INSCRIT.
+      console.error("[API/admissions] Workflow INSCRIT échoué:", workflowError);
+    }
+  }
 
   return NextResponse.json({ candidature: updated });
 }

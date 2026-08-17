@@ -87,7 +87,7 @@ export function CreateEvaluationForm({ classes, matieres, periodes }: Props) {
           <div className="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900">
             <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-400 mb-4">{t("examInfo")}</h3>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="titre" className="text-red-500 font-medium">{t("examTitle")}</Label>
                 <Input id="titre" name="titre" required placeholder={t("examTitlePlaceholder")} className="bg-background" />

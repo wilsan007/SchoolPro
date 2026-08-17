@@ -210,13 +210,13 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {/* Ce qui arrive, avant le bilan : un élève a plus besoin de savoir sur
           quoi travailler maintenant que de contempler son passé. */}
       {aVenir.length > 0 && <AVenir exigences={aVenir} />}
 
       {/* Synthèse — ce qu'on retient en trois secondes */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-semibold text-red-600">{synthese.aReprendre}</p>
@@ -417,7 +417,7 @@ function AVenir({ exigences }: { exigences: ExigenceAVenir[] }) {
 
   return (
     <Card className="border-l-4 border-l-sky-500">
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-4 sm:p-6">
         <div>
           <p className="font-medium">{t("aVenirTitre")}</p>
           <p className="text-xs text-muted-foreground">{t("aVenirAide")}</p>

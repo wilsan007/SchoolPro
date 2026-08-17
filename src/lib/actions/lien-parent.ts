@@ -235,6 +235,38 @@ export async function validerDemandeLien(demandeId: string, lien: LienParente = 
     },
   });
 
+  // --- Notification IN_APP au parent : lien validé ---
+  try {
+    // Récupérer le nom de l'enfant et le userId du parent
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
+    const demandeInfo = await prisma.demandeLienParent.findFirst({
+      where: { id: demandeId },
+      select: {
+        eleve: { select: { nom: true, prenom: true } },
+        parent: { select: { userId: true } },
+      },
+    });
+    if (demandeInfo) {
+      const eleveNom = `${demandeInfo.eleve.prenom} ${demandeInfo.eleve.nom}`;
+      await prisma.notification.create({
+        data: {
+          tenantId: session.user.tenantId,
+          titre: "Lien parent validé",
+          contenu: `Votre demande de rattachement a été validée. ${eleveNom} est désormais lié(e) à votre compte parent.`,
+          canal: "IN_APP",
+          statut: "ENVOYEE",
+          cible: "PARENTS",
+          envoyeParId: session.user.id,
+          nbDestinataires: 1,
+          nbDelivres: 1,
+          envoyeeAt: new Date(),
+        },
+      });
+    }
+  } catch (notifError) {
+    console.error("[validerDemandeLien] Notification error:", notifError);
+  }
+
   revalidatePath("/parametres/demandes-lien");
   return { success: true };
 }
@@ -273,6 +305,37 @@ export async function refuserDemandeLien(demandeId: string, motifRefus: string) 
       motifRefus,
     },
   });
+
+  // --- Notification IN_APP au parent : lien refusé ---
+  try {
+    // Récupérer le nom de l'enfant
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
+    const demandeInfo = await prisma.demandeLienParent.findFirst({
+      where: { id: demandeId },
+      select: {
+        eleve: { select: { nom: true, prenom: true } },
+      },
+    });
+    const eleveNom = demandeInfo
+      ? `${demandeInfo.eleve.prenom} ${demandeInfo.eleve.nom}`
+      : "l'enfant";
+    await prisma.notification.create({
+      data: {
+        tenantId: session.user.tenantId,
+        titre: "Lien parent refusé",
+        contenu: `Votre demande de rattachement pour ${eleveNom} a été refusée.\n\nMotif : ${motifRefus}`,
+        canal: "IN_APP",
+        statut: "ENVOYEE",
+        cible: "PARENTS",
+        envoyeParId: session.user.id,
+        nbDestinataires: 1,
+        nbDelivres: 1,
+        envoyeeAt: new Date(),
+      },
+    });
+  } catch (notifError) {
+    console.error("[refuserDemandeLien] Notification error:", notifError);
+  }
 
   revalidatePath("/parametres/demandes-lien");
   return { success: true };

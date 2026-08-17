@@ -80,6 +80,44 @@ interface AnalyticsData {
   classeRadarData: { classe: string; moyenne: number }[];
 }
 
+// ─── Types : intelligence LEARNOS ─────────────────────────────────────────────
+
+interface RisqueDecrochageData {
+  totalEleves: number;
+  risqueEleve: number;
+  risqueModere: number;
+  risqueFaible: number;
+  decrochageSilencieux: number;
+  eleves: {
+    eleveId: string;
+    nom: string;
+    prenom: string;
+    score: number;
+    niveau: "FAIBLE" | "MODERE" | "ELEVE";
+    decrochageSilencieux: boolean;
+    moyenneActuelle: number | null;
+  }[];
+}
+
+interface IndiceComposite {
+  code: string;
+  nom: string;
+  valeur: number;
+  composantes: Record<string, number>;
+  donneesInsuffisantes: boolean;
+  explication: string;
+}
+
+interface DirectionIntelligenceData {
+  isp: IndiceComposite;
+  ieis: IndiceComposite;
+  ivf: IndiceComposite;
+  ics: IndiceComposite;
+  roiPedagogique: IndiceComposite | null;
+  iro: IndiceComposite;
+  santeGlobale: number;
+}
+
 // ─── Composants utilitaires ───────────────────────────────────────────────────
 
 function StatCard({
@@ -94,7 +132,7 @@ function StatCard({
 }) {
   return (
     <Card className="border-0 shadow-sm">
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs text-gray-500 mb-1">{title}</p>
@@ -137,6 +175,11 @@ export function AnalyticsView() {
   const [loading, setLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
+  // États pour les nouveaux indicateurs d'intelligence LEARNOS
+  const [risqueDecrochage, setRisqueDecrochage] = useState<RisqueDecrochageData | null>(null);
+  const [risqueLoading, setRisqueLoading] = useState(true);
+  const [directionIntel, setDirectionIntel] = useState<DirectionIntelligenceData | null>(null);
+  const [intelLoading, setIntelLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/analytics")
@@ -147,6 +190,30 @@ export function AnalyticsView() {
       .then((d) => setData(d))
       .catch((e) => console.error("[Analytics] Erreur fetch:", e))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Fetch du score de risque de décrochage (I10 + A8)
+  useEffect(() => {
+    fetch("/api/learnos/risque-decrochage")
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => setRisqueDecrochage(d))
+      .catch((e) => console.error("[Analytics] Erreur risque-decrochage:", e))
+      .finally(() => setRisqueLoading(false));
+  }, []);
+
+  // Fetch des indices de santé (direction-intelligence)
+  useEffect(() => {
+    fetch("/api/learnos/direction-intelligence")
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => setDirectionIntel(d))
+      .catch((e) => console.error("[Analytics] Erreur direction-intelligence:", e))
+      .finally(() => setIntelLoading(false));
   }, []);
 
   if (loading) {
@@ -201,9 +268,9 @@ export function AnalyticsView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* KPI principaux */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           title={t("activeStudents")}
           value={synthese.totalEleves}
@@ -645,6 +712,137 @@ export function AnalyticsView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          NOUVEAU : Score de risque de décrochage (I10 + A8)
+          ════════════════════════════════════════════════════════════════ */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-500" />
+            {t("risqueDecrochageTitle")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {risqueLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : !risqueDecrochage ? (
+            <div className="h-24 flex items-center justify-center text-gray-400 text-sm">
+              {t("noRisqueData")}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                {/* Total élèves */}
+                <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 sm:p-4">
+                  <p className="text-xs text-gray-500 mb-1">{t("rdTotalEleves")}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                    {risqueDecrochage.totalEleves}
+                  </p>
+                </div>
+                {/* Risque élevé */}
+                <div className="rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10 p-3 sm:p-4">
+                  <p className="text-xs text-red-600 dark:text-red-400 mb-1">{t("rdRisqueEleve")}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400">
+                    {risqueDecrochage.risqueEleve}
+                  </p>
+                </div>
+                {/* Risque modéré */}
+                <div className="rounded-xl border border-orange-100 dark:border-orange-900/30 bg-orange-50/50 dark:bg-orange-900/10 p-3 sm:p-4">
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mb-1">{t("rdRisqueModere")}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    {risqueDecrochage.risqueModere}
+                  </p>
+                </div>
+                {/* Décrochage silencieux */}
+                <div className="rounded-xl border border-purple-100 dark:border-purple-900/30 bg-purple-50/50 dark:bg-purple-900/10 p-3 sm:p-4">
+                  <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">{t("rdDecrochageSilencieux")}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                    {risqueDecrochage.decrochageSilencieux}
+                  </p>
+                </div>
+              </div>
+              {risqueDecrochage.decrochageSilencieux > 0 && (
+                <p className="mt-3 text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                  {t("rdSilencieuxAlert", { count: risqueDecrochage.decrochageSilencieux })}
+                </p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ════════════════════════════════════════════════════════════════
+          NOUVEAU : Indices de santé (direction-intelligence)
+          ════════════════════════════════════════════════════════════════ */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
+            {t("indicesSanteTitle")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {intelLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : !directionIntel ? (
+            <div className="h-24 flex items-center justify-center text-gray-400 text-sm">
+              {t("noIndicesData")}
+            </div>
+          ) : (
+            <>
+              {/* Score de santé globale */}
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-xs text-gray-500">{t("santeGlobale")}</span>
+                <span className={cn(
+                  "text-lg font-bold",
+                  directionIntel.santeGlobale >= 0.7 ? "text-green-600"
+                    : directionIntel.santeGlobale >= 0.4 ? "text-orange-500"
+                    : "text-red-600"
+                )}>
+                  {Math.round(directionIntel.santeGlobale * 100)}%
+                </span>
+              </div>
+              {/* 4 indices clés avec mini barres de progression */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                {([
+                  { key: "isp", label: "ISP", color: "#6366f1", indice: directionIntel.isp },
+                  { key: "ivf", label: "IVF", color: "#10b981", indice: directionIntel.ivf },
+                  { key: "ics", label: "ICS", color: "#f59e0b", indice: directionIntel.ics },
+                  { key: "iro", label: "IRO", color: "#ec4899", indice: directionIntel.iro },
+                ] as const).map(({ key, label, color, indice }) => (
+                  <div key={key} className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 sm:p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">{label}</span>
+                      <span className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+                        {Math.round(indice.valeur * 100)}%
+                      </span>
+                    </div>
+                    {/* Mini barre de progression */}
+                    <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.round(indice.valeur * 100)}%`,
+                          backgroundColor: color,
+                        }}
+                      />
+                    </div>
+                    {indice.donneesInsuffisantes && (
+                      <p className="mt-1.5 text-[10px] text-gray-400">{t("donneesInsuffisantes")}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

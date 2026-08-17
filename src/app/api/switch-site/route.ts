@@ -1,26 +1,22 @@
 import { NextResponse } from "next/server";
-import { auth, unstable_update } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { deriveClaims, resolveSiteAccess } from "@/lib/tenant-claims";
+import { resolveSiteAccess } from "@/lib/tenant-claims";
 import { auditFire } from "@/lib/audit";
 import { erreurJson } from "@/lib/erreurs-api";
+import { refreshSessionCookie } from "@/lib/refresh-session-cookie";
 
 const BodySchema = z.object({
-  // `null` = « tous les sites » (direction générale uniquement).
   siteId: z.string().min(1).nullable(),
 });
 
 /**
  * POST /api/switch-site — bascule le site actif de l'utilisateur.
  *
- * Toutes les vérifications sont bornées au **tenant actif de la session**.
- * C'est le point essentiel : `UserSite` ne porte pas de `tenantId`, si bien que
- * l'implémentation précédente acceptait n'importe quel `siteId` pour lequel
- * l'utilisateur possédait une ligne `UserSite`, y compris dans un AUTRE
- * établissement — et adoptait le rôle qui y était inscrit. Un compte simple
- * dans l'établissement A, administrateur dans l'établissement B, pouvait ainsi
- * devenir administrateur de A.
+ * Le JWT est re-encodé manuellement et le cookie de session est posé via
+ * le header `Set-Cookie` car `unstable_update` ne persiste pas le cookie
+ * dans un Route Handler (bug connu de next-auth v5 beta).
  */
 export async function POST(req: Request) {
   try {
@@ -48,7 +44,6 @@ export async function POST(req: Request) {
     const userId = session.user.id;
 
     if (siteId) {
-      // Site précis : doit appartenir au tenant actif ET être autorisé.
       const access = await resolveSiteAccess(userId, tenantId, siteId);
       if (!access) {
         auditFire({
@@ -63,9 +58,6 @@ export async function POST(req: Request) {
         return erreurJson("ACCES_REFUSE");
       }
     } else {
-      // « Tous les sites » : réservé à la direction générale du tenant actif.
-      // Le rôle est relu depuis l'adhésion au tenant, jamais depuis la colonne
-      // `User.role` qu'une bascule antérieure a pu écraser.
       const membership = await prisma.userTenant.findFirst({
         where: { userId, tenantId, isActive: true },
         select: { role: true },
@@ -94,22 +86,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // Persister uniquement le site sélectionné. Le rôle effectif n'est PAS
-    // écrit sur `User` : il est dérivé du couple (tenant actif, site actif) par
-    // `deriveClaims`. L'ancienne version écrasait `User.role` à chaque bascule,
-    // ce qui rendait une élévation de privilèges persistante et faussait le
-    // rôle dans les autres établissements de l'utilisateur.
     // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
     await prisma.user.update({
       where: { id: userId },
       data: { siteId },
     });
 
-    // Régénérer le JWT depuis la base (source de vérité).
-    await unstable_update({ user: { siteId } } as never);
-
-    const claims = await deriveClaims(userId, tenantId);
-    if (!claims) {
+    const result = await refreshSessionCookie(userId, tenantId);
+    if (!result) {
       auditFire({
         userId,
         tenantId,
@@ -120,7 +104,8 @@ export async function POST(req: Request) {
       return erreurJson("UTILISATEUR_INTROUVABLE");
     }
 
-    // Liste des sites proposables, strictement bornée aux droits de l'utilisateur.
+    const { claims, setCookie } = result;
+
     const isTenantWide = claims.role === "TENANT_ADMIN" || claims.role === "SUPER_ADMIN";
     const sites = await prisma.site.findMany({
       where: {
@@ -132,12 +117,15 @@ export async function POST(req: Request) {
       orderBy: { nom: "asc" },
     });
 
-    return NextResponse.json({
-      success: true,
-      activeSiteId: claims.siteId,
-      activeRole: claims.role,
-      sites,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        activeSiteId: claims.siteId,
+        activeRole: claims.role,
+        sites,
+      },
+      { headers: { "Set-Cookie": setCookie } },
+    );
   } catch (error) {
     console.error("Erreur switch site:", error);
     return erreurJson("ERREUR_SERVEUR");

@@ -5,26 +5,46 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
-    facture: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      count: vi.fn(),
+vi.mock("@/lib/prisma", () => {
+  const facture = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  };
+  const paiement = {
+    create: vi.fn(),
+    count: vi.fn(),
+  };
+  const eleve = {
+    findUnique: vi.fn(),
+  };
+  const echeancier = {
+    findFirst: vi.fn().mockResolvedValue(null),
+  };
+  const echeancePaiement = {
+    findFirst: vi.fn(),
+    findUniqueOrThrow: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  };
+  return {
+    default: {
+      facture,
+      paiement,
+      eleve,
+      echeancier,
+      echeancePaiement,
+      // `$transaction` exécute la callback en lui passant un objet `tx`
+      // qui partage les mêmes mocks — les assertions `toHaveBeenCalledWith`
+      // restent ainsi valables.
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ facture, paiement, eleve, echeancier, echeancePaiement })
+      ),
     },
-    paiement: {
-      create: vi.fn(),
-      count: vi.fn(),
-    },
-    // `createFacture` lit le site de l'élève pour rattacher la facture au bon
-    // site — sans ce délégué, l'action échoue avant toute assertion.
-    eleve: {
-      findUnique: vi.fn(),
-    },
-  },
-}));
+  };
+});
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -58,6 +78,16 @@ const mockPrisma = prisma as unknown as {
   eleve: {
     findUnique: ReturnType<typeof vi.fn>;
   };
+  echeancier: {
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  echeancePaiement: {
+    findFirst: ReturnType<typeof vi.fn>;
+    findUniqueOrThrow: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+  };
+  $transaction: ReturnType<typeof vi.fn>;
 };
 
 describe("facture actions", () => {

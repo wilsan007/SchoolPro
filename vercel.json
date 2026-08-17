@@ -21,7 +21,6 @@
   ],
   "env": {
     "NEXT_PUBLIC_APP_URL": "https://ecolpro.app",
-    "NEXT_PUBLIC_APP_NAME": "EcolPro",
-    "AUTH_URL": "https://ecolpro.app"
+    "NEXT_PUBLIC_APP_NAME": "EcolPro"
   }
 }

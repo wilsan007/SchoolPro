@@ -808,7 +808,7 @@ export function NewConversationComposer({
         </div>
 
         {/* Pied */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-muted/30">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 border-t bg-muted/30">
           <p className="text-[11px] text-muted-foreground leading-tight">
             {intent === "ANNONCE"
               ? t("footerAnnounce")

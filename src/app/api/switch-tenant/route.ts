@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth, unstable_update } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { deriveClaims } from "@/lib/tenant-claims";
 import { auditFire } from "@/lib/audit";
 import { erreurJson } from "@/lib/erreurs-api";
+import { refreshSessionCookie } from "@/lib/refresh-session-cookie";
 
 const BodySchema = z.object({
   tenantId: z.string().min(1),
@@ -13,8 +13,9 @@ const BodySchema = z.object({
 /**
  * POST /api/switch-tenant — bascule l'établissement actif.
  *
- * L'accès est prouvé par une adhésion `UserTenant` active. Le rôle appliqué est
- * celui porté par cette adhésion : jamais celui d'un autre établissement.
+ * Le JWT est re-encodé manuellement et le cookie de session est posé via
+ * le header `Set-Cookie` car `unstable_update` ne persiste pas le cookie
+ * dans un Route Handler (bug connu de next-auth v5 beta).
  */
 export async function POST(req: Request) {
   try {
@@ -36,7 +37,6 @@ export async function POST(req: Request) {
     const { tenantId } = parsed.data;
     const userId = session.user.id;
 
-    // Vérifier que l'utilisateur a bien une adhésion ACTIVE à ce tenant.
     const userTenant = await prisma.userTenant.findFirst({
       where: { userId, tenantId, isActive: true },
       select: {
@@ -67,8 +67,6 @@ export async function POST(req: Request) {
         where: { userId_tenantId: { userId, tenantId } },
         data: { isDefault: true },
       }),
-      // `siteId` est remis à null : les sites appartiennent à un tenant, en
-      // conserver un d'un autre établissement produirait un périmètre incohérent.
       // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
       prisma.user.update({
         where: { id: userId },
@@ -76,12 +74,8 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    // Régénérer le JWT : le callback `jwt` relit le périmètre complet depuis la
-    // base pour le tenant demandé (sites autorisés, rôle, drapeau multi-sites).
-    await unstable_update({ user: { tenantId } } as never);
-
-    const claims = await deriveClaims(userId, tenantId);
-    if (!claims) {
+    const result = await refreshSessionCookie(userId, tenantId);
+    if (!result) {
       auditFire({
         userId,
         tenantId,
@@ -92,17 +86,22 @@ export async function POST(req: Request) {
       return erreurJson("UTILISATEUR_INTROUVABLE");
     }
 
-    return NextResponse.json({
-      success: true,
-      activeTenant: {
-        tenantId: userTenant.tenant.id,
-        tenantName: userTenant.tenant.name,
-        tenantSlug: userTenant.tenant.slug,
-        tenantLogo: userTenant.tenant.logoUrl,
-        role: claims.role,
+    const { claims, setCookie } = result;
+
+    return NextResponse.json(
+      {
+        success: true,
+        activeTenant: {
+          tenantId: userTenant.tenant.id,
+          tenantName: userTenant.tenant.name,
+          tenantSlug: userTenant.tenant.slug,
+          tenantLogo: userTenant.tenant.logoUrl,
+          role: claims.role,
+        },
+        availableTenants: claims.availableTenants,
       },
-      availableTenants: claims.availableTenants,
-    });
+      { headers: { "Set-Cookie": setCookie } },
+    );
   } catch (error) {
     console.error("Erreur switch tenant:", error);
     return erreurJson("ERREUR_SERVEUR");

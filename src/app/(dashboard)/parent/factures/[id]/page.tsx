@@ -112,9 +112,9 @@ export default async function ParentFactureDetailPage({
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
         <div className="mx-auto max-w-2xl space-y-6">
-          <Button asChild variant="ghost" size="sm">
+          <Button asChild variant="ghost" size="sm" className="w-full sm:w-auto">
             <Link href="/parent">
               <ArrowLeft className="h-4 w-4" />
               {tc("back")}
@@ -126,7 +126,7 @@ export default async function ParentFactureDetailPage({
               <CardTitle>{facture.libelle}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">{t("numero")}</p>
                   <p className="font-medium">{facture.numero}</p>
@@ -174,7 +174,7 @@ export default async function ParentFactureDetailPage({
               <CardContent>
                 <div className="space-y-3">
                   {facture.paiements.map((p) => (
-                    <div key={p.id} className="flex justify-between border-b pb-2 text-sm last:border-0">
+                    <div key={p.id} className="flex flex-col sm:flex-row justify-between border-b pb-2 text-sm last:border-0 gap-2">
                       <div>
                         <p className="font-medium">{formatMoney(p.montant, p.devise)}</p>
                         <p className="text-muted-foreground">

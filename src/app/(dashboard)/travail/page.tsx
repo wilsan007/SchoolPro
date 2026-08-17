@@ -11,6 +11,7 @@ import {
   siteFilterForModel,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { getDemoNow } from "@/lib/demo-now";
 import { cn } from "@/lib/utils";
 
 /**
@@ -70,7 +71,7 @@ export default async function TravailPage({
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         {entete}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <p className="text-sm text-muted-foreground">{t("aucunTravail")}</p>
         </div>
       </div>
@@ -84,14 +85,14 @@ export default async function TravailPage({
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         {entete}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <p className="text-sm text-muted-foreground">{t("aucunTravail")}</p>
         </div>
       </div>
     );
   }
 
-  const now = new Date();
+  const now = await getDemoNow();
   const devoirs = await prisma.devoir.findMany({
     where: {
       tenantId,
@@ -109,7 +110,7 @@ export default async function TravailPage({
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {entete}
-      <div className="flex-1 space-y-4 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         {eleves.length > 1 && (
           <nav className="flex flex-wrap gap-2">
             {eleves.map((e) => (

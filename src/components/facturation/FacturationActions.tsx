@@ -147,7 +147,7 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
         <Button size="sm" variant="default" className="gap-2" onClick={() => setShowGenModal(!showGenModal)}>
           <Zap className="h-4 w-4" />
           {t("generateMonthly")}
@@ -179,7 +179,7 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="gen-mois">{t("month")}</Label>
                 <select id="gen-mois" value={genMois} onChange={(e) => setGenMois(parseInt(e.target.value))}
@@ -232,15 +232,15 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
               <p className="text-sm text-muted-foreground text-center py-4">{t("noOverdueInvoices")}</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead className="bg-muted/50 border-b">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">{t("number")}</th>
                       <th className="text-left px-3 py-2 font-medium">{t("student")}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t("class")}</th>
+                      <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("class")}</th>
                       <th className="text-right px-3 py-2 font-medium">{t("remaining")}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t("dueDate")}</th>
-                      <th className="text-center px-3 py-2 font-medium">{t("reminders")}</th>
+                      <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("dueDate")}</th>
+                      <th className="text-center px-3 py-2 font-medium hidden sm:table-cell">{t("reminders")}</th>
                       <th className="text-right px-3 py-2 font-medium">{t("actions")}</th>
                     </tr>
                   </thead>
@@ -249,10 +249,10 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
                       <tr key={f.id} className="border-b hover:bg-muted/30">
                         <td className="px-3 py-2 font-mono text-xs">{f.numero}</td>
                         <td className="px-3 py-2">{f.eleveNom}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{f.classe}</td>
+                        <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">{f.classe}</td>
                         <td className="px-3 py-2 text-right font-medium text-destructive">{f.restant} DJF</td>
-                        <td className="px-3 py-2 text-xs">{f.echeance ? new Date(f.echeance).toLocaleDateString("fr-FR") : "—"}</td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-3 py-2 text-xs hidden sm:table-cell">{f.echeance ? new Date(f.echeance).toLocaleDateString("fr-FR") : "—"}</td>
+                        <td className="px-3 py-2 text-center hidden sm:table-cell">
                           {f.dernierNiveauRelance > 0 ? (
                             <Badge variant="warning">{t("level")} {f.dernierNiveauRelance}</Badge>
                           ) : (
@@ -307,15 +307,15 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
               <p className="text-sm text-muted-foreground text-center py-4">{t("noExclusions")}</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead className="bg-muted/50 border-b">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">{t("student")}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t("class")}</th>
+                      <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("class")}</th>
                       <th className="text-left px-3 py-2 font-medium">{t("reason")}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t("details")}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t("since")}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t("decidedBy")}</th>
+                      <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("details")}</th>
+                      <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("since")}</th>
+                      <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("decidedBy")}</th>
                       <th className="text-right px-3 py-2 font-medium">{t("actions")}</th>
                     </tr>
                   </thead>
@@ -323,11 +323,11 @@ export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?
                     {exclusions.map((ex) => (
                       <tr key={ex.id} className="border-b hover:bg-muted/30">
                         <td className="px-3 py-2 font-medium">{ex.eleve.prenom} {ex.eleve.nom}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{ex.eleve.classe?.nom ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">{ex.eleve.classe?.nom ?? "—"}</td>
                         <td className="px-3 py-2"><Badge variant="destructive">{ex.motif}</Badge></td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground max-w-xs truncate">{ex.details ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs">{new Date(ex.dateDebut).toLocaleDateString("fr-FR")}</td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{ex.decideePar?.name ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground max-w-xs truncate hidden sm:table-cell">{ex.details ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs hidden sm:table-cell">{new Date(ex.dateDebut).toLocaleDateString("fr-FR")}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground hidden sm:table-cell">{ex.decideePar?.name ?? "—"}</td>
                         <td className="px-3 py-2 text-right">
                           <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
                             onClick={() => handleLeverExclusion(ex.id)}>

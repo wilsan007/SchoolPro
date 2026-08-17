@@ -173,12 +173,12 @@ export function FacturesTable({ factures }: FacturesTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-2">
         <Input
           placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-9 max-w-xs"
+          className="h-9 w-full sm:max-w-xs"
         />
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowFilters(!showFilters)}>
           <Filter className="h-4 w-4" />
@@ -188,7 +188,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
           <Download className="h-4 w-4" />
           {t("export")}
         </Button>
-        <Button asChild size="sm" className="gap-2 ml-auto">
+        <Button asChild size="sm" className="gap-2 ml-auto w-full sm:w-auto">
           <Link href="/facturation/nouvelle">
             <Plus className="h-4 w-4" />
             {t("newInvoice")}
@@ -198,7 +198,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
 
       {showFilters && (
         <Card>
-          <CardContent className="pt-4 flex flex-wrap gap-4 items-end">
+          <CardContent className="pt-4 flex flex-col sm:flex-row sm:flex-wrap gap-4 items-end">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">{t("status")}</label>
               <select
@@ -242,7 +242,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
         </Card>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">{t("totalInvoiced")}</p>
@@ -266,17 +266,17 @@ export function FacturesTable({ factures }: FacturesTableProps) {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">{t("colNumber")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colStudent")}</th>
-                  <th className="text-left px-4 py-3 font-medium">{t("colLabel")}</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">{t("colLabel")}</th>
                   <th className="text-right px-4 py-3 font-medium">{t("colAmount")}</th>
-                  <th className="text-right px-4 py-3 font-medium">{t("colPaid")}</th>
-                  <th className="text-left px-4 py-3 font-medium">{t("colDueDate")}</th>
+                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">{t("colPaid")}</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">{t("colDueDate")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("colStatus")}</th>
-                  <th className="text-left px-4 py-3 font-medium">{t("recordedBy")}</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">{t("recordedBy")}</th>
                   <th className="text-right px-4 py-3 font-medium">{t("colActions")}</th>
                 </tr>
               </thead>
@@ -299,16 +299,16 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                           <div className="text-xs text-muted-foreground">{f.eleve.matricule} · {f.eleve.classe?.nom ?? t("notApplicable")}</div>
                           <PaymentMethodsBadges paiements={f.paiements} t={t} />
                         </td>
-                        <td className="px-4 py-3">{f.libelle}</td>
+                        <td className="px-4 py-3 hidden sm:table-cell">{f.libelle}</td>
                         <td className="px-4 py-3 text-right font-medium">{formatMoney(f.montant, f.devise)}</td>
-                        <td className="px-4 py-3 text-right text-green-600">{formatMoney(paye, f.devise)}</td>
-                        <td className="px-4 py-3 text-xs">
+                        <td className="px-4 py-3 text-right text-green-600 hidden sm:table-cell">{formatMoney(paye, f.devise)}</td>
+                        <td className="px-4 py-3 text-xs hidden sm:table-cell">
                           {f.echeance ? new Date(f.echeance).toLocaleDateString("fr-FR") : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={cfg.variant}>{t(cfg.labelKey)}</Badge>
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                        <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">
                           {f.createdBy?.name ?? "—"}
                         </td>
                         <td className="px-4 py-3 text-right">

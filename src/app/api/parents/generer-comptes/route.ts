@@ -231,6 +231,26 @@ export async function POST(req: NextRequest) {
       data: { userId: user.id },
     });
 
+    // --- Notification IN_APP au nouveau parent ---
+    try {
+      await prisma.notification.create({
+        data: {
+          tenantId,
+          titre: "Compte parent créé",
+          contenu: `Votre compte parent a été créé avec succès.\n\nIdentifiant : ${username}\n\nPour des raisons de sécurité, vous devrez changer votre mot de passe lors de votre première connexion.`,
+          canal: "IN_APP",
+          statut: "ENVOYEE",
+          cible: "PARENTS",
+          envoyeParId: session.user.id,
+          nbDestinataires: 1,
+          nbDelivres: 1,
+          envoyeeAt: new Date(),
+        },
+      });
+    } catch (notifError) {
+      console.error("[generer-comptes/parents] Notification error:", notifError);
+    }
+
     accounts.push({
       nom: `${info.prenom} ${info.nom}`,
       username,

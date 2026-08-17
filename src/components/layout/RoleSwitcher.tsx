@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import { ChevronDown, Check, Loader2, UserCog } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { Role } from "@prisma/client";
+import { switchRoleAction } from "@/lib/actions/switch-role";
 
 /** Labels courts pour chaque rôle, affichés dans le dropdown. */
 const ROLE_LABEL_KEYS: Record<Role, string> = {
@@ -18,6 +19,7 @@ const ROLE_LABEL_KEYS: Record<Role, string> = {
   COUNSELOR: "COUNSELOR",
   NURSE: "NURSE",
   ACCOUNTANT: "ACCOUNTANT",
+  CAISSIER: "CAISSIER",
   SUPERVISOR: "SUPERVISOR",
   SUBJECT_LEAD: "SUBJECT_LEAD",
   SITE_MANAGER: "SITE_MANAGER",
@@ -36,15 +38,16 @@ interface RoleSwitcherProps {
 /**
  * Bascule entre les rôles possédés par l'utilisateur dans le même tenant.
  *
- * Un utilisateur qui possède plusieurs rôles (ex: enseignant + parent) dans
- * le même établissement peut changer de contexte sans se déconnecter. Le
- * dropdown appelle `/api/switch-role` qui met à jour uniquement le rôle
- * **actif** — les autres rôles restent possédés et disponibles.
+ * Utilise une **Server Action** (`switchRoleAction`) au lieu d'une API
+ * route : `unstable_update` de next-auth v5 persiste correctement le
+ * cookie de session dans les Server Actions (pas dans les Route
+ * Handlers). La page est rafraîchie automatiquement via
+ * `revalidatePath` + `router.refresh()`.
  */
 export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps) {
   const [open, setOpen] = useState(false);
-  const [switching, setSwitching] = useState(false);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const tRoles = useTranslations("roles");
@@ -63,32 +66,30 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
   // Ne pas afficher si moins de 2 rôles disponibles.
   if (availableRoles.length < 2) return null;
 
-  async function handleSwitch(role: Role) {
-    if (switching || role === currentRole) return;
-    setSwitching(true);
+  function handleSwitch(role: Role) {
+    if (isPending || role === currentRole) return;
     setSwitchingTo(role);
 
-    try {
-      const res = await fetch("/api/switch-role", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
+    startTransition(async () => {
+      try {
+        const result = await switchRoleAction(role);
+        if (!result.success) {
+          console.error("Erreur switch role:", result.error);
+          setSwitchingTo(null);
+          setOpen(false);
+          return;
+        }
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Erreur lors du changement de rôle");
+        // La Server Action a déjà appelé revalidatePath, mais on
+        // force un router.refresh() pour que les Server Components
+        // re-render avec le nouveau rôle immédiatement.
+        router.refresh();
+      } catch (error) {
+        console.error("Erreur switch role:", error);
+        setSwitchingTo(null);
+        setOpen(false);
       }
-
-      // Recharger la page pour que le JWT soit mis à jour.
-      router.refresh();
-      window.location.reload();
-    } catch (error) {
-      console.error("Erreur switch role:", error);
-      setSwitching(false);
-      setSwitchingTo(null);
-      setOpen(false);
-    }
+    });
   }
 
   return (
@@ -130,13 +131,13 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
                     if (!isCurrent) handleSwitch(role);
                     else setOpen(false);
                   }}
-                  disabled={switching}
+                  disabled={isPending}
                   className={cn(
                     "flex items-center gap-2 w-full px-3 py-2.5 text-sm transition-colors text-left",
                     isCurrent
                       ? "bg-indigo-600/20 text-indigo-200"
                       : "text-slate-300 hover:bg-slate-800",
-                    switching && !isSwitching && "opacity-50"
+                    isPending && !isSwitching && "opacity-50"
                   )}
                 >
                   <div className="flex-1 min-w-0">

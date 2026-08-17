@@ -9,6 +9,7 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { syntheseClasse } from "@/lib/learnos/suivi-classe";
+import { getDemoNow } from "@/lib/demo-now";
 import { Users, MessageSquare, ExternalLink, ChevronRight } from "lucide-react";
 
 /**
@@ -61,8 +62,9 @@ export default async function MaClassePage({
   });
 
   const classeId = classeDemandee ?? classes[0]?.id;
+  const maintenant = await getDemoNow();
   const synthese = classeId
-    ? await syntheseClasse(tenantId, classeId, claims)
+    ? await syntheseClasse(tenantId, classeId, claims, maintenant)
     : null;
 
   // ---------------------------------------------------------------
@@ -85,7 +87,7 @@ export default async function MaClassePage({
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin space-y-4 sm:space-y-6">
         {!synthese ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -97,7 +99,7 @@ export default async function MaClassePage({
             {/* 1. Raccourci vers le conseil de classe — prof principal seul. */}
             {isProfPrincipal && (
               <div className="flex justify-end">
-                <Button asChild variant="outline" size="sm">
+                <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
                   <Link href="/notes/bulletins">
                     <Users className="h-4 w-4 mr-2" />
                     {tmc("conseilClasse")}
@@ -125,7 +127,7 @@ export default async function MaClassePage({
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="min-w-[640px] w-full text-sm">
                       <thead>
                         <tr className="border-b text-left text-muted-foreground">
                           <th className="py-2 pr-4 font-medium">{tmc("eleve")}</th>

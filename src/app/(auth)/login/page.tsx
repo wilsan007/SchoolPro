@@ -60,7 +60,7 @@ function LoginForm() {
   return (
     <div className="w-full max-w-md">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           {t("subtitle")}
         </p>
@@ -140,7 +140,7 @@ function LoginForm() {
 // ─── Page principale avec Suspense (requis par Next.js 15 pour useSearchParams) ─
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-8 bg-background">
+    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 bg-background">
       <Suspense fallback={
         <div className="flex items-center justify-center w-full h-full">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />

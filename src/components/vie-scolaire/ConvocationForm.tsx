@@ -97,7 +97,7 @@ export function ConvocationForm({ classes, tenant }: { classes: Classe[]; tenant
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>{t("convocationClass")}</Label>
             <Select value={classeId} onValueChange={(v) => { setClasseId(v); setEleveId(""); }}>
@@ -122,7 +122,7 @@ export function ConvocationForm({ classes, tenant }: { classes: Classe[]; tenant
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>{t("convocationMotif")}</Label>
             <Select value={motif} onValueChange={setMotif}>
@@ -162,7 +162,7 @@ export function ConvocationForm({ classes, tenant }: { classes: Classe[]; tenant
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-end w-full sm:w-auto">
           <Button onClick={handlePrint} disabled={!eleveId || generating} className="gap-2">
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
             {t("convocationPrint")}

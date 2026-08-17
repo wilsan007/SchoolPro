@@ -123,13 +123,13 @@ export default function AuditJournalPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-7xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <Shield className="w-8 h-8 text-blue-600" />
+          <Shield className="w-8 h-8 text-blue-600 flex-shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Journal d&apos;audit</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Journal d&apos;audit</h1>
             <p className="text-sm text-gray-500">
               Traçabilité des actions sensibles et refus d&apos;autorisation
             </p>
@@ -137,7 +137,7 @@ export default function AuditJournalPage() {
         </div>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto justify-center"
         >
           <Download className="w-4 h-4" />
           Exporter CSV
@@ -218,7 +218,7 @@ export default function AuditJournalPage() {
         </div>
         <button
           type="submit"
-          className="mt-3 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+          className="mt-3 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 w-full sm:w-auto justify-center"
         >
           <Search className="w-4 h-4" />
           Filtrer
@@ -228,7 +228,7 @@ export default function AuditJournalPage() {
       {/* Table */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{ta("date")}</th>
@@ -287,7 +287,7 @@ export default function AuditJournalPage() {
 
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t">
+          <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t gap-2">
             <p className="text-sm text-gray-500">
               Page {pagination.page} sur {pagination.totalPages} — {pagination.total} entrées
             </p>

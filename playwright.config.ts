@@ -45,7 +45,11 @@ export default defineConfig({
     // `--` littéralement, et `next` le prend alors pour un répertoire de projet
     // (« Invalid project directory provided: …/-p »). On appelle donc `next`
     // directement, ce qui reste du pnpm — jamais `npx`, cf. AGENTS.md.
-    command: `pnpm exec next dev -p ${port}`,
+    //
+    // Playwright lance le webServer via `/bin/sh`, dont le PATH ne contient
+    // pas `pnpm` (fourni par corepack). On utilise le chemin absolu du shim
+    // corepack pour garantir que le serveur démarre quel que soit l'environnement.
+    command: `${process.env.HOME}/Library/pnpm/pnpm exec next dev -p ${port}`,
     url: baseURL,
     reuseExistingServer: true,
     timeout: 60000,

@@ -26,6 +26,7 @@ function fmt(v: number | null): string {
 export function BulletinAnnuelPreview({ data }: Props) {
   const t = useTranslations("bulletins");
   return (
+    <div className="overflow-x-auto">
     <div
       className="bg-white text-gray-900 font-sans text-[11px] print:text-[10px]"
       style={{
@@ -205,6 +206,7 @@ export function BulletinAnnuelPreview({ data }: Props) {
           </div>
           <p className="border-t border-black pt-1">{t("headTeacher")}</p>
         </div>
+      </div>
       </div>
     </div>
   );

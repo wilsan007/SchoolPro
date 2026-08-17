@@ -21,10 +21,14 @@ import type { AvailableTenant } from "@/auth.config";
  * sémantique des claims change : les JWT émis avec une version antérieure sont
  * alors ré-hydratés depuis la base à la première requête, sans reconnexion.
  */
-export const CLAIMS_VERSION = 3;
+export const CLAIMS_VERSION = 4;
 
 export interface TenantSiteClaims {
   tenantId: string | null;
+  /** Code ISO pays du tenant actif (ex: "DJ", "SN"). Sert au filtrage
+   *  des modèles partagés par pays (Question, Chapitre, Competence, Cours,
+   *  CalendrierOfficiel). Null si pas de tenant actif. */
+  country: string | null;
   role: Role;
   /** Site actuellement sélectionné, garanti appartenir au tenant actif. */
   siteId: string | null;
@@ -64,7 +68,7 @@ export async function deriveClaims(
           tenantId: true,
           role: true,
           isDefault: true,
-          tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+          tenant: { select: { id: true, name: true, slug: true, logoUrl: true, country: true } },
         },
       },
       userRoles: {
@@ -114,6 +118,7 @@ export async function deriveClaims(
   if (!activeTenantId) {
     return {
       tenantId: null,
+      country: null,
       role: tenantRole,
       siteId: null,
       siteIds: [],
@@ -186,16 +191,22 @@ export async function deriveClaims(
   }
 
   // ---- Rôle effectif ----------------------------------------------------
-  // Le rôle spécifique au site ne s'applique que s'il est explicitement
-  // défini (non null). Si role = NULL, l'utilisateur hérite du rôle global.
-  let effectiveRole = tenantRole;
-  if (selectedSiteId) {
-    const match = userSites.find((s) => s.siteId === selectedSiteId);
-    if (match && match.role) effectiveRole = match.role;
-  }
+  // Le rôle actif est **toujours** celui de `UserTenant.role` — c'est le
+  // seul pointeur que le switch-role modifie. `UserSite.role` sert
+  // uniquement à valider l'accès au site (resolveSiteAccess), jamais à
+  // surcharger le rôle pédagogique : sinon un directeur qui switch vers
+  // "Élève" reste bloqué sur TENANT_ADMIN à cause de sa ligne UserSite.
+  const effectiveRole = tenantRole;
+
+  // ---- Pays du tenant actif ----------------------------------------------
+  // Récupéré depuis les memberships déjà chargés (chosen.tenant.country).
+  // Sert au filtrage des modèles partagés par pays (Question, Chapitre…).
+  const activeMembership = memberships.find((m) => m.tenantId === activeTenantId);
+  const tenantCountry = activeMembership?.tenant.country ?? null;
 
   return {
     tenantId: activeTenantId,
+    country: tenantCountry,
     role: effectiveRole,
     siteId: selectedSiteId,
     siteIds,

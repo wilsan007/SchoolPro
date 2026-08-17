@@ -122,7 +122,7 @@ export function DemandesLienAdmin() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">{t("demandeParent")}</p>
                 <p className="font-medium">{d.parent.prenom} {d.parent.nom}</p>
@@ -138,7 +138,7 @@ export function DemandesLienAdmin() {
               </div>
             </div>
 
-            <div className="flex items-end gap-3 pt-2 border-t">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 pt-2 border-t">
               <div className="flex-1 space-y-2">
                 <Label className="text-xs">{t("motifRefus")}</Label>
                 <Input
@@ -155,7 +155,7 @@ export function DemandesLienAdmin() {
                 variant="default"
                 disabled={traitement === d.id}
                 onClick={() => handleValider(d.id, "TUTEUR")}
-                className="gap-1"
+                className="gap-1 w-full sm:w-auto"
               >
                 {traitement === d.id ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -169,7 +169,7 @@ export function DemandesLienAdmin() {
                 variant="destructive"
                 disabled={traitement === d.id}
                 onClick={() => handleRefuser(d.id)}
-                className="gap-1"
+                className="gap-1 w-full sm:w-auto"
               >
                 <XCircle className="h-4 w-4" />
                 {t("refuser")}

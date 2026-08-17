@@ -48,7 +48,7 @@ export function TenantSelector({ tenants, userName }: TenantSelectorProps) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 mb-4 shadow-lg shadow-indigo-500/20">
           <Building2 className="w-8 h-8 text-white" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
           {t("selectTenantTitle")}
         </h1>
         <p className="text-muted-foreground mt-2 text-sm">
@@ -65,7 +65,7 @@ export function TenantSelector({ tenants, userName }: TenantSelectorProps) {
               key={tenant.tenantId}
               onClick={() => handleSelect(tenant.tenantId)}
               disabled={switching !== null}
-              className={`w-full flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 text-left group
+              className={`w-full flex items-center gap-4 p-4 sm:p-5 rounded-2xl border transition-all duration-300 text-left group
                 ${switching === null
                   ? "border-border hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 cursor-pointer"
                   : isSwitching

@@ -89,10 +89,10 @@ export function BulletinsList({ classes, periodes }: { classes: any[]; periodes:
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-4">
       {/* Filtres */}
       <Card>
-        <CardContent className="p-4 flex gap-4">
+        <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <label className="text-sm font-medium mb-1.5 block">{t("classe")}</label>
             <Select value={selectedClasse} onValueChange={setSelectedClasse}>
@@ -124,7 +124,7 @@ export function BulletinsList({ classes, periodes }: { classes: any[]; periodes:
 
       {/* Tableau */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <CardTitle className="text-base font-semibold">{t("listTitle", { count: bulletins.length })}</CardTitle>
           <Button variant="outline" size="sm" className="gap-2" onClick={handleExportExcel} disabled={loading || bulletins.length === 0}>
             <FileSpreadsheet className="h-4 w-4" />
@@ -138,7 +138,7 @@ export function BulletinsList({ classes, periodes }: { classes: any[]; periodes:
             <div className="p-8 text-center text-muted-foreground">{t("noBulletins")}</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left min-w-[640px]">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">{t("student")}</th>

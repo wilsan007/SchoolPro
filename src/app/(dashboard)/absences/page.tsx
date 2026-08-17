@@ -12,13 +12,15 @@ import { getTranslations } from "next-intl/server";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { guardPage } from "@/lib/guard-page";
+import { getDemoNow } from "@/lib/demo-now";
 
 async function getAbsencesData(
   tenantId: string,
   siteFilter: Record<string, unknown>,
-  classeFilter?: { classeIds: string[]; isRestricted: boolean }
+  classeFilter?: { classeIds: string[]; isRestricted: boolean },
+  maintenant?: Date
 ) {
-  const today = new Date();
+  const today = maintenant ?? (await getDemoNow());
   const sevenDaysAgo = subDays(today, 7);
 
   const absenceWhere = {
@@ -95,15 +97,15 @@ export default async function AbsencesPage() {
         userAvatar={session.user.image ?? undefined}
       />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         {/* En-tête actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <AbsencesStats
             auJourdhui={data.absencesAujourdhui}
             semaine={data.absencesSemaine}
             nonJustifiees={data.absencesNonJustifiees}
           />
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button asChild size="sm" variant="outline" className="gap-2">
               <Link href="/absences/appel">
                 <ClipboardCheck className="h-4 w-4" />

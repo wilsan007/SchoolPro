@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, Search, Moon, Sun, LogOut, User, ChevronDown, CheckCircle2, AlertCircle, Info, Globe } from "lucide-react";
+import { Bell, Search, Moon, Sun, LogOut, User, ChevronDown, CheckCircle2, AlertCircle, Info, Globe, Menu } from "lucide-react";
+import { TimeMachineButton } from "@/components/time-machine/TimeMachineButton";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -94,11 +95,20 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-6 bg-background border-b border-border print:hidden">
+    <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-4 sm:px-6 bg-background border-b border-border print:hidden">
       {/* Titre de la page */}
-      <div>
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Hamburger menu — mobile only */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("sidebar-mobile-toggle"))}
+          className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
+          aria-label="Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+          <h1 className="text-base sm:text-lg font-semibold text-foreground truncate">{title}</h1>
           {site && (
             siteColor ? (
               <span
@@ -119,12 +129,13 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
           )}
         </div>
         {subtitle && (
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
         )}
+        </div>
       </div>
 
       {/* Actions droite */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         {/* Recherche globale */}
         <div className="relative hidden md:flex items-center">
           <Search className="absolute left-2.5 w-4 h-4 text-muted-foreground" />
@@ -181,6 +192,9 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
           )}
         </div>
 
+        {/* Time Machine — date de démo */}
+        <TimeMachineButton />
+
         {/* Notifications */}
         <div ref={notifRef} className="relative">
           <Button
@@ -197,7 +211,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
             )}
           </Button>
           {showNotifMenu && (
-            <div className="absolute right-0 mt-1 w-80 bg-popover border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+            <div className="absolute right-0 mt-1 w-[calc(100vw-2rem)] max-w-80 bg-popover border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
               <div className="px-4 py-3 border-b flex items-center justify-between">
                 <span className="text-sm font-semibold">{tCommon("notifications")}</span>
                 <button
@@ -259,7 +273,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-1 w-48 bg-popover border rounded-lg shadow-lg py-1 z-50">
+            <div className="absolute right-0 mt-1 w-44 sm:w-48 bg-popover border rounded-lg shadow-lg py-1 z-50">
               <button className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors">
                 <User className="h-4 w-4" />
                 {tCommon("myProfile")}

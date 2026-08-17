@@ -108,6 +108,30 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   });
 
+  // --- Notification IN_APP aux élèves quand le cours est publié ---
+  if (data.statut === "PUBLIE" && existing.statut !== "PUBLIE") {
+    try {
+      await prisma.notification.create({
+        data: {
+          tenantId: session.user.tenantId,
+          siteId: cours.siteId ?? null,
+          titre: "Nouveau cours disponible",
+          contenu: `Un nouveau cours a été publié : « ${cours.titre} ».\n\nNiveau : ${cours.niveau}${cours.description ? `\n\n${cours.description}` : ""}`,
+          canal: "IN_APP",
+          statut: "ENVOYEE",
+          cible: "ELEVES",
+          niveau: cours.niveau,
+          envoyeParId: session.user.id,
+          nbDestinataires: 1,
+          nbDelivres: 1,
+          envoyeeAt: new Date(),
+        },
+      });
+    } catch (notifError) {
+      console.error("[cours PATCH] Notification error:", notifError);
+    }
+  }
+
   return NextResponse.json({ cours });
 }
 

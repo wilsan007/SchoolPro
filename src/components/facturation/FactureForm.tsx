@@ -106,14 +106,14 @@ export function FactureForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-      <div className="flex items-center justify-between">
-        <Button asChild variant="outline" size="sm" className="gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <Button asChild variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
           <Link href="/facturation">
             <ArrowLeft className="h-4 w-4" />
             {t("formBack")}
           </Link>
         </Button>
-        <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
+        <Button type="submit" size="sm" className="gap-2 w-full sm:w-auto" disabled={isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {t("formCreate")}
         </Button>
@@ -123,8 +123,8 @@ export function FactureForm({
         <CardHeader>
           <CardTitle>{t("formNewInvoice")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5 md:col-span-2">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="eleveId">{t("formStudent")}</Label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div className={cn("sm:col-span-1", classes.length === 0 && "hidden")}>
@@ -159,7 +159,7 @@ export function FactureForm({
             {errors.eleveId && <p className="text-xs text-destructive">{errors.eleveId}</p>}
           </div>
 
-          <div className="space-y-1.5 md:col-span-2">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="libelle">{t("formLabel")}</Label>
             <Input
               id="libelle"

@@ -35,7 +35,7 @@ export default async function MaMatierePage() {
           userName={session!.user.name}
           userAvatar={session!.user.image ?? undefined}
         />
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <Card>
             <CardContent>
               <p className="text-sm text-muted-foreground text-center py-8">
@@ -69,7 +69,7 @@ export default async function MaMatierePage() {
           userName={session!.user.name}
           userAvatar={session!.user.image ?? undefined}
         />
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <Card>
             <CardContent>
               <p className="text-sm text-muted-foreground text-center py-8">
@@ -226,7 +226,7 @@ export default async function MaMatierePage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -287,7 +287,7 @@ export default async function MaMatierePage() {
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="min-w-[640px] w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b">
                       <th className="py-2 pr-4 font-medium">{t("classe")}</th>

@@ -67,25 +67,25 @@ export default async function EvaluationsPage({
   }
 
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-full">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gray-50 dark:bg-gray-950 min-h-full">
       {matiereId && (
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-xl flex justify-between items-center shadow-sm">
+        <div className="mb-4 sm:mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
             <p className="text-sm text-blue-800 dark:text-blue-400 font-medium">
               {t("filterActive")}
             </p>
           </div>
-          <Link href="/evaluations">
-            <Button size="sm" variant="outline" className="text-blue-600 hover:text-blue-800 bg-white border-blue-200">
+          <Link href="/evaluations" className="w-full sm:w-auto">
+            <Button size="sm" variant="outline" className="text-blue-600 hover:text-blue-800 bg-white border-blue-200 w-full sm:w-auto">
               {t("viewAllExams")}
             </Button>
           </Link>
         </div>
       )}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t("title")}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">{t("title")}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{t("subtitle")}</p>
         </div>
         <CreateEvaluationForm classes={classes} matieres={matieres} periodes={periodes} />
@@ -93,41 +93,41 @@ export default async function EvaluationsPage({
 
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left min-w-[640px]">
             <thead className="bg-[#0f4c75] dark:bg-gray-800 text-white">
               <tr>
                 <th className="px-4 py-3 font-semibold">{t("colTitle")}</th>
                 <th className="px-4 py-3 font-semibold">{t("colClass")}</th>
-                <th className="px-4 py-3 font-semibold">{t("colLevel")}</th>
+                <th className="px-4 py-3 font-semibold hidden sm:table-cell">{t("colLevel")}</th>
                 <th className="px-4 py-3 font-semibold">{t("colSubject")}</th>
                 <th className="px-4 py-3 font-semibold">{t("colDate")}</th>
-                <th className="px-4 py-3 font-semibold">{t("colDuration")}</th>
-                <th className="px-4 py-3 font-semibold">{t("colCoef")}</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">{t("colDuration")}</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">{t("colCoef")}</th>
                 <th className="px-4 py-3 font-semibold">{t("colType")}</th>
-                <th className="px-4 py-3 font-semibold">{t("colStatus")}</th>
-                <th className="px-4 py-3 font-semibold">{t("colPeriod")}</th>
-                <th className="px-4 py-3 font-semibold text-center">{t("colNotes")}</th>
+                <th className="px-4 py-3 font-semibold hidden sm:table-cell">{t("colStatus")}</th>
+                <th className="px-4 py-3 font-semibold hidden lg:table-cell">{t("colPeriod")}</th>
+                <th className="px-4 py-3 font-semibold text-center hidden sm:table-cell">{t("colNotes")}</th>
                 <th className="px-4 py-3 font-semibold text-center">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {evaluations.map((ev, idx) => (
                 <tr key={ev.id} className={idx % 2 === 0 ? "bg-white dark:bg-gray-900" : "bg-gray-50/50 dark:bg-gray-800/50"}>
-                  <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-100">{ev.titre}</td>
+                  <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-100 truncate max-w-[160px]">{ev.titre}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ev.classe.nom}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden sm:table-cell">
                     <Badge className="bg-orange-500 hover:bg-orange-600">{ev.classe.niveau ?? tc("defaultLevel")}</Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-gray-800 dark:text-gray-100">{ev.matiere.nom}</div>
+                    <div className="font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[140px]">{ev.matiere.nom}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Coef: {ev.coefficient}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                     <div className="font-medium">{format(ev.date, "dd/MM/yyyy")}</div>
                     <div className="text-xs">{format(ev.date, "HH:mm")}</div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ev.duree} min</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{ev.duree} min</td>
+                  <td className="px-4 py-3 hidden md:table-cell">
                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                       {ev.coefficient.toFixed(1)}
                     </Badge>
@@ -135,13 +135,13 @@ export default async function EvaluationsPage({
                   <td className="px-4 py-3">
                     <Badge className={getTypeColor(ev.type)}>{ev.type}</Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden sm:table-cell">
                     <Badge className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 border-none">
                       {ev.statut === "PLANIFIE" ? t("statusPlanned") : t("statusCompleted")}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ev.periode.nom}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{ev.periode.nom}</td>
+                  <td className="px-4 py-3 text-center hidden sm:table-cell">
                     <Badge className={ev._count.notes > 0 ? "bg-green-500" : "bg-orange-500"}>
                       {ev._count.notes}
                     </Badge>
@@ -154,10 +154,10 @@ export default async function EvaluationsPage({
                           {t("enterGrades")}
                         </Button>
                       </Link>
-                      <Button variant="outline" size="icon" className="h-8 w-8 text-yellow-600 border-yellow-200 hover:bg-yellow-50">
+                      <Button variant="outline" size="icon" className="h-8 w-8 text-yellow-600 border-yellow-200 hover:bg-yellow-50 hidden sm:inline-flex">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50">
+                      <Button variant="outline" size="icon" className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50 hidden sm:inline-flex">
                         <Star className="h-4 w-4" />
                       </Button>
                     </div>

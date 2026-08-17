@@ -151,23 +151,23 @@ export function InventaireView() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t("title")}</h1>
           <p className="text-gray-500 text-sm mt-1">{t("subtitle")}</p>
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" /> {t("addItem")}
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: t("totalItems"), value: stats.total, icon: Package, color: "text-indigo-600" },
           { label: t("totalValue"), value: `${stats.valeurTotale.toLocaleString("fr-FR")} FDJ`, icon: DollarSign, color: "text-green-600", small: true },
@@ -189,7 +189,7 @@ export function InventaireView() {
       </div>
 
       {/* Filtres */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -232,16 +232,16 @@ export function InventaireView() {
           <p>{t("noItems")}</p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("item")}</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("category")}</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("condition")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">{t("category")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">{t("condition")}</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("quantity")}</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("location")}</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("unitPrice")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">{t("location")}</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">{t("unitPrice")}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -252,16 +252,16 @@ export function InventaireView() {
                   <tr key={item.id} className={`hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${isAlerte ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}`}>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-medium text-gray-900">{item.nom}</p>
+                        <p className="font-medium text-gray-900 truncate max-w-[180px]">{item.nom}</p>
                         {item.reference && <p className="text-xs text-gray-400">Réf: {item.reference}</p>}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${CAT_CONFIG[item.categorie].color}`}>
                         {t(CAT_CONFIG[item.categorie].labelKey)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       <div className="flex items-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full ${ETAT_CONFIG[item.etat].dot}`} />
                         <span className="text-gray-600">{t(ETAT_CONFIG[item.etat].labelKey)}</span>
@@ -273,8 +273,8 @@ export function InventaireView() {
                         {isAlerte && <AlertTriangle className="inline w-3 h-3 ml-1 text-yellow-500" />}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.localisation ?? "—"}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">
+                    <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{item.localisation ?? "—"}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 hidden sm:table-cell">
                       {formatPrice(item.prixUnitaire, item.devise)}
                     </td>
                     <td className="px-4 py-3">
@@ -327,14 +327,14 @@ function ItemForm({
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">{isEdit ? t("editItem") : t("addItemTitle")}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 dark:text-gray-500">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="overflow-y-auto p-5 space-y-4">
+        <div className="overflow-y-auto p-4 sm:p-5 space-y-4">
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("itemName")}</label>
             <input value={form.nom} onChange={(e) => f("nom", e.target.value)}
@@ -342,7 +342,7 @@ function ItemForm({
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("category")}</label>
               <select value={form.categorie} onChange={(e) => f("categorie", e.target.value)}
@@ -363,7 +363,7 @@ function ItemForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("quantity")}</label>
               <input type="number" min="0" value={form.quantite} onChange={(e) => f("quantite", Number(e.target.value))}
@@ -376,7 +376,7 @@ function ItemForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("referenceLabel")}</label>
               <input value={form.reference} onChange={(e) => f("reference", e.target.value)}
@@ -391,7 +391,7 @@ function ItemForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("unitPrice")}</label>
               <input type="number" value={form.prixUnitaire} onChange={(e) => f("prixUnitaire", e.target.value)}
@@ -405,7 +405,7 @@ function ItemForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("purchaseDate")}</label>
               <input type="date" value={form.dateAchat} onChange={(e) => f("dateAchat", e.target.value)}
@@ -419,7 +419,7 @@ function ItemForm({
           </div>
         </div>
 
-        <div className="p-5 border-t border-gray-100 flex gap-3">
+        <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
           <button onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
             {t("cancel")}

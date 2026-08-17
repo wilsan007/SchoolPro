@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
  * Espace du conseiller / CPE.
@@ -24,6 +25,7 @@ export default async function ConseillerPage() {
 
   const tenantId = session!.user.tenantId!;
   const claims = session!.user as SessionSiteClaims;
+  const maintenant = await getDemoNow();
 
   // Recommandations obligatoires non résolues (le champ `statut` porte
   // l'enum StatutRecommandation ; "OBLIGATOIRE" en est une valeur. Il n'y a
@@ -57,13 +59,17 @@ export default async function ConseillerPage() {
   // Aucun modèle Orientation n'existe dans le schéma → 0 par défaut.
   const orientationEnAttente = 0;
 
-  // 10 élèves les plus absents (injustifié) sur les 30 derniers jours.
+  // 10 élèves les plus absents (injustifié) sur les 30 derniers jours
+  // précédant la date simulée.
+  const debutFenetre30j = new Date(
+    maintenant.getTime() - 30 * 24 * 60 * 60 * 1000
+  );
   const elevesARisque = await prisma.absence.groupBy({
     by: ["eleveId"],
     where: {
       tenantId,
       statut: "INJUSTIFIEE",
-      date: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      date: { gte: debutFenetre30j, lte: maintenant },
       ...siteFilterForModel("absence", claims),
     },
     _count: true,
@@ -83,7 +89,7 @@ export default async function ConseillerPage() {
   const elevesMap = new Map(elevesInfos.map((e) => [e.id, e]));
 
   // Entretiens récents (10 derniers) + compteur du mois en cours.
-  const now = new Date();
+  const now = maintenant;
   const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [entretiensRecents, entretiensCeMois] = await Promise.all([
@@ -121,7 +127,7 @@ export default async function ConseillerPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         {/* Compteurs — chaque carte pointe vers l'écran d'action */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Link href="/recommandations">
@@ -248,12 +254,12 @@ export default async function ConseillerPage() {
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="py-2 pr-4 font-medium">{t("date")}</th>
                       <th className="py-2 pr-4 font-medium">Élève</th>
-                      <th className="py-2 pr-4 font-medium">{t("motif")}</th>
+                      <th className="py-2 pr-4 font-medium hidden sm:table-cell">{t("motif")}</th>
                       <th className="py-2 pr-4 font-medium">{t("statut")}</th>
                     </tr>
                   </thead>
@@ -289,7 +295,7 @@ export default async function ConseillerPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-2 pr-4">{ent.motif}</td>
+                          <td className="py-2 pr-4 hidden sm:table-cell">{ent.motif}</td>
                           <td className="py-2 pr-4">
                             <Badge variant={statutVariant[ent.statut] ?? "default"}>
                               {statutLabel[ent.statut] ?? ent.statut}

@@ -152,14 +152,14 @@ export function FactureDetail({ facture }: FactureDetailProps) {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <Button asChild variant="outline" size="sm" className="gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <Button asChild variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
           <Link href="/facturation">
             <ArrowLeft className="h-4 w-4" />
             {t("backToInvoices")}
           </Link>
         </Button>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button asChild variant="outline" size="sm" className="gap-2">
             <a href={`/api/factures/${facture.id}/pdf`} target="_blank" rel="noopener noreferrer">
               <FileText className="h-4 w-4" />
@@ -207,10 +207,10 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       {/* Facture header */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold font-mono">{facture.numero}</h2>
+                <h2 className="text-lg sm:text-xl font-bold font-mono truncate">{facture.numero}</h2>
                 <Badge variant={cfg.variant}>{t(cfg.labelKey)}</Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">{facture.libelle}</p>
@@ -233,7 +233,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       </Card>
 
       {/* Élève & Tuteur */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">{t("student")}</CardTitle>
@@ -267,7 +267,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       </div>
 
       {/* Récapitulatif financier */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">{t("invoiced")}</p>
@@ -304,7 +304,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
               <span className="text-muted-foreground">· {t("remaining")}: </span>
               <span className="font-semibold text-red-600">{formatMoney(restant, facture.devise)}</span>
             </div>
-            <form onSubmit={handlePaiement} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <form onSubmit={handlePaiement} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="montant">{t("amount")} ({facture.devise}) *</Label>
                 <Input
@@ -344,7 +344,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                   onChange={(e) => setPaiement({ ...paiement, reference: e.target.value })}
                 />
               </div>
-              <div className="md:col-span-3 flex gap-2">
+              <div className="sm:col-span-3 flex flex-col sm:flex-row gap-2">
                 <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                   {t("validatePayment")}
@@ -361,12 +361,12 @@ export function FactureDetail({ facture }: FactureDetailProps) {
       {/* Confirmation de paiement avec impression reçu */}
       {lastPaiementId && (
         <Card className="border-green-200 bg-green-50 dark:bg-green-950/20">
-          <CardContent className="pt-4 flex items-center justify-between">
+          <CardContent className="pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
-              <CheckCircle className="h-5 w-5" />
+              <CheckCircle className="h-5 w-5 flex-shrink-0" />
               <span>{t("paymentRecordedPrintReceipt")}</span>
             </div>
-            <Button asChild size="sm" className="gap-2">
+            <Button asChild size="sm" className="gap-2 w-full sm:w-auto">
               <a href={`/api/paiements/${lastPaiementId}/recu`} target="_blank" rel="noopener noreferrer">
                 <Printer className="h-4 w-4" />
                 {t("printReceipt")}
@@ -386,14 +386,14 @@ export function FactureDetail({ facture }: FactureDetailProps) {
             <p className="text-sm text-muted-foreground py-6 text-center">{t("noPayments")}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[640px]">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     <th className="text-left px-4 py-2 font-medium">{t("date")}</th>
                     <th className="text-right px-4 py-2 font-medium">{t("amount")}</th>
-                    <th className="text-left px-4 py-2 font-medium">{t("method")}</th>
-                    <th className="text-left px-4 py-2 font-medium">{t("reference")}</th>
-                    <th className="text-left px-4 py-2 font-medium">{t("recordedBy")}</th>
+                    <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">{t("method")}</th>
+                    <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">{t("reference")}</th>
+                    <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">{t("recordedBy")}</th>
                     <th className="text-center px-4 py-2 font-medium">{t("receipt")}</th>
                   </tr>
                 </thead>
@@ -402,11 +402,11 @@ export function FactureDetail({ facture }: FactureDetailProps) {
                     <tr key={p.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-2">{new Date(p.date).toLocaleDateString("fr-FR")}</td>
                       <td className="px-4 py-2 text-right font-medium text-green-600">{formatMoney(p.montant, p.devise)}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2 hidden sm:table-cell">
                         <PaymentMethodBadge method={p.methode} t={t} />
                       </td>
-                      <td className="px-4 py-2 text-muted-foreground">{p.reference ?? "—"}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{p.enregistrePar?.name ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{p.reference ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{p.enregistrePar?.name ?? "—"}</td>
                       <td className="px-4 py-2 text-center">
                         <a
                           href={`/api/paiements/${p.id}/recu`}

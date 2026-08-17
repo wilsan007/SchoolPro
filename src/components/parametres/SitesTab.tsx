@@ -173,7 +173,7 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="nom">{t("siteName")}</Label>
                 <Input id="nom" placeholder={t("placeholderSiteName")} value={form.nom}
@@ -230,7 +230,7 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sites.length === 0 ? (
           <Card className="md:col-span-2 lg:col-span-3">
             <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">

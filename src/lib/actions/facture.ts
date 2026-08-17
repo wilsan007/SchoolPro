@@ -23,6 +23,7 @@ const PaiementSchema = z.object({
     message: "Le moyen de paiement est invalide",
   }),
   reference: z.string().optional(),
+  echeanceId: z.string().optional(),
 });
 
 export type PaiementFormData = z.infer<typeof PaiementSchema>;
@@ -198,17 +199,6 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
     throw new Error(`Le montant ne peut pas dépasser le solde restant (${restant} ${facture.devise})`);
   }
 
-  const paiement = await prisma.paiement.create({
-    data: {
-      factureId,
-      montant: values.montant,
-      devise: facture.devise,
-      methode: values.methode,
-      reference: values.reference || null,
-      enregistreParId: session.user.id,
-    },
-  });
-
   const totalPaye = totalDejaPaye + values.montant;
   let newStatut: typeof facture.statut = facture.statut;
 
@@ -218,9 +208,88 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
     newStatut = "EN_RETARD";
   }
 
-  await prisma.facture.update({
-    where: { id: factureId },
-    data: { statut: newStatut },
+  const paiement = await prisma.$transaction(async (tx) => {
+    // La date de saisie est le jour de la saisie — automatique et identique
+    // à la date du paiement (qui figure sur le reçu). On force les deux au
+    // même instant pour garantir l'identité requise.
+    const now = new Date();
+    const created = await tx.paiement.create({
+      data: {
+        factureId,
+        montant: values.montant,
+        devise: facture.devise,
+        methode: values.methode,
+        reference: values.reference || null,
+        date: now,
+        dateSaisie: now,
+        enregistreParId: session.user.id,
+      },
+    });
+
+    await tx.facture.update({
+      where: { id: factureId },
+      data: { statut: newStatut },
+    });
+
+    let echeanceId = values.echeanceId;
+
+    if (!echeanceId) {
+      const echeancier = await tx.echeancier.findFirst({
+        where: { factureId },
+        include: {
+          echeances: {
+            where: { statut: { in: ["EN_ATTENTE", "EN_RETARD"] } },
+            orderBy: { numero: "asc" },
+          },
+        },
+      });
+
+      if (echeancier && echeancier.echeances.length > 0) {
+        const matchExact = echeancier.echeances.find(
+          (e) => Math.abs(e.montant - values.montant) < 0.01
+        );
+        echeanceId = (matchExact ?? echeancier.echeances[0]).id;
+      }
+    } else {
+      const echeance = await tx.echeancePaiement.findFirst({
+        where: { id: echeanceId, factureId },
+      });
+      if (!echeance) {
+        echeanceId = undefined;
+      }
+    }
+
+    if (echeanceId) {
+      await tx.echeancePaiement.update({
+        where: { id: echeanceId },
+        data: {
+          statut: "PAYEE",
+          paiementId: created.id,
+          payeeLe: new Date(),
+        },
+      });
+
+      const echeance = await tx.echeancePaiement.findUniqueOrThrow({
+        where: { id: echeanceId },
+        select: { echeancierId: true },
+      });
+
+      const restantes = await tx.echeancePaiement.count({
+        where: {
+          echeancierId: echeance.echeancierId,
+          statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
+        },
+      });
+
+      if (restantes === 0) {
+        await tx.echeancier.update({
+          where: { id: echeance.echeancierId },
+          data: { statut: "COMPLETE" },
+        });
+      }
+    }
+
+    return created;
   });
 
   revalidatePath("/facturation");

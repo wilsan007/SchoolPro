@@ -226,7 +226,7 @@ function AddCreneauModal({
               {JOURS.map((j) => <option key={j} value={j}>{t(`daysShort.${j}`)}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("startLabel")}</label>
               <select
@@ -633,7 +633,7 @@ export function EmploiDuTempsView({
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           {selectedClasse && (
             <span className="text-sm text-gray-500">
               <Clock className="w-4 h-4 inline mr-1" />
@@ -643,7 +643,7 @@ export function EmploiDuTempsView({
           <Button
             size="sm"
             variant="outline"
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto"
             onClick={() => window.print()}
           >
             <Printer className="w-4 h-4" />
@@ -653,7 +653,7 @@ export function EmploiDuTempsView({
             <Button
               onClick={() => setShowSuggest(true)}
               disabled={!selectedClasse}
-              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto"
               size="sm"
             >
               <Sparkles className="w-4 h-4" />
@@ -664,7 +664,7 @@ export function EmploiDuTempsView({
             <Button
               onClick={() => setShowAdd(true)}
               disabled={!selectedClasse}
-              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
               size="sm"
             >
               <Plus className="w-4 h-4" />

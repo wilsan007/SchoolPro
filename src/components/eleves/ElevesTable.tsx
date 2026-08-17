@@ -230,8 +230,8 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
   return (
     <Card>
       {/* Barre de recherche */}
-      <div className="flex items-center gap-3 p-4 border-b">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border-b">
+        <div className="relative flex-1 max-w-full sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("search")}
@@ -240,26 +240,28 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => setShowFilters((s) => !s)}
-          aria-expanded={showFilters}
-        >
-          <Filter className="h-4 w-4" />
-          {tCommon("filter")}
-          {(initialClasse || initialStatut) && (
-            <span className="ml-1 flex h-2 w-2 rounded-full bg-primary" />
-          )}
-        </Button>
-        <p className="text-sm text-muted-foreground ml-auto">
-          {total}
-        </p>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setShowFilters((s) => !s)}
+            aria-expanded={showFilters}
+          >
+            <Filter className="h-4 w-4" />
+            {tCommon("filter")}
+            {(initialClasse || initialStatut) && (
+              <span className="ml-1 flex h-2 w-2 rounded-full bg-primary" />
+            )}
+          </Button>
+          <p className="text-sm text-muted-foreground ml-auto">
+            {total}
+          </p>
+        </div>
       </div>
 
       {showFilters && (
-        <div className="flex flex-wrap items-center gap-3 px-4 pb-4 border-b">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 px-4 pb-4 border-b">
           <div className="flex items-center gap-2">
             <label htmlFor="classe-filter" className="text-sm text-muted-foreground">{tCommon("class")}</label>
             <select
@@ -312,7 +314,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
       ) : (
         <>
           {/* Onglets groupes scolaires */}
-          <div className="flex items-center gap-1 px-4 pt-3 border-b">
+          <div className="flex items-center gap-1 px-4 pt-3 border-b overflow-x-auto">
             {groupedEleves.map(({ group, classesByNiveau }) => {
               const totalGroup = classesByNiveau.reduce(
                 (s, n) => s + n.classes.reduce((s2, c) => s2 + effectifDe(c.id, c.eleves.length), 0), 0
@@ -341,7 +343,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
 
           {/* Sous-onglets par site */}
           {activeGroup && (
-            <div className="flex items-center gap-1 px-4 pt-3 border-b bg-muted/20">
+            <div className="flex items-center gap-1 px-4 pt-3 border-b bg-muted/20 overflow-x-auto">
               {siteOptions.map((site) => {
                 const color = site.siteId === "all" ? undefined : (siteColors[site.siteId] ?? fallbackColor);
                 const isActive = activeSite === site.siteId;
@@ -377,7 +379,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
           {activeGroup && (
             <div className="px-4 py-3 border-b bg-muted/20">
               {activeSite === "all" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                   {classesBySite.map((site) => {
                     const niveaux = new Map<string, typeof site.classes>();
                     for (const c of site.classes) {
@@ -477,7 +479,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
                 {activeSite !== "all" ? ` — ${siteOptions.find((s) => s.siteId === activeSite)?.siteNom ?? ""}` : ""}
                 {activeClass ? ` — ${filteredClassesByNiveau.flatMap((n) => n.classes).find((c) => c.id === activeClass)?.nom ?? ""}` : ""}
               </div>
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[640px]">
                     <thead>
                       <tr className="border-b bg-muted/40">
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground w-10">#</th>
@@ -486,11 +488,11 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
                             {t("etColStudent")} <SortIcon field="prenom" />
                           </button>
                         </th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColMatricule")}</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColBirth")}</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">{t("etColMatricule")}</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden md:table-cell">{t("etColBirth")}</th>
                         <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColClasse")}</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">{t("etColParent")}</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden md:table-cell">{t("etColParent")}</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">
                           <button onClick={() => toggleSort("statut")} className="flex items-center gap-1 hover:text-foreground transition-colors">
                             {t("etColStatus")} <SortIcon field="statut" />
                           </button>
@@ -531,10 +533,10 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden sm:table-cell">
                               {eleve.matricule}
                             </td>
-                            <td className="px-4 py-3 text-muted-foreground">
+                            <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                               {formatDate(eleve.dateNaissance)}
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
@@ -559,7 +561,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
                                 "—"
                               )}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 hidden md:table-cell">
                               {tuteur ? (
                                 <div>
                                   <p className="font-medium text-sm">{tuteur.prenom} {tuteur.nom}</p>
@@ -569,7 +571,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
                                 <span className="text-muted-foreground text-xs">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 hidden sm:table-cell">
                               <Badge variant={statutColors[eleve.statut as keyof typeof statutColors] ?? "secondary"}>
                                 {tStatut.has(`statut${eleve.statut}`) ? tStatut(`statut${eleve.statut}`) : eleve.statut}
                               </Badge>

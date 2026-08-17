@@ -73,7 +73,7 @@ export function MatieresTab({ matieres, canManage }: { matieres: MatiereItem[]; 
             <CardTitle className="text-sm">{t("newMatiere")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="nom">{t("matiereName")}</Label>
                 <Input id="nom" placeholder={t("matiereNamePlaceholder")} value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required />
@@ -117,7 +117,7 @@ export function MatieresTab({ matieres, canManage }: { matieres: MatiereItem[]; 
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">{t("colMatiere")}</th>

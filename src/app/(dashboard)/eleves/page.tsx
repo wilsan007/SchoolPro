@@ -228,14 +228,14 @@ export default async function ElevesPage({
         userAvatar={session.user.image ?? undefined}
       />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         {/* Actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <ElevesStats stats={stats} />
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <ElevesActions q={q} classeId={classeId} statut={statut} />
             <ImportElevesButton sites={sites} currentSiteId={currentSiteId} tenantHasSites={tenantHasSites} />
-            <Button asChild size="sm" className="gap-2">
+            <Button asChild size="sm" className="gap-2 w-full sm:w-auto">
               <Link href="/eleves/nouveau">
                 <Plus className="h-4 w-4" />
                 {t("register")}

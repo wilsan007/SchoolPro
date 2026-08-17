@@ -36,15 +36,16 @@ export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteF
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex items-center justify-center h-[220px]">
+          <div className="flex items-center justify-center h-[200px] sm:h-[300px]">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : data.length === 0 || data.every((d) => d.justifiees === 0 && d.injustifiees === 0 && d.retards === 0) ? (
-          <div className="flex items-center justify-center h-[220px] text-sm text-muted-foreground">
+          <div className="flex items-center justify-center h-[200px] sm:h-[300px] text-sm text-muted-foreground">
             {t("noAbsences8Weeks")}
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
+          <div className="w-full h-[200px] sm:h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barSize={10} barGap={2}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis
@@ -77,6 +78,7 @@ export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteF
               <Bar dataKey="retards" name={t("late")} fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          </div>
         )}
       </CardContent>
     </Card>

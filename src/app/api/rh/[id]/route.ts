@@ -133,5 +133,43 @@ export async function POST(
     update: { heuresEffectuees, salaireBase, netAPayer },
   });
 
+  // --- Notification IN_APP à l'enseignant : bulletin de paie disponible ---
+  // Non-bloquante : un échec de notification ne doit pas faire échouer la
+  // génération du bulletin.
+  try {
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- ficheRH vérifié avec tenantId + siteFilter ci-dessus
+    const enseignant = await prisma.enseignant.findUnique({
+      where: { id: ficheRH.enseignantId },
+      select: { userId: true },
+    });
+
+    if (enseignant?.userId) {
+      const moisNoms = [
+        "janvier", "février", "mars", "avril", "mai", "juin",
+        "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+      ];
+      const moisNom = moisNoms[mois - 1] ?? String(mois);
+
+      await prisma.notification.create({
+        data: {
+          tenantId: session.user.tenantId,
+          titre: "Bulletin de paie disponible",
+          contenu:
+            `Votre bulletin de paie pour ${moisNom} ${annee} est disponible. ` +
+            `Net à payer : ${netAPayer.toLocaleString("fr-FR")} FCFA.`,
+          canal: "IN_APP",
+          cible: "ENSEIGNANTS",
+          envoyeParId: session.user.id,
+          nbDestinataires: 1,
+          nbDelivres: 1,
+          statut: "ENVOYEE",
+          envoyeeAt: new Date(),
+        },
+      });
+    }
+  } catch (notifError) {
+    console.error("[API/rh/bulletin] Notification enseignant échouée:", notifError);
+  }
+
   return NextResponse.json({ bulletin });
 }

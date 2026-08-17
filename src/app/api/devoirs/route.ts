@@ -107,6 +107,34 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  try {
+    const nbEleves = await prisma.eleve.count({
+      where: { classeId: data.classeId, tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) },
+    });
+
+    const dateRenduStr = devoir.dateRendu.toLocaleDateString("fr-FR");
+    const contenuNotif = `Matière: ${devoir.matiere.nom}\nClasse: ${devoir.classe.nom}\nÀ rendre le: ${dateRenduStr}${devoir.description ? `\n\nConsignes: ${devoir.description}` : ""}`;
+
+    await prisma.notification.create({
+      data: {
+        tenantId: session.user.tenantId,
+        siteId: siteId ?? null,
+        titre: `Nouveau devoir: ${devoir.titre}`,
+        contenu: contenuNotif,
+        canal: "IN_APP",
+        statut: "ENVOYEE",
+        cible: "CLASSE",
+        classeId: data.classeId,
+        envoyeParId: session.user.id,
+        nbDestinataires: nbEleves,
+        nbDelivres: nbEleves,
+        envoyeeAt: new Date(),
+      },
+    });
+  } catch (notifError) {
+    console.error("[API/devoirs] Notification échouée:", notifError);
+  }
+
   return NextResponse.json(
     {
       devoir: {
@@ -142,7 +170,7 @@ export async function PATCH(req: NextRequest) {
 
   const existing = await prisma.devoir.findFirst({
     where: { id, tenantId: session.user.tenantId },
-    select: { id: true },
+    select: { id: true, statut: true, classeId: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Devoir introuvable" }, { status: 404 });
@@ -156,6 +184,32 @@ export async function PATCH(req: NextRequest) {
       matiere: { select: { nom: true, couleur: true } },
     },
   });
+
+  if (statut === "CORRIGE" && existing.statut !== "CORRIGE") {
+    try {
+      const nbEleves = await prisma.eleve.count({
+        where: { classeId: existing.classeId, tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) },
+      });
+
+      await prisma.notification.create({
+        data: {
+          tenantId: session.user.tenantId,
+          titre: `Devoir corrigé: ${updated.titre}`,
+          contenu: `Les corrections du devoir ${updated.titre} sont disponibles.`,
+          canal: "IN_APP",
+          statut: "ENVOYEE",
+          cible: "CLASSE",
+          classeId: existing.classeId,
+          envoyeParId: session.user.id,
+          nbDestinataires: nbEleves,
+          nbDelivres: nbEleves,
+          envoyeeAt: new Date(),
+        },
+      });
+    } catch (notifError) {
+      console.error("[API/devoirs] Notification échouée:", notifError);
+    }
+  }
 
   return NextResponse.json({
     devoir: {

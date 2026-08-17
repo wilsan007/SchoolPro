@@ -318,7 +318,7 @@ export function ImportElevesDialog({
                 </div>
               )}
 
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { n: compte.CREER, l: "à créer", i: Plus, c: "text-green-600" },
                   { n: compte.METTRE_A_JOUR, l: "à mettre à jour", i: RefreshCw, c: "text-blue-600" },
@@ -512,7 +512,7 @@ export function ImportElevesDialog({
         </CardContent>
 
         {/* Actions */}
-        <div className="flex gap-2 justify-between items-center border-t p-4">
+        <div className="flex flex-col sm:flex-row gap-2 justify-between items-center border-t p-4">
           {plan ? (
             <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setPlan(null)}>
               <ArrowLeft className="h-4 w-4" />

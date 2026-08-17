@@ -61,6 +61,8 @@ export function RegisterForm() {
     adminPassword: "",
     adminPhone: "",
     plan: "STARTER",
+    syncInterval: 60,
+    syncEnabled: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -149,7 +151,7 @@ export function RegisterForm() {
             {t("schoolInfo")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="schoolName">{t("schoolName")}</Label>
             <Input
@@ -230,7 +232,7 @@ export function RegisterForm() {
         <CardHeader>
           <CardTitle>{t("adminAccount")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div className="space-y-1.5">
             <Label htmlFor="adminFirstName">{t("firstName")}</Label>
             <Input
@@ -297,7 +299,7 @@ export function RegisterForm() {
           <CardTitle>{t("choosePlan")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {Object.entries(planKeys).map(([key, plan]) => (
               <button
                 key={key}

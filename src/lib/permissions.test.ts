@@ -17,7 +17,7 @@ import {
 
 const TOUS_LES_ROLES: RoleKey[] = [
   "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER",
-  "CLASS_TEACHER", "COUNSELOR", "NURSE", "ACCOUNTANT",
+  "CLASS_TEACHER", "COUNSELOR", "NURSE", "ACCOUNTANT", "CAISSIER",
   "SUPERVISOR", "SUBJECT_LEAD",
   "SITE_MANAGER", "INSPECTOR",
   "PARENT", "STUDENT",
@@ -35,6 +35,7 @@ describe("intégrité du registre", () => {
       "/curriculum", "/recommandations", "/cours", "/emploi-du-temps",
       "/absences", "/absences/appel", "/vie-scolaire", "/vie-scolaire/convocations",
       "/orientation", "/admissions", "/facturation", "/facturation/nouvelle",
+      "/caisse",
       "/rh", "/inventaire", "/alumni", "/messages", "/communication",
       "/rapports", "/analytics", "/parametres", "/parametres/audit",
       "/super-admin", "/bulletin/x/y",
@@ -303,7 +304,7 @@ describe("écrans de saisie : le personnel garde ses accès", () => {
 });
 
 describe("cohérence de la matrice", () => {
-  it("déclare les quinze rôles", () => {
+  it("déclare les seize rôles", () => {
     expect(Object.keys(ROLE_PERMISSIONS).sort()).toEqual([...TOUS_LES_ROLES].sort());
   });
 

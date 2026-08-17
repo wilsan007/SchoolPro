@@ -138,7 +138,7 @@ function CreerCoursModal({ onClose, onCreate }: {
               className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("level")}</label>
               <select value={form.niveau} onChange={e => set("niveau", e.target.value)}
@@ -155,7 +155,7 @@ function CreerCoursModal({ onClose, onCreate }: {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("subject")}</label>
               <Input value={form.matiereNom} onChange={e => set("matiereNom", e.target.value)}
@@ -259,7 +259,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
 
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1.5 block">{t("contentType")}</label>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
               {(Object.keys(TYPE_CONTENU_CONFIG) as TypeContenu[]).map(tc => (
                 <button key={tc} onClick={() => set("type", tc)}
                   className={cn("flex flex-col items-center gap-1 p-2 rounded-lg border text-xs transition-all",
@@ -467,8 +467,8 @@ function CoursDetail({ cours: initial, onBack }: {
       )}
 
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <Button variant="outline" size="sm" onClick={onBack} className="gap-1 flex-shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+        <Button variant="outline" size="sm" onClick={onBack} className="gap-1 flex-shrink-0 w-full sm:w-auto">
           <ArrowLeft className="w-4 h-4" /> {t("back")}
         </Button>
         <div className="flex-1">
@@ -478,7 +478,7 @@ function CoursDetail({ cours: initial, onBack }: {
             {cours.matiereNom && <Badge variant="outline" className="text-xs">{cours.matiereNom}</Badge>}
             {cours.classeNom && <Badge variant="outline" className="text-xs">{cours.classeNom}</Badge>}
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{cours.titre}</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{cours.titre}</h2>
           {cours.description && <p className="text-sm text-gray-500 mt-1">{cours.description}</p>}
         </div>
         <div className="flex gap-2 flex-shrink-0">
@@ -498,7 +498,7 @@ function CoursDetail({ cours: initial, onBack }: {
       </div>
 
       {/* Stats rapides */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: t("chapters"), value: cours.contenus.length, icon: <Layers className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
           { label: t("totalDuration"), value: totalDuree > 0 ? `${totalDuree} ${t("min")}` : "—", icon: <Clock className="w-5 h-5 text-blue-600" />, bg: "bg-blue-100" },
@@ -653,18 +653,18 @@ export function CoursView({
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("title")}</h2>
           <p className="text-sm text-gray-500">{t("publishedCourses", { count: stats.publies, s: stats.publies !== 1 ? "s" : "" })}</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2">
+        <Button onClick={() => setShowCreate(true)} className="gap-2 w-full sm:w-auto">
           <Plus className="w-4 h-4" /> {t("newCourse")}
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: t("totalCourses"), value: stats.total, icon: <BookOpen className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
           { label: t("published"), value: stats.publies, icon: <Globe className="w-5 h-5 text-green-600" />, bg: "bg-green-100 dark:bg-green-900/30" },
@@ -686,8 +686,8 @@ export function CoursView({
       </div>
 
       {/* Filtres */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center">
+        <div className="relative flex-1 min-w-0 sm:min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input value={search} onChange={e => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")} className="pl-9 text-sm h-9" />
@@ -740,7 +740,7 @@ export function CoursView({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(c => (
             <CoursCard key={c.id} cours={c} siteColors={siteColors} onSelect={handleSelect} onDelete={handleDelete} />
           ))}

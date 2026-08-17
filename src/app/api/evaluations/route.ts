@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation, requireSiteIdForCreate } from "@/lib/site-filter";
+import { siteFilterForModel, siteFilterForRelation, requireSiteIdForCreate } from "@/lib/site-filter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -93,6 +93,41 @@ export async function POST(req: NextRequest) {
         matiere: true,
       }
     });
+
+    try {
+      const nbDestinataires = await prisma.eleve.count({
+        where: { tenantId: session.user.tenantId, classeId: data.classeId, statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
+      });
+
+      if (nbDestinataires > 0) {
+        const dateStr = data.date.toLocaleDateString("fr-FR");
+        const contenuNotif = `Une nouvelle évaluation est planifiée.\n\n` +
+          `Intitulé : ${data.titre}\n` +
+          `Matière : ${evaluation.matiere?.nom ?? "—"}\n` +
+          `Date : ${dateStr}\n` +
+          `Type : ${data.type}\n` +
+          `Durée : ${data.duree} min\n` +
+          (data.description ? `Description : ${data.description}\n` : "");
+
+        await prisma.notification.create({
+          data: {
+            tenantId: session.user.tenantId,
+            titre: `Nouvelle évaluation planifiée: ${data.titre}`,
+            contenu: contenuNotif,
+            canal: "IN_APP",
+            statut: "ENVOYEE",
+            cible: "CLASSE",
+            classeId: data.classeId,
+            envoyeParId: session.user.id,
+            nbDestinataires,
+            nbDelivres: nbDestinataires,
+            envoyeeAt: new Date(),
+          },
+        });
+      }
+    } catch (notifError) {
+      console.error("[API/evaluations] Notification échouée:", notifError);
+    }
 
     return NextResponse.json(evaluation);
   } catch (error) {

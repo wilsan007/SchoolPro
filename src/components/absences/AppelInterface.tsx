@@ -97,7 +97,7 @@ export function AppelInterface({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
       {/* Sélection de classe */}
       <div className="lg:col-span-1">
         <Card>
@@ -174,12 +174,12 @@ export function AppelInterface({
         ) : (
           <Card>
             {/* En-tête */}
-            <div className="flex items-center justify-between px-5 py-4 border-b">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 sm:px-5 py-4 border-b">
               <div>
                 <h2 className="font-semibold">{selectedClasse.nom}</h2>
                 <p className="text-sm text-muted-foreground">{t("appelStudents", { count: eleves.length })}</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button variant="outline" size="sm" className="gap-2" onClick={marquerTousPresents}>
                   <Users className="h-4 w-4" />
                   {t("appelAllPresent")}

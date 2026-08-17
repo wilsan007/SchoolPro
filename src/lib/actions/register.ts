@@ -24,6 +24,11 @@ const RegisterSchema = z.object({
 
   // Plan
   plan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]).default("STARTER"),
+
+  // Synchronisation locale (sauvegarde automatique sur PC du principal)
+  syncServerNick: z.string().min(2).max(100).optional(),
+  syncInterval: z.union([z.literal(30), z.literal(60)]).default(60),
+  syncEnabled: z.boolean().default(true),
 });
 
 export type RegisterFormData = z.infer<typeof RegisterSchema>;
@@ -110,6 +115,21 @@ export async function registerTenant(data: RegisterFormData) {
       },
     },
   });
+
+  // Créer la configuration de synchronisation locale si demandée
+  if (values.syncServerNick) {
+    const { randomBytes } = await import("crypto");
+    const apiKey = "esk_" + randomBytes(24).toString("hex");
+    await prisma.syncConfig.create({
+      data: {
+        tenantId: tenant.id,
+        serverNick: values.syncServerNick,
+        syncInterval: values.syncInterval,
+        syncEnabled: values.syncEnabled,
+        apiKey,
+      },
+    });
+  }
 
   revalidatePath("/");
   return { success: true, slug: tenant.slug };

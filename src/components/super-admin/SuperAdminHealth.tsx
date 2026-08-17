@@ -111,7 +111,7 @@ export function SuperAdminHealth({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("tenant")}</th>
@@ -198,7 +198,7 @@ export function SuperAdminHealth({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("date")}</th>
@@ -244,7 +244,7 @@ export function SuperAdminHealth({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t("date")}</th>

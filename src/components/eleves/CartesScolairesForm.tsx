@@ -67,7 +67,7 @@ export function CartesScolairesForm({ classes }: { classes: Classe[] }) {
           </Select>
         </div>
         <div className="flex justify-end">
-          <Button onClick={handlePrint} disabled={!classeId || generating} className="gap-2">
+          <Button onClick={handlePrint} disabled={!classeId || generating} className="gap-2 w-full sm:w-auto">
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
             {t("cardsPrint")}
           </Button>

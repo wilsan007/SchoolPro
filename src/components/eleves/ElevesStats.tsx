@@ -21,12 +21,12 @@ export function ElevesStats({ stats }: { stats: Stats }) {
   ];
 
   return (
-    <div className="flex items-center gap-6">
+    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
       {items.map((item, i) => (
         <div key={item.key} className="flex items-center gap-3">
           {i > 0 && <div className="w-px h-8 bg-border" />}
           <div>
-            <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
+            <p className={`text-lg sm:text-xl font-bold ${item.color}`}>{item.value}</p>
             <p className="text-xs text-muted-foreground">{t(item.key)}</p>
           </div>
         </div>

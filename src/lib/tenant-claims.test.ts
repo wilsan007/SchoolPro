@@ -221,7 +221,9 @@ describe("deriveClaims", () => {
 
     const claims = await deriveClaims("u1", TENANT_A);
     expect(claims?.siteId).toBe(SITE_A1);
-    expect(claims?.role).toBe("PRINCIPAL");
+    // Le rôle actif est toujours celui de UserTenant (tenantRole),
+    // pas celui de UserSite qui sert uniquement à valider l'accès au site.
+    expect(claims?.role).toBe("TEACHER");
   });
 });
 
@@ -291,5 +293,5 @@ describe("resolveSiteAccess", () => {
 });
 
 function t(id: string) {
-  return { id, name: `Tenant ${id}`, slug: id, logoUrl: null };
+  return { id, name: `Tenant ${id}`, slug: id, logoUrl: null, country: "DJ" };
 }

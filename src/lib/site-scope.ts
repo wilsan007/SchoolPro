@@ -466,6 +466,28 @@ export const SITE_PATHS: Record<string, SitePath> = {
 
   // --- Demandes de lien parent/élève (niveau tenant, pas de siteId) ---
   demandeLienParent: "tenant",
+
+  // --- Budget & dépenses (portent siteId, null = global tous sites) ---
+  budget: "column",
+  depense: "column",
+  // Remise de caisse : porte siteId, null = remise globale (tous sites)
+  remiseCaisse: "column",
+
+  // --- Plans de leçon & grilles d'évaluation IA (portent siteId) ---
+  planLecon: "column",
+  rubriqueEvaluation: "column",
+
+  // --- Tâches du personnel (portent siteId, null = global) ---
+  tache: "column",
+
+  // --- Historique de classe (rattaché à l'élève) ---
+  historiqueClasse: { one: "eleve" },
+
+  // --- Sync config (niveau tenant, unique par tenant) ---
+  syncConfig: "tenant",
+
+  // --- Calendrier officiel (global, pas de tenantId) ---
+  calendrierOfficiel: "tenant",
 };
 
 /**

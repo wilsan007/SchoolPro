@@ -233,7 +233,7 @@ export function PersonnelAbsencesConges({
                       ))}
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("date")}</Label>
                       <Input type="date" value={absenceForm.date} onChange={(e) => setAbsenceForm({ ...absenceForm, date: e.target.value })} className="h-9" />
@@ -254,7 +254,7 @@ export function PersonnelAbsencesConges({
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("startTime")}</Label>
                       <Input type="time" value={absenceForm.heureDebut} onChange={(e) => setAbsenceForm({ ...absenceForm, heureDebut: e.target.value })} className="h-9" />
@@ -361,7 +361,7 @@ export function PersonnelAbsencesConges({
                       ))}
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("leaveType")}</Label>
                       <select
@@ -383,7 +383,7 @@ export function PersonnelAbsencesConges({
                       <Input type="number" min="0.5" step="0.5" value={congeForm.nbJours} onChange={(e) => setCongeForm({ ...congeForm, nbJours: parseFloat(e.target.value) || 1 })} className="h-9" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("startDate")}</Label>
                       <Input type="date" value={congeForm.dateDebut} onChange={(e) => setCongeForm({ ...congeForm, dateDebut: e.target.value })} className="h-9" />

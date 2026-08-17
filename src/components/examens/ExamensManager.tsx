@@ -127,7 +127,7 @@ function CreateExamenModal({
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
                 {t("startDate")}
@@ -240,7 +240,7 @@ function AddSessionModal({
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("startTime")}</label>
               <input
@@ -262,7 +262,7 @@ function AddSessionModal({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("room")}</label>
               <input
@@ -348,7 +348,7 @@ function ExamenCard({
           )}
         />
         <CardContent className="p-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-gray-900 dark:text-white text-lg leading-tight truncate">
@@ -641,7 +641,7 @@ export function ExamensManager({
         </div>
         <Button
           onClick={() => setShowCreate(true)}
-          className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+          className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           {t("newExam")}

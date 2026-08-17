@@ -12,6 +12,7 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel } from "@/lib/site-scope";
 import type { Jour, StatutRemplacement } from "@prisma/client";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
  * Couverture des cours du jour — console de la direction.
@@ -30,8 +31,8 @@ export default async function CouverturePage() {
   const tenantId = session!.user.tenantId!;
   const claims = session!.user;
 
-  // — Bornes du jour courant —
-  const now = new Date();
+  // — Bornes du jour courant (selon la date simulée) —
+  const now = await getDemoNow();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(
     now.getFullYear(),
@@ -179,7 +180,7 @@ export default async function CouverturePage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 space-y-8 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 space-y-8 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
         {/* Compteurs — cartes cliquables menant à la liste détaillée. */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {compteurs.map((c) => (
@@ -202,7 +203,7 @@ export default async function CouverturePage() {
 
         {/* Liste des remplacements du jour. */}
         <div id="remplacements" className="space-y-4">
-          <h2 className="text-lg font-semibold">{t("titre")}</h2>
+          <h2 className="text-lg sm:text-xl font-semibold">{t("titre")}</h2>
           {remplacements.length === 0 ? (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground">
@@ -213,7 +214,7 @@ export default async function CouverturePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm min-w-[640px]">
                     <thead>
                       <tr className="border-b text-left text-muted-foreground">
                         <th className="px-4 py-3 font-medium">{t("classe")}</th>

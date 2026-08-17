@@ -19,7 +19,7 @@
  *   - "<module>:read" / ":write" / ":delete" / ":publish" / ":send" / ":valider"
  */
 
-/** Les quinze rôles du schéma Prisma, redéclarés pour rester Edge-safe. */
+/** Les rôles du schéma Prisma, redéclarés pour rester Edge-safe. */
 export type RoleKey =
   | "SUPER_ADMIN"
   | "TENANT_ADMIN"
@@ -30,6 +30,7 @@ export type RoleKey =
   | "COUNSELOR"
   | "NURSE"
   | "ACCOUNTANT"
+  | "CAISSIER"
   | "SUPERVISOR"
   | "SUBJECT_LEAD"
   | "SITE_MANAGER"
@@ -132,6 +133,15 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "finance:*", "rh:*", "inventaire:*",
     "eleves:read", "parents:read",
     "analytics:read", "rapports:read", "messages:*", "documents:read",
+  ],
+
+  // Caissier — saisie des recettes (encaissements), remise de caisse.
+  // Il enregistre les paiements et déclare les remises au comptable ou
+  // au directeur. Il ne gère ni budgets ni dépenses.
+  CAISSIER: [
+    "finance:read", "finance:write",
+    "eleves:read", "parents:read",
+    "messages:*", "documents:read",
   ],
 
   // Surveillant — vie scolaire opérationnelle : appel, retards,
@@ -309,6 +319,16 @@ export const ROUTE_RULES: RouteRule[] = [
   { pattern: /^\/analytics/, permission: "analytics:read", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT",
   ] },
+  // Comparateur inter-sites / inter-années : direction et inspection.
+  // L'API refuse la comparaison inter-sites si le rôle n'est pas tenant-wide.
+  { pattern: /^\/comparateur/, permission: "analytics:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "INSPECTOR",
+  ] },
+  // Intelligence du directeur : indices composites, risque de décrochage,
+  // simulation de remédiation, efficacité pédagogique, etc.
+  { pattern: /^\/intelligence/, permission: "analytics:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "INSPECTOR",
+  ] },
   { pattern: /^\/mon-espace/, permission: "notes:write" },
   // Suivi pédagogique d'une classe : ni le comptable ni l'infirmerie,
   // qui ont `eleves:read` pour des raisons administratives.
@@ -393,7 +413,9 @@ export const ROUTE_RULES: RouteRule[] = [
 
   // — Gestion —
   { pattern: /^\/admissions/, permission: "admissions:read" },
-  { pattern: /^\/facturation/, permission: "finance:read" },
+  { pattern: /^\/facturation/, permission: "finance:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT", "CAISSIER",
+  ] },
   { pattern: /^\/rh/, permission: "rh:read" },
   { pattern: /^\/inventaire/, permission: "inventaire:read" },
   { pattern: /^\/alumni/, permission: "alumni:read" },
@@ -415,7 +437,12 @@ export const ROUTE_RULES: RouteRule[] = [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY",
   ] },
   { pattern: /^\/comptabilite/, permission: "finance:read", roles: [
-    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT",
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT", "CAISSIER",
+  ] },
+  // Caisse — saisie des recettes, remise de caisse (caissier), confirmation
+  // de réception (comptable ou directeur).
+  { pattern: /^\/caisse/, permission: "finance:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT", "CAISSIER",
   ] },
   { pattern: /^\/conseiller/, permission: "vie-scolaire:read", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "COUNSELOR",
@@ -428,6 +455,30 @@ export const ROUTE_RULES: RouteRule[] = [
   { pattern: /^\/parametres\/audit/, permission: "audit:read" },
   { pattern: /^\/parametres\/demandes-lien/, permission: "parametres:read" },
   { pattern: /^\/parametres/, permission: "parametres:read" },
+
+  // — LEARNOS : IA générative —
+  // Révision de la semaine : ouverte aux élèves (leur propre révision),
+  // parents (révision de leur enfant), et personnel avec entrainement:read.
+  { pattern: /^\/revision-semaine/, permission: "entrainement:read" },
+  // Chatbot directeur d'analyse de données : réservé à la direction.
+  // L'IA ne peut qu'appeler des outils fermés — jamais de SQL libre.
+  { pattern: /^\/chatbot-direction/, permission: "ai:*", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+  ] },
+  // Propositions IA à valider (plans de leçon + rubriques) :
+  //   - enseignants peuvent voir et ajuster (curriculum:write)
+  //   - direction peut valider (ai:*)
+  { pattern: /^\/propositions-ia/, permission: "curriculum:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+  ] },
+  // Génération de plans de leçon : enseignants et direction.
+  { pattern: /^\/plans-lecon/, permission: "curriculum:write", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+  ] },
+  // Génération de rubriques d'évaluation : enseignants et direction.
+  { pattern: /^\/rubriques-evaluation/, permission: "curriculum:write", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+  ] },
 ];
 
 export function findRouteRule(pathname: string): RouteRule | null {

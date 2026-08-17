@@ -212,14 +212,14 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button asChild variant="outline" size="sm" className="gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <Button asChild variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
           <Link href={backHref}>
             <ArrowLeft className="h-4 w-4" />
             {t("back")}
           </Link>
         </Button>
-        <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
+        <Button type="submit" size="sm" className="gap-2 w-full sm:w-auto" disabled={isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {submitLabel}
         </Button>
@@ -260,7 +260,7 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="prenom">{t("firstNameRequired")}</Label>
             <Input id="prenom" value={form.prenom} onChange={(e) => updateField("prenom", e.target.value)} className={inputClass("prenom")} />
@@ -341,11 +341,11 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
             <Label htmlFor="numeroBoursier">{t("scholarshipNumber")}</Label>
             <Input id="numeroBoursier" value={form.numeroBoursier} onChange={(e) => updateField("numeroBoursier", e.target.value)} />
           </div>
-          <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="allergies">{t("allergies")}</Label>
             <Input id="allergies" value={form.allergies} onChange={(e) => updateField("allergies", e.target.value)} />
           </div>
-          <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="besoinsSpeciaux">{t("specialNeeds")}</Label>
             <Input id="besoinsSpeciaux" value={form.besoinsSpeciaux} onChange={(e) => updateField("besoinsSpeciaux", e.target.value)} />
           </div>
@@ -357,7 +357,7 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
         <CardHeader>
           <CardTitle>{t("parentGuardian")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="parentPrenom">{t("firstName")}</Label>
             <Input id="parentPrenom" value={form.parentPrenom} onChange={(e) => updateField("parentPrenom", e.target.value)} />
@@ -388,11 +388,11 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
             <Label htmlFor="parentProfession">{t("profession")}</Label>
             <Input id="parentProfession" value={form.parentProfession} onChange={(e) => updateField("parentProfession", e.target.value)} />
           </div>
-          <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="parentAdresse">{t("address")}</Label>
             <Input id="parentAdresse" value={form.parentAdresse} onChange={(e) => updateField("parentAdresse", e.target.value)} />
           </div>
-          <div className="flex items-center gap-2 md:col-span-2 lg:col-span-3">
+          <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
             <input
               id="parentIsGardien"
               type="checkbox"

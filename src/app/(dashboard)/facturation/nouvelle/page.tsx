@@ -50,7 +50,7 @@ export default async function NouvelleFacturePage({
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
         <FactureForm eleves={eleves} classes={classes} eleveIdPreselected={params.eleveId} />
       </div>
     </div>

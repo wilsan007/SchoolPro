@@ -230,6 +230,45 @@ export async function PATCH(req: NextRequest) {
       },
     });
 
+    // --- Notification IN_APP au remplaçant quand le statut passe à VALIDE ---
+    // Non-bloquante : un échec de notification ne doit pas faire échouer la
+    // validation du remplacement.
+    if (statut === "VALIDE" && existing.enseignantRemplacantId) {
+      try {
+        // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId ci-dessus
+        const remplacant = await prisma.enseignant.findUnique({
+          where: { id: existing.enseignantRemplacantId },
+          select: { userId: true },
+        });
+
+        if (remplacant?.userId) {
+          const dateStr = existing.date.toLocaleDateString("fr-FR");
+          const classeNom = updated.classe?.nom ?? "—";
+          const matiereNom = updated.matiere?.nom ?? "—";
+          const salleStr = existing.salle ? ` (salle ${existing.salle})` : "";
+
+          await prisma.notification.create({
+            data: {
+              tenantId,
+              titre: "Remplacement assigné",
+              contenu:
+                `Vous êtes assigné(e) à un remplacement de ${matiereNom} en ${classeNom} ` +
+                `le ${dateStr} de ${existing.heureDebut} à ${existing.heureFin}${salleStr}.`,
+              canal: "IN_APP",
+              cible: "ENSEIGNANTS",
+              envoyeParId: session.user.id,
+              nbDestinataires: 1,
+              nbDelivres: 1,
+              statut: "ENVOYEE",
+              envoyeeAt: new Date(),
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error("[API/remplacements] Notification remplaçant échouée:", notifError);
+      }
+    }
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API/remplacements PATCH]", error);

@@ -139,23 +139,23 @@ export function AlumniView() {
   });
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("headerTitle")}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t("headerTitle")}</h1>
           <p className="text-gray-500 text-sm mt-1">{t("headerSubtitle")}</p>
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" /> {t("addAlumni")}
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: t("statTotal"), value: stats.total, icon: GraduationCap, color: "text-indigo-600" },
           { label: t("statEtudes"), value: stats.etudes, icon: Users, color: "text-blue-600" },
@@ -173,7 +173,7 @@ export function AlumniView() {
       </div>
 
       {/* Filtres */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-start sm:items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -205,7 +205,7 @@ export function AlumniView() {
 
       {/* Liste alumni */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="h-48 bg-gray-100 rounded-2xl" />
           ))}
@@ -216,7 +216,7 @@ export function AlumniView() {
           <p>{t("noResults")}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((a) => (
             <AlumniCard
               key={a.id}
@@ -295,7 +295,7 @@ function AlumniCard({
         <p className="text-xs text-gray-400 mt-2">📍 {a.ville}{a.pays ? `, ${a.pays}` : ""}</p>
       )}
 
-      <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-50">
+      <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-gray-50">
         {a.email && a.accepteContact && (
           <a href={`mailto:${a.email}`} className="p-1.5 rounded-lg bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors">
             <Mail className="w-4 h-4" />
@@ -345,7 +345,7 @@ function AlumniForm({
         </div>
 
         <div className="overflow-y-auto p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("firstName")}</label>
               <input value={form.prenom} onChange={(e) => f("prenom", e.target.value)}
@@ -358,7 +358,7 @@ function AlumniForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("graduationYearLabel")}</label>
               <input value={form.anneeDiplome} onChange={(e) => f("anneeDiplome", e.target.value)}
@@ -373,7 +373,7 @@ function AlumniForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("mention")}</label>
               <input value={form.mention} onChange={(e) => f("mention", e.target.value)}
@@ -405,7 +405,7 @@ function AlumniForm({
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("email")}</label>
               <input type="email" value={form.email} onChange={(e) => f("email", e.target.value)}
@@ -434,7 +434,7 @@ function AlumniForm({
           </label>
         </div>
 
-        <div className="p-5 border-t border-gray-100 flex gap-3">
+        <div className="p-5 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
           <button onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
             {t("cancel")}

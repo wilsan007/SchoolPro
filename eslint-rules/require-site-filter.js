@@ -42,6 +42,10 @@ const SITE_SCOPED_MODELS = new Set([
   "seuilsRecommandation", "recommandation",
   "planProgression", "etapePlan", "planificationChapitre",
   "kpiSnapshot",
+  // Budget & dépenses (portent siteId)
+  "budget", "depense",
+  // Plans de leçon & grilles d'évaluation IA (portent siteId)
+  "planLecon", "rubriqueEvaluation",
 ]);
 
 // Modèles tenant-wide (pas de filtre de site requis)

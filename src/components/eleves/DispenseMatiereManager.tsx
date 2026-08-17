@@ -95,7 +95,7 @@ export function DispenseMatiereManager({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">{t("hint")}</p>
-        <div className="flex items-end gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
           <div className="space-y-2 flex-1">
             <Label>{t("subject")}</Label>
             <Select value={matiereId} onValueChange={setMatiereId}>
@@ -116,7 +116,7 @@ export function DispenseMatiereManager({
               onChange={(e) => setMotif(e.target.value)}
             />
           </div>
-          <Button onClick={addDispense} disabled={isPending || !matiereId} size="sm" className="gap-2">
+          <Button onClick={addDispense} disabled={isPending || !matiereId} size="sm" className="gap-2 w-full sm:w-auto">
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             {tCommon("add")}
           </Button>

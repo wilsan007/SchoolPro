@@ -31,7 +31,7 @@ export default async function FacturationPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin space-y-4">
         <FacturationActions currentYear="2025-2026" />
         <FacturesTable factures={factures} />
       </div>

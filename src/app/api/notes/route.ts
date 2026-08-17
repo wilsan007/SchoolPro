@@ -205,6 +205,35 @@ export async function POST(req: NextRequest) {
       }))
     );
 
+    if (isPubliee && created.length > 0) {
+      try {
+        const matiereId = created[0].matiereId;
+        const matiere = await prisma.matiere.findFirst({
+          where: { id: matiereId, tenantId, ...siteFilterForModel("matiere", session.user) },
+          select: { nom: true },
+        });
+        const intitule = created[0].intitule ?? "Évaluation";
+        const nbDestinataires = created.length;
+
+        await prisma.notification.create({
+          data: {
+            tenantId,
+            titre: `Notes publiées: ${intitule}`,
+            contenu: `Les notes de l'évaluation « ${intitule} » en ${matiere?.nom ?? "matière"} ont été publiées et sont désormais consultables.`,
+            canal: "IN_APP",
+            statut: "ENVOYEE",
+            cible: "PARENTS",
+            envoyeParId: session.user.id,
+            nbDestinataires,
+            nbDelivres: nbDestinataires,
+            envoyeeAt: new Date(),
+          },
+        });
+      } catch (notifError) {
+        console.error("[API/notes] Notification échouée:", notifError);
+      }
+    }
+
     revalidateTag("dashboard-data");
 
     return NextResponse.json({ notes: created, count: created.length }, { status: 201 });

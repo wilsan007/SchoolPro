@@ -24,6 +24,10 @@ const CreateTenantSchema = z.object({
   adminEmail: z.string().email(),
   adminName: z.string().min(2),
   adminPassword: z.string().min(8),
+  // Synchronisation locale (sauvegarde automatique sur PC du principal)
+  syncServerNick: z.string().min(2).max(100).optional(),
+  syncInterval: z.union([z.literal(30), z.literal(60)]).default(60),
+  syncEnabled: z.boolean().default(true),
 });
 
 export async function GET(request: NextRequest) {
@@ -133,6 +137,21 @@ export async function POST(request: NextRequest) {
           },
         },
       });
+
+      // Créer la configuration de synchronisation locale si demandée
+      if (data.syncServerNick) {
+        const { randomBytes } = await import("crypto");
+        const apiKey = "esk_" + randomBytes(24).toString("hex");
+        await tx.syncConfig.create({
+          data: {
+            tenantId: t.id,
+            serverNick: data.syncServerNick,
+            syncInterval: data.syncInterval,
+            syncEnabled: data.syncEnabled,
+            apiKey,
+          },
+        });
+      }
 
       return t;
     });

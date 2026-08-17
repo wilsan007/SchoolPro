@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompetencesEleve } from "@/components/learnos/CompetencesEleve";
+import { EvolutionEleve } from "@/components/learnos/EvolutionEleve";
 import { getInitials, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Edit, User, Phone, MapPin, BookOpen,
   CalendarX, AlertTriangle, CreditCard, TrendingUp,
   Clock, CheckCircle2, XCircle, AlertCircle, ShieldOff, Lock, Target,
-  Trash2, Loader2, Plus, Banknote, FileText,
+  Trash2, Loader2, Plus, Banknote, FileText, LineChart,
 } from "lucide-react";
 import { DispenseMatiereManager } from "./DispenseMatiereManager";
 import { useTranslations } from "next-intl";
@@ -308,7 +309,7 @@ export function EleveDetailView({
       )}
 
       {/* Profile card */}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-6">
           <Avatar className="h-20 w-20 flex-shrink-0">
             {eleve.photoUrl && <AvatarImage src={eleve.photoUrl} />}
@@ -414,7 +415,7 @@ export function EleveDetailView({
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="notes" className="gap-1.5">
             <BookOpen className="h-3.5 w-3.5" />
             {t("tabNotes")}
@@ -443,11 +444,20 @@ export function EleveDetailView({
             <ShieldOff className="h-3.5 w-3.5" />
             {t("tabDispenses")}
           </TabsTrigger>
+          <TabsTrigger value="evolution" className="gap-1.5">
+            <LineChart className="h-3.5 w-3.5" />
+            {t("tabEvolution")}
+          </TabsTrigger>
         </TabsList>
 
         {/* ─ Compétences (LEARNOS) ─ */}
         <TabsContent value="competences" className="mt-4">
           <CompetencesEleve eleveId={eleve.id} />
+        </TabsContent>
+
+        {/* ─ Évolution annuelle (LEARNOS) ─ */}
+        <TabsContent value="evolution" className="mt-4">
+          <EvolutionEleve eleveId={eleve.id} />
         </TabsContent>
 
         {/* ─ Notes ─ */}
@@ -524,7 +534,8 @@ export function EleveDetailView({
             <EmptyState message={t("noAbsences")} />
           ) : (
             <Card className="overflow-hidden">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("date")}</th>
@@ -559,6 +570,7 @@ export function EleveDetailView({
                   ))}
                 </tbody>
               </table>
+              </div>
             </Card>
           )}
         </TabsContent>
@@ -630,7 +642,7 @@ export function EleveDetailView({
 
           {/* Situation financière résumé */}
           {situationFinanciere && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               <Card className="p-3">
                 <p className="text-xs text-muted-foreground">{t("totalBilled")}</p>
                 <p className="text-lg font-bold">{situationFinanciere.totalFacture.toLocaleString()} DJF</p>

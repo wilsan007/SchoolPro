@@ -125,7 +125,7 @@ export default async function RecommandationsPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 space-y-8 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 space-y-6 sm:space-y-8 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         {/* En tête, avant les parcours : une attestation est un travail que
             l'élève a DÉJÀ fait et qui attend l'enseignant, alors qu'un parcours
             est une décision à prendre. Ce qui attend passe devant. */}

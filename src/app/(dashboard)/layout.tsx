@@ -9,6 +9,7 @@ import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
 import { checkUserFinancialBlock } from "@/lib/financial-guard";
+import { PWAInstallPrompt } from "@/components/parent/PWAInstallPrompt";
 
 const AI_GREETINGS: Record<string, string> = {
   SUPER_ADMIN:
@@ -126,6 +127,7 @@ export default async function DashboardLayout({
     COUNSELOR: tRoles("COUNSELOR"),
     NURSE: tRoles("NURSE"),
     ACCOUNTANT: tRoles("ACCOUNTANT"),
+    CAISSIER: tRoles("CAISSIER"),
     PARENT: tRoles("PARENT"),
     STUDENT: tRoles("STUDENT"),
   };
@@ -159,6 +161,8 @@ export default async function DashboardLayout({
         )}
         {children}
       </main>
+      {/* Bannière d'installation PWA — visible sur mobile pour tous les utilisateurs */}
+      <PWAInstallPrompt />
       {/* AI chat widget temporarily hidden
       {AI_GREETINGS[session.user.role] && (
         <AiChatWidget greeting={AI_GREETINGS[session.user.role]} />

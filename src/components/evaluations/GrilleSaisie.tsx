@@ -73,16 +73,16 @@ export function GrilleSaisie({ evaluation, initialGrille }: Props) {
 
   return (
     <div className="bg-card rounded-xl shadow-sm border overflow-hidden mt-6">
-      <div className="bg-muted px-4 py-3 border-b flex justify-between items-center">
+      <div className="bg-muted px-4 py-3 border-b flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="font-semibold text-foreground">{t("grilleTitle")}</h3>
-        <Button onClick={handleSave} disabled={isPending} className="bg-yellow-500 hover:bg-yellow-600 text-white gap-2 shadow-sm h-8">
+        <Button onClick={handleSave} disabled={isPending} className="bg-yellow-500 hover:bg-yellow-600 text-white gap-2 shadow-sm h-8 w-full sm:w-auto">
           <Save className="h-4 w-4" />
           {isPending ? t("grilleSaving") : t("grilleSave")}
         </Button>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
+        <table className="w-full text-sm text-left min-w-[640px]">
           <thead className="bg-muted text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-semibold">{t("grilleColMatricule")}</th>

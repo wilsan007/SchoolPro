@@ -102,6 +102,7 @@ const UserSchema = z.object({
     "COUNSELOR",
     "NURSE",
     "ACCOUNTANT",
+    "CAISSIER",
     "PARENT",
   ]),
   phone: z.string().optional(),
@@ -313,7 +314,7 @@ export async function getClassesForSettings() {
 
   const siteFilter = siteFilterForModel("classe", session.user);
   return prisma.classe.findMany({
-    where: { tenantId: session.user.tenantId, ...siteFilter },
+    where: { tenantId: session.user.tenantId, deletedAt: null, ...siteFilter },
     include: {
       // Sans ce filtre, l'effectif affiché inclut les fiches archivées :
       // les classes annonçaient jusqu'à 63 élèves pour 29 réels.
@@ -390,7 +391,207 @@ export async function createClasse(data: ClasseFormData) {
   return { success: true };
 }
 
-export async function deleteClasse(classeId: string) {
+export async function deleteClasse(
+  classeId: string,
+  options?: { reassignToClasseId?: string; strategy?: "reassign" | "remove" | "archive" }
+) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const strategy = options?.strategy ?? "archive";
+
+  const classe = await prisma.classe.findFirst({
+    where: {
+      id: classeId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    include: { _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
+  });
+  if (!classe) throw new Error("Classe non trouvée");
+
+  const hasActiveStudents = classe._count.eleves > 0;
+
+  // Stratégie « archive » : soft delete, comme Google Classroom / PowerSchool
+  if (strategy === "archive") {
+    await prisma.classe.update({
+      where: { id: classeId },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: session.user.id,
+        deletedReason: "Archivage administrateur",
+      },
+    });
+    revalidatePath("/parametres");
+    revalidatePath("/eleves");
+    revalidateTag("classes-list");
+    revalidateTag("dashboard-data");
+    revalidateTag("eleves-stats");
+    return { success: true, action: "archived" };
+  }
+
+  // Les stratégies « reassign » et « remove » suppriment définitivement.
+  // Elles ne sont autorisées que si la classe est vide OU si on gère les élèves.
+  if (hasActiveStudents && strategy === "reassign") {
+    if (!options?.reassignToClasseId) {
+      throw new Error("Une classe cible est requise pour la réaffectation");
+    }
+    // Vérifier que la classe cible existe et appartient au même tenant
+    const target = await prisma.classe.findFirst({
+      where: {
+        id: options.reassignToClasseId,
+        tenantId: session.user.tenantId,
+        ...siteFilterForModel("classe", session.user),
+      },
+      select: { id: true },
+    });
+    if (!target) throw new Error("Classe cible introuvable");
+
+    // Déplacer les élèves + créer l'historique en une transaction
+    await prisma.$transaction(async (tx) => {
+      const eleves = await tx.eleve.findMany({
+        where: { classeId, deletedAt: null },
+        select: { id: true },
+      });
+      if (eleves.length > 0) {
+        await tx.eleve.updateMany({
+          where: { id: { in: eleves.map((e) => e.id) } },
+          data: { classeId: options.reassignToClasseId! },
+        });
+        // Clôturer l'historique ancien et créer le nouveau
+        await tx.historiqueClasse.updateMany({
+          where: { classeId, dateSortie: null },
+          data: { dateSortie: new Date(), motif: "Transfert (réaffectation)" },
+        });
+        await tx.historiqueClasse.createMany({
+          data: eleves.map((e) => ({
+            tenantId: session.user.tenantId!,
+            eleveId: e.id,
+            classeId: options.reassignToClasseId!,
+            dateEntree: new Date(),
+            motif: "Transfert (réaffectation)",
+          })),
+        });
+      }
+      await tx.classe.delete({ where: { id: classeId } });
+    });
+  }
+
+  if (hasActiveStudents && strategy === "remove") {
+    // Détacher les élèves (classeId = null) puis supprimer la classe
+    await prisma.$transaction(async (tx) => {
+      const eleves = await tx.eleve.findMany({
+        where: { classeId, deletedAt: null },
+        select: { id: true },
+      });
+      if (eleves.length > 0) {
+        await tx.eleve.updateMany({
+          where: { id: { in: eleves.map((e) => e.id) } },
+          data: { classeId: null },
+        });
+        // Clôturer l'historique
+        await tx.historiqueClasse.updateMany({
+          where: { classeId, dateSortie: null },
+          data: { dateSortie: new Date(), motif: "Retrait de classe" },
+        });
+      }
+      await tx.classe.delete({ where: { id: classeId } });
+    });
+  }
+
+  // Classe vide : suppression directe
+  if (!hasActiveStudents) {
+    await prisma.classe.delete({ where: { id: classeId } });
+  }
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true, action: strategy };
+}
+
+// ============================================================
+// CLASSES — Édition, archivage, restauration, transfert, fusion, scission, duplication
+// ============================================================
+
+const UpdateClasseSchema = z.object({
+  nom: z.string().min(1, "Le nom est requis"),
+  niveau: z.string().min(1, "Le niveau est requis"),
+  filiere: z.string().optional(),
+  effectifMax: z.number().min(1).default(40),
+  annee: z.string().default("2025-2026"),
+  structureId: z.string().optional(),
+  profPrincipalId: z.string().optional(),
+  siteId: z.string().optional(),
+});
+
+export type UpdateClasseFormData = z.infer<typeof UpdateClasseSchema>;
+
+export async function updateClasse(classeId: string, data: UpdateClasseFormData) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const parsed = UpdateClasseSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const v = parsed.data;
+
+  // Vérifier que la classe existe et appartient au tenant
+  const existing = await prisma.classe.findFirst({
+    where: {
+      id: classeId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Classe non trouvée");
+
+  // Validation: prof principal obligatoire pour collège/lycée
+  if (niveauRequiresProfPrincipal(v.niveau) && !v.profPrincipalId) {
+    throw new Error("Un professeur principal est obligatoire pour les classes de collège et lycée");
+  }
+
+  // Vérifier le prof principal si fourni
+  if (v.profPrincipalId) {
+    const ens = await prisma.enseignant.findFirst({
+      where: {
+        id: v.profPrincipalId,
+        tenantId: session.user.tenantId,
+        ...siteFilterForModel("enseignant", session.user),
+      },
+      select: { id: true },
+    });
+    if (!ens) throw new Error("Enseignant introuvable dans cet établissement");
+  }
+
+  await prisma.classe.update({
+    where: { id: classeId },
+    data: {
+      nom: v.nom,
+      niveau: v.niveau,
+      filiere: v.filiere || null,
+      effectifMax: v.effectifMax,
+      annee: v.annee,
+      structureId: v.structureId || null,
+      profPrincipalId: v.profPrincipalId || null,
+      siteId: v.siteId || null,
+    },
+  });
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true };
+}
+
+export async function archiveClasse(classeId: string, reason?: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
@@ -400,14 +601,19 @@ export async function deleteClasse(classeId: string) {
       tenantId: session.user.tenantId,
       ...siteFilterForModel("classe", session.user),
     },
-    // Seules les fiches encore présentes s'opposent à la suppression : une
-    // classe ne contenant plus que des archives doit pouvoir être supprimée.
-    include: { _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
+    select: { id: true, deletedAt: true },
   });
   if (!classe) throw new Error("Classe non trouvée");
-  if (classe._count.eleves > 0) throw new Error("Impossible de supprimer une classe avec des élèves");
+  if (classe.deletedAt) throw new Error("Cette classe est déjà archivée");
 
-  await prisma.classe.delete({ where: { id: classeId } });
+  await prisma.classe.update({
+    where: { id: classeId },
+    data: {
+      deletedAt: new Date(),
+      deletedBy: session.user.id,
+      deletedReason: reason ?? "Archivage",
+    },
+  });
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
@@ -415,6 +621,389 @@ export async function deleteClasse(classeId: string) {
   revalidateTag("dashboard-data");
   revalidateTag("eleves-stats");
   return { success: true };
+}
+
+export async function restoreClasse(classeId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const classe = await prisma.classe.findFirst({
+    where: {
+      id: classeId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: { id: true, deletedAt: true },
+  });
+  if (!classe) throw new Error("Classe non trouvée");
+  if (!classe.deletedAt) throw new Error("Cette classe n'est pas archivée");
+
+  await prisma.classe.update({
+    where: { id: classeId },
+    data: {
+      deletedAt: null,
+      deletedBy: null,
+      deletedReason: null,
+    },
+  });
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true };
+}
+
+export async function getArchivedClasses() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  return prisma.classe.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      deletedAt: { not: null },
+      ...siteFilterForModel("classe", session.user),
+    },
+    include: {
+      _count: { select: { eleves: ELEVE_NON_ARCHIVE } },
+      profPrincipal: { select: { user: { select: { name: true } } } },
+      structure: { select: { id: true, nom: true, type: true } },
+    },
+    orderBy: { deletedAt: "desc" },
+  });
+}
+
+export async function transferClasse(classeId: string, targetSiteId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permission refusée : réservé aux administrateurs");
+  }
+
+  const classe = await prisma.classe.findFirst({
+    where: {
+      id: classeId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: { id: true, siteId: true, nom: true },
+  });
+  if (!classe) throw new Error("Classe non trouvée");
+
+  // Vérifier que le site cible existe et appartient au même tenant
+  const targetSite = await prisma.site.findFirst({
+    where: {
+      id: targetSiteId,
+      tenantId: session.user.tenantId,
+      deletedAt: null,
+    },
+    select: { id: true, nom: true },
+  });
+  if (!targetSite) throw new Error("Site cible introuvable");
+
+  if (classe.siteId === targetSiteId) {
+    throw new Error("La classe est déjà sur ce site");
+  }
+
+  // Transaction : transférer la classe ET tous ses élèves vers le nouveau site
+  await prisma.$transaction(async (tx) => {
+    await tx.classe.update({
+      where: { id: classeId },
+      data: { siteId: targetSiteId },
+    });
+    await tx.eleve.updateMany({
+      where: { classeId, deletedAt: null },
+      data: { siteId: targetSiteId },
+    });
+  });
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true };
+}
+
+export async function mergeClasses(sourceIds: string[], targetClasseId: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permission refusée : réservé aux administrateurs");
+  }
+
+  if (sourceIds.includes(targetClasseId)) {
+    throw new Error("La classe cible ne peut pas être une des classes sources");
+  }
+
+  if (sourceIds.length === 0) {
+    throw new Error("Au moins une classe source est requise");
+  }
+
+  // Vérifier que toutes les classes existent et appartiennent au tenant
+  const target = await prisma.classe.findFirst({
+    where: {
+      id: targetClasseId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: { id: true, effectifMax: true, _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
+  });
+  if (!target) throw new Error("Classe cible introuvable");
+
+  const sources = await prisma.classe.findMany({
+    where: {
+      id: { in: sourceIds },
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: { id: true, nom: true, _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
+  });
+  if (sources.length !== sourceIds.length) {
+    throw new Error("Une ou plusieurs classes sources sont introuvables");
+  }
+
+  // Calculer le nouvel effectif et vérifier la capacité
+  const totalStudents =
+    target._count.eleves + sources.reduce((sum, s) => sum + s._count.eleves, 0);
+  if (totalStudents > target.effectifMax) {
+    throw new Error(
+      `Capacité dépassée : ${totalStudents} élèves pour un maximum de ${target.effectifMax}`
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const sourceId of sourceIds) {
+      const eleves = await tx.eleve.findMany({
+        where: { classeId: sourceId, deletedAt: null },
+        select: { id: true },
+      });
+      if (eleves.length > 0) {
+        await tx.eleve.updateMany({
+          where: { id: { in: eleves.map((e) => e.id) } },
+          data: { classeId: targetClasseId },
+        });
+        // Clôturer l'historique ancien et créer le nouveau
+        await tx.historiqueClasse.updateMany({
+          where: { classeId: sourceId, dateSortie: null },
+          data: { dateSortie: new Date(), motif: "Fusion de classes" },
+        });
+        await tx.historiqueClasse.createMany({
+          data: eleves.map((e) => ({
+            tenantId: session.user.tenantId!,
+            eleveId: e.id,
+            classeId: targetClasseId,
+            dateEntree: new Date(),
+            motif: "Fusion de classes",
+          })),
+        });
+      }
+      // Archiver les classes sources (soft delete)
+      await tx.classe.update({
+        where: { id: sourceId },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: session.user.id,
+          deletedReason: `Fusion vers la classe cible`,
+        },
+      });
+    }
+  });
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true, merged: sources.length, totalStudents };
+}
+
+export async function splitClasse(
+  sourceClasseId: string,
+  newClasses: { nom: string; eleveIds: string[] }[]
+) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permission refusée : réservé aux administrateurs");
+  }
+
+  if (newClasses.length === 0) {
+    throw new Error("Au moins une nouvelle classe est requise");
+  }
+
+  const source = await prisma.classe.findFirst({
+    where: {
+      id: sourceClasseId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: { id: true, nom: true, niveau: true, filiere: true, effectifMax: true, annee: true, structureId: true, profPrincipalId: true, siteId: true },
+  });
+  if (!source) throw new Error("Classe source introuvable");
+
+  await prisma.$transaction(async (tx) => {
+    for (const nc of newClasses) {
+      // Créer la nouvelle classe avec les mêmes propriétés que la source
+      const created = await tx.classe.create({
+        data: {
+          tenantId: session.user.tenantId!,
+          siteId: source.siteId,
+          nom: nc.nom,
+          niveau: source.niveau,
+          filiere: source.filiere,
+          effectifMax: source.effectifMax,
+          annee: source.annee,
+          structureId: source.structureId,
+          profPrincipalId: source.profPrincipalId,
+        },
+      });
+      // Déplacer les élèves vers la nouvelle classe
+      if (nc.eleveIds.length > 0) {
+        await tx.eleve.updateMany({
+          where: { id: { in: nc.eleveIds } },
+          data: { classeId: created.id },
+        });
+        // Historique
+        await tx.historiqueClasse.updateMany({
+          where: { eleveId: { in: nc.eleveIds }, dateSortie: null },
+          data: { dateSortie: new Date(), motif: "Scission de classe" },
+        });
+        await tx.historiqueClasse.createMany({
+          data: nc.eleveIds.map((eleveId) => ({
+            tenantId: session.user.tenantId!,
+            eleveId,
+            classeId: created.id,
+            dateEntree: new Date(),
+            motif: "Scission de classe",
+          })),
+        });
+      }
+    }
+  });
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true, createdCount: newClasses.length };
+}
+
+export async function duplicateClasse(classeId: string, newAnnee: string, copyStudents: boolean = false) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const source = await prisma.classe.findFirst({
+    where: {
+      id: classeId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: {
+      id: true, nom: true, niveau: true, filiere: true, effectifMax: true,
+      structureId: true, profPrincipalId: true, siteId: true,
+    },
+  });
+  if (!source) throw new Error("Classe source introuvable");
+
+  // Vérifier qu'une classe avec le même nom n'existe pas déjà pour cette année
+  const existing = await prisma.classe.findFirst({
+    where: {
+      tenantId: session.user.tenantId,
+      nom: source.nom,
+      annee: newAnnee,
+      deletedAt: null,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: { id: true },
+  });
+  if (existing) throw new Error(`Une classe "${source.nom}" existe déjà pour l'année ${newAnnee}`);
+
+  const newClasse = await prisma.classe.create({
+    data: {
+      tenantId: session.user.tenantId!,
+      siteId: source.siteId,
+      nom: source.nom,
+      niveau: source.niveau,
+      filiere: source.filiere,
+      effectifMax: source.effectifMax,
+      annee: newAnnee,
+      structureId: source.structureId,
+      profPrincipalId: source.profPrincipalId,
+    },
+  });
+
+  // Option : copier aussi les élèves (pour redoublants ou passage)
+  if (copyStudents) {
+    const eleves = await prisma.eleve.findMany({
+      where: {
+        classeId,
+        tenantId: session.user.tenantId,
+        deletedAt: null,
+        ...siteFilterForModel("eleve", session.user),
+      },
+      select: { id: true },
+    });
+    if (eleves.length > 0) {
+      await prisma.eleve.updateMany({
+        where: { id: { in: eleves.map((e) => e.id) }, tenantId: session.user.tenantId },
+        data: { classeId: newClasse.id },
+      });
+      await prisma.historiqueClasse.createMany({
+        data: eleves.map((e) => ({
+          tenantId: session.user.tenantId!,
+          eleveId: e.id,
+          classeId: newClasse.id,
+          dateEntree: new Date(),
+          motif: "Duplication de classe",
+        })),
+      });
+    }
+  }
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true, newClasseId: newClasse.id };
+}
+
+export async function getClassesForExport() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  const classes = await prisma.classe.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      deletedAt: null,
+      ...siteFilterForModel("classe", session.user),
+    },
+    include: {
+      _count: { select: { eleves: ELEVE_NON_ARCHIVE } },
+      profPrincipal: { select: { user: { select: { name: true } } } },
+      structure: { select: { nom: true } },
+      site: { select: { nom: true } },
+    },
+    orderBy: [{ niveau: "asc" }, { nom: "asc" }],
+  });
+
+  return classes.map((c) => ({
+    nom: c.nom,
+    niveau: c.niveau,
+    filiere: c.filiere ?? "",
+    effectifActuel: c._count.eleves,
+    effectifMax: c.effectifMax,
+    profPrincipal: c.profPrincipal?.user.name ?? "",
+    structure: c.structure?.nom ?? "",
+    site: c.site?.nom ?? "",
+    annee: c.annee,
+  }));
 }
 
 // ============================================================
@@ -1257,5 +1846,395 @@ export async function deleteAnneeScolaire(anneeId: string) {
   });
 
   revalidatePath("/parametres");
+  return { success: true };
+}
+
+// ============================================================
+// PROMOTION AUTOMATIQUE DE FIN D'ANNÉE
+// ============================================================
+
+/// Table de correspondance niveau → niveau suivant.
+/// Inspiré de Pronote (préparation de l'année N+1) et Eduka (copy structure from previous year).
+const PROMOTION_NIVEAUX: Record<string, string> = {
+  // Maternelle
+  "petite section": "Moyenne section",
+  "moyenne section": "Grande section",
+  "grande section": "CP",
+  // Primaire
+  "cp": "CE1",
+  "ce1": "CE2",
+  "ce2": "CM1",
+  "cm1": "CM2",
+  "cm2": "6ème",
+  // Collège
+  "6ème": "5ème",
+  "6eme": "5ème",
+  "6e": "5ème",
+  "5ème": "4ème",
+  "5eme": "4ème",
+  "5e": "4ème",
+  "4ème": "3ème",
+  "4eme": "3ème",
+  "4e": "3ème",
+  "3ème": "2nde",
+  "3eme": "2nde",
+  "3e": "2nde",
+  // Lycée
+  "2nde": "1ère",
+  "seconde": "1ère",
+  "1ère": "Terminale",
+  "1ere": "Terminale",
+  "première": "Terminale",
+  "premiere": "Terminale",
+  "terminale": "Diplômé",
+  "tle": "Diplômé",
+};
+
+export async function niveauSuivant(niveau: string): Promise<string | null> {
+  const key = niveau.toLowerCase().trim();
+  return PROMOTION_NIVEAUX[key] ?? null;
+}
+
+export interface PromotionPreview {
+  classeId: string;
+  classeNom: string;
+  niveau: string;
+  niveauSuivant: string | null;
+  effectif: number;
+  eleves: { id: string; nom: string; prenom: string; matricule: string; action: "promouvoir" | "redoubler" | "diplome" }[];
+}
+
+export async function previewPromotion(anneeSource: string, anneeCible: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permission refusée : réservé aux administrateurs");
+  }
+
+  const classes = await prisma.classe.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      annee: anneeSource,
+      deletedAt: null,
+      ...siteFilterForModel("classe", session.user),
+    },
+    include: {
+      eleves: {
+        where: { deletedAt: null, ...siteFilterForModel("eleve", session.user) },
+        select: { id: true, nom: true, prenom: true, matricule: true, statut: true },
+        orderBy: { nom: "asc" },
+      },
+    },
+    orderBy: [{ niveau: "asc" }, { nom: "asc" }],
+  });
+
+  const preview: PromotionPreview[] = await Promise.all(
+    classes.map(async (c) => {
+      const nvSuivant = await niveauSuivant(c.niveau);
+      return {
+        classeId: c.id,
+        classeNom: c.nom,
+        niveau: c.niveau,
+        niveauSuivant: nvSuivant,
+        effectif: c.eleves.length,
+        eleves: c.eleves.map((e) => ({
+          id: e.id,
+          nom: e.nom,
+          prenom: e.prenom,
+          matricule: e.matricule,
+          action: (nvSuivant === "Diplômé" ? "diplome" : "promouvoir") as "promouvoir" | "redoubler" | "diplome",
+        })),
+      };
+    })
+  );
+
+  return preview;
+}
+
+export async function executePromotion(
+  anneeSource: string,
+  anneeCible: string,
+  decisions: Record<string, "promouvoir" | "redoubler" | "diplome">
+) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permission refusée : réservé aux administrateurs");
+  }
+
+  const classes = await prisma.classe.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      annee: anneeSource,
+      deletedAt: null,
+      ...siteFilterForModel("classe", session.user),
+    },
+    include: {
+      eleves: {
+        where: { deletedAt: null, ...siteFilterForModel("eleve", session.user) },
+        select: { id: true, nom: true, prenom: true, matricule: true, statut: true },
+      },
+    },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    for (const classe of classes) {
+      const nvSuivant = await niveauSuivant(classe.niveau);
+
+      for (const eleve of classe.eleves) {
+        const decision = decisions[eleve.id] ?? "promouvoir";
+
+        // Créer l'entrée ParcoursScolaire pour l'année source
+        await tx.parcoursScolaire.upsert({
+          where: { eleveId_annee: { eleveId: eleve.id, annee: anneeSource } },
+          create: {
+            tenantId: session.user.tenantId!,
+            eleveId: eleve.id,
+            annee: anneeSource,
+            classe: classe.nom,
+            niveau: classe.niveau,
+            decision: decision === "promouvoir" ? "Passage" : decision === "redoubler" ? "Redoublement" : "Diplômé",
+          },
+          update: {
+            classe: classe.nom,
+            niveau: classe.niveau,
+            decision: decision === "promouvoir" ? "Passage" : decision === "redoubler" ? "Redoublement" : "Diplômé",
+          },
+        });
+
+        if (decision === "diplome") {
+          await tx.eleve.update({
+            where: { id: eleve.id },
+            data: { statut: "DIPLOME", dateSortie: new Date(), motifSortie: "Fin d'études" },
+          });
+        }
+        // Pour les redoublants : on les laisse dans la même classe (l'année change)
+        // Pour les promus : on les détache de leur classe actuelle (ils seront affectés manuellement
+        // ou via la création des nouvelles classes)
+        if (decision === "promouvoir" && nvSuivant && nvSuivant !== "Diplômé") {
+          // Clôturer l'historique de classe
+          await tx.historiqueClasse.updateMany({
+            where: { eleveId: eleve.id, dateSortie: null },
+            data: { dateSortie: new Date(), motif: "Promotion" },
+          });
+          // Détacher l'élève de sa classe actuelle (en attente de nouvelle affectation)
+          await tx.eleve.update({
+            where: { id: eleve.id },
+            data: { classeId: null },
+          });
+        }
+      }
+
+      // Archiver la classe de l'année source
+      await tx.classe.update({
+        where: { id: classe.id },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: session.user.id,
+          deletedReason: `Promotion fin d'année ${anneeSource}`,
+        },
+      });
+    }
+  });
+
+  revalidatePath("/parametres");
+  revalidatePath("/eleves");
+  revalidateTag("classes-list");
+  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats");
+  return { success: true };
+}
+
+export async function copyStructureToNewYear(anneeSource: string, anneeCible: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permission refusée : réservé aux administrateurs");
+  }
+
+  const classes = await prisma.classe.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      annee: anneeSource,
+      deletedAt: null,
+      ...siteFilterForModel("classe", session.user),
+    },
+    select: {
+      id: true, nom: true, niveau: true, filiere: true, effectifMax: true,
+      structureId: true, profPrincipalId: true, siteId: true,
+    },
+  });
+
+  let created = 0;
+  for (const c of classes) {
+    // Vérifier qu'une classe avec le même nom n'existe pas déjà pour l'année cible
+    const existing = await prisma.classe.findFirst({
+      where: {
+        tenantId: session.user.tenantId,
+        nom: c.nom,
+        annee: anneeCible,
+        deletedAt: null,
+        ...siteFilterForModel("classe", session.user),
+      },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    await prisma.classe.create({
+      data: {
+        tenantId: session.user.tenantId!,
+        siteId: c.siteId,
+        nom: c.nom,
+        niveau: c.niveau,
+        filiere: c.filiere,
+        effectifMax: c.effectifMax,
+        annee: anneeCible,
+        structureId: c.structureId,
+        profPrincipalId: c.profPrincipalId,
+      },
+    });
+    created++;
+  }
+
+  revalidatePath("/parametres");
+  revalidateTag("classes-list");
+  return { success: true, created };
+}
+
+// ============================================================
+// FUSION DE DOUBLONS ÉLÈVES
+// ============================================================
+
+export async function findDuplicateEleves() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+
+  // Trouver les paires d'élèves avec le même nom + prénom + date de naissance
+  const eleves = await prisma.eleve.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      deletedAt: null,
+      ...siteFilterForModel("eleve", session.user),
+    },
+    select: {
+      id: true, nom: true, prenom: true, dateNaissance: true,
+      matricule: true, statut: true, classeId: true,
+      classe: { select: { nom: true } },
+      _count: { select: { notes: true, absences: true, bulletins: true } },
+    },
+    orderBy: { nom: "asc" },
+  });
+
+  // Grouper par nom + prénom + dateNaissance
+  const groups: Record<string, typeof eleves> = {};
+  for (const e of eleves) {
+    const key = `${e.nom}|${e.prenom}|${e.dateNaissance.toISOString().split("T")[0]}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  }
+
+  // Retourner seulement les groupes avec > 1 élève
+  return Object.entries(groups)
+    .filter(([, group]) => group.length > 1)
+    .map(([key, group]) => ({ key, eleves: group }));
+}
+
+export async function mergeEleves(
+  keepId: string,
+  mergeId: string,
+  reason?: string
+) {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Permission refusée : réservé aux administrateurs");
+  }
+
+  const keep = await prisma.eleve.findFirst({
+    where: { id: keepId, tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) },
+    select: { id: true, nom: true, prenom: true, matricule: true },
+  });
+  if (!keep) throw new Error("Élève à conserver introuvable");
+
+  const merge = await prisma.eleve.findFirst({
+    where: { id: mergeId, tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) },
+    select: { id: true, nom: true, prenom: true, matricule: true },
+  });
+  if (!merge) throw new Error("Élève à fusionner introuvable");
+
+  await prisma.$transaction(async (tx) => {
+    // Migrer toutes les relations de l'élève fusionné vers l'élève conservé
+    // Notes
+    await tx.note.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // Absences
+    await tx.absence.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // Bulletins
+    await tx.bulletin.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // ParcoursScolaire
+    await tx.parcoursScolaire.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // HistoriqueClasse
+    await tx.historiqueClasse.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // Parents (EleveParent) — éviter les doublons
+    const mergeParents = await tx.eleveParent.findMany({ where: { eleveId: mergeId } });
+    for (const ep of mergeParents) {
+      const existing = await tx.eleveParent.findFirst({
+        where: { eleveId: keepId, parentId: ep.parentId },
+      });
+      if (!existing) {
+        await tx.eleveParent.create({
+          data: { eleveId: keepId, parentId: ep.parentId, lien: ep.lien, isGardien: ep.isGardien },
+        });
+      }
+    }
+    await tx.eleveParent.deleteMany({ where: { eleveId: mergeId } });
+    // Factures
+    await tx.facture.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // Documents
+    await tx.document.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // Incidents
+    await tx.incident.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // Dispenses
+    await tx.dispenseMatiere.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+    // Exclusions
+    await tx.exclusionEleve.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });
+
+    // Soft delete de l'élève fusionné
+    await tx.eleve.update({
+      where: { id: mergeId },
+      data: {
+        deletedAt: new Date(),
+        statut: "ABANDONNE",
+        userId: null,
+        identiteKey: null,
+        classeId: null,
+      },
+    });
+
+    // Audit
+    await tx.auditLog.create({
+      data: {
+        tenantId: session.user.tenantId!,
+        userId: session.user.id!,
+        action: "eleve.merge",
+        verdict: "ALLOWED",
+        resource: "eleve",
+        resourceId: keepId,
+        reason: reason ?? `Fusion du doublon ${merge.matricule} vers ${keep.matricule}`,
+        metadata: {
+          keep: { id: keepId, matricule: keep.matricule, nom: keep.nom, prenom: keep.prenom },
+          merge: { id: mergeId, matricule: merge.matricule, nom: merge.nom, prenom: merge.prenom },
+        },
+      },
+    }).catch(() => {}); // Non-bloquant
+  });
+
+  revalidatePath("/eleves");
+  revalidatePath("/parametres");
+  revalidateTag("eleves-stats");
+  revalidateTag("dashboard-data");
   return { success: true };
 }

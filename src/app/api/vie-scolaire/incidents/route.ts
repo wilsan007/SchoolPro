@@ -93,6 +93,47 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // --- Notification IN_APP aux parents pour les incidents graves (gravite >= 2) ---
+    // Non-bloquante : un échec de notification ne doit pas faire échouer la
+    // création de l'incident.
+    if (gravite >= 2) {
+      try {
+        // eslint-disable-next-line ecolpro/require-site-filter -- eleve vérifié avec tenantId + siteFilter ci-dessus
+        const eleveAvecParents = await prisma.eleve.findUnique({
+          where: { id: eleveId },
+          select: {
+            parents: {
+              include: { parent: { select: { id: true } } },
+            },
+          },
+        });
+
+        const nbParents = eleveAvecParents?.parents.length ?? 0;
+        if (nbParents > 0) {
+          const eleveNom = `${incident.eleve.prenom} ${incident.eleve.nom}`;
+          await prisma.notification.create({
+            data: {
+              tenantId,
+              titre: `Incident signalé - ${eleveNom}`,
+              contenu:
+                `Bonjour,\n\nNous vous informons qu'un incident de type « ${type} » ` +
+                `a été signalé concernant ${eleveNom} le ${new Date(date).toLocaleDateString("fr-FR")}.\n\n` +
+                `Description : ${description}\n\nVeuillez contacter l'établissement pour plus d'informations.`,
+              canal: "IN_APP",
+              cible: "PARENTS",
+              envoyeParId: session.user.id,
+              nbDestinataires: nbParents,
+              nbDelivres: nbParents,
+              statut: "ENVOYEE",
+              envoyeeAt: new Date(),
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error("[API/vie-scolaire/incidents] Notification parents échouée:", notifError);
+      }
+    }
+
     return NextResponse.json(incident, { status: 201 });
   } catch (error) {
     console.error("[API/vie-scolaire/incidents POST]", error);

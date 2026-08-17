@@ -95,7 +95,7 @@ export function AttestationForm({ classes, tenant }: { classes: Classe[]; tenant
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Honorifique + Titre */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>{t("attHonorific")}</Label>
             <Select value={honorifique} onValueChange={setHonorifique}>
@@ -121,7 +121,7 @@ export function AttestationForm({ classes, tenant }: { classes: Classe[]; tenant
         </div>
 
         {/* Niveau → Classe → Élève */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>{t("attLevel")}</Label>
             <Select value={niveau} onValueChange={(v) => { setNiveau(v); setClasseId(""); setEleveId(""); }}>
@@ -202,7 +202,7 @@ export function AttestationForm({ classes, tenant }: { classes: Classe[]; tenant
 
         {/* Bouton imprimer */}
         <div className="flex justify-end gap-2">
-          <Button onClick={handlePrint} disabled={!eleveId || generating} className="gap-2">
+          <Button onClick={handlePrint} disabled={!eleveId || generating} className="gap-2 w-full sm:w-auto">
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
             {t("attPrint")}
           </Button>

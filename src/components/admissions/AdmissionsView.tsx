@@ -111,7 +111,7 @@ function CandidatureForm({
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 {t("studentInfo")}
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("lastName")}</label>
                   <Input value={form.nom} onChange={(e) => set("nom", e.target.value)} required placeholder="DIALLO" className="text-sm" />
@@ -151,7 +151,7 @@ function CandidatureForm({
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 {t("parentInfo")}
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("lastName")}</label>
                   <Input value={form.parentNom} onChange={(e) => set("parentNom", e.target.value)} required className="text-sm" />
@@ -184,8 +184,8 @@ function CandidatureForm({
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button type="submit" disabled={isPending} className="flex-1 gap-2">
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Button type="submit" disabled={isPending} className="flex-1 gap-2 w-full sm:w-auto">
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
                 {t("saveCandidature")}
               </Button>
@@ -379,19 +379,19 @@ export function AdmissionsView({ candidatures: initial }: AdmissionsViewProps) {
       )}
 
       {/* En-tête */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("title")}</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t("title")}</h2>
           <p className="text-sm text-gray-500">{t("totalCandidatures", { count: stats.total, s: stats.total > 1 ? "s" : "" })}</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="gap-2">
+        <Button onClick={() => setShowForm(true)} className="gap-2 w-full sm:w-auto">
           <Plus className="w-4 h-4" />
           {t("newCandidature")}
         </Button>
       </div>
 
       {/* Pipeline */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {pipelineStats.map((p) => {
           const cfg = STATUT_CONFIG[p.statut];
           return (
@@ -451,7 +451,7 @@ export function AdmissionsView({ candidatures: initial }: AdmissionsViewProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((c) => (
             <CandidatureCard key={c.id} candidature={c} onUpdate={handleUpdate} />
           ))}

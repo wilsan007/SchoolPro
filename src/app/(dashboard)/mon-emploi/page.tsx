@@ -71,7 +71,7 @@ export default async function MonEmploiPage({
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         {entete}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <p className="text-sm text-muted-foreground">{t("aucunEleve")}</p>
         </div>
       </div>
@@ -85,7 +85,7 @@ export default async function MonEmploiPage({
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         {entete}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <p className="text-sm text-muted-foreground">{t("aucuneClasse")}</p>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default async function MonEmploiPage({
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {entete}
-      <div className="flex-1 space-y-4 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         {eleves.length > 1 && (
           <nav aria-label={t("choisirEnfant")} className="flex flex-wrap gap-2">
             {eleves.map((e) => (

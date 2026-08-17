@@ -213,10 +213,10 @@ export function BulletinsManager({
   }
 
   return (
-    <div className={view === "matrix" ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-3 gap-6"}>
+    <div className={view === "matrix" ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6"}>
       {/* Barre de filtres horizontale — visible seulement en vue matricielle */}
       {view === "matrix" && (
-        <div className="flex flex-wrap items-center gap-2 px-1 sticky top-0 z-30 bg-background py-2 border-b">
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 px-1 sticky top-0 z-30 bg-background py-2 border-b">
           {/* Retour */}
           <Button
             variant="ghost"
@@ -290,7 +290,7 @@ export function BulletinsManager({
 
       {/* Colonne gauche : sélecteurs — cachée en vue matricielle */}
       {view !== "matrix" && (
-      <div className="space-y-4">
+      <div className="space-y-4 sm:space-y-4">
         {/* Période */}
         <Card>
           <CardHeader className="pb-3">
@@ -387,8 +387,8 @@ export function BulletinsManager({
         {view === "workflow" && selectedClasse && selectedPeriode && (
           <>
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-6">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between mb-4 sm:mb-6 gap-3">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                       {selectedClasse.nom} — {selectedPeriode.nom}
@@ -406,7 +406,7 @@ export function BulletinsManager({
                 </div>
 
                 {/* Étapes workflow */}
-                <div className="space-y-4 mb-6">
+                <div className="space-y-4 mb-4 sm:mb-6">
                   {[
                     {
                       step: 1,
@@ -433,7 +433,7 @@ export function BulletinsManager({
                       done: isPublished,
                     },
                   ].map((s) => (
-                    <div key={s.step} className="flex items-center gap-4">
+                    <div key={s.step} className="flex items-center gap-3 sm:gap-4">
                       <div
                         className={cn(
                           "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 transition-colors",
@@ -455,7 +455,7 @@ export function BulletinsManager({
                 </div>
 
                 {/* Boutons d'action */}
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                   {!isGenerated ? (
                     <Button onClick={genererBulletins} disabled={generating || isPending} className="gap-2">
                       {generating ? (
@@ -536,7 +536,7 @@ export function BulletinsManager({
         {/* VUE : Conseil de classe */}
         {view === "conseil" && selectedClasse && selectedPeriode && (
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <ConseilDeClasse
                 classeId={selectedClasse.id}
                 periodeId={selectedPeriode.id}

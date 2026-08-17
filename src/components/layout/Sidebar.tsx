@@ -43,6 +43,10 @@ import {
   Sun,
   Wrench,
   ClipboardCheck,
+  BookOpenCheck,
+  Grid3x3,
+  GitCompare,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -77,6 +81,7 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: "dashboard", icon: LayoutDashboard, href: "/dashboard", color: "text-blue-500" },
       { labelKey: "direction", icon: Gauge, href: "/direction", color: "text-sky-600" },
+      { labelKey: "chatbotDirection", icon: BarChart3, href: "/chatbot-direction", color: "text-blue-700" },
       { labelKey: "monEspace", icon: Briefcase, href: "/mon-espace", color: "text-emerald-600" },
       { labelKey: "maClasse", icon: Users, href: "/ma-classe", color: "text-teal-600" },
       { labelKey: "maMatiere", icon: Target, href: "/ma-matiere", color: "text-fuchsia-600" },
@@ -91,6 +96,7 @@ const navGroups: NavGroup[] = [
       { labelKey: "travail", icon: ListTodo, href: "/travail", color: "text-violet-500" },
       { labelKey: "maJournee", icon: Sun, href: "/ma-journee", color: "text-amber-400" },
       { labelKey: "entrainement", icon: Sparkles, href: "/entrainement", color: "text-amber-500" },
+      { labelKey: "revisionSemaine", icon: BookOpenCheck, href: "/revision-semaine", color: "text-emerald-600" },
       // Espaces dédiés par métier — chacun est l'accueil d'un rôle qui n'avait
       // pas d'espace à lui. La visibilité est déduite de `canAccessRoute`,
       // comme pour tout le reste du menu.
@@ -109,6 +115,10 @@ const navGroups: NavGroup[] = [
       { labelKey: "notes", icon: BookOpen, href: "/notes", color: "text-green-500" },
       { labelKey: "curriculum", icon: Target, href: "/curriculum", color: "text-fuchsia-500" },
       { labelKey: "recommandations", icon: Sparkles, href: "/recommandations", color: "text-rose-500" },
+      // LEARNOS — IA générative (proposé par l'IA, validé par l'enseignant puis la direction)
+      { labelKey: "plansLecon", icon: BookOpenCheck, href: "/plans-lecon", color: "text-indigo-600" },
+      { labelKey: "rubriquesEvaluation", icon: Grid3x3, href: "/rubriques-evaluation", color: "text-purple-600" },
+      { labelKey: "propositionsIa", icon: ClipboardCheck, href: "/propositions-ia", color: "text-teal-600" },
       { labelKey: "examens", icon: GraduationCap, href: "/evaluations", color: "text-yellow-500" },
       { labelKey: "cours", icon: PlayCircle, href: "/cours", color: "text-indigo-500" },
       { labelKey: "emploi", icon: Calendar, href: "/emploi-du-temps", color: "text-cyan-500" },
@@ -127,6 +137,7 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: "admissions", icon: UserPlus, href: "/admissions", color: "text-teal-500" },
       { labelKey: "facturation", icon: Receipt, href: "/facturation", color: "text-emerald-500" },
+      { labelKey: "caisse", icon: Wallet, href: "/caisse", color: "text-green-600" },
       { labelKey: "rh", icon: Briefcase, href: "/rh", color: "text-amber-500" },
       { labelKey: "inventaire", icon: Package, href: "/inventaire", color: "text-stone-500" },
     ],
@@ -143,6 +154,7 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: "rapports", icon: FileText, href: "/rapports", color: "text-slate-500" },
       { labelKey: "analytics", icon: BarChart3, href: "/analytics", color: "text-red-500" },
+      { labelKey: "comparateur", icon: GitCompare, href: "/comparateur", color: "text-cyan-600" },
       { labelKey: "orientation", icon: Compass, href: "/orientation", color: "text-lime-600" },
       { labelKey: "alumni", icon: Archive, href: "/alumni", color: "text-purple-500" },
     ],
@@ -177,15 +189,33 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     function handleCollapse(e: Event) {
       const detail = (e as CustomEvent<{ collapse: boolean }>).detail;
       setCollapsed(detail.collapse);
     }
+    function handleMobileToggle() {
+      setMobileOpen((prev) => !prev);
+    }
+    function handleMobileClose() {
+      setMobileOpen(false);
+    }
     window.addEventListener("sidebar-collapse", handleCollapse as EventListener);
-    return () => window.removeEventListener("sidebar-collapse", handleCollapse as EventListener);
+    window.addEventListener("sidebar-mobile-toggle", handleMobileToggle);
+    window.addEventListener("sidebar-mobile-close", handleMobileClose);
+    return () => {
+      window.removeEventListener("sidebar-collapse", handleCollapse as EventListener);
+      window.removeEventListener("sidebar-mobile-toggle", handleMobileToggle);
+      window.removeEventListener("sidebar-mobile-close", handleMobileClose);
+    };
   }, []);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   const filteredGroups = useMemo(() =>
     navGroups
@@ -222,10 +252,23 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
   }
 
   return (
+    <>
+    {/* Mobile backdrop */}
+    {mobileOpen && (
+      <div
+        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden print:hidden"
+        onClick={() => setMobileOpen(false)}
+      />
+    )}
     <aside
       className={cn(
-        "relative flex flex-col h-screen bg-slate-950 text-slate-100 transition-all duration-300 ease-in-out border-r border-slate-800/60 shadow-xl shadow-indigo-950/10 print:hidden",
-        collapsed ? "w-20" : "w-72"
+        "flex flex-col h-screen bg-slate-950 text-slate-100 transition-all duration-300 ease-in-out border-r border-slate-800/60 shadow-xl shadow-indigo-950/10 print:hidden",
+        // Mobile: fixed drawer, slide in/out
+        "fixed inset-y-0 left-0 z-50 lg:relative lg:z-auto",
+        mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        // Desktop: inline sidebar with collapse
+        collapsed ? "lg:w-20" : "lg:w-72",
+        "w-72"
       )}
     >
       {/* Logo & École */}
@@ -426,10 +469,10 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
         </div>
       )}
 
-      {/* Bouton collapse */}
+      {/* Bouton collapse — desktop only */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center hover:bg-slate-800 transition-all duration-200 z-10 hover:scale-110 active:scale-95 shadow-md shadow-black/20"
+        className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-slate-900 border border-slate-800 items-center justify-center hover:bg-slate-800 transition-all duration-200 z-10 hover:scale-110 active:scale-95 shadow-md shadow-black/20 hidden lg:flex"
       >
         {collapsed ? (
           <ChevronRight className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
@@ -438,5 +481,6 @@ export function Sidebar({ userName = "Admin", userRole = "Directeur", userAvatar
         )}
       </button>
     </aside>
+    </>
   );
 }

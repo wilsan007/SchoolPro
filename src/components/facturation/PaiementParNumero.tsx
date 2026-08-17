@@ -91,7 +91,7 @@ export function PaiementParNumero({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form onSubmit={rechercher} className="flex gap-2">
+        <form onSubmit={rechercher} className="flex flex-col sm:flex-row gap-2">
           <div className="flex-1 space-y-1.5">
             <Label htmlFor="invoice-number">{t("invoiceNumber")}</Label>
             <Input
@@ -143,8 +143,8 @@ export function PaiementParNumero({
                 {facture.statut.replace("_", " ")}
               </Badge>
             </div>
-            <div className="flex gap-2">
-              <Button asChild size="sm" className="gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button asChild size="sm" className="gap-2 w-full sm:w-auto">
                 <Link href={`/facturation/${facture.id}?action=paiement`} onClick={reset}>
                   <Banknote className="h-4 w-4" />
                   {t("collectPayment")}

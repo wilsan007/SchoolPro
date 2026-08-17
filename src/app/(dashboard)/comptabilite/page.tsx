@@ -6,6 +6,7 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getSituationFinanciere } from "@/lib/financial-guard";
+import { getDemoNow } from "@/lib/demo-now";
 import Link from "next/link";
 
 /**
@@ -30,7 +31,7 @@ export default async function ComptabilitePage() {
 
   const tenantId = session!.user.tenantId!;
   const claims = session!.user as SessionSiteClaims;
-  const now = new Date();
+  const now = await getDemoNow();
   const dans7Jours = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const siteFilterFacture = siteFilterForModel("facture", claims);
@@ -259,8 +260,8 @@ export default async function ComptabilitePage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6 scrollbar-thin">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {kpis.map((kpi) => (
             <Card key={kpi.label}>
               <CardHeader className="pb-2">
@@ -293,15 +294,15 @@ export default async function ComptabilitePage() {
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="pb-2 pr-4 font-medium">{t("famille")}</th>
-                      <th className="pb-2 pr-4 font-medium">{t("eleve")}</th>
+                      <th className="pb-2 pr-4 font-medium hidden sm:table-cell">{t("eleve")}</th>
                       <th className="pb-2 pr-4 font-medium text-right">
                         {t("montantDu")}
                       </th>
-                      <th className="pb-2 pr-4 font-medium text-right">
+                      <th className="pb-2 pr-4 font-medium text-right hidden sm:table-cell">
                         {t("nbFactures")}
                       </th>
                     </tr>
@@ -309,16 +310,16 @@ export default async function ComptabilitePage() {
                   <tbody>
                     {familles.map((fam) => (
                       <tr key={fam.parentId} className="border-b last:border-0">
-                        <td className="py-2 pr-4 font-medium">
+                        <td className="py-2 pr-4 font-medium truncate max-w-[160px]">
                           {fam.parentNom}
                         </td>
-                        <td className="py-2 pr-4 text-muted-foreground">
+                        <td className="py-2 pr-4 text-muted-foreground hidden sm:table-cell">
                           {fam.elevesList.join(", ")}
                         </td>
                         <td className="py-2 pr-4 text-right font-semibold text-red-600">
                           {formatMontant(fam.montantTotal)}
                         </td>
-                        <td className="py-2 pr-4 text-right">
+                        <td className="py-2 pr-4 text-right hidden sm:table-cell">
                           {fam.nbFactures}
                         </td>
                       </tr>
@@ -348,13 +349,13 @@ export default async function ComptabilitePage() {
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="pb-2 pr-4 font-medium">{t("eleve")}</th>
-                      <th className="pb-2 pr-4 font-medium">{t("matricule")}</th>
-                      <th className="pb-2 pr-4 font-medium">{t("classe")}</th>
-                      <th className="pb-2 pr-4 font-medium text-right">
+                      <th className="pb-2 pr-4 font-medium hidden sm:table-cell">{t("matricule")}</th>
+                      <th className="pb-2 pr-4 font-medium hidden sm:table-cell">{t("classe")}</th>
+                      <th className="pb-2 pr-4 font-medium text-right hidden sm:table-cell">
                         {t("nbFactures")}
                       </th>
                       <th className="pb-2 pr-4 font-medium text-right">
@@ -368,14 +369,14 @@ export default async function ComptabilitePage() {
                   <tbody>
                     {elevesRetard.map((el) => (
                       <tr key={el.id} className="border-b last:border-0">
-                        <td className="py-2 pr-4 font-medium">{el.nom}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">
+                        <td className="py-2 pr-4 font-medium truncate max-w-[160px]">{el.nom}</td>
+                        <td className="py-2 pr-4 text-muted-foreground hidden sm:table-cell">
                           {el.matricule}
                         </td>
-                        <td className="py-2 pr-4 text-muted-foreground">
+                        <td className="py-2 pr-4 text-muted-foreground hidden sm:table-cell">
                           {el.classeNom}
                         </td>
-                        <td className="py-2 pr-4 text-right">
+                        <td className="py-2 pr-4 text-right hidden sm:table-cell">
                           {el.nbFacturesRetard}
                         </td>
                         <td className="py-2 pr-4 text-right font-semibold text-red-600">

@@ -115,7 +115,7 @@ export function ReglesAppreciationManager({ regles: initialRegles }: { regles: R
       <CardContent className="space-y-4">
         {editing && (
           <div className="rounded-lg border p-4 space-y-3 bg-muted/30">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">{t("context")}</Label>
                 <Select value={editing.contexte} onValueChange={(v) => setEditing({ ...editing, contexte: v })}>

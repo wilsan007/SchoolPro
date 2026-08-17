@@ -164,10 +164,10 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
   const precision = data.stats.tauxPrecision;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* En-tête : titre + bouton d'analyse */}
       <Card>
-        <CardContent className="p-5 flex items-center justify-between gap-4 flex-wrap">
+        <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Brain className="h-6 w-6 text-primary shrink-0" />
             <div>
@@ -187,7 +187,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
       </Card>
 
       {/* Statistiques globales */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -213,7 +213,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
               <span className="text-xs text-muted-foreground">{t("precision")}</span>
             </div>
             <p className="text-2xl font-bold">
-              {precision !== null ? `${(precision * 100).toFixed(0)}%` : "—"}
+              {precision !== null ? `${(precision * 100).toFixed(0)}%` : tc("donneesInsuffisantes")}
             </p>
             {data.stats.totalVerifiees > 0 && (
               <p className="text-xs text-muted-foreground">
@@ -236,7 +236,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
       {/* Patterns détectés — les compétences les plus difficiles */}
       {data.patterns.length > 0 && (
         <Card>
-          <CardContent className="p-5 space-y-3">
+          <CardContent className="p-4 sm:p-6 space-y-3">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               <h3 className="font-medium text-sm">{t("patternsTitre")}</h3>
@@ -246,7 +246,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
               {data.patterns.slice(0, 10).map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -261,7 +261,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
                       {p.competence?.chapitre?.matiere?.nom ?? "—"} · {p.competence?.chapitre?.nom ?? "—"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-4 shrink-0">
+                  <div className="flex items-center gap-3 sm:gap-4 shrink-0">
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground">{t("moyenne")}</p>
                       <p className="text-sm font-medium">
@@ -289,7 +289,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
       {/* Calibrations des seuils */}
       {data.calibrations.length > 0 && (
         <Card>
-          <CardContent className="p-5 space-y-3">
+          <CardContent className="p-4 sm:p-6 space-y-3">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" />
               <h3 className="font-medium text-sm">{t("calibrationsTitre")}</h3>
@@ -299,7 +299,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
               {data.calibrations.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border p-3"
                 >
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-xs">{c.niveau}</Badge>
@@ -307,7 +307,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
                       {t("surN", { n: c.echantillon })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs">
+                  <div className="flex items-center gap-3 sm:gap-4 text-xs">
                     <span>C: {c.seuilCritique.toFixed(2)}</span>
                     <span>F: {c.seuilFragile.toFixed(2)}</span>
                     <span>Co: {c.seuilConsolide.toFixed(2)}</span>
@@ -330,7 +330,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
       {/* Journal d'apprentissage — trace d'audit */}
       {data.journal.length > 0 && (
         <Card>
-          <CardContent className="p-5 space-y-3">
+          <CardContent className="p-4 sm:p-6 space-y-3">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-medium text-sm">{t("journalTitre")}</h3>

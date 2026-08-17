@@ -47,7 +47,7 @@ export default async function BulletinAnnuelPage({
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
-      <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center px-4 print:hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto mb-4 print:hidden">
         <Link href="/notes/bulletins">
           <Button variant="outline" size="sm" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -56,7 +56,7 @@ export default async function BulletinAnnuelPage({
         </Link>
         <PrintButton />
       </div>
-      <div className="flex justify-center">
+      <div className="flex justify-center px-4 sm:px-6 lg:px-8">
         <BulletinAnnuelPreview data={data} />
       </div>
     </div>

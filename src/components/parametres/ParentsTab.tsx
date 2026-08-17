@@ -203,7 +203,7 @@ export function ParentsTab({
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="p-nom">{t("lastName")}</Label>
                   <Input id="p-nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required />
@@ -361,7 +361,7 @@ export function ParentsTab({
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">{t("parentGuardian")}</th>

@@ -29,7 +29,7 @@ export function AbsencesStats({ auJourdhui, semaine, nonJustifiees }: AbsencesSt
   ];
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {items.map((item) => (
         <div key={item.label} className="flex items-center gap-2.5">
           <div className={`p-2 rounded-lg ${item.color}`}>

@@ -148,9 +148,9 @@ function ParentCard({ parent }: { parent: ParentData }) {
 
   return (
     <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         {/* En-tête parent */}
-        <div className="flex items-start gap-4">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
           <Avatar className="h-12 w-12 flex-shrink-0">
             {parent.user?.avatarUrl && (
               <AvatarImage src={parent.user.avatarUrl} alt={parent.nom} />
@@ -161,9 +161,9 @@ function ParentCard({ parent }: { parent: ParentData }) {
           </Avatar>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">
                   {parent.prenom} {parent.nom}
                 </h3>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -248,7 +248,7 @@ function ParentCard({ parent }: { parent: ParentData }) {
         </div>
 
         {/* Actions */}
-        <div className="mt-4 flex items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="mt-4 flex flex-col sm:flex-row items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
           <Link href="/messages" className="flex-1">
             <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
               <MessageSquare className="w-3.5 h-3.5" />
@@ -312,7 +312,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -426,7 +426,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {parentsFiltres.map((parent) => (
             <ParentCard key={parent.id} parent={parent} />
           ))}

@@ -51,19 +51,19 @@ function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
   const MEDALS = ["🥇", "🥈", "🥉"];
 
   return (
-    <div className="p-8 bg-white text-gray-900 print:p-0" id="rapport-content">
+    <div className="p-4 sm:p-8 bg-white text-gray-900 print:p-0" id="rapport-content">
       {/* En-tête */}
       <div className="text-center border-b-2 border-gray-800 pb-6 mb-8">
-        <h1 className="text-2xl font-bold uppercase tracking-wide">{tenant?.name}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold uppercase tracking-wide">{tenant?.name}</h1>
         <p className="text-gray-500 text-sm mt-1">{tenant?.city} · {t("year")} {tenant?.currentYear}</p>
-        <h2 className="text-xl font-bold mt-4 text-primary">{t("palmaresHeading")}</h2>
+        <h2 className="text-lg sm:text-xl font-bold mt-4 text-primary">{t("palmaresHeading")}</h2>
       </div>
 
       {/* Podium Top 3 */}
       {top3.length > 0 && (
         <div className="mb-8">
           <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-4">{t("podium")}</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {top3.map((b: any, i: number) => (
               <div key={b.id} className="text-center p-4 rounded-xl border-2 border-primary/20 bg-primary/5">
                 <div className="text-3xl mb-2">{MEDALS[i]}</div>
@@ -81,7 +81,8 @@ function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
       {reste.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">{t("fullRanking")}</h3>
-          <table className="w-full text-sm border-collapse">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse min-w-[640px]">
             <thead>
               <tr className="bg-gray-100">
                 <th className="text-left p-2 border border-gray-200">{t("rank")}</th>
@@ -111,6 +112,7 @@ function PalmaresReport({ data, tenant }: { data: any[]; tenant: any }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -130,14 +132,14 @@ function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
     : 0;
 
   return (
-    <div className="p-8 bg-white text-gray-900" id="rapport-content">
+    <div className="p-4 sm:p-8 bg-white text-gray-900" id="rapport-content">
       <div className="text-center border-b-2 border-gray-800 pb-6 mb-8">
-        <h1 className="text-2xl font-bold uppercase">{tenant?.name}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold uppercase">{tenant?.name}</h1>
         <p className="text-gray-500 text-sm mt-1">{tenant?.city} · {t("year")} {tenant?.currentYear}</p>
-        <h2 className="text-xl font-bold mt-4">{t("statsHeading")}</h2>
+        <h2 className="text-lg sm:text-xl font-bold mt-4">{t("statsHeading")}</h2>
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8">
         {[
           { label: t("enrolledStudents"), value: data.totalEleves, icon: <Users className="w-5 h-5" />, color: "text-blue-600" },
           { label: t("teachers"), value: data.totalEnseignants, icon: <GraduationCap className="w-5 h-5" />, color: "text-green-600" },
@@ -176,7 +178,7 @@ function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
 
       <div className="border rounded-xl p-5">
         <h3 className="font-bold text-gray-700 mb-3">{t("absences")}</h3>
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="p-3 bg-green-50 rounded-lg">
             <p className="text-2xl font-bold text-green-600">{data.absences?.JUSTIFIEE ?? 0}</p>
             <p className="text-xs text-green-700 mt-1">{t("justified")}</p>
@@ -204,11 +206,11 @@ function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
 function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
   const t = useTranslations("rapports");
   return (
-    <div className="p-8 bg-white text-gray-900" id="rapport-content">
+    <div className="p-4 sm:p-8 bg-white text-gray-900" id="rapport-content">
       <div className="text-center border-b-2 border-gray-800 pb-6 mb-8">
-        <h1 className="text-2xl font-bold uppercase">{tenant?.name}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold uppercase">{tenant?.name}</h1>
         <p className="text-gray-500 text-sm mt-1">{tenant?.city} · {t("year")} {tenant?.currentYear}</p>
-        <h2 className="text-xl font-bold mt-4">{t("inspectionHeading")}</h2>
+        <h2 className="text-lg sm:text-xl font-bold mt-4">{t("inspectionHeading")}</h2>
         <p className="text-xs text-gray-400 mt-2">{t("confidential")}</p>
       </div>
 
@@ -217,7 +219,8 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
         <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-2 mb-4 uppercase text-sm tracking-wide">
           {t("structureClasses")}
         </h3>
-        <table className="w-full text-sm border-collapse">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse min-w-[640px]">
           <thead>
             <tr className="bg-gray-100">
               <th className="text-left p-2 border border-gray-200">{t("classLabel")}</th>
@@ -239,6 +242,7 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       {/* Corps enseignant */}
@@ -246,7 +250,8 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
         <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-2 mb-4 uppercase text-sm tracking-wide">
           {t("teachingStaff")}
         </h3>
-        <table className="w-full text-sm border-collapse">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse min-w-[480px]">
           <thead>
             <tr className="bg-gray-100">
               <th className="text-left p-2 border border-gray-200">{t("name")}</th>
@@ -264,6 +269,7 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       {/* Matières */}
@@ -271,7 +277,7 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
         <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-2 mb-4 uppercase text-sm tracking-wide">
           {t("taughtSubjects")}
         </h3>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {data.matieres?.map((m: any, i: number) => (
             <div key={i} className="border rounded-lg p-2 text-sm">
               <p className="font-medium">{m.nom}</p>
@@ -343,7 +349,7 @@ export function RapportsView() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("officialReports")}</h2>
             <p className="text-sm text-gray-500">{t("reportsDesc")}</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {RAPPORTS.map((r) => (
               <Card
                 key={r.type}
@@ -372,7 +378,7 @@ export function RapportsView() {
       {selected && (
         <div>
           {/* Actions */}
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" onClick={() => { setSelected(null); setReportData(null); }}>
                 ← {t("back")}
@@ -382,7 +388,7 @@ export function RapportsView() {
               </h2>
             </div>
             {reportData && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button onClick={handlePrint} className="gap-2">
                   <Printer className="w-4 h-4" /> {t("printPdf")}
                 </Button>

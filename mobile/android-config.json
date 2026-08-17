@@ -1,0 +1,22 @@
+{
+  "appId": "app.ecolpro.mobile",
+  "appName": "EcolPro",
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "permissions": [
+    "INTERNET",
+    "ACCESS_NETWORK_STATE",
+    "POST_NOTIFICATIONS",
+    "RECEIVE_BOOT_COMPLETED",
+    "SCHEDULE_EXACT_ALARM",
+    "USE_BIOMETRIC"
+  ],
+  "features": [
+    "android.hardware.touchscreen",
+    "android.hardware.camera",
+    "android.hardware.internet"
+  ],
+  "minSdkVersion": 24,
+  "targetSdkVersion": 34,
+  "compileSdkVersion": 34
+}

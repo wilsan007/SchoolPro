@@ -251,7 +251,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
   return (
     <>
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[32rem] max-h-[70vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-20 right-3 sm:bottom-24 sm:right-6 z-50 w-[calc(100vw-1.5rem)] sm:w-96 max-w-[calc(100vw-1.5rem)] h-[28rem] sm:h-[32rem] max-h-[70vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shrink-0">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
@@ -416,7 +416,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
         title={t("assistantBtn")}
       >
         {open ? <X className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}

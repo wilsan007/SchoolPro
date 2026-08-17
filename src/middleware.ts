@@ -43,7 +43,17 @@ export default async function middleware(req: NextRequest) {
 
   // JWT décodé directement depuis le cookie. `auth()` de NextAuth ne remonte
   // pas `role` dans le runtime Edge du middleware.
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  // On passe secureCookie et cookieName explicitement car getToken ne les
+  // déduit pas automatiquement depuis le NextRequest.
+  const secureCookie = req.nextUrl.protocol === "https:";
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie,
+    cookieName: secureCookie
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token",
+  });
 
   if (!token) {
     const loginUrl = new URL("/login", req.url);

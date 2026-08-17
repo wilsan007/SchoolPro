@@ -11,6 +11,7 @@ onlyBuiltDependencies:
   - "@swc/core"
   - esbuild
   - unrs-resolver
+  - tesseract.js
 
 allowBuilds:
   '@parcel/watcher': true
@@ -20,5 +21,5 @@ allowBuilds:
   esbuild: true
   prisma: true
   sharp: true
-  tesseract.js: set this to true or false
+  tesseract.js: true
   unrs-resolver: true

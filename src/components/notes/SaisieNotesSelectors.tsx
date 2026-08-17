@@ -46,7 +46,7 @@ export function SaisieNotesSelectors({
   }
 
   return (
-    <div className="bg-background p-4 rounded-xl border shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="bg-background p-4 rounded-xl border shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div className="space-y-2">
         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t("selectClassLabel")}</label>
         <select

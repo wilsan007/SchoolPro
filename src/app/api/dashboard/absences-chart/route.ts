@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, personalScopeFilter, mergeFilters } from "@/lib/site-scope";
 import type { Prisma } from "@prisma/client";
+import { getDemoNow } from "@/lib/demo-now";
 
 export async function GET() {
   const session = await auth();
@@ -21,13 +22,13 @@ export async function GET() {
     personalScopeFilter(session.user, "eleve")
   );
 
-  // Calculer la date d'il y a 8 semaines
-  const now = new Date();
+  // Date simulée par la machine à remonter le temps (cookie demo-now).
+  const now = await getDemoNow();
   const eightWeeksAgo = new Date(now);
   eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
 
   const absences = await prisma.absence.findMany({
-    where: mergeFilters({ tenantId, date: { gte: eightWeeksAgo } }, scopeFilter) as unknown as Prisma.AbsenceWhereInput,
+    where: mergeFilters({ tenantId, date: { gte: eightWeeksAgo, lte: now } }, scopeFilter) as unknown as Prisma.AbsenceWhereInput,
     select: {
       date: true,
       statut: true,

@@ -156,9 +156,14 @@ export async function dossierEleve(
   tenantId: string,
   eleveId: string,
   claims: SessionSiteClaims,
-  options: { pourResponsable?: string; avecFinance?: boolean } = {}
+  options: {
+    pourResponsable?: string;
+    avecFinance?: boolean;
+    maintenant?: Date;
+  } = {}
 ): Promise<DossierEleve | null> {
-  const { pourResponsable, avecFinance = false } = options;
+  const { pourResponsable, avecFinance = false, maintenant = new Date() } =
+    options;
 
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", claims) },
@@ -171,7 +176,10 @@ export async function dossierEleve(
   });
   if (!eleve) return null;
 
-  const depuis = new Date(Date.now() - FENETRE_ASSIDUITE_JOURS * 86_400_000);
+  // Fenêtre d'assiduité relative à la date simulée (ou réelle par défaut).
+  const depuis = new Date(
+    maintenant.getTime() - FENETRE_ASSIDUITE_JOURS * 86_400_000
+  );
 
   const [profils, recos, plans, absences, factures] = await Promise.all([
     prisma.studentLearningProfile.findMany({

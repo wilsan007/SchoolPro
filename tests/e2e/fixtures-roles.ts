@@ -16,6 +16,11 @@ import { test as base, expect, type Page } from "@playwright/test";
  * celui-ci est sélectionné automatiquement — la page /select-tenant
  * n'apparaît pas. Si l'utilisateur a plusieurs tenants, il choisit
  * manuellement. SUPER_ADMIN sans tenant va directement sur /super-admin.
+ *
+ * APPROCHE : le login se fait via l'API NextAuth directement
+ * (POST /api/auth/callback/credentials avec token CSRF), pas via
+ * le formulaire UI. Cela évite les problèmes de hydration React,
+ * de tokens CSRF stale, et de timing du handler onSubmit.
  */
 
 export const E2E_PASSWORD = "Demo@2026!";
@@ -51,10 +56,15 @@ const POST_TENANT_URL = /\/(dashboard|acces-bloque|super-admin|direction|mon-esp
 /**
  * Connecte la page avec le compte E2E du rôle demandé.
  *
- * La sélection de tenant est automatique s'il n'y en a qu'un seul :
- * la page /select-tenant n'apparaît que pour les comptes multi-tenant.
- * Tous les comptes E2E (sauf SUPER_ADMIN) ont un seul tenant (demo-learnos),
- * donc la plupart des logins vont directement à la route d'accueil.
+ * Le login se fait en deux étapes :
+ *  1. Récupérer un token CSRF via GET /api/auth/csrf
+ *  2. POST /api/auth/callback/credentials avec email, password, csrfToken
+ *
+ * NextAuth répond par une 302 vers la callback URL. Les cookies de
+ * session sont alors stockés dans le contexte navigateur. On navigue
+ * ensuite vers la page d'accueil du rôle.
+ *
+ * La sélection de tenant est automatique s'il n'y en a qu'un seul.
  */
 export async function loginAs(page: Page, role: string): Promise<void> {
   const creds = E2E_CREDENTIALS[role];
@@ -62,27 +72,62 @@ export async function loginAs(page: Page, role: string): Promise<void> {
     throw new Error(`Rôle inconnu dans E2E_CREDENTIALS : ${role}`);
   }
 
-  // Nettoyer toute session précédente pour éviter les interférences entre tests.
-  // Le simple clearCookies ne suffit pas : il faut aussi détruire la session
-  // côté serveur via l'endpoint de déconnexion NextAuth.
-  await page.context().clearCookies();
-  // Tenter un signout explicite (ignorer les erreurs si pas de session).
-  await page.goto("/api/auth/signout", { waitUntil: "domcontentloaded" }).catch(() => {});
-  // Revenir à la page de login.
-  await page.goto("/login", { waitUntil: "domcontentloaded" });
-  // La page de login utilise un Suspense boundary + hydration React.
-  // attendre que le formulaire soit visible et cliquable.
-  await page.waitForSelector('input[type="email"]', { state: "visible", timeout: 20000 });
-  await page.waitForSelector('button[type="submit"]:not([disabled])', { timeout: 15000 });
-  await page.waitForTimeout(500);
-  await page.fill('input[type="email"]', creds.email);
-  await page.fill('input[type="password"]', creds.password);
-  await page.click('button[type="submit"]');
+  const origin = process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:3001";
 
-  // Attendre la première redirection post-login.
-  // Avec un seul tenant, l'utilisateur va directement à son accueil.
-  // Avec plusieurs tenants, il passe par /select-tenant.
-  await page.waitForURL(POST_LOGIN_URL, { timeout: 25000 });
+  // 1. Nettoyer toute session précédente.
+  await page.context().clearCookies();
+
+  // 2. Récupérer un token CSRF frais (avec retry pour le cold start du dev server).
+  let csrfToken: string | undefined;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const csrfRes = await page.request.get(`${origin}/api/auth/csrf`, {
+        failOnStatusCode: false,
+      });
+      if (csrfRes.ok()) {
+        const body = await csrfRes.json();
+        csrfToken = body.csrfToken;
+        if (csrfToken) break;
+      }
+    } catch {
+      // Le dev server compile peut-être encore la route.
+    }
+    await page.waitForTimeout(2000);
+  }
+  if (!csrfToken) {
+    throw new Error(`CSRF token fetch failed for ${role} after 5 attempts`);
+  }
+
+  // 3. Soumettre les credentials via l'API NextAuth.
+  //    NextAuth répond par 302 → /select-tenant ou la callback URL.
+  //    On suit pas la redirection (redirect: "manual") pour inspecter.
+  const loginRes = await page.request.post(`${origin}/api/auth/callback/credentials`, {
+    form: {
+      email: creds.email,
+      password: creds.password,
+      csrfToken,
+      callbackUrl: `${origin}/select-tenant`,
+      json: "true",
+    },
+    maxRedirects: 0,
+  });
+
+  // NextAuth renvoie 302 en cas de succès. Les cookies de session
+  // sont posés dans cette réponse.
+  if (loginRes.status() !== 302) {
+    // Essayer de lire le corps d'erreur pour le diagnostic.
+    const body = await loginRes.text().catch(() => "(no body)");
+    throw new Error(`Login failed for ${role}: HTTP ${loginRes.status()} — ${body.slice(0, 200)}`);
+  }
+
+  // 4. Les cookies de session sont maintenant dans le contexte.
+  //    Naviguer vers la page d'accueil du rôle.
+  //    On passe par /select-tenant qui redirigera automatiquement
+  //    si un seul tenant, ou vers la route d'accueil directement.
+  await page.goto("/select-tenant", { waitUntil: "domcontentloaded" });
+
+  // Attendre la redirection (automatique si un seul tenant).
+  await page.waitForURL(POST_LOGIN_URL, { timeout: 20000 });
 
   // Si on est sur /select-tenant (multi-tenant), choisir le tenant LEARNOS.
   if (page.url().includes("/select-tenant")) {

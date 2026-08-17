@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth, unstable_update } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import type { Role } from "@prisma/client";
-import { deriveClaims } from "@/lib/tenant-claims";
 import { auditFire } from "@/lib/audit";
 import { erreurJson } from "@/lib/erreurs-api";
+import { refreshSessionCookie } from "@/lib/refresh-session-cookie";
 
 const BodySchema = z.object({
   role: z.enum([
@@ -18,6 +18,7 @@ const BodySchema = z.object({
     "COUNSELOR",
     "NURSE",
     "ACCOUNTANT",
+    "CAISSIER",
     "SUPERVISOR",
     "SUBJECT_LEAD",
     "SITE_MANAGER",
@@ -30,10 +31,9 @@ const BodySchema = z.object({
 /**
  * POST /api/switch-role — bascule le rôle actif dans le tenant courant.
  *
- * L'utilisateur doit **posséder** le rôle cible dans `UserRole` pour ce
- * tenant. La route met à jour uniquement le rôle **actif** (pointeur dans
- * `UserTenant.role` et `User.role`) — elle ne crée ni ne supprime jamais
- * de ligne dans `UserRole`. Les autres rôles possédés restent intacts.
+ * Le JWT est re-encodé manuellement et le cookie de session est posé via
+ * le header `Set-Cookie` car `unstable_update` ne persiste pas le cookie
+ * dans un Route Handler (bug connu de next-auth v5 beta).
  */
 export async function POST(req: Request) {
   try {
@@ -60,7 +60,6 @@ export async function POST(req: Request) {
       return erreurJson("ADHESION_INTROUVABLE");
     }
 
-    // 1. Vérifier que l'utilisateur a une adhésion active à ce tenant.
     const userTenant = await prisma.userTenant.findFirst({
       where: { userId, tenantId, isActive: true },
       select: { id: true, role: true },
@@ -78,9 +77,6 @@ export async function POST(req: Request) {
       return erreurJson("ADHESION_INTROUVABLE");
     }
 
-    // 2. Vérifier que l'utilisateur **possède** ce rôle dans UserRole.
-    //    C'est la garantie centrale : on ne peut basculer que vers un rôle
-    //    qu'on possède réellement, jamais vers un rôle arbitraire.
     // eslint-disable-next-line ecolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; self-lookup de l'utilisateur connecté
     const userRole = await prisma.userRole.findUnique({
       where: {
@@ -101,33 +97,24 @@ export async function POST(req: Request) {
       return erreurJson("PERMISSIONS_INSUFFISANTES");
     }
 
-    // Si le rôle demandé est déjà le rôle actif, ne rien faire.
     if (userTenant.role === targetRole) {
       return NextResponse.json({ success: true, activeRole: targetRole });
     }
 
-    // 3. Mettre à jour uniquement le rôle ACTIF — UserTenant.role.
-    //    UserRole n'est JAMAIS modifié ici : les rôles possédés sont
-    //    intacts, seul le pointeur change.
     await prisma.userTenant.update({
       where: { id: userTenant.id },
       data: { role: targetRole },
     });
 
-    // 4. Synchroniser User.role pour cohérence avec le code existant
-    //    qui lit User.role directement (middleware, layout, etc.).
     // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
     await prisma.user.update({
       where: { id: userId },
       data: { role: targetRole },
     });
 
-    // 5. Régénérer le JWT : le callback `jwt` relit le périmètre complet
-    //    depuis la base, y compris availableRoles.
-    await unstable_update({ user: { tenantId } } as never);
-
-    const claims = await deriveClaims(userId, tenantId);
-    if (!claims) {
+    // Re-encoder le JWT et récupérer la chaîne Set-Cookie.
+    const result = await refreshSessionCookie(userId, tenantId);
+    if (!result) {
       auditFire({
         userId,
         tenantId,
@@ -137,6 +124,8 @@ export async function POST(req: Request) {
       });
       return erreurJson("UTILISATEUR_INTROUVABLE");
     }
+
+    const { claims, setCookie } = result;
 
     auditFire({
       userId,
@@ -152,11 +141,16 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      activeRole: claims.role,
-      availableRoles: claims.availableRoles,
-    });
+    // Poser le Set-Cookie header manuellement — seule méthode fiable
+    // dans un Route Handler Next.js 15.
+    return NextResponse.json(
+      {
+        success: true,
+        activeRole: claims.role,
+        availableRoles: claims.availableRoles,
+      },
+      { headers: { "Set-Cookie": setCookie } },
+    );
   } catch (error) {
     console.error("Erreur switch role:", error);
     return erreurJson("ERREUR_SERVEUR");

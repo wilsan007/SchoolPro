@@ -18,6 +18,9 @@ import { loginAs } from "./fixtures-roles";
 
 test.describe("Permissions par rôle — routes critiques", () => {
   test.describe.configure({ mode: "serial" });
+  // Le dev server Next.js compile les routes à la demande (cold compile).
+  // Un timeout de 60s laisse le temps de compiler sans flakiness.
+  test.setTimeout(60000);
 
   // ─────────────────────────────────────────────
   // PARENT
@@ -25,7 +28,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("PARENT", () => {
     test("accède à /parent (autorisé)", async ({ page }) => {
       await loginAs(page, "PARENT");
-      await page.goto("/parent");
+      await page.goto("/parent", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/parent/);
     });
 
@@ -43,7 +46,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("STUDENT", () => {
     test("accède à /eleve (autorisé)", async ({ page }) => {
       await loginAs(page, "STUDENT");
-      await page.goto("/eleve");
+      await page.goto("/eleve", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/eleve/);
     });
 
@@ -61,7 +64,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("NURSE", () => {
     test("accède à /infirmerie (autorisé)", async ({ page }) => {
       await loginAs(page, "NURSE");
-      await page.goto("/infirmerie");
+      await page.goto("/infirmerie", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/infirmerie/);
     });
 
@@ -79,7 +82,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("SUPERVISOR", () => {
     test("accède à /vie-scolaire (autorisé)", async ({ page }) => {
       await loginAs(page, "SUPERVISOR");
-      await page.goto("/vie-scolaire");
+      await page.goto("/vie-scolaire", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/vie-scolaire/);
     });
 
@@ -98,7 +101,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("SUBJECT_LEAD", () => {
     test("accède à /ma-matiere (autorisé)", async ({ page }) => {
       await loginAs(page, "SUBJECT_LEAD");
-      await page.goto("/ma-matiere");
+      await page.goto("/ma-matiere", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/ma-matiere/);
     });
   });
@@ -109,7 +112,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("SECRETARY", () => {
     test("accède à /secretariat (autorisé)", async ({ page }) => {
       await loginAs(page, "SECRETARY");
-      await page.goto("/secretariat");
+      await page.goto("/secretariat", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/secretariat/);
     });
   });
@@ -120,7 +123,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("COUNSELOR", () => {
     test("accède à /conseiller (autorisé)", async ({ page }) => {
       await loginAs(page, "COUNSELOR");
-      await page.goto("/conseiller");
+      await page.goto("/conseiller", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/conseiller/);
     });
   });
@@ -131,7 +134,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("ACCOUNTANT", () => {
     test("accède à /comptabilite (autorisé)", async ({ page }) => {
       await loginAs(page, "ACCOUNTANT");
-      await page.goto("/comptabilite");
+      await page.goto("/comptabilite", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/comptabilite/);
     });
   });
@@ -142,7 +145,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("TEACHER", () => {
     test("accède à /mon-espace (autorisé)", async ({ page }) => {
       await loginAs(page, "TEACHER");
-      await page.goto("/mon-espace");
+      await page.goto("/mon-espace", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/mon-espace/);
     });
   });
@@ -153,7 +156,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("CLASS_TEACHER", () => {
     test("accède à /ma-classe (autorisé)", async ({ page }) => {
       await loginAs(page, "CLASS_TEACHER");
-      await page.goto("/ma-classe");
+      await page.goto("/ma-classe", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/ma-classe/);
     });
   });
@@ -164,7 +167,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("TENANT_ADMIN", () => {
     test("accède à /direction (autorisé)", async ({ page }) => {
       await loginAs(page, "TENANT_ADMIN");
-      await page.goto("/direction");
+      await page.goto("/direction", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/direction/);
     });
   });
@@ -175,7 +178,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("PRINCIPAL", () => {
     test("accède à /direction (autorisé)", async ({ page }) => {
       await loginAs(page, "PRINCIPAL");
-      await page.goto("/direction");
+      await page.goto("/direction", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/direction/);
     });
   });
@@ -186,7 +189,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("SUPER_ADMIN", () => {
     test("accède à /super-admin (autorisé)", async ({ page }) => {
       await loginAs(page, "SUPER_ADMIN");
-      await page.goto("/super-admin");
+      await page.goto("/super-admin", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/super-admin/);
     });
   });
@@ -197,7 +200,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("SITE_MANAGER", () => {
     test("accède à /exploitation (autorisé)", async ({ page }) => {
       await loginAs(page, "SITE_MANAGER");
-      await page.goto("/exploitation");
+      await page.goto("/exploitation", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/exploitation/);
     });
 
@@ -215,7 +218,7 @@ test.describe("Permissions par rôle — routes critiques", () => {
   test.describe("INSPECTOR", () => {
     test("accède à /inspection (autorisé)", async ({ page }) => {
       await loginAs(page, "INSPECTOR");
-      await page.goto("/inspection");
+      await page.goto("/inspection", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/inspection/);
     });
 

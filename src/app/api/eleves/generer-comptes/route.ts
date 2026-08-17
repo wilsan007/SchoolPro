@@ -118,6 +118,26 @@ export async function POST(req: NextRequest) {
       data: { userId: user.id },
     });
 
+    // --- Notification IN_APP au nouvel utilisateur ---
+    try {
+      await prisma.notification.create({
+        data: {
+          tenantId: session.user.tenantId,
+          titre: "Compte créé",
+          contenu: `Votre compte a été créé avec succès.\n\nIdentifiant : ${username}\n\nPour des raisons de sécurité, vous devrez changer votre mot de passe lors de votre première connexion.`,
+          canal: "IN_APP",
+          statut: "ENVOYEE",
+          cible: "ELEVES",
+          envoyeParId: session.user.id,
+          nbDestinataires: 1,
+          nbDelivres: 1,
+          envoyeeAt: new Date(),
+        },
+      });
+    } catch (notifError) {
+      console.error("[generer-comptes/eleves] Notification error:", notifError);
+    }
+
     accounts.push({
       matricule: eleve.matricule,
       nom: `${eleve.prenom} ${eleve.nom}`,

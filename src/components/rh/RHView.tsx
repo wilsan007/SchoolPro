@@ -139,7 +139,7 @@ function EnseignantRHCard({
 
   return (
     <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         {/* En-tête */}
         <div className="flex items-start gap-4">
           <Avatar className="h-11 w-11 flex-shrink-0">
@@ -381,7 +381,7 @@ export function RHView({ enseignants: initial, absencesPersonnel, congesPersonne
       {/* Header actions */}
       <div className="flex justify-end">
         <a href="/parametres">
-          <Button size="sm" className="gap-2">
+          <Button size="sm" className="gap-2 w-full sm:w-auto">
             <Users className="h-4 w-4" />
             {t("addTeacher")}
           </Button>
@@ -389,7 +389,7 @@ export function RHView({ enseignants: initial, absencesPersonnel, congesPersonne
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -486,7 +486,7 @@ export function RHView({ enseignants: initial, absencesPersonnel, congesPersonne
       </Card>
 
       {/* Onglets */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-thin">
         <button
           onClick={() => setActiveTab("personnel")}
           className={cn(
@@ -542,7 +542,7 @@ export function RHView({ enseignants: initial, absencesPersonnel, congesPersonne
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {filtered.map((e) => (
                 <EnseignantRHCard key={e.id} enseignant={e} onUpdate={handleUpdate} />
               ))}

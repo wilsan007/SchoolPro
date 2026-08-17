@@ -10,6 +10,7 @@ import {
   nombreDeSemaines,
   semaineScolaire,
 } from "@/lib/learnos/planification";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
  * Curriculum — référentiel de compétences et planification annuelle.
@@ -112,6 +113,8 @@ export default async function CurriculumPage() {
     session!.user
   );
 
+  const maintenant = await getDemoNow();
+
   const peutModifier = [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER",
   ].includes(session!.user.role as string);
@@ -143,7 +146,7 @@ export default async function CurriculumPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <CurriculumTabs
           matieres={matieres}
           chapitres={chapitres}
@@ -155,7 +158,7 @@ export default async function CurriculumPage() {
             annee ? nombreDeSemaines(annee.dateDebut, annee.dateFin) : 36
           }
           semaineCourante={
-            annee ? semaineScolaire(new Date(), annee.dateDebut) : 1
+            annee ? semaineScolaire(maintenant, annee.dateDebut) : 1
           }
           alertes={alertes}
           classes={classes}

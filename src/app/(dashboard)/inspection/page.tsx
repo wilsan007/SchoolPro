@@ -88,8 +88,8 @@ export default async function InspectionPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 space-y-6 scrollbar-thin">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {stats.map((stat) => (
             <Card key={stat.label} className="h-full">
               <CardHeader className="pb-2">

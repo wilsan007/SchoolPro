@@ -17,13 +17,24 @@ import {
   dashboardCacheKey,
   type DashboardScopeClaims,
 } from "./dashboard-scope";
+import { getDemoNow } from "@/lib/demo-now";
 
-async function fetchDashboardData(tenantId: string, claims: DashboardScopeClaims) {
+async function fetchDashboardData(
+  tenantId: string,
+  claims: DashboardScopeClaims,
+  maintenant: Date
+) {
   const wheres = buildDashboardWheres(tenantId, claims);
   // Les filtres `where` sont construits par `buildDashboardWheres` (dans
   // `dashboard-scope.ts`), qui combine `siteFilterForModel` + `personalScopeFilter`
   // pour chaque modèle. Le linter `ecolpro/require-site-filter` ne remonte pas
   // l'appel depuis un autre fichier : on désactive donc la règle sur ce bloc.
+
+  // Bornes du « jour courant » selon la date simulée.
+  const debutJour = new Date(maintenant);
+  debutJour.setHours(0, 0, 0, 0);
+  const finJour = new Date(maintenant);
+  finJour.setHours(23, 59, 59, 999);
 
   const [
     eleveStats,
@@ -48,8 +59,8 @@ async function fetchDashboardData(tenantId: string, claims: DashboardScopeClaims
       where: {
         ...wheres.absence,
         date: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          lt: new Date(new Date().setHours(23, 59, 59, 999)),
+          gte: debutJour,
+          lt: finJour,
         },
       },
     }),
@@ -72,7 +83,7 @@ async function fetchDashboardData(tenantId: string, claims: DashboardScopeClaims
       ? Promise.resolve(null)
       // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
       : prisma.examen.findFirst({
-          where: { ...wheres.examen, statut: "PROGRAMME", dateDebut: { gte: new Date() } },
+          where: { ...wheres.examen, statut: "PROGRAMME", dateDebut: { gte: maintenant } },
           orderBy: { dateDebut: "asc" },
         }),
   ]);
@@ -93,22 +104,39 @@ async function fetchDashboardData(tenantId: string, claims: DashboardScopeClaims
 
 const getCachedDashboardData = unstable_cache(
   // Le premier argument ne sert qu'à la clé de cache (cf. `dashboardCacheKey`).
-  async (scopeKey: string, tenantId: string, claims: DashboardScopeClaims) => {
+  // `maintenant` est sérialisé dans la clé pour invalider le cache quand la
+  // date simulée change (sinon la machine à remonter le temps afficherait des
+  // données périmées).
+  async (
+    scopeKey: string,
+    tenantId: string,
+    claims: DashboardScopeClaims,
+    maintenantKey: string
+  ) => {
     void scopeKey;
-    return fetchDashboardData(tenantId, claims);
+    return fetchDashboardData(tenantId, claims, new Date(maintenantKey));
   },
   ["dashboard-data"],
   { revalidate: 30, tags: ["dashboard-data"] }
 );
 
-async function getDashboardData(tenantId: string, claims: DashboardScopeClaims) {
+async function getDashboardData(
+  tenantId: string,
+  claims: DashboardScopeClaims,
+  maintenant: Date
+) {
   // Aucune mise en cache pour les périmètres personnels : les données sont
   // nominatives et propres à une famille, on refuse de les faire transiter par
   // un cache partagé (ceinture et bretelles, en plus de la clé explicite).
   if (isRelationScopedRole(claims.role)) {
-    return fetchDashboardData(tenantId, claims);
+    return fetchDashboardData(tenantId, claims, maintenant);
   }
-  return getCachedDashboardData(dashboardCacheKey(tenantId, claims), tenantId, claims);
+  return getCachedDashboardData(
+    dashboardCacheKey(tenantId, claims),
+    tenantId,
+    claims,
+    maintenant.toISOString()
+  );
 }
 
 export default async function DashboardPage() {
@@ -139,8 +167,9 @@ export default async function DashboardPage() {
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const maintenant = await getDemoNow();
   const [data, sites, anneeCourante] = await Promise.all([
-    getDashboardData(tenantId, session.user),
+    getDashboardData(tenantId, session.user, maintenant),
     prisma.site.findMany({
       where: { tenantId, actif: true, deletedAt: null },
       select: { id: true, nom: true },
@@ -195,18 +224,18 @@ export default async function DashboardPage() {
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
         title={t("title")}
-        subtitle={`${t("welcome")} ${session.user.name?.split(" ")[0]} 👋 — ${new Intl.DateTimeFormat(locale === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date())}`}
+        subtitle={`${t("welcome")} ${session.user.name?.split(" ")[0]} 👋 — ${new Intl.DateTimeFormat(locale === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(maintenant)}`}
         site={currentSiteName}
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         {/* KPI Cards */}
         <DashboardStats stats={stats} />
 
         {/* Grille principale */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Graphique absences */}
           <div className="lg:col-span-2">
             <AbsenceChart tenantId={session.user.tenantId} />

@@ -12,6 +12,7 @@ export interface AvailableTenant {
 
 export const authConfig: NextAuthConfig = {
   session: { strategy: "jwt" },
+  trustHost: true,
   pages: {
     signIn: "/login",
     error: "/login",
@@ -22,6 +23,7 @@ export const authConfig: NextAuthConfig = {
         token.id = user.id;
         token.role = (user as { role: Role }).role;
         token.tenantId = (user as { tenantId: string | null }).tenantId;
+        token.country = (user as { country?: string | null }).country ?? null;
         token.siteId = (user as { siteId?: string | null }).siteId ?? null;
         token.siteIds = (user as { siteIds?: string[] }).siteIds ?? [];
         token.tenantHasSites = (user as { tenantHasSites?: boolean }).tenantHasSites ?? true;
@@ -46,6 +48,7 @@ export const authConfig: NextAuthConfig = {
         (session.user as { id?: string }).id = token.id as string;
         (session.user as { role?: Role }).role = token.role as Role;
         (session.user as { tenantId?: string | null }).tenantId = token.tenantId as string | null;
+        (session.user as { country?: string | null }).country = token.country as string | null;
         (session.user as { siteId?: string | null }).siteId = token.siteId as string | null;
         (session.user as { siteIds?: string[] }).siteIds = (token.siteIds as string[] | undefined) ?? [];
         // Par défaut `true` : en l'absence d'information, on suppose que

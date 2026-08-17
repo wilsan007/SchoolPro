@@ -4,9 +4,11 @@ import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { GrilleKpi } from "@/components/learnos/GrilleKpi";
 import { AlertesAnticipees } from "@/components/curriculum/PlanificationView";
+import { AlerteDecalage } from "@/components/learnos/AlerteDecalage";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { kpisDirection } from "@/lib/learnos/kpi";
+import { getDemoNow } from "@/lib/demo-now";
 import { alertesAnticipees } from "@/lib/learnos/planification";
 import { siteFilterForModel, isTenantWideRole } from "@/lib/site-scope";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,8 +33,9 @@ export default async function DirectionPage() {
     select: { id: true },
   });
 
+  const maintenant = await getDemoNow();
   const [kpis, alertes] = await Promise.all([
-    kpisDirection(tenantId, claims),
+    kpisDirection(tenantId, claims, maintenant),
     annee ? alertesAnticipees(tenantId, annee.id, claims) : Promise.resolve([]),
   ]);
 
@@ -126,16 +129,25 @@ export default async function DirectionPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 space-y-8 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 space-y-8 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
         <GrilleKpi kpis={kpis} />
         {/* Les alertes anticipatives valent surtout pour la direction : c'est
             elle qui peut réorganiser un emploi du temps trois semaines avant. */}
         <AlertesAnticipees alertes={alertes} />
 
+        {/* ── Alerte précoce de décalage pédagogique ──────────────── */}
+        {/* Compare le programme prévu la semaine dernière avec ce qui a
+            réellement été fait (déclarations enseignant + preuves élèves).
+            Apparaît uniquement pour PRINCIPAL, TENANT_ADMIN, SUPER_ADMIN —
+            la garde de page filtre déjà les autres rôles. */}
+        <section className="space-y-3">
+          <AlerteDecalage />
+        </section>
+
         {/* ── File de validation ──────────────────────────────────── */}
         {fileValidation && (
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold">{t("fileValidation")}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">{t("fileValidation")}</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Link href="/notes/bulletins">
                 <Card className="h-full transition-colors hover:bg-muted/50">
@@ -191,10 +203,10 @@ export default async function DirectionPage() {
         {/* ── Comparateur inter-sites ─────────────────────────────── */}
         {peutComparerSites && (
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold">{t("comparateurSites")}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">{t("comparateurSites")}</h2>
             {comparateur.length === 0 ? (
               <Card>
-                <CardContent className="p-6 text-sm text-muted-foreground">
+                <CardContent className="p-4 sm:p-6 text-sm text-muted-foreground">
                   {t("aucunSite")}
                 </CardContent>
               </Card>
@@ -205,7 +217,7 @@ export default async function DirectionPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[640px]">
                       <thead>
                         <tr className="border-b text-left text-muted-foreground">
                           <th className="px-4 py-3 font-medium">{t("site")}</th>

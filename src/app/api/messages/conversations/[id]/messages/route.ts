@@ -108,7 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         userId,
         conversation: { tenantId },
       },
-      include: { conversation: { select: { readOnly: true, createdBy: true, type: true } } },
+      include: { conversation: { select: { readOnly: true, createdBy: true, type: true, subject: true } } },
     });
     if (!participation) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
@@ -151,6 +151,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       where: { conversationId_userId: { conversationId: id, userId } },
       data: { lastReadAt: new Date() },
     });
+
+    // --- Notifications IN_APP aux autres participants ---
+    try {
+      // eslint-disable-next-line ecolpro/require-tenant-id -- conversationId vérifiée via participation avec tenantId ci-dessus
+      const participants = await prisma.conversationParticipant.findMany({
+        where: { conversationId: id, userId: { not: userId } },
+        select: { userId: true },
+      });
+
+      const senderName = message.sender.name ?? "Un utilisateur";
+      const subject = participation.conversation.subject ?? "Conversation";
+
+      if (participants.length > 0) {
+        await prisma.notification.create({
+          data: {
+            tenantId,
+            titre: "Nouveau message",
+            contenu: `Vous avez reçu un nouveau message de ${senderName} dans « ${subject} ».\n\n${parsed.data.content.slice(0, 200)}${parsed.data.content.length > 200 ? "…" : ""}`,
+            canal: "IN_APP",
+            statut: "ENVOYEE",
+            cible: "TOUS",
+            envoyeParId: userId,
+            nbDestinataires: participants.length,
+            nbDelivres: participants.length,
+            envoyeeAt: new Date(),
+          },
+        });
+      }
+    } catch (notifError) {
+      console.error("[API/messages POST] Notification error:", notifError);
+    }
 
     return NextResponse.json(
       {

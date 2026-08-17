@@ -254,10 +254,24 @@ export async function createEleve(
       contactUrgencePhone: values.contactUrgencePhone || null,
       numeroBoursier: values.numeroBoursier || null,
       anneeInscription,
+      dateInscription: new Date(),
       photoUrl: values.photoUrl || null,
       identiteKey,
     },
   });
+
+  // Créer l'entrée d'historique de classe initiale
+  if (values.classeId) {
+    await prisma.historiqueClasse.create({
+      data: {
+        tenantId,
+        eleveId: eleve.id,
+        classeId: values.classeId,
+        dateEntree: new Date(),
+        motif: "Inscription",
+      },
+    }).catch(() => {}); // Non-bloquant
+  }
 
   if (values.parentNom && values.parentPrenom && values.parentPhone) {
     const parent = await prisma.parent.create({
@@ -480,11 +494,19 @@ export async function deleteEleve(id: string, reason?: string) {
       deletedAt: new Date(),
       statut: "ABANDONNE",
       userId: null, // Déconnecter le compte élève
-      // Libère l.identité : la contrainte d.unicité ignore les NULL, donc une
+      dateSortie: new Date(),
+      motifSortie: reason ?? "Suppression administrative",
+      // Libère l'identité : la contrainte d'unicité ignore les NULL, donc une
       // réinscription ultérieure de la même personne reste possible.
       identiteKey: null,
     },
   });
+
+  // Clôturer l'historique de classe
+  await prisma.historiqueClasse.updateMany({
+    where: { eleveId: id, tenantId, dateSortie: null },
+    data: { dateSortie: new Date(), motif: "Départ/suppression" },
+  }).catch(() => {}); // Non-bloquant
 
   // Audit trail
   await audit({

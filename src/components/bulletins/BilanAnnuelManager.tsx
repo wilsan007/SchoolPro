@@ -35,7 +35,7 @@ export function BilanAnnuelManager({ classes, anneeId }: { classes: any[]; annee
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">{t("annualGenTitle")}</CardTitle>
@@ -44,7 +44,7 @@ export function BilanAnnuelManager({ classes, anneeId }: { classes: any[]; annee
           <p className="text-sm text-muted-foreground">
             {t("annualGenDesc")}
           </p>
-          <div className="flex gap-4 items-end">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
             <div className="flex-1 max-w-sm">
               <label className="text-sm font-medium mb-1.5 block">{t("selectClassLabel")}</label>
               <Select value={selectedClasse} onValueChange={setSelectedClasse}>
@@ -68,7 +68,7 @@ export function BilanAnnuelManager({ classes, anneeId }: { classes: any[]; annee
 
       {bilans.length > 0 && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3">
             <CardTitle className="text-base font-semibold">{t("annualResults")}</CardTitle>
             <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success(t("validateArchive"))}>
               <CheckCircle className="h-4 w-4 text-green-500" />
@@ -77,7 +77,7 @@ export function BilanAnnuelManager({ classes, anneeId }: { classes: any[]; annee
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left min-w-[640px]">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">{t("student")}</th>

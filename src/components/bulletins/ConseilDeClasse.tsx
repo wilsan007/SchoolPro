@@ -136,7 +136,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* En-tête */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -167,7 +167,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
       </div>
 
       {/* Stats rapides */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
         {[
           { label: "Félicitations", val: stats.felicitations, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950/30", icon: <Star className="w-4 h-4" /> },
           { label: "Encouragements", val: stats.encouragements, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", icon: <TrendingUp className="w-4 h-4" /> },
@@ -187,7 +187,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
       {/* Tableau */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 w-8">#</th>

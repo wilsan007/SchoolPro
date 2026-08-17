@@ -144,6 +144,8 @@ model Tenant {
   learnosPredictions   PredictionDifficulte[]
   learnosCalibrations  CalibrationSeuil[]
   learnosJournal       JournalApprentissage[]
+  learnosPlansLecon    PlanLecon[]
+  learnosRubriques     RubriqueEvaluation[]
 
   // Modules activables
   modulesActives    ModuleActivation[]
@@ -163,7 +165,78 @@ model Tenant {
   // Self-service : demandes de rattachement parent↔élève
   demandesLienParent  DemandeLienParent[]
 
+  // BUDGET & DÉPENSES
+  budgets   Budget[]
+  depenses  Depense[]
+
+  // TÂCHES du personnel
+  taches Tache[]
+
+  // Synchronisation locale (sauvegarde automatique sur PC du principal)
+  syncConfig          SyncConfig?
+
+  // REMISES DE CAISSE
+  remisesCaisse       RemiseCaisse[]
+
   @@map("tenants")
+}
+
+// ============================================================
+// SYNCHRONISATION LOCALE — Sauvegarde automatique sur PC
+// ============================================================
+
+/// Configuration de la synchronisation entre la plateforme cloud et
+/// un serveur local (PC du principal). L'agent local télécharge
+/// périodiquement un export complet des données sous forme de fichiers
+/// Excel, garantissant que l'établissement conserve ses données même
+/// en cas de panne ou de départ de la plateforme.
+model SyncConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Nom convivial du serveur local (ex: "PC-Directeur-Mariam")
+  serverNick      String
+
+  /// Intervalle de synchronisation en minutes (30 ou 60)
+  syncInterval    Int      @default(60)
+
+  /// Active ou désactive la synchronisation automatique
+  syncEnabled     Boolean  @default(true)
+
+  /// Clé API unique pour authentifier l'agent local
+  apiKey          String   @unique
+
+  /// Dernière synchronisation réussie
+  lastSyncAt      DateTime?
+
+  /// Statut de la dernière sync: "SUCCESS" | "FAILED" | "PARTIAL"
+  lastSyncStatus  String?
+
+  /// Message d'erreur éventuel de la dernière sync
+  lastSyncError   String?
+
+  /// Inclure les bulletins dans l'export
+  includeBulletins    Boolean @default(true)
+  /// Inclure les notes détaillées
+  includeNotes        Boolean @default(true)
+  /// Inclure l'emploi du temps
+  includeEmploiTemps  Boolean @default(true)
+  /// Inclure les examens planifiés
+  includeExamens      Boolean @default(true)
+  /// Inclure le personnel et enseignants
+  includePersonnel    Boolean @default(true)
+  /// Inclure la comptabilité (factures, paiements, échéanciers)
+  includeComptabilite Boolean @default(true)
+  /// Inclure les absences élèves
+  includeAbsences     Boolean @default(true)
+  /// Inclure les paramètres de l'établissement
+  includeParametres   Boolean @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("sync_configs")
 }
 
 // ============================================================
@@ -525,6 +598,8 @@ model Site {
   learnosPredictions   PredictionDifficulte[]
   learnosCalibrations  CalibrationSeuil[]
   learnosJournal       JournalApprentissage[]
+  learnosPlansLecon    PlanLecon[]
+  learnosRubriques     RubriqueEvaluation[]
 
   // Infirmerie & santé
   passagesInfirmerie PassageInfirmerie[]
@@ -534,6 +609,16 @@ model Site {
   devoirs              Devoir[]
   remplacementsCours   RemplacementCours[]
   entretiensConseiller EntretienConseiller[]
+
+  // BUDGET & DÉPENSES
+  budgets   Budget[]
+  depenses  Depense[]
+
+  // TÂCHES du personnel
+  taches Tache[]
+
+  // REMISES DE CAISSE
+  remisesCaisse RemiseCaisse[]
 
   // Soft-delete / purge planifiée (Option B — industry standard)
   deletedAt        DateTime?
@@ -661,6 +746,46 @@ model EvenementCalendaire {
   @@map("evenements_calendaires")
 }
 
+/// Événement calendaire OFFICIEL au niveau national (vacances, examens, jours fériés).
+///
+/// Partagé entre tous les tenants d'un même pays. Les tenants importent ces
+/// événements dans leur propre `EvenementCalendaire` (tenant-scoped) au moment
+/// de créer leur année scolaire, puis peuvent les compléter avec leurs
+/// événements propres (sorties pédagogiques, réunions parents…).
+///
+/// Ce modèle est géré par les super-administrateurs de la plateforme ou par
+/// les ministères via une interface dédiée. Les tenants ne peuvent que
+/// consulter et importer, pas modifier.
+model CalendrierOfficiel {
+  id      String @id @default(cuid())
+
+  /// Code ISO pays (ex: "DJ", "SN"). Détermine quels tenants peuvent voir
+  /// et importer cet événement.
+  country String
+
+  /// Année scolaire concernée (libellé, ex: "2025-2026"). Pas de lien direct
+  /// vers AnneesScolaires car les années sont tenant-scoped : on matche par
+  /// libelle au moment de l'import.
+  anneeLibelle String
+
+  /// VACANCE_SCOLAIRE | EXAMEN | JOUR_FERIE | AUTRE
+  type     String
+  libelle  String
+  dateDebut DateTime
+  dateFin   DateTime
+
+  /// Source de l'événement : "ministere", "plateforme", "import".
+  /// Pour audit et traçabilité.
+  source String @default("ministere")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([country, anneeLibelle])
+  @@index([country, anneeLibelle, type])
+  @@map("calendriers_officiels")
+}
+
 model Periode {
   id      String          @id @default(cuid())
   anneeId String
@@ -698,7 +823,8 @@ enum Role {
   CLASS_TEACHER // Professeur principal
   COUNSELOR // Conseiller d'orientation / CPE
   NURSE // Infirmier(e)
-  ACCOUNTANT // Gestionnaire financier
+  ACCOUNTANT // Gestionnaire financier (comptable)
+  CAISSIER   // Caissier — saisie des recettes, remise de caisse
   SUPERVISOR // Surveillant / Vie scolaire
   SUBJECT_LEAD // Coordinateur de matière
   SITE_MANAGER // Responsable d'exploitation site (salles, équipement, personnel de service)
@@ -814,6 +940,25 @@ model User {
 
   // Entretiens conseiller menés par cet utilisateur
   entretiensConseiller EntretienConseiller[] @relation("EntretienConseiller")
+
+  // Tâches assignées à cet utilisateur
+  tachesAssignees Tache[] @relation("TacheAssignee")
+  tachesCrees     Tache[] @relation("TacheCreePar")
+
+  // Événements dont cet utilisateur est responsable
+  evenementsResponsable Evenement[] @relation("EvenementResponsable")
+
+  // Dépenses enregistrées par cet utilisateur
+  depensesEnregistrees Depense[] @relation("DepenseEnregistrePar")
+
+  // Dépenses autorisées par cet utilisateur (engagement)
+  depensesAutorisees Depense[] @relation("DepenseAutorisePar")
+  // Dépenses payées par cet utilisateur (règlement)
+  depensesPayees     Depense[] @relation("DepensePayePar")
+
+  // Remises de caisse : caissier (qui remet) et receveur (qui confirme)
+  remisesCaisseCaissier RemiseCaisse[] @relation("RemiseCaisseCaissier")
+  remisesCaisseReceveur RemiseCaisse[] @relation("RemiseCaisseReceveur")
 
   @@index([tenantId])
   @@index([siteId])
@@ -937,7 +1082,7 @@ model Structure {
 
   @@index([tenantId])
   @@index([siteId])
-  @@unique([tenantId, type])
+  @@unique([tenantId, siteId, type])
   @@map("structures")
 }
 
@@ -961,6 +1106,14 @@ model Classe {
   profPrincipalId String?
   profPrincipal   Enseignant? @relation("ProfPrincipal", fields: [profPrincipalId], references: [id])
 
+  /// Soft delete — null = classe active, date = classe archivée.
+  /// Une classe archivée disparaît des listes actives mais reste restaurable
+  /// avec toutes ses données (notes, évaluations, emplois du temps).
+  /// Pratique Google Classroom / PowerSchool : archive au lieu de suppression.
+  deletedAt DateTime?
+  deletedBy String?
+  deletedReason String?
+
   eleves      Eleve[]
   emploiTemps EmploiTemps[]
   learnosPlanifications PlanificationChapitre[]
@@ -970,11 +1123,37 @@ model Classe {
   conversations Conversation[] @relation("ConversationClasse")
   devoirs      Devoir[]
   remplacements RemplacementCours[]
+  historique  HistoriqueClasse[]
+  taches       Tache[]
 
   @@index([tenantId])
   @@index([siteId])
   @@index([structureId])
+  @@index([deletedAt])
   @@map("classes")
+}
+
+/// Historique des affectations de classe avec dates d'effet.
+/// Inspiré de Pronote/EDT : conserve la trace des changements de classe
+/// en cours d'année pour préserver le contexte des notes et évaluations.
+model HistoriqueClasse {
+  id        String   @id @default(cuid())
+  tenantId  String
+  eleveId   String
+  eleve     Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  classeId  String?
+  classe    Classe?  @relation(fields: [classeId], references: [id], onDelete: SetNull)
+
+  dateEntree DateTime @default(now())
+  dateSortie DateTime?
+  motif      String?  // "Inscription", "Transfert", "Promotion", "Redoublement", "Depart"
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([eleveId])
+  @@index([classeId])
+  @@map("historique_classes")
 }
 
 model Matiere {
@@ -1004,6 +1183,7 @@ model Matiere {
   learnosFeuilles  FeuilleExercices[]
   devoirs          Devoir[]
   remplacements    RemplacementCours[]
+  taches           Tache[]
 
   @@index([tenantId])
   @@index([siteId])
@@ -1068,6 +1248,12 @@ model Eleve {
   anneeInscription String
   numeroBoursier   String?
 
+  /// Workflow d'inscription formel (Eduka, PowerSchool) :
+  /// trace précisément quand un élève est arrivé et parti.
+  dateInscription DateTime? // Date réelle d'inscription (vs anneeInscription = année scolaire)
+  dateSortie      DateTime? // Date de départ/sortie de l'établissement
+  motifSortie     String?   // "Transfert", "Déménagement", "Exclusion", "Fin d'études", "Abandon"
+
   /// Clé d'identité normalisée « nom|prenom|AAAA-MM-JJ » (voir lib/eleve-identity).
   /// Recalculée à chaque écriture, remise à NULL lors de l'archivage pour
   /// libérer la place. NULL n'entre pas dans la contrainte d'unicité PostgreSQL :
@@ -1093,6 +1279,7 @@ model Eleve {
   dispenses DispenseMatiere[]
   exclusions ExclusionEleve[]
   progressions ProgressionEleve[]
+  historiqueClasses HistoriqueClasse[]
 
   learnosEvidences     LearningEvidence[]
   learnosProfils       StudentLearningProfile[]
@@ -1737,6 +1924,9 @@ model Paiement {
   methode   String // "espèces", "waffi", "cac_pay", "dahab_plus", "saba_pay", "faida", "virement"
   reference String?
   date      DateTime @default(now())
+  /// Date de saisie — automatiquement le jour de la saisie.
+  /// Doit être identique à la date figurant sur le reçu de paiement.
+  dateSaisie DateTime @default(now())
   recu      String? // URL reçu PDF
 
   enregistreParId String? // User who recorded the payment
@@ -1880,10 +2070,15 @@ model Evenement {
 
   cible String @default("all") // "all", classe ID, niveau
 
+  /// Utilisateur responsable de l'événement (prof principal, direction…)
+  responsableId String?
+  responsable   User?   @relation("EvenementResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([tenantId])
   @@index([siteId])
+  @@index([responsableId])
   @@map("evenements")
 }
 
@@ -2566,7 +2761,11 @@ enum TypeContenu {
 
 model Cours {
   id       String @id @default(cuid())
-  tenantId String
+  /// null = cours partagé entre tous les tenants du même pays (banque nationale).
+  /// Renseigné = cours privé au tenant.
+  tenantId String?
+  /// Code ISO pays (ex: "DJ", "SN"). Requis quand tenantId est null.
+  country  String?
 
   siteId String? // null = cours partagé entre tous les sites
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
@@ -2596,6 +2795,7 @@ model Cours {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([country])
   @@index([siteId])
   @@map("cours")
 }
@@ -2885,8 +3085,12 @@ model LearnosEvent {
 /// Chapitre d'une matière (LEARNOS — Curriculum Knowledge Graph).
 model Chapitre {
   id       String  @id @default(cuid())
-  tenantId String
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// null = chapitre du référentiel national, partagé entre tous les tenants du pays.
+  /// Renseigné = chapitre privé au tenant (adaptation locale).
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Code ISO pays (ex: "DJ", "SN"). Requis quand tenantId est null.
+  country  String?
   siteId   String? // null = chapitre partagé entre tous les sites du tenant
   site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
@@ -2905,6 +3109,7 @@ model Chapitre {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([country])
   @@index([siteId])
   @@index([matiereId])
   @@map("learnos_chapitres")
@@ -2913,8 +3118,12 @@ model Chapitre {
 /// Compétence évaluable, avec ses prérequis.
 model Competence {
   id       String  @id @default(cuid())
-  tenantId String
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// null = compétence du référentiel national, partagée entre tous les tenants du pays.
+  /// Renseigné = compétence privée au tenant (adaptation locale).
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Code ISO pays (ex: "DJ", "SN"). Requis quand tenantId est null.
+  country  String?
   siteId   String?
   site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
@@ -2942,12 +3151,17 @@ model Competence {
   planifications  PlanificationCompetence[]
   patterns        PatternPedagogique[]
   predictions     PredictionDifficulte[]
+  plansLecon      PlanLecon[]
+  rubriques       RubriqueEvaluation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([tenantId, code])
+  /// Unicité pour les compétences du référentiel national (tenantId null).
+  @@unique([country, code])
   @@index([tenantId])
+  @@index([country])
   @@index([siteId])
   @@index([chapitreId])
   @@map("learnos_competences")
@@ -3587,8 +3801,13 @@ enum StatutFeuille {
 /// La banque se remplit à la main ou par génération (P8) ; `origine` tranche.
 model Question {
   id       String  @id @default(cuid())
-  tenantId String
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// null = question partagée entre tous les tenants du même pays.
+  /// Renseigné = question privée au tenant.
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Code ISO pays (ex: "DJ", "SN"). Requis quand tenantId est null
+  /// (question partagée entre tous les tenants de ce pays).
+  country  String?
   siteId   String?
   site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
@@ -3640,6 +3859,7 @@ model Question {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([country])
   @@index([siteId])
   /// Sert le tirage : les questions actives d'une compétence, à un palier donné.
   @@index([competenceId, palier, actif])
@@ -4378,4 +4598,372 @@ model DemandeLienParent {
   @@index([tenantId])
   @@index([statut])
   @@map("demandes_lien_parent")
+}
+
+// ============================================================
+// LEARNOS — Plans de leçon & grilles d'évaluation (IA générative)
+// ============================================================
+
+/// Statut du workflow de validation pour les propositions IA.
+///
+///   PROPOSE → l'IA a généré, en attente de relecture enseignant
+///   AJUSTE  → l'enseignant a modifié, en attente de validation direction
+///   VALIDE  → le directeur/principal/tenant-admin a validé
+///   REJETE  → rejeté à quelque étape que ce soit
+enum StatutPropositionIa {
+  PROPOSE
+  AJUSTE
+  VALIDE
+  REJETE
+}
+
+/// Plan de leçon proposé par l'IA, puis ajusté par l'enseignant,
+/// puis validé par la direction.
+///
+/// Workflow :
+///   1. L'IA génère → statut PROPOSE
+///   2. L'enseignant révise/ajuste → statut AJUSTE
+///   3. Le directeur/principal/tenant-admin valide → statut VALIDE
+///   4. N'importe quelle étape peut rejeter → statut REJETE
+model PlanLecon {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// Niveau scolaire visé (ex: "CM2", "Terminale").
+  niveauScolaire String
+  /// Durée totale en minutes.
+  dureeTotale Int
+
+  /// Titre du plan de leçon.
+  titre       String
+  /// Objectifs d'apprentissage (JSON array de strings).
+  objectifs   String
+  /// Étapes structurées (JSON array : { nom, duree, description, support? }).
+  etapes      String
+  /// Matériel nécessaire (JSON array de strings).
+  materiel    String?
+  /// Méthode d'évaluation finale.
+  evaluation  String?
+  /// Adaptation pour élèves en difficulté / en avancement.
+  differentiation String?
+
+  /// Workflow de validation.
+  statut    StatutPropositionIa @default(PROPOSE)
+
+  /// Enseignant qui a proposé/ajusté.
+  proposeParId  String?
+  ajusteParId   String?
+  ajusteLe      DateTime?
+
+  /// Direction qui a validé/rejeté.
+  valideParId   String?
+  valideLe      DateTime?
+  motifRejet    String?
+
+  /// Modèle IA qui a généré (pour traçabilité).
+  modeleIa      String?
+  cachedIa      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([competenceId])
+  @@index([statut])
+  @@map("learnos_plans_lecon")
+}
+
+/// Grille d'évaluation (rubric) proposée par l'IA, puis validée.
+///
+/// Même workflow que PlanLecon :
+///   PROPOSE → AJUSTE → VALIDE / REJETE
+model RubriqueEvaluation {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  competenceId String
+  competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// Niveau scolaire visé.
+  niveauScolaire String
+  /// Barème total (ex: 20).
+  totalPoints Int
+
+  /// Titre de la grille.
+  titre     String
+  /// Critères structurés (JSON : { nom, points, niveaux: { excellent, satisfaisant, fragile, insuffisant } }[]).
+  criteres  String
+
+  /// Workflow de validation.
+  statut    StatutPropositionIa @default(PROPOSE)
+
+  proposeParId  String?
+  ajusteParId   String?
+  ajusteLe      DateTime?
+  valideParId   String?
+  valideLe      DateTime?
+  motifRejet    String?
+
+  modeleIa      String?
+  cachedIa      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([competenceId])
+  @@index([statut])
+  @@map("learnos_rubriques_evaluation")
+}
+
+// ============================================================
+// BUDGET & DÉPENSES (comptabilité d'exploitation par site)
+// ============================================================
+
+enum CategorieBudget {
+  FONCTIONNEMENT   // eau, électricité, fournitures, entretien
+  PEDAGOGIE        // manuels, matériel didactique, logiciels
+  MAINTENANCE      // bâtiments, équipements, réparations
+  SALAIRES         // rémunérations enseignants & personnel
+  TRANSPORT        // bus scolaires, carburant
+  CANTINE          // fonctionnement de la cantine
+  EVENEMENTIEL     // sorties, cérémonies, examens
+  INVESTISSEMENT   // équipements lourds, travaux
+  AUTRE
+}
+
+model Budget {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String? // null = budget global (tous sites)
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  annee       String  // "2024-2025"
+  categorie   CategorieBudget
+  montantPrevu    Float  // budget alloué
+  montantDepense  Float  @default(0) // total dépensé (calculé)
+  devise          String @default("DJF")
+
+  /// "PROPOSE" | "VALIDE" | "CLOTURE" | "DEPASSE"
+  statut          String @default("VALIDE")
+
+  description String?
+
+  depenses Depense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, siteId, annee, categorie])
+  @@index([tenantId])
+  @@index([siteId])
+  @@map("budgets")
+}
+
+model Depense {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String? // null = dépense globale
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  budgetId String? // null = dépense hors budget
+  budget   Budget? @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+
+  date        DateTime
+  montant     Float
+  devise      String @default("DJF")
+  categorie   CategorieBudget @default(AUTRE)
+
+  libelle     String
+  description String?
+
+  /// Mode de paiement
+  methodePaiement String? // "especes", "cheque", "virement", "mobile_money"
+  reference       String? // numéro de pièce, reçu
+  justificatifUrl String? // URL du justificatif scanné
+
+  // ── Traçabilité de l'engagement de dépense ──
+  /// Personne qui a autorisé l'engagement de cette dépense
+  autoriseParId String?
+  autorisePar   User?   @relation("DepenseAutorisePar", fields: [autoriseParId], references: [id], onDelete: SetNull)
+
+  /// Personne qui a effectué le paiement (peut différer de l'autorisation)
+  payeParId String?
+  payePar   User?   @relation("DepensePayePar", fields: [payeParId], references: [id], onDelete: SetNull)
+
+  /// Type d'engagement auprès du fournisseur
+  /// "bon_commande" | "facture_fournisseur" | "achat_direct" | "contrat" | "autre"
+  typeEngagement String?
+
+  /// Nom du fournisseur / prestataire
+  fournisseur        String?
+  /// Contact du fournisseur (téléphone, email, adresse — texte libre)
+  fournisseurContact String?
+
+  /// Utilisateur qui a enregistré la dépense
+  enregistreParId String?
+  enregistrePar   User?   @relation("DepenseEnregistrePar", fields: [enregistreParId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([budgetId])
+  @@index([date])
+  @@map("depenses")
+}
+
+// ============================================================
+// REMISE DE CAISSE (remise des recettes journalières)
+// ============================================================
+
+/// Statut d'une remise de caisse :
+/// EN_ATTENTE — le caissier a déclaré la remise, en attente de confirmation du receveur
+/// CONFIRME   — le receveur a confirmé avoir reçu (montants/dates/noms identiques)
+/// REJETE     — le receveur a refusé (écart entre déclaration et réception)
+enum StatutRemiseCaisse {
+  EN_ATTENTE
+  CONFIRME
+  REJETE
+}
+
+/// Remise des recettes de la journée par le caissier à un receveur
+/// (comptable ou directeur). La remise n'est considérée comme validée
+/// que lorsque le receveur confirme avoir reçu le même montant, à la
+/// même date, de la part du même caissier.
+model RemiseCaisse {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String? // null = remise globale (tous sites)
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  // ── Côté caissier (déclaration) ──
+  /// Caissier qui remet les recettes
+  caissierId String
+  caissier   User   @relation("RemiseCaisseCaissier", fields: [caissierId], references: [id], onDelete: Cascade)
+
+  /// Montant déclaré par le caissier
+  montantDeclare Float
+  /// Date à laquelle le caissier déclare avoir remis la caisse
+  dateRemise     DateTime
+  /// Date de saisie de la déclaration (automatique — jour de la saisie)
+  dateSaisieRemise DateTime @default(now())
+
+  // ── Côté receveur (confirmation) ──
+  /// Receveur désigné (comptable ou directeur) — null jusqu'à confirmation
+  receveurId String?
+  receveur   User?   @relation("RemiseCaisseReceveur", fields: [receveurId], references: [id], onDelete: SetNull)
+
+  /// Montant confirmé par le receveur (doit être identique à montantDeclare)
+  montantRecu Float?
+  /// Date à laquelle le receveur confirme avoir reçu (automatique)
+  dateReception DateTime?
+  /// Date de saisie de la confirmation (automatique — jour de la saisie)
+  dateSaisieReception DateTime?
+
+  /// Commentaire du receveur (motif de rejet, observations)
+  commentaireReceveur String?
+
+  statut StatutRemiseCaisse @default(EN_ATTENTE)
+
+  /// Période couverte par la remise (date de début et fin des recettes)
+  periodeDebut DateTime
+  periodeFin   DateTime
+
+  /// Devise des montants
+  devise String @default("DJF")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([caissierId])
+  @@index([receveurId])
+  @@index([statut])
+  @@index([dateRemise])
+  @@map("remises_caisse")
+}
+
+// ============================================================
+// TÂCHES DU PERSONNEL (suivi d'activité enseignants & staff)
+// ============================================================
+
+enum PrioriteTache {
+  BASSE
+  NORMALE
+  HAUTE
+  URGENTE
+}
+
+enum StatutTache {
+  A_FAIRE
+  EN_COURS
+  FAIT
+  ANNULE
+}
+
+model Tache {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Utilisateur à qui la tâche est assignée
+  assigneeAId String
+  assigneeA   User   @relation("TacheAssignee", fields: [assigneeAId], references: [id], onDelete: Cascade)
+
+  /// Utilisateur qui a créé la tâche (direction, chef d'établissement)
+  creeParId String?
+  creePar   User?   @relation("TacheCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
+
+  titre       String
+  description String?
+
+  /// Type de tâche : "saisie_notes", "conseil_classe", "rendez_vous_parent",
+  /// "preparation_cours", "correction_devoirs", "remise_bulletins",
+  /// "reunion_pedagogique", "sortie_pedagogique", "inventaire", "autre"
+  type      String @default("autre")
+  priorite  PrioriteTache @default(NORMALE)
+  statut    StatutTache   @default(A_FAIRE)
+
+  /// Lien optionnel avec une classe (ex: préparation cours pour une classe)
+  classeId String?
+  classe   Classe? @relation(fields: [classeId], references: [id], onDelete: SetNull)
+
+  /// Lien optionnel avec une matière
+  matiereId String?
+  matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: SetNull)
+
+  echeance    DateTime?
+  dateFaite   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([assigneeAId])
+  @@index([statut])
+  @@map("taches")
 }

@@ -35,6 +35,7 @@ const roleKeys: Record<string, string> = {
   COUNSELOR: "roleCounselor",
   NURSE: "roleNurse",
   ACCOUNTANT: "roleAccountant",
+  CAISSIER: "roleCaissier",
   PARENT: "roleParent",
   STUDENT: "roleStudent",
 };
@@ -45,7 +46,7 @@ const categoryConfig: Record<UserCategory, { labelKey: string; icon: typeof Shie
   all: { labelKey: "allUsers", icon: UsersIcon, roles: [] },
   admin: { labelKey: "adminCategory", icon: Shield, roles: ["TENANT_ADMIN", "PRINCIPAL", "SUPER_ADMIN"] },
   teachers: { labelKey: "teachersCategory", icon: GraduationCap, roles: ["TEACHER", "CLASS_TEACHER", "COUNSELOR"] },
-  staff: { labelKey: "staffCategory", icon: Briefcase, roles: ["SECRETARY", "NURSE", "ACCOUNTANT"] },
+  staff: { labelKey: "staffCategory", icon: Briefcase, roles: ["SECRETARY", "NURSE", "ACCOUNTANT", "CAISSIER"] },
 };
 
 // Rôles masqués du sélecteur (le prof principal est défini au niveau de la classe, pas au niveau utilisateur)
@@ -292,7 +293,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAddToTenant} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <form onSubmit={handleAddToTenant} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="tenant-email">{t("colEmail")} *</Label>
                 <Input
@@ -358,7 +359,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
             <CardTitle className="text-sm">{t("newUser")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="name">{t("fullName")}</Label>
                 <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -487,7 +488,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">{t("colName")}</th>

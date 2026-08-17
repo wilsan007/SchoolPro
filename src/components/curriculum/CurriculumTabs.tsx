@@ -40,7 +40,7 @@ export function CurriculumTabs(props: {
 
   return (
     <Tabs defaultValue={nbAlertes > 0 ? "planification" : "competences"}>
-      <TabsList className="mb-5 w-full sm:w-auto">
+      <TabsList className="mb-5 w-full sm:w-auto overflow-x-auto">
         <TabsTrigger value="competences" className="gap-1.5">
           <Target className="h-3.5 w-3.5" />
           {t("ongletCompetences")}

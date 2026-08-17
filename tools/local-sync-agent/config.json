@@ -1,0 +1,7 @@
+{
+  "serverUrl": "https://ecolpro.vercel.app",
+  "apiKey": "REMPLACER_PAR_VOTRE_CLE_API",
+  "backupDir": "./backups",
+  "maxBackups": 30,
+  "logFile": "./sync.log"
+}

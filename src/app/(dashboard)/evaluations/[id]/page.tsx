@@ -58,23 +58,23 @@ export default async function SaisieNotesPage({
   });
 
   return (
-    <div className="p-6 bg-gray-50 min-h-full">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gray-50 min-h-full">
       {/* Top Header */}
-      <div className="flex justify-between items-center bg-gray-100 p-4 rounded-xl border border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-gray-100 p-4 rounded-xl border border-gray-200">
         <div className="flex items-center gap-3">
           <StarIcon />
-          <h1 className="text-xl font-bold text-gray-800">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-800">
             Gestion des notes - {evaluation.titre}
           </h1>
         </div>
-        <div className="flex gap-2">
-          <Link href="/evaluations">
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-sm border-none">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Link href="/evaluations" className="w-full sm:w-auto">
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-sm border-none w-full sm:w-auto">
               <ArrowLeft className="h-4 w-4" />
               Retour à l&apos;examen
             </Button>
           </Link>
-          <Button className="bg-green-600 hover:bg-green-700 text-white gap-2 shadow-sm border-none">
+          <Button className="bg-green-600 hover:bg-green-700 text-white gap-2 shadow-sm border-none w-full sm:w-auto">
             <FileSpreadsheet className="h-4 w-4" />
             Excel
           </Button>

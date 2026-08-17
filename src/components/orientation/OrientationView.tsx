@@ -166,7 +166,7 @@ function FicheOrientationEleve({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={onBack}><ArrowLeft className="w-4 h-4" /></Button>
         <div>
@@ -177,11 +177,11 @@ function FicheOrientationEleve({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
         {/* Colonne gauche : stats */}
         <div className="space-y-4">
           <Card className="border-0 shadow-sm">
-            <CardContent className="p-5 text-center">
+            <CardContent className="p-4 sm:p-5 text-center">
               <p className="text-xs text-gray-500 mb-2">{t("currentAverage")}</p>
               <p className={cn(
                 "text-4xl font-bold",
@@ -281,7 +281,7 @@ function FicheOrientationEleve({
                 <label className="text-xs text-gray-600 mb-1.5 block font-medium">
                   {t("recomEdit")}
                 </label>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {(Object.keys(RECOM_CONFIG) as TypeRecom[]).map((r) => (
                     <button
                       key={r}
@@ -389,7 +389,7 @@ export function OrientationView() {
   const totalEleves = filtered.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Filtres */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="w-full sm:w-48">
@@ -417,7 +417,7 @@ export function OrientationView() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: t("studentsToOrient"), value: totalEleves, icon: <Users className="w-5 h-5 text-indigo-600" />, color: "bg-indigo-100 dark:bg-indigo-900/30" },
           { label: t("scientificStream"), value: elevesByFiliere["SCIENTIFIQUE"].length, icon: <BookOpen className="w-5 h-5 text-blue-600" />, color: "bg-blue-100 dark:bg-blue-900/30" },

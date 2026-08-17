@@ -112,7 +112,7 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
           {/* Formulaire de création */}
           {showForm && canManage && (
             <form onSubmit={handleCreate} className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="libelle">{t("anneeLibelle")}</Label>
                   <div className="flex gap-2">

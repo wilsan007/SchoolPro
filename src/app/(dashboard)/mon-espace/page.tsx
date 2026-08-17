@@ -4,6 +4,7 @@ import { GrilleKpi } from "@/components/learnos/GrilleKpi";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { kpisEnseignant } from "@/lib/learnos/kpi";
+import { getDemoNow } from "@/lib/demo-now";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { siteFilterForModel } from "@/lib/site-scope";
 import prisma from "@/lib/prisma";
@@ -36,11 +37,13 @@ export default async function MonEspacePage() {
     ? await getTeacherScope(session!.user.tenantId!, session!.user.id, role)
     : undefined;
 
+  const maintenant = await getDemoNow();
   const kpis = await kpisEnseignant(
     session!.user.tenantId!,
     session!.user,
     session!.user.id,
-    scope?.isRestricted ? scope.classeIds : null
+    scope?.isRestricted ? scope.classeIds : null,
+    maintenant
   );
 
   // --------------------------------------------------------------
@@ -281,11 +284,11 @@ export default async function MonEspacePage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <GrilleKpi kpis={kpis} />
 
         {/* 1. Planning « ma semaine » */}
-        <section className="mt-8">
+        <section className="mt-6 sm:mt-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">
             {tEspace("maSemaine")}
           </h2>
@@ -293,7 +296,7 @@ export default async function MonEspacePage() {
             <p className="text-sm text-gray-500">{tEspace("aucunCours")}</p>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full text-sm">
+              <table className="min-w-[640px] w-full text-sm">
                 <thead className="bg-gray-50 text-left text-gray-600">
                   <tr>
                     <th className="px-3 py-2 font-medium">{tEspace("jour")}</th>
@@ -351,7 +354,7 @@ export default async function MonEspacePage() {
         </section>
 
         {/* 2. Grille élèves × compétences */}
-        <section className="mt-8">
+        <section className="mt-6 sm:mt-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">
             {tEspace("grilleCompetences")}
             {classeCible && (
@@ -366,7 +369,7 @@ export default async function MonEspacePage() {
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full text-sm">
+              <table className="min-w-[640px] w-full text-sm">
                 <thead className="bg-gray-50 text-left text-gray-600">
                   <tr>
                     <th className="px-3 py-2 font-medium sticky left-0 bg-gray-50">

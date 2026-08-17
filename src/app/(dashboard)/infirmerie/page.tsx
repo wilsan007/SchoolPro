@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
  * Espace de l'infirmerie — rôle NURSE.
@@ -26,9 +27,10 @@ export default async function InfirmeriePage() {
   const tenantId = session!.user.tenantId!;
   const claims: SessionSiteClaims = session!.user;
 
-  // Bornes temporelles : aujourd'hui et les 7 derniers jours.
+  // Bornes temporelles : aujourd'hui et les 7 derniers jours, selon la date
+  // simulée par la machine à remonter le temps.
   // On reconstruit des dates fraîches pour ne pas muter l'objet `now`.
-  const now = new Date();
+  const now = await getDemoNow();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const weekStart = new Date(todayStart);
@@ -109,9 +111,9 @@ export default async function InfirmeriePage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         {/* Compteurs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">
@@ -171,13 +173,13 @@ export default async function InfirmeriePage() {
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b">
                       <th className="py-2 pr-4 font-medium">{tCommon("date")}</th>
                       <th className="py-2 pr-4 font-medium">{t("eleve")}</th>
                       <th className="py-2 pr-4 font-medium">{t("motif")}</th>
-                      <th className="py-2 font-medium">{t("suite")}</th>
+                      <th className="py-2 font-medium hidden sm:table-cell">{t("suite")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -202,7 +204,7 @@ export default async function InfirmeriePage() {
                           )}
                         </td>
                         <td className="py-2 pr-4">{p.motif}</td>
-                        <td className="py-2">
+                        <td className="py-2 hidden sm:table-cell">
                           {p.retourCours ? t("retourCours") : t("renvoiDomicile")}
                         </td>
                       </tr>

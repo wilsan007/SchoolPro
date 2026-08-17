@@ -146,7 +146,7 @@ function ComposeModal({
           </div>
 
           {/* Canal + Cible */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-gray-600 mb-1 block font-medium">{t("channelLabel")}</label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -232,7 +232,7 @@ function ComposeModal({
           </div>
 
           {/* Boutons */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <Button
               onClick={() => handleSubmit(true)}
               disabled={isPending || !form.titre || !form.contenu}
@@ -315,7 +315,7 @@ function NotifCard({ notif, onSend, onDelete }: {
 
             {/* Stats envoi */}
             {notif.statut === "ENVOYEE" && notif.nbDestinataires > 0 && (
-              <div className="mt-2 flex gap-3 text-xs">
+              <div className="mt-2 flex flex-wrap gap-3 text-xs">
                 <span className="text-blue-600">{t("delivered", { count: notif.nbDelivres })}</span>
                 <span className="text-green-600">{t("read", { count: notif.nbLus, rate: tauxLecture })}</span>
                 <span className="text-gray-400">{notif.envoyeeAt ? timeAgo(notif.envoyeeAt) : ""}</span>
@@ -331,7 +331,7 @@ function NotifCard({ notif, onSend, onDelete }: {
             )}
 
             {/* Expéditeur + date */}
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-400">
                 {t("byAuthor", { name: notif.envoyePar?.name ?? t("system"), date: formatDate(notif.createdAt) })}
               </span>
@@ -425,18 +425,18 @@ export function CommunicationView({ notifications: initial, classes }: Communica
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("schoolCommunication")}</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t("schoolCommunication")}</h2>
           <p className="text-sm text-gray-500">{t("notificationsSent", { count: stats.envoyees })}</p>
         </div>
-        <Button onClick={() => setShowCompose(true)} className="gap-2">
+        <Button onClick={() => setShowCompose(true)} className="gap-2 w-full sm:w-auto">
           <Plus className="w-4 h-4" /> {t("newMessageBtn")}
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: t("statTotal"), value: stats.total, color: "bg-blue-100 dark:bg-blue-900/30", icon: <Bell className="w-5 h-5 text-blue-600" /> },
           { label: t("statSent"), value: stats.envoyees, color: "bg-green-100 dark:bg-green-900/30", icon: <CheckCircle2 className="w-5 h-5 text-green-600" /> },
@@ -458,7 +458,7 @@ export function CommunicationView({ notifications: initial, classes }: Communica
       </div>
 
       {/* Filtres */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-start sm:items-center">
         <div className="flex gap-1.5">
           {(["TOUS", "ENVOYEE", "BROUILLON", "PLANIFIEE"] as const).map((s) => (
             <button

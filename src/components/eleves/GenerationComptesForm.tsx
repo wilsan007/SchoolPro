@@ -87,7 +87,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t("genAccountsClass")}</Label>
               <Select value={classeId} onValueChange={setClasseId}>
@@ -111,7 +111,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
             {t("genAccountsDobInfo")}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
@@ -134,7 +134,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleGenerate} disabled={generating || !classeId} className="gap-2">
+            <Button onClick={handleGenerate} disabled={generating || !classeId} className="gap-2 w-full sm:w-auto">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
               {t("genAccountsGenerate")}
             </Button>
@@ -152,7 +152,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColMatricule")}</th>
@@ -185,7 +185,7 @@ export function GenerationComptesForm({ classes }: { classes: Classe[] }) {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold border-b">{t("genAccountsColMatricule")}</th>

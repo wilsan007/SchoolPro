@@ -77,7 +77,7 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
         <CardHeader>
           <CardTitle>{t("generalInfo")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="name">{t("schoolName")}</Label>
             <Input id="name" value={form.name} onChange={(e) => update("name", e.target.value)} disabled={!canManage} />
@@ -126,7 +126,7 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
         <CardHeader>
           <CardTitle>{t("eduConfig")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="currentYear">{t("schoolYear")}</Label>
             <Input id="currentYear" value={form.currentYear} onChange={(e) => update("currentYear", e.target.value)} disabled={!canManage} />

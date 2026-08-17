@@ -76,7 +76,7 @@ export default async function BulletinsPage() {
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <Tabs defaultValue="generation" className="w-full">
           <TabsList className="mb-6 grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="generation" className="gap-2">

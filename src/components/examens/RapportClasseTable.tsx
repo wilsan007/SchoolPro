@@ -85,8 +85,8 @@ export function RapportClasseTable({ classes, periodes }: { classes: ClasseInfo[
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-end gap-4">
-          <div className="space-y-2 flex-1 max-w-xs">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="space-y-2 flex-1 sm:max-w-xs">
             <Label>{t("rapportColClass")}</Label>
             <Select value={classeId} onValueChange={setClasseId}>
               <SelectTrigger><SelectValue placeholder={t("rapportSelectClass")} /></SelectTrigger>
@@ -97,7 +97,7 @@ export function RapportClasseTable({ classes, periodes }: { classes: ClasseInfo[
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 flex-1 max-w-xs">
+          <div className="space-y-2 flex-1 sm:max-w-xs">
             <Label>{t("rapportColPeriod")}</Label>
             <Select value={periodeId} onValueChange={setPeriodeId}>
               <SelectTrigger><SelectValue placeholder={t("rapportSelect")} /></SelectTrigger>
@@ -108,15 +108,17 @@ export function RapportClasseTable({ classes, periodes }: { classes: ClasseInfo[
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={fetchRapport} disabled={loading || !classeId || !periodeId}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("rapportRefresh")}
-          </Button>
-          <ExportMenu rows={rows} columns={columns} filename="rapport-classe" disabled={!rows.length} />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={fetchRapport} disabled={loading || !classeId || !periodeId} className="w-full sm:w-auto">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("rapportRefresh")}
+            </Button>
+            <ExportMenu rows={rows} columns={columns} filename="rapport-classe" disabled={!rows.length} />
+          </div>
         </div>
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold border-b">{t("rapportColMatricule")}</th>

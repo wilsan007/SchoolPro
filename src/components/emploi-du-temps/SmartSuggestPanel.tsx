@@ -387,7 +387,7 @@ export function SmartSuggestPanel({
                   {selectedMatiereIds.size === matieres.length ? t("deselectAll") : t("selectAll")}
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg p-2 border border-indigo-100 dark:border-indigo-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg p-2 border border-indigo-100 dark:border-indigo-800">
                 {matieres.map((m) => {
                   const checked = selectedMatiereIds.has(m.id);
                   const ensCount = (matiereToEnseignants[m.id] ?? []).length;
@@ -431,7 +431,7 @@ export function SmartSuggestPanel({
             </div>
 
             {/* Plage horaire & jours */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 block mb-1">{t("startTime")}</label>
                 <select
@@ -646,7 +646,7 @@ export function SmartSuggestPanel({
               </div>
 
               {/* Total + bouton générer */}
-              <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                 <div className="text-xs text-gray-500">
                   {t("totalHours", { count: Array.from(selectedMatiereIds).reduce((sum, mId) => {
                     const cfg = matiereConfigs[mId];
@@ -659,7 +659,7 @@ export function SmartSuggestPanel({
                 <Button
                   onClick={autoGenerate}
                   disabled={autoGenerating || selectedJours.size === 0}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 w-full sm:w-auto"
                 >
                   {autoGenerating ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> {t("generating")}</>
@@ -742,7 +742,7 @@ export function SmartSuggestPanel({
 
           {/* Manual suggestion */}
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("subject")}</label>
                 <select

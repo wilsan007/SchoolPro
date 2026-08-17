@@ -141,6 +141,7 @@ export async function GET(
       <div class="row"><span class="label">Méthode</span><span class="value" style="text-transform:capitalize">${paiement.methode}</span></div>
       ${paiement.reference ? `<div class="row"><span class="label">Référence</span><span class="value">${paiement.reference}</span></div>` : ""}
       ${paiement.enregistrePar ? `<div class="row"><span class="label">Enregistré par</span><span class="value">${paiement.enregistrePar.name}</span></div>` : ""}
+      <div class="row"><span class="label">Date de saisie</span><span class="value">${new Date(paiement.dateSaisie).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</span></div>
 
       <div class="amount-box">
         <div class="label">Montant reçu</div>

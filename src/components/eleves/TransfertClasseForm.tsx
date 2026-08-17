@@ -86,7 +86,7 @@ export function TransfertClasseForm({ classes }: { classes: ClasseSimple[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>{t("transfertSource")}</Label>
             <Select value={sourceClasseId} onValueChange={(v) => { setSourceClasseId(v); setSelected(new Set()); }}>
@@ -113,7 +113,7 @@ export function TransfertClasseForm({ classes }: { classes: ClasseSimple[] }) {
 
         {sourceClasse && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <Label>{t("transfertStudents", { selected: selected.size, total: sourceClasse.eleves.length })}</Label>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={selectAll}>{t("transfertSelectAll")}</Button>
@@ -121,7 +121,7 @@ export function TransfertClasseForm({ classes }: { classes: ClasseSimple[] }) {
               </div>
             </div>
             <div className="max-h-64 overflow-y-auto rounded-lg border">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[400px]">
                 <thead className="bg-muted/50 sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-left w-8"></th>
@@ -149,7 +149,7 @@ export function TransfertClasseForm({ classes }: { classes: ClasseSimple[] }) {
           <Button
             onClick={handleTransfer}
             disabled={!targetClasseId || selected.size === 0 || transferring}
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto"
           >
             {transferring ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -33,7 +33,7 @@ export function DashboardStats({ stats }: { stats: Stat[] }) {
         const Icon = iconMap[stat.icon];
         return (
           <Card key={stat.label} className="hover:shadow-md transition-shadow animate-fade-in">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>

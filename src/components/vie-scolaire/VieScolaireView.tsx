@@ -123,7 +123,7 @@ function CreateIncidentModal({
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("type")}</label>
               <select
@@ -147,7 +147,7 @@ function CreateIncidentModal({
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("date")} *</label>
               <input
@@ -226,8 +226,8 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
   return (
     <Card className="overflow-hidden">
       <div className={cn("h-1", incident.gravite === 3 ? "bg-red-500" : incident.gravite === 2 ? "bg-orange-400" : "bg-yellow-400")} />
-      <CardContent className="p-5">
-        <div className="flex items-start gap-4">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border", graviteInfo.color)}>
@@ -241,7 +241,7 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
               </span>
             </div>
 
-            <div className="flex gap-4 text-sm text-gray-700 dark:text-gray-300 mb-1">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-700 dark:text-gray-300 mb-1">
               <span className="flex items-center gap-1.5 font-medium">
                 <User className="w-4 h-4 text-green-600" />
                 {incident.eleve.nom} {incident.eleve.prenom}
@@ -281,7 +281,7 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
             {incident.statut === "OUVERT" && (
               <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatut("EN_TRAITEMENT")} disabled={isPending}>
                 {t("process")}
@@ -380,7 +380,7 @@ export function VieScolaireView({
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: t("statTotal"), value: stats.total, color: "text-gray-700 dark:text-gray-300", bg: "bg-gray-50 dark:bg-gray-800" },
           { label: t("statOpen"), value: stats.ouverts, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/20" },
@@ -422,7 +422,7 @@ export function VieScolaireView({
         </select>
         <Button
           onClick={() => setShowCreate(true)}
-          className="gap-2 bg-red-600 hover:bg-red-700 text-white shrink-0"
+          className="gap-2 bg-red-600 hover:bg-red-700 text-white shrink-0 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           {t("report")}

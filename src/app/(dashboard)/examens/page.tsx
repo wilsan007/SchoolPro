@@ -101,7 +101,7 @@ export default async function ExamensPage({
         userName={session.user.name}
         userAvatar={session.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         <SiteTabs
           sites={sites.map((s) => ({ id: s.id, nom: s.nom }))}
           siteColors={siteColors}

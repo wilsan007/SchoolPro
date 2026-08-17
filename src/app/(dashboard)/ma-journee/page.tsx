@@ -11,6 +11,7 @@ import {
   siteFilterForModel,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { getDemoNow } from "@/lib/demo-now";
 import { cn } from "@/lib/utils";
 import type { Jour } from "@prisma/client";
 
@@ -71,7 +72,7 @@ export default async function MaJourneePage({
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         {entete}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <p className="text-sm text-muted-foreground">{t("aucunCours")}</p>
         </div>
       </div>
@@ -85,7 +86,7 @@ export default async function MaJourneePage({
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         {entete}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <p className="text-sm text-muted-foreground">{t("aucunCours")}</p>
         </div>
       </div>
@@ -102,8 +103,8 @@ export default async function MaJourneePage({
     "VENDREDI",
     "SAMEDI",
   ];
-  const todayJour = jours[new Date().getDay()];
-  const now = new Date();
+  const now = await getDemoNow();
+  const todayJour = jours[now.getDay()];
 
   // Cours du jour, travail à rendre et prochaines évaluations.
   const [cours, devoirs, evaluations] = await Promise.all([
@@ -150,7 +151,7 @@ export default async function MaJourneePage({
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {entete}
-      <div className="flex-1 space-y-6 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 space-y-4 sm:space-y-6 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         {eleves.length > 1 && (
           <nav className="flex flex-wrap gap-2">
             {eleves.map((e) => (
@@ -192,8 +193,8 @@ export default async function MaJourneePage({
                     key={c.id}
                     className="rounded-xl border border-border bg-card p-4 shadow-sm"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <span
                           className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
                           style={{

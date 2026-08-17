@@ -111,7 +111,7 @@ export function TarifsTab() {
             <CardTitle className="text-sm">{t("newTarif")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="niveau">{t("level")} *</Label>
                 <select
@@ -194,7 +194,7 @@ export function TarifsTab() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[640px]">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium">{t("level")}</th>

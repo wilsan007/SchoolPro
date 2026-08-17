@@ -31,9 +31,9 @@ export async function RecentActivity({ notes }: { notes: Note[] }) {
             <p className="text-sm text-muted-foreground">{t("noRecentGrades")}</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {notes.map((note) => (
-              <div key={note.id} className="flex items-center gap-4">
+              <div key={note.id} className="flex items-center gap-3 sm:gap-4">
                 <Avatar className="h-9 w-9 flex-shrink-0">
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                     {getInitials(`${note.eleve.prenom} ${note.eleve.nom}`)}

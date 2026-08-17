@@ -197,7 +197,7 @@ export default async function NotesPage({
         userAvatar={session.user.image ?? undefined}
       />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
         {/* Sélecteur de site coloré */}
         <SiteTabs
           sites={sites.map((s) => ({ id: s.id, nom: s.nom }))}
@@ -219,7 +219,7 @@ export default async function NotesPage({
         {/* Affichage conditionnel de la Grille de Saisie, du Wizard ou de la Vue d'ensemble */}
         {evaluation ? (
           <div className="space-y-4">
-            <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900">
               <div>
                 <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                   <PenLine className="h-5 w-5 text-blue-600" />
@@ -232,8 +232,8 @@ export default async function NotesPage({
                   })}
                 </p>
               </div>
-              <Link href="/notes">
-                <Button variant="outline" size="sm" className="gap-2">
+              <Link href="/notes" className="w-full sm:w-auto">
+                <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
                   <ArrowLeft className="h-4 w-4" />
                   {tCommon("back")}
                 </Button>
@@ -246,7 +246,7 @@ export default async function NotesPage({
           <>
             {/* Étape 1 : Si matière sélectionnée, mais pas de classe */}
             {matiereId && !classeId && (
-              <div className="bg-card p-6 rounded-xl border shadow-sm space-y-6">
+              <div className="bg-card p-4 sm:p-6 rounded-xl border shadow-sm space-y-4 sm:space-y-6">
                 <div className="border-b pb-4">
                   <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t("enterForSubject", { matiere: selectedMatiere?.nom ?? "" })}</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("selectClassPrompt")}</p>
@@ -273,7 +273,7 @@ export default async function NotesPage({
 
             {/* Étape 3 : Si classe + matière sélectionnés, mais pas d'évaluation */}
             {classeId && matiereId && !evaluationId && (
-              <div className="bg-card p-6 rounded-xl border shadow-sm space-y-6">
+              <div className="bg-card p-4 sm:p-6 rounded-xl border shadow-sm space-y-4 sm:space-y-6">
                 <div className="border-b pb-4">
                   <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
                     {t("enterForSubjectInClass", { matiere: selectedMatiere?.nom ?? "", classe: selectedClasse?.nom ?? "" })}
@@ -322,33 +322,33 @@ export default async function NotesPage({
             {/* Vue d'ensemble par matière — visible quand pas de matière sélectionnée */}
             {!matiereId && (
               <>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div>
-                      <p className="text-2xl font-bold">{matieres.length}</p>
+                      <p className="text-xl sm:text-2xl font-bold">{matieres.length}</p>
                       <p className="text-xs text-muted-foreground">{t("subjectsLabel")}</p>
                     </div>
                     <div className="w-px h-8 bg-border" />
                     <div>
-                      <p className="text-2xl font-bold">{classes.length}</p>
+                      <p className="text-xl sm:text-2xl font-bold">{classes.length}</p>
                       <p className="text-xs text-muted-foreground">{t("classesLabel")}</p>
                     </div>
                     <div className="w-px h-8 bg-border" />
                     <div>
-                      <p className="text-2xl font-bold">
+                      <p className="text-xl sm:text-2xl font-bold">
                         {statsNotes.reduce((sum, s) => sum + s._count, 0)}
                       </p>
                       <p className="text-xs text-muted-foreground">{t("gradesEntered")}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button asChild size="sm" variant="outline" className="gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button asChild size="sm" variant="outline" className="gap-2 w-full sm:w-auto">
                       <Link href="/notes/bulletins">
                         <FileText className="h-4 w-4" />
                         {t("bulletinsBtn")}
                       </Link>
                     </Button>
-                    <Button asChild size="sm" className="gap-2">
+                    <Button asChild size="sm" className="gap-2 w-full sm:w-auto">
                       <Link href="/evaluations">
                         <Plus className="h-4 w-4" />
                         {t("scheduleExamShort")}

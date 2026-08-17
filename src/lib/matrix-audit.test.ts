@@ -14,14 +14,14 @@ const ROUTES = [
   "/super-admin", "/infirmerie", "/secretariat", "/comptabilite", "/conseiller",
 ];
 
-describe("matrice canAccessRoute — audit 15 rôles", () => {
+describe("matrice canAccessRoute — audit 16 rôles", () => {
   it("compte les routes accessibles par rôle", () => {
     const counts: Record<string, number> = {};
     for (const role of ROLES) {
       counts[role] = ROUTES.filter(r => canAccessRoute(role, r)).length;
     }
     // Log pour inspection — ne casse pas si les counts changent
-    expect(Object.keys(counts).length).toBe(15);
+    expect(Object.keys(counts).length).toBe(16);
   });
 
   it("PARENT/STUDENT n'accèdent pas aux routes du personnel fermées", () => {

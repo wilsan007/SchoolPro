@@ -90,6 +90,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           // Restaurer le tenant original si on quitte l'impersonation
           // (géré par clearImpersonation ci-dessus), sinon garder le tenant cible
           token.tenantId = requestedTenantId;
+          token.country = null; // L'impersonation ne propage pas le pays (super-admin global)
           token.siteId = null;
           token.siteIds = [];
           token.tenantHasSites = true;
@@ -103,6 +104,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           // Compte désactivé ou supprimé : on vide le périmètre plutôt que de
           // laisser un jeton porter des droits obsolètes.
           token.tenantId = null;
+          token.country = null;
           token.siteId = null;
           token.siteIds = [];
           token.tenantHasSites = true;
@@ -113,6 +115,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         }
 
         token.tenantId = claims.tenantId;
+        token.country = claims.country;
         token.role = claims.role;
         token.siteId = claims.siteId;
         token.siteIds = claims.siteIds;
@@ -212,6 +215,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           image: user.avatarUrl,
           role: claims.role,
           tenantId: claims.tenantId,
+          country: claims.country,
           siteId: claims.siteId,
           siteIds: claims.siteIds,
           tenantHasSites: claims.tenantHasSites,
@@ -235,6 +239,9 @@ declare module "next-auth" {
       image?: string | null;
       role: Role;
       tenantId: string | null;
+      /** Code ISO pays du tenant actif (ex: "DJ", "SN"). Sert au filtrage
+       *  des modèles partagés par pays (Question, Chapitre, Competence, Cours). */
+      country?: string | null;
       /** Site sélectionné, garanti appartenir au tenant actif. */
       siteId?: string | null;
       /** Sites du tenant actif auxquels l'utilisateur est rattaché. */

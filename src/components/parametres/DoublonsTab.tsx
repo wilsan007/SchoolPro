@@ -174,7 +174,7 @@ export function DoublonsTab() {
       )}
 
       {data.groupes.length === 0 ? (
-        <Card className="p-6 flex flex-col items-center gap-2 text-center">
+        <Card className="p-4 sm:p-6 flex flex-col items-center gap-2 text-center">
           <ShieldCheck className="h-8 w-8 text-green-600" />
           <p className="font-medium">Aucun doublon détecté</p>
           <p className="text-sm text-muted-foreground max-w-md">

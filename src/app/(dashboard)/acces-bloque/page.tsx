@@ -21,7 +21,7 @@ export default async function AccessBlockedPage() {
   const message = block.messageKey ? t(block.messageKey, block.messageParams ?? {}) : "";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
           <div className="mx-auto w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
