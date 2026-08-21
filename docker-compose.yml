@@ -1,0 +1,455 @@
+# ============================================================
+# EcolPro — Stack de production auto-hébergée
+#
+# Principes de sécurité appliqués :
+#   1. AUCUN port publié sur l'hôte. Le seul flux entrant passe par un
+#      tunnel Cloudflare sortant : le VPS n'a aucune surface réseau.
+#   2. Chaque conteneur tourne en non-root, avec un système de fichiers
+#      racine en lecture seule et `no-new-privileges`.
+#   3. Réseaux segmentés : la base de données n'est joignable que par
+#      PgBouncer et les tâches d'administration, pas par le proxy.
+#   4. Rôles PostgreSQL séparés : l'application n'a aucun droit DDL.
+#   5. Le socket Docker n'est jamais monté directement : l'ordonnanceur
+#      passe par un mandataire restreint aux seules opérations `exec`.
+#
+# Démarrage :  make up
+# Documentation : DEPLOYMENT-VPS.md — Procédures : RUNBOOK.md
+# ============================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+
+  # ==========================================================
+  # PostgreSQL 17 — base de données
+  # ==========================================================
+  db:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    image: ecolpro/postgres:17
+    container_name: ecolpro-db
+    restart: unless-stopped
+    <<: *hardening
+    # CHOWN/SETUID/SETGID : requis par l'entrypoint officiel pour basculer
+    # vers l'utilisateur postgres. FOWNER/DAC_OVERRIDE : gestion des
+    # permissions de PGDATA. Rien de plus.
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - FOWNER
+      - DAC_OVERRIDE
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ecolpro}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:?}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=peer --data-checksums"
+      # Mots de passe des rôles applicatifs, consommés par 02-roles.sh
+      PG_OWNER_PASSWORD: ${PG_OWNER_PASSWORD:?}
+      PG_APP_PASSWORD: ${PG_APP_PASSWORD:?}
+      PG_BACKUP_PASSWORD: ${PG_BACKUP_PASSWORD:?}
+      PG_RO_PASSWORD: ${PG_RO_PASSWORD:?}
+      # pgBackRest lit ses secrets dans l'environnement (voir pgbackrest.conf)
+      PGBACKREST_REPO1_CIPHER_PASS: ${PGBACKREST_CIPHER_PASS:?}
+      # Alertes
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALERT_CHAT_ID: ${TELEGRAM_ALERT_CHAT_ID:-}
+      VPS_HOSTNAME: ${DOMAIN:-ecolpro.com}
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - db_tls:/var/lib/postgresql/tls
+      - pgbackrest_repo:/var/lib/pgbackrest
+      - pgbackrest_spool:/var/spool/pgbackrest
+      - pgbackrest_log:/var/log/pgbackrest
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    tmpfs:
+      - /tmp:mode=1777,size=256m
+      - /var/run/postgresql:mode=0755,uid=999,gid=999
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-ecolpro} -q"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    networks:
+      - data
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+    stop_grace_period: 1m
+
+  # ==========================================================
+  # PgBouncer — mutualisation des connexions
+  # ==========================================================
+  pgbouncer:
+    build:
+      context: .
+      dockerfile: docker/pgbouncer/Dockerfile
+    image: ecolpro/pgbouncer:1
+    container_name: ecolpro-pgbouncer
+    restart: unless-stopped
+    <<: *hardening
+    read_only: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_APP_PASSWORD: ${PG_APP_PASSWORD:?}
+      PG_OWNER_PASSWORD: ${PG_OWNER_PASSWORD:?}
+      PG_RO_PASSWORD: ${PG_RO_PASSWORD:?}
+      PGBOUNCER_ADMIN_PASSWORD: ${PGBOUNCER_ADMIN_PASSWORD:?}
+    tmpfs:
+      # pgbouncer.ini, userlist.txt et le certificat TLS sont écrits ici par
+      # l'entrypoint : en mémoire, jamais sur le disque du VPS. Le modèle de
+      # configuration est intégré à l'image dans /opt/pgbouncer.
+      - /etc/pgbouncer:mode=0700,uid=10002,gid=10002,size=8m
+      - /var/run/pgbouncer:mode=0755,uid=10002,gid=10002,size=8m
+      - /var/log/pgbouncer:mode=0755,uid=10002,gid=10002,size=32m
+      - /tmp:mode=1777,size=32m
+    networks:
+      - data
+      - app_tier
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ==========================================================
+  # Migrations Prisma — conteneur éphémère
+  # Seul détenteur des identifiants `ecolpro_owner` (DDL).
+  # ==========================================================
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EcolPro}
+    image: ecolpro/app:latest
+    container_name: ecolpro-migrate
+    <<: *hardening
+    read_only: true
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["migrate"]
+    environment:
+      # Connexion DIRECTE à PostgreSQL : `migrate deploy` a besoin d'un
+      # verrou de session, incompatible avec le mode transaction de PgBouncer.
+      DIRECT_URL: "postgresql://ecolpro_owner:${PG_OWNER_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
+      DATABASE_URL: "postgresql://ecolpro_owner:${PG_OWNER_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    networks:
+      - data
+    logging: *default-logging
+
+  # ==========================================================
+  # Application Next.js
+  # ==========================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EcolPro}
+    image: ecolpro/app:latest
+    container_name: ecolpro-app
+    restart: unless-stopped
+    <<: *hardening
+    read_only: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
+    environment:
+      # --- Base de données : rôle applicatif, via PgBouncer --------------
+      # `pgbouncer=true` désactive les prepared statements nommés de Prisma,
+      # incompatibles avec le mode transaction.
+      DATABASE_URL: "postgresql://ecolpro_app:${PG_APP_PASSWORD}@pgbouncer:6432/${POSTGRES_DB:-ecolpro}?schema=public&pgbouncer=true&sslmode=require&connection_limit=10"
+      # Prisma exige que directUrl soit défini (déclaré dans schema.prisma).
+      # On y met le rôle applicatif, PAS le propriétaire : aucun DDL possible
+      # depuis ce conteneur, même en contournant PgBouncer.
+      DIRECT_URL: "postgresql://ecolpro_app:${PG_APP_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
+      # --- Authentification ---------------------------------------------
+      AUTH_SECRET: ${AUTH_SECRET:?}
+      AUTH_URL: ${NEXT_PUBLIC_APP_URL:?}
+      AUTH_TRUST_HOST: "true"
+      # --- Application ---------------------------------------------------
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EcolPro}
+      NODE_ENV: production
+      CRON_SECRET: ${CRON_SECRET:?}
+      # --- Services externes --------------------------------------------
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+      AT_API_KEY: ${AT_API_KEY:-}
+      AT_USERNAME: ${AT_USERNAME:-}
+      AT_SENDER_ID: ${AT_SENDER_ID:-EcolPro}
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_BUSINESS_ID: ${WHATSAPP_BUSINESS_ID:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      WEBHOOK_SMS_SECRET: ${WEBHOOK_SMS_SECRET:-}
+      FCM_SERVICE_ACCOUNT: ${FCM_SERVICE_ACCOUNT:-}
+      CAP_SERVER_URL: ${NEXT_PUBLIC_APP_URL:?}
+      # --- IA (LEARNOS) --------------------------------------------------
+      GLM_API_KEY: ${GLM_API_KEY:-}
+      GLM_API_BASE_URL: ${GLM_API_BASE_URL:-https://openrouter.ai/api/v1}
+      GLM_MODEL: ${GLM_MODEL:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
+      GROQ_API_BASE_URL: ${GROQ_API_BASE_URL:-https://api.groq.com/openai/v1}
+    tmpfs:
+      # Le rootfs est en lecture seule : tout ce que Next.js doit écrire
+      # (cache ISR, fichiers temporaires d'OCR et d'export) va en mémoire.
+      - /tmp:mode=1777,size=512m
+      - /app/.next/cache:mode=0700,uid=10001,gid=10001,size=512m
+    networks:
+      - app_tier
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    stop_grace_period: 30s
+
+  # ==========================================================
+  # Caddy — proxy inverse interne (HTTP uniquement)
+  # ==========================================================
+  caddy:
+    build:
+      context: .
+      dockerfile: docker/caddy/Dockerfile
+    image: ecolpro/caddy:2
+    container_name: ecolpro-caddy
+    restart: unless-stopped
+    <<: *hardening
+    read_only: true
+    depends_on:
+      app:
+        condition: service_started
+    # Aucun `ports:` — délibérément. Caddy n'est joignable que depuis le
+    # réseau Docker, par cloudflared.
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    tmpfs:
+      - /data:mode=0755,size=64m
+      - /config:mode=0755,size=16m
+      - /tmp:mode=1777,size=32m
+    networks:
+      - app_tier
+      - edge
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ==========================================================
+  # Cloudflare Tunnel — seul point d'entrée
+  # ==========================================================
+  cloudflared:
+    image: cloudflare/cloudflared:2025.1.0
+    container_name: ecolpro-cloudflared
+    restart: unless-stopped
+    <<: *hardening
+    read_only: true
+    user: "65532:65532"
+    depends_on:
+      caddy:
+        condition: service_started
+    # Tunnel géré à distance (par jeton) : le routage se configure dans le
+    # tableau de bord Cloudflare Zero Trust, aucun fichier de configuration
+    # à maintenir sur le VPS. C'est le mode recommandé pour un nouveau
+    # déploiement.
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?}
+    tmpfs:
+      - /tmp:mode=1777,size=32m
+    networks:
+      - edge
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "cloudflared", "--version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ==========================================================
+  # Mandataire du socket Docker — accès minimal pour l'ordonnanceur
+  # ==========================================================
+  # Monter /var/run/docker.sock dans un conteneur équivaut à lui donner
+  # root sur l'hôte. Ofelia a besoin d'`exec` : ce mandataire ne lui
+  # expose QUE cela, et refuse tout le reste (création d'image, montage de
+  # volume, mode privilégié…).
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: ecolpro-socket-proxy
+    restart: unless-stopped
+    <<: *hardening
+    cap_add:
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    environment:
+      # Autorisé : lister les conteneurs et y exécuter une commande.
+      CONTAINERS: 1
+      EXEC: 1
+      POST: 1
+      # Tout le reste est explicitement refusé.
+      IMAGES: 0
+      VOLUMES: 0
+      NETWORKS: 0
+      SERVICES: 0
+      TASKS: 0
+      SWARM: 0
+      NODES: 0
+      SECRETS: 0
+      CONFIGS: 0
+      PLUGINS: 0
+      SYSTEM: 0
+      INFO: 0
+      AUTH: 0
+      BUILD: 0
+      COMMIT: 0
+      DISTRIBUTION: 0
+      SESSION: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - scheduler
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  # ==========================================================
+  # Ofelia — ordonnanceur (remplace Vercel Cron)
+  # ==========================================================
+  ofelia:
+    image: mcuadros/ofelia:v0.3.16
+    container_name: ecolpro-ofelia
+    restart: unless-stopped
+    <<: *hardening
+    read_only: true
+    depends_on:
+      socket-proxy:
+        condition: service_started
+    command: ["daemon", "--config=/etc/ofelia/config.ini"]
+    environment:
+      # Ofelia parle au mandataire, jamais au socket Docker réel.
+      DOCKER_HOST: tcp://socket-proxy:2375
+    volumes:
+      - ./docker/ofelia/config.ini:/etc/ofelia/config.ini:ro
+    tmpfs:
+      - /tmp:mode=1777,size=32m
+    networks:
+      - scheduler
+      - app_tier
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # ==========================================================
+  # Uptime Kuma — supervision et alertes
+  # ==========================================================
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.16
+    container_name: ecolpro-uptime
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - uptime_data:/app/data
+    networks:
+      - app_tier
+      - edge
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+# ============================================================
+# Réseaux — segmentation
+# ============================================================
+networks:
+  # `edge` : cloudflared ↔ Caddy. Ne touche jamais la base de données.
+  edge:
+    driver: bridge
+    internal: false
+
+  # `app_tier` : Caddy ↔ app ↔ PgBouncer.
+  app_tier:
+    driver: bridge
+    internal: true
+
+  # `data` : PgBouncer ↔ PostgreSQL. `internal: true` interdit tout accès
+  # à Internet depuis la base : une exfiltration directe est impossible.
+  data:
+    driver: bridge
+    internal: true
+
+  # `scheduler` : Ofelia ↔ mandataire du socket.
+  scheduler:
+    driver: bridge
+    internal: true
+
+# ============================================================
+# Volumes
+# ============================================================
+volumes:
+  db_data:
+  db_tls:
+  pgbackrest_repo:
+  pgbackrest_spool:
+  pgbackrest_log:
+  uptime_data:

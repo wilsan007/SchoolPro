@@ -1,0 +1,32 @@
+# ============================================================
+# EcolPro — Règles de chiffrement SOPS
+#
+# Les secrets de production sont chiffrés avec age et versionnés dans git.
+# Avantages par rapport à un .env en clair sur le VPS :
+#   - historique auditable : on sait quand un secret a changé, et par qui ;
+#   - aucune copie en clair sur le disque du VPS (déchiffrement à la volée
+#     au déploiement, injection en mémoire) ;
+#   - rotation reproductible : `make secrets-rotate` ;
+#   - la perte du VPS ne fait pas perdre les secrets.
+#
+# La clé privée age est le SEUL élément à protéger hors dépôt. Elle vit dans
+# ~/.config/sops/age/keys.txt sur votre machine. Sauvegardez-la hors ligne :
+# sans elle, les secrets chiffrés sont irrécupérables.
+#
+# Initialisation :  make secrets-init
+# Édition :         make secrets-edit
+# ============================================================
+
+creation_rules:
+  # Seules les valeurs sont chiffrées, jamais les clés : un diff git reste
+  # lisible (on voit QUEL secret a changé, pas sa valeur).
+  - path_regex: secrets/.*\.env$
+    input_type: dotenv
+    output_type: dotenv
+    age: >-
+      REMPLACER_PAR_VOTRE_CLE_PUBLIQUE_AGE
+
+  - path_regex: secrets/.*\.ya?ml$
+    encrypted_regex: "^(password|secret|token|key|.*_PASSWORD|.*_SECRET|.*_TOKEN|.*_KEY)$"
+    age: >-
+      REMPLACER_PAR_VOTRE_CLE_PUBLIQUE_AGE

@@ -20,6 +20,12 @@ wrangler.jsonc
 .env.development.local
 .env.test.local
 .env.production.local
+# .env.production contient les mots de passe PostgreSQL, AUTH_SECRET et le
+# jeton du tunnel Cloudflare (voir DEPLOYMENT-VPS.md) : jamais dans git.
+.env.production
+# Secrets chiffrés / clés de déploiement
+secrets/
+*.key
 
 # Prisma
 prisma/migrations/dev.db

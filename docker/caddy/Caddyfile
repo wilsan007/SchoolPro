@@ -1,0 +1,138 @@
+# ============================================================
+# EcolPro — Caddyfile
+#
+# Caddy n'écoute qu'en HTTP interne, sur le réseau Docker : c'est
+# Cloudflare qui termine le TLS public, et cloudflared qui relaie le
+# trafic par un tunnel sortant. Aucun port n'est publié sur le VPS,
+# donc aucune surface d'attaque réseau directe.
+#
+# Conséquence : pas d'ACME ici. Caddy ne gère aucun certificat public,
+# ce qui supprime toute dépendance à un port 80 ouvert.
+# ============================================================
+
+{
+	# Pas de HTTPS automatique : cloudflared apporte déjà du trafic déchiffré
+	# depuis Cloudflare, sur le réseau interne.
+	auto_https off
+
+	# Point d'administration local, requis par le healthcheck. Non exposé.
+	admin 127.0.0.1:2019
+
+	servers {
+		# cloudflared est le seul client possible. On lui fait confiance pour
+		# les en-têtes X-Forwarded-* afin que la limitation de débit et les
+		# journaux voient la véritable IP du visiteur, et non celle du tunnel.
+		trusted_proxies static private_ranges
+		client_ip_headers Cf-Connecting-Ip X-Forwarded-For
+	}
+
+	order rate_limit before basic_auth
+}
+
+:80 {
+	# --- Journalisation ------------------------------------------------
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+
+	# --- En-têtes de sécurité ------------------------------------------
+	# La CSP et la plupart des en-têtes sont déjà posés par Next.js
+	# (next.config.ts). On ne les duplique pas pour éviter les conflits :
+	# on ajoute seulement ce que l'application ne peut pas poser elle-même
+	# et on retire ce qui révèle la pile technique.
+	header {
+		-Server
+		-X-Powered-By
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		Cross-Origin-Opener-Policy "same-origin"
+		X-Robots-Tag "noindex, nofollow" # établissement scolaire : pas d'indexation
+	}
+
+	# --- /api/health : usage interne uniquement -------------------------
+	# Cette route renvoie le nombre d'utilisateurs : c'est une fuite
+	# d'information pour un point d'entrée public. Le healthcheck Docker
+	# l'appelle en 127.0.0.1 dans le conteneur applicatif, donc le bloquer
+	# ici ne casse rien.
+	@health_external {
+		path /api/health
+		not client_ip private_ranges
+	}
+	respond @health_external 404
+
+	# --- Limitation de débit : authentification --------------------------
+	# Le bourrage d'identifiants est la principale menace sur une
+	# application scolaire (comptes parents/élèves à mots de passe faibles).
+	# 10 tentatives par minute et par IP, en complément du verrouillage
+	# applicatif.
+	@auth path /api/auth/* /login
+	rate_limit @auth {
+		zone auth {
+			key {client_ip}
+			events 10
+			window 1m
+		}
+		log_key
+	}
+
+	# --- Limitation de débit : écritures API -----------------------------
+	@api_write {
+		path /api/*
+		method POST PUT PATCH DELETE
+	}
+	rate_limit @api_write {
+		zone api_write {
+			key {client_ip}
+			events 120
+			window 1m
+		}
+	}
+
+	# --- Limitation de débit : globale ------------------------------------
+	# Filet de sécurité contre l'aspiration de données.
+	rate_limit {
+		zone global {
+			key {client_ip}
+			events 600
+			window 1m
+		}
+	}
+
+	# --- Cache des ressources immuables ----------------------------------
+	@immutable path /_next/static/* /icons/* /fonts/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Les réponses applicatives ne doivent jamais être mises en cache par
+	# Cloudflare : elles contiennent des données d'élèves propres à la session.
+	@dynamic path /api/* /dashboard/*
+	header @dynamic Cache-Control "private, no-store, max-age=0"
+
+	# --- Compression -----------------------------------------------------
+	encode zstd gzip
+
+	# --- Proxy vers l'application ----------------------------------------
+	reverse_proxy app:3000 {
+		header_up X-Real-IP {client_ip}
+		header_up X-Forwarded-Proto https
+
+		# Coupe rapidement si l'application ne répond plus, au lieu
+		# d'accumuler des connexions en attente.
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 60s
+		}
+
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	# --- Taille maximale des corps de requête ----------------------------
+	# Les imports CSV et les photos sont plafonnés applicativement à 2 Mo ;
+	# 10 Mo laisse de la marge aux imports en masse tout en bloquant les
+	# tentatives d'épuisement mémoire.
+	request_body {
+		max_size 10MB
+	}
+}

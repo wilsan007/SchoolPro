@@ -1,0 +1,82 @@
+# --- Dépendances ---
+node_modules
+.pnpm-store
+
+# --- Build artifacts ---
+.next
+out
+dist
+coverage
+test-results
+playwright-report
+
+# --- Git & metadata ---
+.git
+.gitignore
+.github
+.codegraph
+.gstack
+.claude
+.agents
+.devin
+
+# --- Env files (sécurité — ne jamais inclure dans l'image) ---
+.env
+.env.local
+.env.production
+.env.production.example
+
+# --- IDE / OS ---
+.DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+
+# --- Documentation lourde (non nécessaire au runtime) ---
+*.docx
+*.pdf
+docs/
+ECOLPRO_Blueprint.md
+ECOLPRO_CONTEXT.md
+ANALYSE_INTEGRATION_MENFOP.md
+PLAN_ECART_ECOLE360.md
+AMELIORATIONS_PROJET.md
+MOBILE_DEPLOIEMENT.md
+QA_REPORT.md
+
+# --- Mobile (Capacitor) — pas nécessaire en Docker ---
+mobile/
+mobile-app/
+capacitor.config.ts
+
+# --- Tests & scripts de dev ---
+tests/
+vitest.config.ts
+playwright.config.ts
+run-tests*.sh
+run-qa.sh
+demo-evolution.cjs
+cleanup-tenant.cjs
+load-sql*.cjs
+reload-failed.cjs
+.tmp-reset-site.ts
+
+# --- SQL standalone (les migrations Prisma sont dans prisma/) ---
+migration_*.sql
+qa-*.sql
+*.sql
+
+# --- Docker (évite récursion) ---
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+.dockerignore
+
+# --- Cache ---
+tsconfig.tsbuildinfo
+.eslintcache
+.vercel
+.wrangler
+.open-next
+pages-output
