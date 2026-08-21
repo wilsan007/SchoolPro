@@ -1,0 +1,82 @@
+# ============================================================
+# EcolPro — Veille automatisée sur les dépendances
+#
+# POURQUOI
+# L'audit du 21/08 a trouvé 20 vulnérabilités, dont 3 critiques
+# (contournement d'authentification next-auth, CVE libvips dans sharp).
+# Elles n'ont été découvertes que parce qu'un audit ponctuel a été mené.
+# Sans veille automatique, la prochaine série attendra le prochain audit.
+#
+# Dependabot ouvre une pull request par mise à jour de sécurité. Le
+# correctif arrive donc sous forme de diff relisible et testé par la CI,
+# au lieu d'un `pnpm update` fait dans l'urgence un dimanche soir.
+#
+# Rythme hebdomadaire, et non quotidien : à raison d'une PR par jour, on
+# cesse de les lire — et la PR critique passe avec les autres.
+# ============================================================
+version: 2
+updates:
+  # --- Dépendances npm ---------------------------------------------------
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Djibouti
+    open-pull-requests-limit: 5
+    labels: ["dépendances", "sécurité"]
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      # Les montées de version mineures et correctives sont regroupées en
+      # une seule PR : elles sont sans risque, et vingt PR séparées
+      # n'apporteraient que du bruit.
+      mineures-et-correctifs:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Les majeures se décident, elles ne se subissent pas : montée de
+      # version de Next, React ou Prisma = chantier, pas mise à jour.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+
+  # --- Images de base Docker ---------------------------------------------
+  # Point aveugle classique : les images sont épinglées par étiquette
+  # (postgres:17.2-bookworm, node:20.18.1-bookworm-slim). C'est excellent
+  # pour la reproductibilité, mais cela signifie qu'une CVE corrigée par
+  # Debian ne parvient JAMAIS en production tant que personne ne
+  # reconstruit. Dependabot propose ici la montée de version.
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /docker/postgres
+      - /docker/pgbouncer
+      - /docker/caddy
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Djibouti
+    labels: ["docker", "sécurité"]
+    commit-message:
+      prefix: "chore(docker)"
+
+  # --- Actions GitHub ----------------------------------------------------
+  # Une action compromise s'exécute avec les secrets du dépôt : c'est une
+  # dépendance à part entière, et l'une des plus sensibles.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: ["ci", "sécurité"]
+    commit-message:
+      prefix: "chore(ci)"
