@@ -1,20 +1,32 @@
 import { PrismaClient } from "@prisma/client";
+import { withRlsExtension } from "@/lib/prisma-rls";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   prismaBackground: PrismaClient | undefined;
 };
 
+/**
+ * Client applicatif.
+ *
+ * `withRlsExtension` pose le contexte multi-tenant (tenant, sites,
+ * super-admin) avant chaque opération, pour que les politiques RLS de
+ * PostgreSQL puissent s'appliquer. Tant que `RLS_MODE` vaut `off` — la
+ * valeur par défaut — l'enveloppe est un passe-plat strict : le client
+ * renvoyé est le client Prisma d'origine, sans surcoût ni changement de
+ * comportement. Voir src/lib/prisma-rls.ts pour la procédure de bascule
+ * (off → warn → enforce).
+ */
 export const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({
+  withRlsExtension(new PrismaClient({
     log: ["error"],
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
       },
     },
-  });
+  }));
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
@@ -36,10 +48,12 @@ export default prisma;
  */
 export const prismaBackground =
   globalForPrisma.prismaBackground ??
-  new PrismaClient({
-    log: ["error"],
-    datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
-  });
+  withRlsExtension(
+    new PrismaClient({
+      log: ["error"],
+      datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
+    })
+  );
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prismaBackground = prismaBackground;

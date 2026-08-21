@@ -302,6 +302,23 @@ rls-test: ## Sécurité — prouve l'isolation multi-tenant en base (labo requis
 .PHONY: rls-full
 rls-full: test-db-up rls-apply-test rls-test ## Sécurité — labo + application + preuve, d'un trait
 
+.PHONY: rls-apply-prod
+rls-apply-prod: ## Sécurité — applique fonctions + politiques RLS en PRODUCTION
+	@echo "$(Y)Application de la RLS sur la PRODUCTION ($(VPS)).$(N)"
+	@echo "Prérequis : RLS_MODE=warn déployé, journaux [rls] silencieux, sauvegarde fraîche."
+	@echo "Voir RUNBOOK.md — « Activation de la RLS ». Ctrl-C pour annuler."
+	@read -r -p "Taper OUI pour continuer : " ok; [ "$$ok" = "OUI" ] || { echo "Annulé."; exit 1; }
+	@echo "$(B)[1/3] Sauvegarde préalable$(N)"
+	$(MAKE) backup
+	@echo "$(B)[2/3] Fonctions de contexte$(N)"
+	ssh $(VPS) 'docker exec -i ecolpro-db sh -c "PGPASSWORD=\$$PG_OWNER_PASSWORD psql -q -v ON_ERROR_STOP=1 -U ecolpro_owner -d \$${POSTGRES_DB:-ecolpro} -h /var/run/postgresql"' \
+		< docker/postgres/init/03-rls-functions.sql
+	@echo "$(B)[3/3] Politiques$(N)"
+	ssh $(VPS) 'docker exec -i ecolpro-db sh -c "PGPASSWORD=\$$PG_OWNER_PASSWORD psql -q -v ON_ERROR_STOP=1 -U ecolpro_owner -d \$${POSTGRES_DB:-ecolpro} -h /var/run/postgresql"' \
+		< prisma/sql/rls/02-policies.sql
+	@echo "$(G)Politiques en place.$(N) Vérifier IMMÉDIATEMENT une page de notes et une page de facturation."
+	@echo "Retour arrière si besoin : make shell-db puis DROP POLICY <nom> ON <table>;"
+
 .PHONY: compose-validate
 compose-validate: ## Vérification — valide la configuration docker-compose
 	docker compose --env-file .env.production.example config -q

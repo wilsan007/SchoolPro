@@ -74,18 +74,26 @@ export function withRlsExtension<T extends PrismaClient>(client: T) {
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          const ctx = getRlsContext();
+          // Priorité au contexte explicite (withRlsContext /
+          // withSystemContext) ; à défaut, on le déduit de la session
+          // authentifiée de la requête en cours.
+          let ctx = getRlsContext();
+          if (!ctx) {
+            const { resolveRlsContextFromSession } = await import("@/lib/rls-session");
+            ctx = await resolveRlsContextFromSession();
+          }
 
           if (!ctx) {
             const key = `${model}.${operation}`;
             if (mode === "enforce") {
               throw new Error(
-                `[rls] ${key} exécuté hors de tout contexte RLS. ` +
-                  `Envelopper l'appel dans withRlsContext(...) — ou, s'il est ` +
-                  `légitimement hors tenant, dans withSystemContext("raison", ...).`
+                `[rls] ${key} exécuté sans session ni contexte RLS. ` +
+                  `Si l'appel a lieu hors requête HTTP (script, tâche planifiée), ` +
+                  `l'envelopper dans withSystemContext("raison", ...) — ou dans ` +
+                  `withRlsContext({...}) pour cibler un tenant précis.`
               );
             }
-            warnOnce(key, `${key} exécuté sans contexte RLS (mode warn : laissé passer)`);
+            warnOnce(key, `${key} exécuté sans session ni contexte RLS (mode warn : laissé passer)`);
             return query(args);
           }
 

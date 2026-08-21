@@ -207,6 +207,13 @@ services:
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EcolPro}
       NODE_ENV: production
       CRON_SECRET: ${CRON_SECRET:?}
+      # --- Isolation en base (RLS) ---------------------------------------
+      # off (défaut) : comportement historique, aucun surcoût.
+      # warn : l'app pose le contexte et journalise les appels qui n'en ont
+      #        pas — étape d'observation, sans risque.
+      # enforce : un appel sans contexte échoue au lieu de rendre une page
+      #        vide. Procédure complète : RUNBOOK.md, « Activation de la RLS ».
+      RLS_MODE: ${RLS_MODE:-off}
       # --- Services externes --------------------------------------------
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}

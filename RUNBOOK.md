@@ -21,6 +21,7 @@ exacte à exécuter.
 12. [Réaction à une alerte Telegram](#réaction-à-une-alerte-telegram)
 13. [Mise à jour de sécurité urgente (CVE)](#mise-à-jour-de-sécurité-urgente-cve)
 14. [Vérification post-incident](#vérification-post-incident)
+15. [Activation de la RLS (isolation en base)](#activation-de-la-rls-isolation-en-base)
 
 ---
 
@@ -532,3 +533,89 @@ Si toutes les vérifications passent, l'incident est résolu. Documenter :
 - Résolution appliquée
 - Temps d'indisponibilité
 - Leçon à enregistrer pour éviter la récurrence
+
+---
+
+## Activation de la RLS (isolation en base)
+
+La Row Level Security ajoute une **seconde ligne de défense** : même si une
+requête applicative oublie son filtre `tenantId`, PostgreSQL ne rend que les
+lignes du tenant courant. Elle ne remplace pas les filtres du code — elle
+rattrape leurs oublis.
+
+**L'ordre de ces étapes n'est pas négociable.** Activer les politiques avant
+que l'application ne pose son contexte rendrait toutes les pages vides.
+
+### Étape 0 — répéter sur le labo (jamais directement en production)
+
+```bash
+make rls-full
+```
+
+Démarre un PostgreSQL identique à la production (mêmes rôles, même
+`postgresql.conf`), applique le schéma, les fonctions et les politiques, puis
+exécute les 12 tests d'isolation. Tout doit être vert avant d'aller plus loin.
+
+### Étape 1 — l'application pose le contexte, sans rien exiger (`warn`)
+
+Dans les secrets de production : `RLS_MODE=warn`, puis `make deploy`.
+
+L'application pose désormais le contexte à chaque requête, mais rien n'est
+encore filtré (aucune politique n'est active en base). Objectif : **découvrir
+les chemins de code qui n'ont pas de session** — tâches planifiées, scripts,
+webhooks.
+
+```bash
+make logs | grep '\[rls\]'
+```
+
+Chaque ligne `exécuté sans session ni contexte RLS` désigne un appel à
+envelopper dans `withSystemContext("raison", …)`. Laisser tourner **au moins
+une semaine complète** : les tâches mensuelles (facturation, bulletins) ne se
+manifestent pas en trois jours.
+
+Ne pas passer à l'étape suivante tant que ce filtre remonte des lignes.
+
+### Étape 2 — activer les politiques en base
+
+```bash
+make rls-apply-prod
+```
+
+La cible demande une confirmation, déclenche une sauvegarde, puis applique les
+deux fichiers via `psql` **dans le conteneur PostgreSQL**, en tant que
+`ecolpro_owner` (le seul rôle habilité au DDL ; l'image applicative ne contient
+pas `psql`, et c'est très bien ainsi).
+
+Les fonctions de contexte ne s'exécutent normalement qu'à la création de la
+base : sur une base existante, elles doivent être appliquées explicitement —
+c'est ce que fait l'étape 2 de la cible. Les deux fichiers sont intégralement
+idempotents (`CREATE OR REPLACE`, `DROP POLICY IF EXISTS`) et peuvent donc être
+rejoués sans risque.
+
+Vérifier immédiatement, en tant qu'utilisateur réel, qu'une page de notes et
+une page de facturation affichent toujours leurs données. En cas de problème :
+
+```bash
+make shell-db
+```
+puis `DROP POLICY <nom> ON <table>;` sur la table fautive — le retour arrière
+est instantané et ne demande pas de restauration.
+
+### Étape 3 — rendre l'absence de contexte bloquante (`enforce`)
+
+`RLS_MODE=enforce`, puis `make deploy`.
+
+Une requête sans contexte lève désormais une erreur explicite au lieu de
+retourner silencieusement une page vide. C'est l'état cible : à partir de là,
+un oubli de contexte est une panne visible, jamais une fuite.
+
+### Ce qu'il faut surveiller ensuite
+
+- `make rls-check` échoue dès qu'une table est ajoutée au schéma sans être
+  couverte. À laisser dans la CI.
+- `make audit-db` contrôle chaque lundi que les politiques n'ont pas été
+  supprimées.
+- Le coût : un aller-retour supplémentaire par requête Prisma. Si une page
+  devient sensiblement plus lente, la cause est presque toujours un N+1
+  préexistant que la RLS rend visible — pas la RLS elle-même.
