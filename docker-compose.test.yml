@@ -1,0 +1,178 @@
+# ============================================================
+# EcolPro — Labo de test fidèle à la production
+#
+# POURQUOI CE FICHIER EXISTE
+# docker-compose.dev.yml démarre `postgres:17-alpine` avec un rôle unique,
+# superutilisateur. Or **un superutilisateur contourne intégralement la
+# RLS** — `FORCE ROW LEVEL SECURITY` lui-même ne s'applique pas à lui.
+# Conséquence : une politique RLS absente, cassée ou trop permissive est
+# INVISIBLE dans le labo de développement, et ne se manifeste qu'en
+# production, où l'application se connecte en `ecolpro_app` (rôle non
+# propriétaire, non superutilisateur).
+#
+# Ce fichier reconstruit donc l'environnement dans lequel la sécurité
+# s'exerce réellement :
+#   - l'image PostgreSQL de production (docker/postgres/Dockerfile) ;
+#   - les quatre rôles au moindre privilège (02-roles.sh) ;
+#   - les fonctions de contexte RLS (03-rls-functions.sql) ;
+#   - le postgresql.conf de production (scram, TLS, pgaudit) ;
+#   - un pg_hba qui refuse `postgres` par le réseau, comme en production.
+#
+# CE QUI DIFFÈRE VOLONTAIREMENT DE LA PRODUCTION
+#   - `shared_buffers` ramené à 128 Mo : 2 Go exigeraient un /dev/shm
+#     démesuré sur un poste de développement, et la taille du cache n'a
+#     aucun effet sur la sécurité ;
+#   - `archive_mode=off` : sans stanza pgBackRest, l'archivage des WAL
+#     échouerait en boucle et polluerait les journaux ;
+#   - données en tmpfs : le labo est jetable par construction, aucun
+#     volume à nettoyer, aucun risque de garder un état d'un test à
+#     l'autre.
+#   Ces trois écarts sont passés en ligne de commande, PAS dans un
+#   postgresql.conf dupliqué : le fichier de production reste la source
+#   unique de vérité des réglages de sécurité, qui ne peuvent donc pas
+#   diverger silencieusement.
+#
+# Démarrage :
+#   make test-db-up          (ou : docker compose -f docker-compose.test.yml up -d --build)
+# Arrêt et effacement :
+#   make test-db-down
+#
+# Les mots de passe ci-dessous sont fixes et publics : la base est
+# éphémère, en tmpfs, publiée sur 127.0.0.1 uniquement, et ne contient
+# que des données de test. Ne JAMAIS reprendre ces valeurs ailleurs.
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # Génération du certificat TLS interne
+  #
+  # Étape séparée, et non `00-tls.sh` dans initdb.d : l'entrypoint
+  # officiel démarre un serveur temporaire AVEC le postgresql.conf fourni
+  # (donc `ssl = on`) AVANT d'exécuter les scripts d'initialisation. Si le
+  # certificat n'existe pas encore, PostgreSQL refuse de démarrer. On le
+  # produit donc en amont, dans un conteneur éphémère.
+  # ----------------------------------------------------------
+  # ----------------------------------------------------------
+  # Préparation : certificat TLS + scripts d'initialisation
+  #
+  # Deux raisons de ne pas monter directement `docker/postgres/init` :
+  #
+  # 1. TLS — l'entrypoint officiel démarre un serveur temporaire AVEC le
+  #    postgresql.conf fourni (donc `ssl = on`) AVANT d'exécuter les
+  #    scripts d'initialisation. Si le certificat n'existe pas encore,
+  #    PostgreSQL refuse de démarrer. On le produit donc en amont.
+  #
+  # 2. Bit exécutable — l'entrypoint exécute un `*.sh` s'il est marqué
+  #    exécutable, et le `source` sinon. Les montages de Docker Desktop
+  #    (macOS/Windows) présentent les fichiers comme exécutables quelle
+  #    que soit leur permission réelle : l'entrypoint tente alors un
+  #    `exec` qui échoue (« bad interpreter: Permission denied »), là où
+  #    le même dépôt fonctionne sur le VPS Linux. Recopier les scripts
+  #    dans un volume avec des permissions maîtrisées rend le labo
+  #    identique sur les trois systèmes.
+  # ----------------------------------------------------------
+  init-prep:
+    image: alpine/openssl:3.3.2
+    container_name: ecolpro-test-init-prep
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        if [ ! -f /tls/server.crt ]; then
+          openssl req -new -x509 -days 3650 -nodes \
+            -out /tls/server.crt -keyout /tls/server.key \
+            -subj "/CN=ecolpro-test-db" \
+            -addext "subjectAltName=DNS:db,DNS:localhost"
+          chmod 0600 /tls/server.key
+          chmod 0644 /tls/server.crt
+          chown 999:999 /tls/server.key /tls/server.crt
+          echo "[prep] certificat TLS de test généré"
+        fi
+        # 00-tls.sh est exclu volontairement (voir ci-dessus) ; les trois
+        # autres scripts sont ceux de la production, recopiés sans
+        # modification.
+        rm -f /initdb/*
+        cp /src/01-extensions.sql /src/02-roles.sh /src/03-rls-functions.sql /initdb/
+        chmod 0755 /initdb/02-roles.sh
+        chmod 0644 /initdb/01-extensions.sql /initdb/03-rls-functions.sql
+        echo "[prep] scripts d'initialisation en place"
+    volumes:
+      - test_tls:/tls
+      - test_initdb:/initdb
+      - ./docker/postgres/init:/src:ro
+
+  # ----------------------------------------------------------
+  # PostgreSQL — image et configuration de production
+  # ----------------------------------------------------------
+  db:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    image: ecolpro/postgres:17
+    container_name: ecolpro-test-db
+    restart: "no"
+    depends_on:
+      init-prep:
+        condition: service_completed_successfully
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_DB: ecolpro_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test_superuser_local_only
+      # --data-checksums est repris de la production : c'est aussi un
+      # contrôle de l'audit (security-audit-db.sh, section 8).
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=peer --data-checksums"
+      PG_OWNER_PASSWORD: test_owner_local_only
+      PG_APP_PASSWORD: test_app_local_only
+      PG_BACKUP_PASSWORD: test_backup_local_only
+      PG_RO_PASSWORD: test_ro_local_only
+      # pgBackRest n'est pas utilisé ici, mais l'image le contient.
+      PGBACKREST_REPO1_CIPHER_PASS: test_cipher_local_only
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      # --- Écarts assumés pour un poste de développement ---------------
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - archive_mode=off
+      - -c
+      - max_wal_size=512MB
+    ports:
+      # 127.0.0.1 uniquement, et port 55433 pour ne pas entrer en conflit
+      # avec le Postgres de développement (55432, docker-compose.dev.yml).
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - test_tls:/var/lib/postgresql/tls
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./docker/postgres/pg_hba.test.conf:/etc/postgresql/pg_hba.conf:ro
+      # Scripts préparés par init-prep (permissions maîtrisées).
+      - test_initdb:/docker-entrypoint-initdb.d:ro
+    tmpfs:
+      # Base entièrement en mémoire : rapide, et impossible de traîner un
+      # état d'une exécution de tests à la suivante.
+      - /var/lib/postgresql/data:mode=0700,uid=999,gid=999,size=1g
+      - /tmp:mode=1777,size=128m
+      - /var/run/postgresql:mode=0755,uid=999,gid=999
+    shm_size: 256mb
+    healthcheck:
+      # `gosu postgres` : le conteneur officiel tourne en root et bascule
+      # vers postgres via gosu. Sans cela, pg_isready se présente en root
+      # sur le socket local et déclenche un « Peer authentication failed »
+      # dans les journaux toutes les 3 secondes — un bruit qui masquerait
+      # une vraie anomalie d'authentification.
+      test: ["CMD-SHELL", "gosu postgres pg_isready -U postgres -d ecolpro_test -q"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  test_tls:
+  test_initdb:
