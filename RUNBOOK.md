@@ -479,6 +479,37 @@ make secrets-edit  # mettre à jour PGB_APP_PASSWORD et DB_APP_PASSWORD
 
 ## Réaction à une alerte Telegram
 
+### Le message qui doit arriver chaque dimanche
+
+Un **bilan hebdomadaire** part tous les dimanches à 07h00 (heure de
+Djibouti), même quand tout va bien : sauvegardes, dépôt hors site, tables
+sous RLS, volumétrie, échecs d'archivage, verdict de l'audit.
+
+**Son absence est l'alerte.** Toutes les autres notifications ne parlent
+qu'en cas d'échec : si l'ordonnanceur meurt, si le jeton Telegram expire
+ou si le VPS perd son accès sortant, rien ne part — et rien ressemble
+exactement à « tout va bien ». Ce message lève l'ambiguïté chaque semaine.
+
+Si un dimanche il n'arrive pas :
+
+```bash
+make status
+```
+puis `docker logs ecolpro-ofelia --tail 50` et, en dernier recours,
+`make audit`.
+
+### Le signal de vie externe (à mettre en place une fois)
+
+Le bilan hebdomadaire ne couvre pas le cas où le VPS entier est
+injoignable — un serveur éteint n'envoie pas de message pour prévenir
+qu'il est éteint. Créer deux « checks » sur healthchecks.io (gratuit) :
+l'un attendu toutes les 6 h (sauvegardes), l'autre chaque semaine (test
+de restauration), puis coller leurs URL de ping dans les secrets
+(`HEARTBEAT_BACKUP_URL`, `HEARTBEAT_RESTORE_TEST_URL`). C'est alors un
+tiers, hors du VPS, qui alerte en cas de silence.
+
+
+
 ### Types d'alertes
 
 | Message | Gravité | Action immédiate |

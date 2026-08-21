@@ -83,6 +83,11 @@ services:
       # Alertes
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_ALERT_CHAT_ID: ${TELEGRAM_ALERT_CHAT_ID:-}
+      # Signal de vie (« dead man's switch ») : c'est l'ABSENCE de ping qui
+      # déclenche l'alerte, chez un tiers. Seul dispositif capable de
+      # signaler que le VPS — ou son système d'alerte — s'est tu.
+      HEARTBEAT_BACKUP_URL: ${HEARTBEAT_BACKUP_URL:-}
+      HEARTBEAT_RESTORE_TEST_URL: ${HEARTBEAT_RESTORE_TEST_URL:-}
       VPS_HOSTNAME: ${DOMAIN:-ecolpro.com}
     command:
       - postgres

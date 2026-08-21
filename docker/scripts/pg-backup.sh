@@ -19,6 +19,7 @@ set -uo pipefail
 TYPE="${1:-incr}"
 STANZA="ecolpro"
 NOTIFY="/usr/local/bin/notify.sh"
+HEARTBEAT="/usr/local/bin/heartbeat.sh"
 
 log() { echo "[backup] $(date -u '+%Y-%m-%dT%H:%M:%SZ') $*"; }
 
@@ -39,6 +40,7 @@ if ! pgbackrest --stanza="${STANZA}" info >/dev/null 2>&1; then
     log "ERREUR : création de la stanza impossible."
     "${NOTIFY}" error "Sauvegarde impossible" \
       "La création de la stanza pgBackRest a échoué. Aucune sauvegarde n'existe. Intervention requise." || true
+    "${HEARTBEAT}" backup fail || true
     exit 1
   fi
 fi
@@ -51,6 +53,7 @@ if ! pgbackrest --stanza="${STANZA}" check; then
   log "ERREUR : pgbackrest check a échoué."
   "${NOTIFY}" error "Archivage WAL défaillant" \
     "pgbackrest check échoue : l'archivage des WAL ou l'accès au dépôt est cassé. Le PITR n'est plus garanti et les WAL vont s'accumuler." || true
+  "${HEARTBEAT}" backup fail || true
   exit 1
 fi
 
@@ -94,6 +97,7 @@ else
   log "ERREUR : la sauvegarde ${TYPE} a échoué."
   "${NOTIFY}" error "Échec de sauvegarde" \
     "La sauvegarde ${TYPE} a échoué. Consulter : docker logs ecolpro-db et /var/log/pgbackrest." || true
+  "${HEARTBEAT}" backup fail || true
   exit 1
 fi
 
@@ -112,5 +116,10 @@ if [ -n "${LAST_TS}" ]; then
       "La sauvegarde la plus récente a ${AGE_HOURS} h, alors qu'une sauvegarde est attendue chaque jour." || true
   fi
 fi
+
+# Signal de vie : c'est l'ABSENCE de ce ping qui déclenchera l'alerte
+# externe si les sauvegardes cessent de tourner — panne que le VPS,
+# justement, ne peut pas signaler lui-même.
+"${HEARTBEAT}" backup || true
 
 log "Terminé."

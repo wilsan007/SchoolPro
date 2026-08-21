@@ -40,10 +40,14 @@ COPY --chown=root:root docker/scripts/pg-backup.sh /usr/local/bin/pg-backup.sh
 COPY --chown=root:root docker/scripts/backup-verify.sh /usr/local/bin/backup-verify.sh
 COPY --chown=root:root docker/scripts/security-audit-db.sh /usr/local/bin/security-audit-db.sh
 COPY --chown=root:root docker/scripts/notify.sh /usr/local/bin/notify.sh
+COPY --chown=root:root docker/scripts/heartbeat.sh /usr/local/bin/heartbeat.sh
+COPY --chown=root:root docker/scripts/weekly-digest.sh /usr/local/bin/weekly-digest.sh
 RUN chmod 0555 \
       /usr/local/bin/pgbackrest-offsite.sh \
       /usr/local/bin/pg-backup.sh \
       /usr/local/bin/backup-verify.sh \
       /usr/local/bin/security-audit-db.sh \
       /usr/local/bin/notify.sh \
+      /usr/local/bin/heartbeat.sh \
+      /usr/local/bin/weekly-digest.sh \
  && chmod 0640 /etc/pgbackrest/pgbackrest.conf

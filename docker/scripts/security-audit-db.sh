@@ -123,8 +123,143 @@ else
   crit "PUBLIC peut créer dans le schéma public"
 fi
 
+
+# ============================================================
+# 4. Isolation multi-tenant (RLS)
+# ============================================================
+# Une politique RLS ne fait pas de bruit en disparaissant. Une migration
+# qui recrée une table, un DROP POLICY passé « le temps d'un débogage »,
+# une table ajoutée au schéma sans être couverte : dans les trois cas
+# l'application continue de fonctionner normalement, et la seconde ligne
+# de défense a simplement cessé d'exister. Ces contrôles rendent ces
+# disparitions bruyantes.
+log "4. Isolation multi-tenant (RLS)"
+
+# Tables dont l'absence de RLS est un choix documenté
+# (voir prisma/sql/rls/02-policies.sql, section « Exclusions »).
+RLS_EXEMPTES="'accounts','sessions','verification_tokens','calendriers_officiels','modules','learnos_ai_cache'"
+
+# --- 4.1 Fonctions de contexte -------------------------------------------
+RLS_FUNCS=$(q "
+  SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname='public'
+    AND p.proname IN ('set_app_context','current_tenant_id','current_site_ids','tenant_matches','site_matches','is_super_admin');
+")
+if [ "${RLS_FUNCS}" = "6" ]; then
+  ok "fonctions de contexte RLS présentes (6/6)"
+else
+  crit "fonctions de contexte RLS incomplètes (${RLS_FUNCS}/6) : les politiques ne peuvent pas s'évaluer"
+fi
+
+# --- 4.2 Couverture ------------------------------------------------------
+RLS_ON=$(q "
+  SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity;
+")
+RLS_OFF=$(q "
+  SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relkind='r' AND NOT c.relrowsecurity
+    AND c.relname NOT IN (${RLS_EXEMPTES});
+")
+if [ "${RLS_ON}" = "0" ]; then
+  warn "RLS activée sur aucune table : la seconde ligne de défense n'est pas en place (voir RUNBOOK.md)"
+elif [ "${RLS_OFF}" = "0" ]; then
+  ok "RLS active sur ${RLS_ON} tables, aucune table non couverte hors exemptions"
+else
+  MANQUANTES=$(q "
+    SELECT string_agg(c.relname, ', ' ORDER BY c.relname)
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind='r' AND NOT c.relrowsecurity
+      AND c.relname NOT IN (${RLS_EXEMPTES});
+  ")
+  crit "${RLS_OFF} table(s) sans RLS : ${MANQUANTES}"
+fi
+
+# --- 4.3 Tables sous RLS mais sans aucune politique ----------------------
+# Cas fermé mais cassé : PostgreSQL refuse alors TOUTES les lignes. La
+# page se vide sans erreur, ce qui peut passer pour « pas de données ».
+SANS_POLICY=$(q "
+  SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity
+    AND NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid);
+")
+if [ "${SANS_POLICY}" = "0" ]; then
+  ok "toute table sous RLS possède au moins une politique"
+else
+  crit "${SANS_POLICY} table(s) sous RLS sans aucune politique : elles ne rendent plus AUCUNE ligne"
+fi
+
+# --- 4.4 Politiques permissives à l'excès --------------------------------
+# Une politique dont la condition se réduit à `true` annule l'isolation
+# tout en laissant les compteurs de couverture au vert.
+POLICY_TRUE=$(q "
+  SELECT count(*) FROM pg_policies
+  WHERE schemaname='public' AND (qual = 'true' OR qual IS NULL);
+")
+if [ "${POLICY_TRUE}" = "0" ]; then
+  ok "aucune politique inconditionnelle"
+else
+  crit "${POLICY_TRUE} politique(s) sans condition (USING true) : isolation annulée sur ces tables"
+fi
+
+# --- 4.5 Écritures non contrôlées ----------------------------------------
+# Sans WITH CHECK, un utilisateur peut INSÉRER une ligne au nom d'un autre
+# établissement : invisible pour lui, bien réelle pour la victime.
+SANS_CHECK=$(q "
+  SELECT count(*) FROM pg_policies
+  WHERE schemaname='public' AND cmd='ALL' AND with_check IS NULL;
+")
+if [ "${SANS_CHECK}" = "0" ]; then
+  ok "toutes les politiques contrôlent aussi les écritures (WITH CHECK)"
+else
+  warn "${SANS_CHECK} politique(s) sans WITH CHECK : écriture possible au nom d'un autre tenant"
+fi
+
+# --- 4.6 Contournements de RLS -------------------------------------------
+BYPASS=$(q "SELECT string_agg(rolname, ', ') FROM pg_roles WHERE rolbypassrls AND rolname NOT LIKE 'pg\\_%' AND rolname <> 'postgres';")
+if [ -z "${BYPASS}" ]; then
+  ok "aucun rôle applicatif ne contourne la RLS"
+else
+  crit "rôle(s) avec BYPASSRLS : ${BYPASS} — la RLS ne s'y applique pas"
+fi
+
+# Si ecolpro_app possédait une table, la RLS ne s'y appliquerait PAS
+# (le propriétaire est exempté tant que FORCE n'est pas posé). C'est la
+# façon la plus discrète de désactiver l'isolation sur une table.
+APP_OWNED=$(q "
+  SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relkind='r' AND c.relowner::regrole::text = 'ecolpro_app';
+")
+if [ "${APP_OWNED}" = "0" ]; then
+  ok "ecolpro_app ne possède aucune table (la RLS s'y applique donc pleinement)"
+else
+  crit "ecolpro_app possède ${APP_OWNED} table(s) : la RLS y est sans effet"
+fi
+
+# --- 4.7 Fonctions SECURITY DEFINER inattendues --------------------------
+# Une fonction SECURITY DEFINER s'exécute avec les droits de son
+# propriétaire : c'est le moyen classique de franchir la RLS. Aucune n'est
+# nécessaire dans ce schéma.
+# Les fonctions installées PAR une extension (pgaudit, pgcrypto…) sont
+# exclues : elles sont SECURITY DEFINER par conception et signalées chaque
+# semaine, elles apprendraient surtout à ignorer ce contrôle.
+SECDEF=$(q "
+  SELECT string_agg(p.proname, ', ' ORDER BY p.proname)
+  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.prosecdef
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_depend d
+      WHERE d.objid = p.oid AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e'
+    );
+")
+if [ -z "${SECDEF}" ]; then
+  ok "aucune fonction SECURITY DEFINER dans le schéma public"
+else
+  warn "fonction(s) SECURITY DEFINER : ${SECDEF} — vérifier qu'elles sont volontaires"
+fi
+
 # --- 7. Audit (pgaudit) ---------------------------------------------------
-log "4. Traçabilité"
+log "5. Traçabilité"
 PGAUDIT=$(q "SELECT count(*) FROM pg_extension WHERE extname='pgaudit';")
 if [ "${PGAUDIT}" = "1" ]; then
   AUDIT_LOG=$(q "SHOW pgaudit.log;")
@@ -142,7 +277,7 @@ else
 fi
 
 # --- 9. Fraîcheur des sauvegardes ----------------------------------------
-log "5. Sauvegardes"
+log "6. Sauvegardes"
 if pgbackrest --stanza=ecolpro info >/dev/null 2>&1; then
   LAST_TS=$(pgbackrest --stanza=ecolpro info --output=json 2>/dev/null \
     | grep -o '"stop":[0-9]*' | tail -1 | cut -d: -f2)
@@ -185,7 +320,7 @@ else
 fi
 
 # --- 11. Connexions et transactions bloquées -----------------------------
-log "6. Fonctionnement"
+log "7. Fonctionnement"
 IDLE_TX=$(q "SELECT count(*) FROM pg_stat_activity WHERE state='idle in transaction' AND state_change < now() - interval '10 minutes';")
 if [ "${IDLE_TX}" = "0" ]; then
   ok "aucune transaction bloquée de longue durée"
