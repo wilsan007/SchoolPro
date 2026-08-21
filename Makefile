@@ -174,6 +174,16 @@ backup-verify: ## Maintenance — teste la restauration sur une base scratch
 	@echo "$(B)[1/1] Test de restauration$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && ./docker/scripts/backup-verify.sh'
 
+.PHONY: backup-offsite-init
+backup-offsite-init: ## Maintenance — initialise et teste le dépôt de sauvegarde hors site
+	@echo "$(B)[1/3] Création de la stanza sur le dépôt distant$(N)"
+	ssh $(VPS) 'docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=ecolpro --repo=2 stanza-create"'
+	@echo "$(B)[2/3] Vérification de l'\''accès au dépôt$(N)"
+	ssh $(VPS) 'docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=ecolpro --repo=2 check"'
+	@echo "$(B)[3/3] Première sauvegarde complète hors site$(N)"
+	ssh $(VPS) 'docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=ecolpro --repo=2 --type=full backup"'
+	@echo "$(G)Dépôt hors site opérationnel.$(N) Vérifier : make backup-list"
+
 .PHONY: backup-list
 backup-list: ## Maintenance — liste les sauvegardes disponibles
 	ssh $(VPS) 'docker exec ecolpro-db pgbackrest --stanza=ecolpro info'

@@ -62,6 +62,24 @@ services:
       PG_RO_PASSWORD: ${PG_RO_PASSWORD:?}
       # pgBackRest lit ses secrets dans l'environnement (voir pgbackrest.conf)
       PGBACKREST_REPO1_CIPHER_PASS: ${PGBACKREST_CIPHER_PASS:?}
+      # --- Dépôt hors site (Cloudflare R2 ou tout S3) --------------------
+      # Laissées vides, ces variables DÉSACTIVENT le dépôt distant : rien
+      # n'est déclaré, rien ne peut échouer. Les renseigner suffit à
+      # l'activer — aucune reconstruction d'image, aucun fichier à éditer.
+      # Une sauvegarde qui ne quitte jamais le VPS ne protège ni du
+      # rançongiciel, ni de la perte de la machine, ni de la fermeture du
+      # compte hébergeur : ces quatre lignes sont la différence entre une
+      # sauvegarde et une illusion de sauvegarde.
+      PGBACKREST_REPO2_S3_ENDPOINT: ${R2_S3_ENDPOINT:-}
+      PGBACKREST_REPO2_S3_BUCKET: ${R2_BACKUP_BUCKET:-}
+      PGBACKREST_REPO2_S3_KEY: ${R2_BACKUP_ACCESS_KEY_ID:-}
+      PGBACKREST_REPO2_S3_KEY_SECRET: ${R2_BACKUP_SECRET_ACCESS_KEY:-}
+      # Même phrase secrète que le dépôt local : un secret de moins à
+      # perdre, et le chiffrement reste entier.
+      PGBACKREST_REPO2_CIPHER_PASS: ${PGBACKREST_CIPHER_PASS:?}
+      PGBACKREST_REPO2_S3_REGION: ${R2_BACKUP_REGION:-auto}
+      PGBACKREST_REPO2_PATH: ${R2_BACKUP_PATH:-/ecolpro}
+      PGBACKREST_REPO2_RETENTION_FULL: ${R2_BACKUP_RETENTION_FULL:-8}
       # Alertes
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_ALERT_CHAT_ID: ${TELEGRAM_ALERT_CHAT_ID:-}

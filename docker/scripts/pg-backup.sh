@@ -22,6 +22,16 @@ NOTIFY="/usr/local/bin/notify.sh"
 
 log() { echo "[backup] $(date -u '+%Y-%m-%dT%H:%M:%SZ') $*"; }
 
+# --- Dépôt hors site ------------------------------------------------------
+# Régénère la configuration de repo2 si — et seulement si — les
+# identifiants R2/S3 sont présents dans l'environnement. Voir
+# pgbackrest-offsite.sh pour le détail.
+# shellcheck source=/dev/null
+. /usr/local/bin/pgbackrest-offsite.sh
+
+OFFSITE="no"
+[ -f /etc/pgbackrest/conf.d/10-offsite.conf ] && OFFSITE="yes"
+
 # --- Création de la stanza si absente (premier lancement) -----------------
 if ! pgbackrest --stanza="${STANZA}" info >/dev/null 2>&1; then
   log "Stanza absente, création..."
@@ -48,9 +58,28 @@ fi
 log "Démarrage d'une sauvegarde de type ${TYPE}..."
 START=$(date +%s)
 
-if pgbackrest --stanza="${STANZA}" --type="${TYPE}" backup; then
+if pgbackrest --stanza="${STANZA}" --repo=1 --type="${TYPE}" backup; then
   DURATION=$(( $(date +%s) - START ))
-  log "Sauvegarde ${TYPE} terminée en ${DURATION}s."
+  log "Sauvegarde ${TYPE} terminée en ${DURATION}s (dépôt local)."
+
+  # --- Copie hors site ---------------------------------------------------
+  # pgBackRest ne sauvegarde que vers UN dépôt à la fois : sans cet appel
+  # explicite, repo2 ne recevrait que les WAL (archivés vers tous les
+  # dépôts), jamais les sauvegardes elles-mêmes — un dépôt hors site
+  # inutilisable pour restaurer, alors que tous les voyants seraient au vert.
+  if [ "${OFFSITE}" = "yes" ]; then
+    log "Copie vers le dépôt hors site..."
+    OFF_START=$(date +%s)
+    if pgbackrest --stanza="${STANZA}" --repo=2 --type="${TYPE}" backup; then
+      log "Dépôt hors site à jour en $(( $(date +%s) - OFF_START ))s."
+    else
+      log "ERREUR : la sauvegarde hors site a échoué."
+      "${NOTIFY}" error "Sauvegarde hors site en échec" \
+        "La sauvegarde locale a réussi, mais la copie vers le dépôt distant a échoué. Perdre le VPS signifierait perdre les données ET les sauvegardes. Vérifier les identifiants R2 et : docker logs ecolpro-db." || true
+    fi
+  else
+    log "AVERTISSEMENT : aucun dépôt hors site configuré."
+  fi
 
   # On ne notifie pas les succès de routine : une alerte quotidienne qui
   # n'annonce rien finit par être ignorée, et l'alerte utile avec elle.

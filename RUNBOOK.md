@@ -22,6 +22,7 @@ exacte à exécuter.
 13. [Mise à jour de sécurité urgente (CVE)](#mise-à-jour-de-sécurité-urgente-cve)
 14. [Vérification post-incident](#vérification-post-incident)
 15. [Activation de la RLS (isolation en base)](#activation-de-la-rls-isolation-en-base)
+16. [Activation du dépôt de sauvegarde hors site](#activation-du-dépôt-de-sauvegarde-hors-site)
 
 ---
 
@@ -155,18 +156,16 @@ ssh root@NEW_VPS_IP 'git clone <repo> /opt/ecolpro && cd /opt/ecolpro'
 # 3. Déployer la stack (crée une base vide)
 make deploy VPS=root@NEW_VPS_IP
 
-# 4. Configurer le dépôt offsite dans .env.runtime
-#    PGBACKREST_REPO1_TYPE=s3
-#    PGBACKREST_REPO1_S3_BUCKET=...
-#    PGBACKREST_REPO1_S3_ENDPOINT=...
-#    PGBACKREST_REPO1_S3_KEY=...
-#    PGBACKREST_REPO1_S3_KEY_SECRET=...
+# 4. Les identifiants du dépôt hors site sont DÉJÀ dans les secrets
+#    déchiffrés à l'étape 3 (R2_S3_ENDPOINT, R2_BACKUP_BUCKET,
+#    R2_BACKUP_ACCESS_KEY_ID, R2_BACKUP_SECRET_ACCESS_KEY). Rien à saisir.
 
-# 5. Restaurer depuis le dépôt offsite
+# 5. Restaurer depuis le dépôt hors site (--repo=2 : le dépôt local du
+#    nouveau VPS est vide, il faut désigner explicitement le distant)
 ssh root@NEW_VPS_IP 'cd /opt/ecolpro && \
   docker compose stop app && \
-  docker exec ecolpro-db pgbackrest --stanza=ecolpro \
-    --type=full restore && \
+  docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && \
+    pgbackrest --stanza=ecolpro --repo=2 --type=full restore" && \
   docker compose restart db && \
   docker compose up -d app'
 
@@ -180,10 +179,35 @@ make audit VPS=root@NEW_VPS_IP
 
 ### Objectif de temps de reprise (RTO)
 
-- Avec dépôt offsite accessible : **< 2 heures**
-- Sans dépôt offsite (depuis le VPS détruit) : **perte de données totale**
+- Avec dépôt hors site accessible : **< 2 heures** (valeur cible, à
+  remplacer par le temps RÉEL mesuré lors du prochain exercice)
+- Sans dépôt hors site (depuis le VPS détruit) : **perte de données totale**
 
-> C'est pourquoi le dépôt offsite est OBLIGATOIRE pour la production.
+> C'est pourquoi le dépôt hors site est OBLIGATOIRE en production.
+
+### Le point de rupture le plus probable : la clé age
+
+Sans `~/.config/sops/age/keys.txt`, les secrets restent chiffrés, donc la
+base ne démarre pas, donc les sauvegardes — elles aussi chiffrées — sont
+illisibles. Un dépôt hors site parfait ne sert à rien si la clé qui
+l'ouvre a disparu avec le portable.
+
+Cette clé doit exister à **deux endroits au moins**, hors du VPS et hors
+du poste de travail : gestionnaire de mots de passe, et une copie
+physique. À vérifier à chaque exercice de reprise.
+
+### Exercice de reprise (à faire une fois par mois)
+
+`backup-verify` prouve chaque mercredi que la sauvegarde est restaurable.
+Il ne prouve pas que **vous** savez reconstruire la production avec un
+VPS mort et le téléphone du directeur qui sonne. Une heure, chronomètre
+en main, sur un VPS jetable :
+
+1. dérouler la procédure ci-dessus sans consulter d'autre document ;
+2. noter le temps réel obtenu, et le reporter ci-dessus ;
+3. noter tout ce qui a manqué ou surpris, et corriger ce fichier
+   immédiatement — un runbook ne se corrige jamais mieux qu'au moment où
+   l'on vient d'y trébucher.
 
 ---
 
@@ -619,3 +643,71 @@ un oubli de contexte est une panne visible, jamais une fuite.
 - Le coût : un aller-retour supplémentaire par requête Prisma. Si une page
   devient sensiblement plus lente, la cause est presque toujours un N+1
   préexistant que la RLS rend visible — pas la RLS elle-même.
+
+---
+
+## Activation du dépôt de sauvegarde hors site
+
+Tant que cette procédure n'est pas faite, **perdre le VPS signifie perdre
+les données ET les sauvegardes**. `make audit` le signale déjà comme une
+anomalie GRAVE.
+
+### 1. Créer le bucket et le jeton
+
+Cloudflare → R2 → *Create bucket* : `ecolpro-backups`. Puis *Manage R2 API
+Tokens* → jeton avec la permission **Object Read & Write**, restreint à ce
+seul bucket. Noter l'*Access Key ID*, la *Secret Access Key* et l'endpoint
+`<identifiant_de_compte>.r2.cloudflarestorage.com`.
+
+Un jeton limité à un bucket, et non un jeton de compte : si le VPS est
+compromis, l'attaquant ne doit pouvoir toucher ni les fichiers de l'école,
+ni le tunnel, ni le DNS.
+
+### 2. Renseigner les secrets
+
+```bash
+make secrets-edit
+```
+
+```
+R2_S3_ENDPOINT=<identifiant_de_compte>.r2.cloudflarestorage.com
+R2_BACKUP_BUCKET=ecolpro-backups
+R2_BACKUP_ACCESS_KEY_ID=...
+R2_BACKUP_SECRET_ACCESS_KEY=...
+```
+
+Rien d'autre à modifier : la phrase de chiffrement du dépôt distant est
+la même que celle du dépôt local (`PGBACKREST_CIPHER_PASS`) — un secret
+de moins à conserver, sans rien perdre en protection.
+
+### 3. Déployer, puis initialiser
+
+```bash
+make deploy
+```
+
+```bash
+make backup-offsite-init
+```
+
+La cible crée la stanza sur le dépôt distant, vérifie l'accès, puis
+pousse une première sauvegarde complète. Les trois étapes doivent passer :
+c'est le test d'accès, pas seulement une configuration.
+
+### 4. Vérifier
+
+```bash
+make backup-list
+```
+
+`repo2` doit apparaître avec une sauvegarde. À partir de là, chaque
+sauvegarde planifiée est copiée hors site automatiquement, et `make audit`
+cesse de signaler l'anomalie.
+
+### Ce qui est chiffré, et par quoi
+
+Les sauvegardes sont chiffrées en AES-256 **avant** de quitter le VPS :
+Cloudflare ne stocke que des octets inintelligibles. La contrepartie est
+sans appel — **si `PGBACKREST_CIPHER_PASS` est perdu, les sauvegardes sont
+définitivement illisibles**, y compris par vous. Cette phrase secrète doit
+vivre hors du VPS, au même endroit que la clé age.
