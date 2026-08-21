@@ -14,6 +14,7 @@ import {
 import { niveauRequiresProfPrincipal } from "@/lib/utils-classe";
 import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import type { Role } from "@prisma/client";
+import { normaliserEmail } from "@/lib/email";
 
 // ============================================================
 // ÉTABLISSEMENT
@@ -92,7 +93,7 @@ export async function getEtablissementData() {
 
 const UserSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
-  email: z.string().email("Email invalide"),
+  email: z.string().email("Email invalide").transform(normaliserEmail),
   role: z.enum([
     "TENANT_ADMIN",
     "PRINCIPAL",
@@ -157,8 +158,13 @@ export async function createUser(data: UserFormData) {
   // le contrôle d'unicité doit donc être inter-tenants et inter-sites, sinon on
   // laisserait créer un doublon qui échouerait ensuite en base. Seule
   // l'existence est utilisée, aucune donnée de l'autre tenant n'est exposée.
+  // Unicité insensible à la casse : les comptes déjà enregistrés avec une
+  // majuscule doivent être détectés comme doublons.
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
-  const existing = await prisma.user.findUnique({ where: { email: v.email } });
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: v.email, mode: "insensitive" } },
+    select: { id: true },
+  });
   if (existing) throw new Error("Un utilisateur avec cet email existe déjà");
 
   const password = v.password || "EcolPro2026!";

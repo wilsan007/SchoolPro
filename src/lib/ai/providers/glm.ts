@@ -21,6 +21,7 @@ import {
 import {
   AiUnavailableError,
   contientImage,
+  listeModeles,
   type AiProvider,
   type AiMessage,
   type AiGenerateOptions,
@@ -31,6 +32,7 @@ export const glmProvider: AiProvider = {
   name: "glm",
   costTier: 2,
   supportsTools: true,
+  interactif: true,
 
   isAvailable() {
     return Boolean(process.env.GLM_API_KEY && process.env.GLM_MODEL);
@@ -38,6 +40,10 @@ export const glmProvider: AiProvider = {
 
   modelId() {
     return process.env.GLM_MODEL ?? "unknown";
+  },
+
+  modelIds() {
+    return listeModeles(process.env.GLM_MODEL, "unknown");
   },
 
   /**

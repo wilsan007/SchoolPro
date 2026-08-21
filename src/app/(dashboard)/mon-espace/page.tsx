@@ -1,12 +1,16 @@
 import { auth } from "@/lib/auth";
 import { Header } from "@/components/layout/Header";
 import { GrilleKpi } from "@/components/learnos/GrilleKpi";
+import { ActionRubricGrid, type RubricData } from "@/components/dashboard/ActionRubric";
+import { ActivityTimeline, type ActivityItemData } from "@/components/dashboard/ActivityTimeline";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { kpisEnseignant } from "@/lib/learnos/kpi";
 import { getDemoNow } from "@/lib/demo-now";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getTeacherCounts } from "@/lib/action-counts";
+import { getActivityFeed, type ActivityItem } from "@/lib/activity-feed";
 import prisma from "@/lib/prisma";
 import type { Jour, Role } from "@prisma/client";
 
@@ -38,19 +42,46 @@ export default async function MonEspacePage() {
     : undefined;
 
   const maintenant = await getDemoNow();
-  const kpis = await kpisEnseignant(
-    session!.user.tenantId!,
-    session!.user,
-    session!.user.id,
-    scope?.isRestricted ? scope.classeIds : null,
-    maintenant
-  );
+  const tenantId = session!.user.tenantId!;
+  const claims = session!.user;
+
+  const [kpis, rubrics, feedRecent, feedAujourdhui, feedSemaine, feedMois] = await Promise.all([
+    kpisEnseignant(
+      tenantId,
+      claims,
+      session!.user.id,
+      scope?.isRestricted ? scope.classeIds : null,
+      maintenant
+    ),
+    getTeacherCounts(
+      tenantId,
+      claims,
+      session!.user.id,
+      scope?.isRestricted ? scope.classeIds : null
+    ),
+    getActivityFeed(tenantId, claims, "recent", maintenant),
+    getActivityFeed(tenantId, claims, "aujourdhui", maintenant),
+    getActivityFeed(tenantId, claims, "semaine", maintenant),
+    getActivityFeed(tenantId, claims, "mois", maintenant),
+  ]);
+
+  const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
+    items.map((i) => ({
+      id: i.id, type: i.type, titre: i.titre, description: i.description,
+      date: i.date.toISOString(), href: i.href,
+    }));
+
+  const itemsParPeriode = {
+    recent: serialiser(feedRecent),
+    aujourdhui: serialiser(feedAujourdhui),
+    semaine: serialiser(feedSemaine),
+    mois: serialiser(feedMois),
+  };
 
   // --------------------------------------------------------------
   // 1. Planning « ma semaine »
   // --------------------------------------------------------------
-  const tenantId = session!.user.tenantId!;
-  const claims = session!.user;
+  // tenantId et claims sont déjà définis ci-dessus.
 
   // L'enseignant est recherché par userId+tenantId ; le filtrage par site est
   // appliqué via siteFilterForModel pour respecter l'isolation multi-sites.
@@ -286,6 +317,22 @@ export default async function MonEspacePage() {
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <GrilleKpi kpis={kpis} />
+
+        {/* Rubriques d'action — files d'attente cliquables */}
+        <section className="mt-6 space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {tEspace("actionsATraiter")}
+          </h2>
+          <ActionRubricGrid rubrics={rubrics as RubricData[]} />
+        </section>
+
+        {/* Timeline d'activité */}
+        <section className="mt-6 space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {tEspace("activiteRecente")}
+          </h2>
+          <ActivityTimeline itemsParPeriode={itemsParPeriode} />
+        </section>
 
         {/* 1. Planning « ma semaine » */}
         <section className="mt-6 sm:mt-8">

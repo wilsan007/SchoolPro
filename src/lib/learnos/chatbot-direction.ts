@@ -34,6 +34,7 @@ import type { AiToolDefinition, AiMessage } from "@/lib/ai/provider";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, siteFilterForRelation, type SessionSiteClaims } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification";
+import { executeAiQuery, getSchemaForRole } from "@/lib/learnos/ai-query-engine";
 
 // --- Nouvelles bibliothèques d'intelligence (outils fermés étendus) ---
 
@@ -97,6 +98,26 @@ import {
 
 const VERSION_PROMPT = "chatbot-direction-v2";
 
+/**
+ * Feature flag global pour l'assistant d'analyse de la direction.
+ *
+ * Quand `false` :
+ *   - l'entrée de menu est masquée (voir `Sidebar.tsx`),
+ *   - la page `/chatbot-direction` redirige vers `/direction`,
+ *   - l'API `/api/learnos/chatbot-direction` renvoie un 503 contrôlé,
+ *   - aucun appel LLM n'est émis, aucun coût n'est engagé.
+ *
+ * La matrice de permissions (`ROUTE_RULES`) et tout le code des outils fermés
+ * sont préservés pour une réactivation propre : il suffit de repasser ce flag
+ * à `true` et de décommenter l'entrée du menu dans `Sidebar.tsx`.
+ *
+ * Le catalogue de questions fermées est en cours d'enrichissement pour couvrir
+ * l'ensemble des domaines de gestion de l'établissement (RH, admissions,
+ * examens, sanctions, orientation, inventaire, communication, historique
+ * multi-annuel, alertes précoces, etc.).
+ */
+export const CHATBOT_DIRECTION_ACTIF = false;
+
 // ---------------------------------------------------------------------------
 // Outils fermés — l'IA ne peut rien d'autre que ces appels
 // ---------------------------------------------------------------------------
@@ -128,15 +149,23 @@ const OUTIL_NOTES: AiToolDefinition = {
     name: "analyser_notes",
     description:
       "Analyse les notes et résultats : moyennes par matière, par classe, " +
-      "évolution, élèves en difficulté. " +
-      "Répond aux questions comme 'Moyennes en maths ?' ou 'Qui est en difficulté ?'",
+      "évolution entre périodes/trimestres (combien d'élèves ont progressé, " +
+      "régressé ou sont stables), élèves en difficulté. " +
+      "Répond aux questions comme 'Moyennes en maths ?', 'Qui est en difficulté ?', " +
+      "'Combien d'élèves ont progressé par rapport au 1er trimestre ?', " +
+      "'Évolution des résultats entre les trimestres ?', " +
+      "'Combien d'élèves ont baissé entre le T1 et le T2 ?'",
     parameters: {
       type: "object",
       properties: {
         dimension: {
           type: "string",
           enum: ["moyenne_par_matiere", "moyenne_par_classe", "eleves_en_difficulte", "evolution"],
-          description: "Dimension d'analyse demandée.",
+          description:
+            "Dimension d'analyse. " +
+            "'evolution' = compare la 1ère et la dernière période de l'année courante : " +
+            "compte les élèves en progression (delta > +0.5), en baisse (delta < -0.5), " +
+            "et stables. Retourne aussi les pourcentages et la répartition par classe.",
         },
         matiere: { type: "string", description: "Nom de la matière (optionnel)." },
       },
@@ -532,6 +561,98 @@ const OUTIL_ALUMNI: AiToolDefinition = {
   },
 };
 
+/**
+ * Outil de requête libre sur la base de données.
+ *
+ * Contrairement aux outils fermés ci-dessus (qui exposent des dimensions
+ * prédéfinies), cet outil permet à l'IA de construire SA PROPRE requête
+ * Prisma structurée (JSON) pour répondre à des questions non couvertes par
+ * les outils fermés.
+ *
+ * SÉCURITÉ :
+ *   - Le tenantId est injecté automatiquement sur CHAQUE requête.
+ *   - Le filtre de site est injecté automatiquement.
+ *   - Aucune écriture possible (findMany et count uniquement).
+ *   - Limite de 100 résultats par requête.
+ *   - Seuls les modèles autorisés pour le rôle admin sont accessibles.
+ *
+ * L'IA peut appeler cet outil PLUSIEURS FOIS pour des requêtes différentes
+ * (ex: d'abord récupérer les périodes, puis les notes de chaque période,
+ * puis calculer l'évolution).
+ */
+const OUTIL_REQUETE_DB: AiToolDefinition = {
+  type: "function",
+  function: {
+    name: "interroger_db",
+    description:
+      "Interroge directement la base de données de l'établissement en générant " +
+      "une requête Prisma structurée. Utilise cet outil quand la question ne " +
+      "correspond à AUCUN des autres outils fermés, ou quand tu as besoin de " +
+      "données brutes pour faire un calcul personnalisé. " +
+      "Tu peux appeler cet outil plusieurs fois pour des requêtes différentes. " +
+      "Pour compter, utilise count: true. Pour trier, utilise orderBy. " +
+      "NE JAMAIS inclure tenantId dans where — il est injecté automatiquement. " +
+      "EXEMPLES : " +
+      "• 'Combien d'élèves ont une moyenne > 12 au T2 ?' → model='note', where={periodeId:'xxx', valeur:{gte:12}}, count=true " +
+      "• 'Liste des notes d'une classe pour une période' → model='note', where={classeId:'xxx', periodeId:'xxx'} " +
+      "• 'Bulletins publiés ce trimestre' → model='bulletin', where={isPublie:true, periodeId:'xxx'} " +
+      "• 'Évolution d'un élève entre 2 périodes' → 2 requêtes : model='note' where={eleveId:'xxx', periodeId:'T1'} puis where={eleveId:'xxx', periodeId:'T2'}",
+    parameters: {
+      type: "object",
+      properties: {
+        model: {
+          type: "string",
+          description:
+            "Nom du modèle Prisma en minuscule. Modèles disponibles : " +
+            "eleve, classe, note, absence, evaluation, bulletin, bulletinMatiere, " +
+            "periode, anneesScolaires, matiere, enseignant, parent, eleveParent, " +
+            "facture, echeancePaiement, paiement, incident, sanction, " +
+            "passageInfirmerie, examen, sessionExamen, salle, emploiTemps, " +
+            "recommandation, learningEvidence, studentLearningProfile, " +
+            "studentIntervention, predictionDifficulte, planProgression, " +
+            "etapePlan, chapitre, competence, planificationChapitre, " +
+            "planificationCompetence, patternPedagogique, calibrationSeuil, " +
+            "journalApprentissage, cours, devoir, ficheRh, bulletinPaie, " +
+            "budget, depense, remiseCaisse, candidature, alumni, " +
+            "notification, conversation, document, parcoursScolaire.",
+        },
+        where: {
+          type: "object",
+          description:
+            "Filtre Prisma where. NE PAS inclure tenantId (injecté auto). " +
+            "Ex: { periodeId: 'xxx', valeur: { gte: 10 } } ou { statut: 'ACTIF' }. " +
+            "Pour comparer des champs : { valeur: { gte: 10, lte: 20 } }. " +
+            "Pour filtrer par relation : { eleve: { classeId: 'xxx' } }.",
+        },
+        select: {
+          type: "object",
+          description:
+            "Champs à sélectionner. Ex: { id: true, nom: true, valeur: true }. " +
+            "Si absent, retourne les champs scalaires principaux.",
+        },
+        include: {
+          type: "object",
+          description:
+            "Relations à inclure. Ex: { eleve: true, matiere: true, periode: true }.",
+        },
+        take: {
+          type: "number",
+          description: "Nombre de résultats (max 100, défaut 50).",
+        },
+        orderBy: {
+          type: "object",
+          description: "Tri. Ex: { date: 'desc' } ou { valeur: 'asc' }.",
+        },
+        count: {
+          type: "boolean",
+          description: "Si true, compte les lignes au lieu de les lister.",
+        },
+      },
+      required: ["model"],
+    },
+  },
+};
+
 /** Tous les outils disponibles — l'IA ne peut rien d'autre. */
 const OUTILS = [
   OUTIL_EFFECTIFS,
@@ -554,6 +675,9 @@ const OUTILS = [
   OUTIL_CLUSTERING,
   OUTIL_CLIMAT,
   OUTIL_ALUMNI,
+  // Outil de requête libre — permet à l'IA d'interroger la DB directement
+  // pour les questions non couvertes par les outils fermés ci-dessus.
+  OUTIL_REQUETE_DB,
 ];
 
 // ---------------------------------------------------------------------------
@@ -585,8 +709,14 @@ const CONSIGNE_SYSTEME = `Tu es un assistant analytique pour le directeur d'un �
 
 TON RÔLE :
 - Tu analyses les données de l'établissement et tu formules des conclusions claires.
-- Tu réponds UNIQUEMENT en appelant un des outils fournis. Jamais de texte libre sans données.
-- Si la question ne correspond à aucun outil, dis-le clairement.
+- Tu réponds en appelant un des outils fournis. Jamais de texte libre sans données.
+- Si la question ne correspond à aucun outil fermé, utilise l'outil "interroger_db" pour interroger directement la base de données.
+
+STRATÉGIE D'OUTILS :
+- Les outils fermés (analyser_effectifs, analyser_notes, analyser_absences, etc.) couvrent les analyses courantes avec des calculs optimisés. Utilise-les en priorité quand la question correspond.
+- L'outil "interroger_db" te permet de construire des requêtes personnalisées pour les questions non couvertes. Tu peux l'appeler plusieurs fois (ex: récupérer les périodes, puis les notes de chaque période, puis comparer).
+- Si une question nécessite des données que tu n'as pas encore (ex: l'ID d'une période), utilise "interroger_db" pour les récupérer d'abord, puis fais ton analyse.
+- Tu PEUX combiner plusieurs appels d'outils dans une même réponse pour fournir une analyse complète.
 
 RÈGLES STRICTES :
 - Tu ne nommes JAMAIS un élève individuellement. Tu parles de groupes ou de statistiques.
@@ -636,150 +766,202 @@ const MAX_TOURS_HISTORIQUE = 6;
  * Traite une question du directeur et renvoie une réponse analytique.
  *
  * Le flux est :
- *   1. L'IA identifie l'intention → choisit un outil fermé, en tenant compte
- *      de l'historique de conversation pour les questions de suivi.
- *   2. L'outil est exécuté (requête Prisma déterministe, filtrée par tenant + site).
- *   3. Les données sont renvoyées à l'IA pour formulation, avec l'historique
- *      pour que la réponse soit cohérente avec la conversation.
+ *   1. L'IA identifie l'intention → choisit un ou plusieurs outils.
+ *   2. Les outils sont exécutés (requêtes Prisma déterministes, filtrées par
+ *      tenant + site, OU requêtes libres via interroger_db avec injection
+ *      automatique des filtres de sécurité).
+ *   3. Si l'IA a encore besoin de données, elle peut enchaîner plusieurs tours
+ *      d'appels d'outils (jusqu'à MAX_TOOL_ROUNDS).
  *   4. L'IA formule la conclusion en texte clair, nettoyé de toute syntaxe.
  *
  * Si l'IA ne choisit aucun outil → hors périmètre → réponse bornée.
  */
+const MAX_TOOL_ROUNDS = 8;
+
 export async function poserQuestion(
   tenantId: string,
   claims: SessionSiteClaims,
   question: string,
   actorId: string,
   historique: TourConversation[] = [],
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  tenantNom: string = "Établissement"
 ): Promise<ReponseChatbot> {
   // Construire les messages avec l'historique récent pour le contexte.
   const toursRecents = historique.slice(-MAX_TOURS_HISTORIQUE);
-  const messagesIdentification: AiMessage[] = [
-    { role: "system", content: CONSIGNE_SYSTEME },
+
+  // Inclure le schéma DB et le nom du tenant dans le contexte.
+  const schemaDb = getSchemaForRole(claims.role ?? "TENANT_ADMIN");
+  const systemPromptAvecContexte = CONSIGNE_SYSTEME +
+    "\n\nCONTEXTE DE L'ÉTABLISSEMENT :\n" +
+    "- Nom de l'établissement : " + tenantNom + "\n" +
+    "- Tenant ID : " + tenantId + "\n" +
+    "- Date actuelle (simulation) : " + maintenant.toISOString().slice(0, 10) + "\n" +
+    "\nSCHÉMA DE LA BASE DE DONNÉES :\n" + schemaDb;
+
+  const messages: AiMessage[] = [
+    { role: "system", content: systemPromptAvecContexte },
     ...toursRecents.map((t) => ({ role: t.role, content: t.content }) as AiMessage),
     { role: "user", content: question },
   ];
 
-  // Étape 1 : l'IA identifie l'intention et choisit un outil.
-  const resultatIdentification = await routeAi(
-    {
-      complexity: "simple",
-      promptVersion: VERSION_PROMPT,
-      action: "chatbot.direction.identifier",
-      tenantId,
-      siteId: claims.siteId ?? null,
-      actorId,
-    },
-    messagesIdentification,
-    {
-      tools: OUTILS,
-      temperature: 0.1,
-      maxTokens: 300,
-    }
-  );
+  let dernierOutil = "aucun";
+  let dernieresDonnees: unknown = null;
+  let texteFormule: string | null = null;
+  let dernierModele = "unknown";
+  let dernierCache = false;
 
-  // Si l'IA n'a appelé aucun outil → hors périmètre.
-  const appel = resultatIdentification.toolCalls[0];
-  if (!appel) {
-    // Si l'IA a produit du texte sans appeler d'outil, le nettoyer et le renvoyer
-    // (cela peut arriver pour une question de suivi qui ne nécessite pas de nouvelle requête).
-    const texteBrut = resultatIdentification.content?.trim();
-    if (texteBrut && texteBrut.length > 10 && !texteBrut.includes("<function")) {
+  // Boucle d'appels d'outils : l'IA peut enchaîner plusieurs requêtes
+  // (ex: récupérer les périodes, puis les notes de chaque période, puis comparer).
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const resultat = await routeAi(
+      {
+        complexity: "simple",
+        promptVersion: VERSION_PROMPT,
+        action: "chatbot.direction.identifier",
+        tenantId,
+        siteId: claims.siteId ?? null,
+        actorId,
+      },
+      messages,
+      {
+        tools: OUTILS,
+        temperature: 0.1,
+        maxTokens: 600,
+      }
+    );
+
+    dernierModele = resultat.meta.modelName;
+    dernierCache = resultat.meta.cached;
+
+    // Si l'IA n'a appelé aucun outil → soit réponse texte, soit hors périmètre.
+    if (resultat.toolCalls.length === 0) {
+      const texteBrut = resultat.content?.trim();
+      if (texteBrut && texteBrut.length > 10 && !texteBrut.includes("<function")) {
+        texteFormule = texteBrut;
+        break;
+      }
+      // Hors périmètre : l'IA n'a ni appelé d'outil ni produit de texte utile.
       return {
-        texte: nettoyerReponse(texteBrut),
-        outilAppele: "aucun",
-        donnees: null,
-        horsPerimetre: false,
-        modele: resultatIdentification.meta.modelName,
-        cached: resultatIdentification.meta.cached,
+        texte:
+          "Je n'ai pas de données pour répondre à cette question. " +
+          "Je peux analyser : effectifs, notes et résultats (incluant l'évolution " +
+          "entre trimestres), absences, avancement du programme, finances, " +
+          "comparaison entre sites, indices de santé (ISP, IVF, ICS), risque de " +
+          "décrochage, efficacité pédagogique, graphe curriculum, équité, " +
+          "trajectoires, clustering, climat, alumni, et toute autre donnée " +
+          "présente dans la base. Reformulez votre question.",
+        outilAppele: dernierOutil,
+        donnees: dernieresDonnees,
+        horsPerimetre: true,
+        modele: dernierModele,
+        cached: dernierCache,
       };
     }
-    return {
-      texte:
-        "Je ne peux répondre qu'aux questions sur l'établissement : " +
-        "effectifs, notes et résultats, absences, avancement du programme, " +
-        "finances (impayés), comparaison entre sites, " +
-        "indices de santé (ISP, IVF, ICS), risque de décrochage, " +
-        "simulation de remédiation, efficacité pédagogique, graphe curriculum, " +
-        "intelligence financière, engagement parental, couverture des remplacements, " +
-        "courbe d'oubli, équité et inclusion, trajectoires et cohortes, " +
-        "clustering d'élèves, climat et bien-être, et alumni. " +
-        "Reformulez votre question dans ces domaines.",
-      outilAppele: "aucun",
-      donnees: null,
-      horsPerimetre: true,
-      modele: resultatIdentification.meta.modelName,
-      cached: resultatIdentification.meta.cached,
-    };
-  }
 
-  // Étape 2 : exécuter l'outil (requête déterministe).
-  let args: Record<string, unknown> = {};
-  try {
-    args = JSON.parse(appel.arguments);
-  } catch {
-    // Arguments malformés : hors périmètre.
-    return {
-      texte: "Je n'ai pas compris votre demande. Pouvez-vous la reformuler ?",
-      outilAppele: appel.name,
-      donnees: null,
-      horsPerimetre: true,
-      modele: resultatIdentification.meta.modelName,
-      cached: resultatIdentification.meta.cached,
-    };
-  }
-
-  const donnees = await executerOutil(tenantId, claims, appel.name, args, maintenant);
-
-  // Étape 3 : l'IA formule la conclusion à partir des données, avec l'historique.
-  const messagesFormulation: AiMessage[] = [
-    { role: "system", content: CONSIGNE_FORMULATION },
-    ...toursRecents.map((t) => ({ role: t.role, content: t.content }) as AiMessage),
-    { role: "user", content: question },
-    {
+    // Ajouter le message assistant avec les tool_calls au contexte.
+    messages.push({
       role: "assistant",
-      content: null,
-      tool_calls: [
-        {
-          id: appel.id,
-          type: "function",
-          function: { name: appel.name, arguments: appel.arguments },
-        },
-      ],
-    },
-    {
-      role: "tool",
-      tool_call_id: appel.id,
-      content: JSON.stringify(donnees),
-    },
-  ];
+      content: resultat.content,
+      tool_calls: resultat.toolCalls.map((c) => ({
+        id: c.id,
+        type: "function" as const,
+        function: { name: c.name, arguments: c.arguments },
+      })),
+    });
 
-  const resultatFormulation = await routeAi(
-    {
-      complexity: "simple",
-      promptVersion: VERSION_PROMPT,
-      action: "chatbot.direction.formuler",
-      tenantId,
-      siteId: claims.siteId ?? null,
-      actorId,
-    },
-    messagesFormulation,
-    {
-      temperature: 0.3,
-      maxTokens: 400,
+    // Exécuter chaque outil appelé.
+    let tousOutilsExecutes = true;
+    for (const appel of resultat.toolCalls) {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(appel.arguments);
+      } catch {
+        messages.push({
+          role: "tool",
+          tool_call_id: appel.id,
+          content: JSON.stringify({ erreur: "Arguments invalides" }),
+        });
+        tousOutilsExecutes = false;
+        continue;
+      }
+
+      let donnees: unknown;
+      if (appel.name === "interroger_db") {
+        // Requête libre via ai-query-engine (sécurisée).
+        const result = await executeAiQuery(
+          {
+            model: (args.model as string) ?? "",
+            where: args.where as Record<string, unknown> | undefined,
+            select: args.select as Record<string, boolean> | undefined,
+            include: args.include as Record<string, boolean | Record<string, unknown>> | undefined,
+            take: args.take as number | undefined,
+            orderBy: args.orderBy as Record<string, "asc" | "desc"> | undefined,
+            count: args.count as boolean | undefined,
+          },
+          tenantId,
+          { ...claims, userId: actorId, id: actorId, role: claims.role ?? "TENANT_ADMIN" }
+        );
+        donnees = result.refused
+          ? { erreur: result.reason }
+          : result.data;
+      } else {
+        // Outil fermé existant.
+        donnees = await executerOutil(tenantId, claims, appel.name, args, maintenant);
+      }
+
+      dernierOutil = appel.name;
+      dernieresDonnees = donnees;
+
+      messages.push({
+        role: "tool",
+        tool_call_id: appel.id,
+        content: JSON.stringify(donnees),
+      });
     }
-  );
 
-  const texteFormule = resultatFormulation.content?.trim() ?? "Analyse terminée. Consultez les données ci-dessus.";
+    // Si l'IA a appelé des outils mais n'a plus besoin de données supplémentaires,
+    // elle produira du texte au prochain tour. On continue la boucle.
+  }
+
+  // Étape finale : formuler la réponse à partir de toutes les données collectées.
+  if (texteFormule === null) {
+    // L'IA a utilisé tous ses tours d'outils : on lui demande de formuler.
+    const messagesFormulation: AiMessage[] = [
+      { role: "system", content: CONSIGNE_FORMULATION },
+      ...toursRecents.map((t) => ({ role: t.role, content: t.content }) as AiMessage),
+      { role: "user", content: question },
+      ...messages.slice(2), // Inclure tous les appels d'outils et réponses.
+    ];
+
+    const resultatFormulation = await routeAi(
+      {
+        complexity: "simple",
+        promptVersion: VERSION_PROMPT,
+        action: "chatbot.direction.formuler",
+        tenantId,
+        siteId: claims.siteId ?? null,
+        actorId,
+      },
+      messagesFormulation,
+      {
+        temperature: 0.3,
+        maxTokens: 500,
+      }
+    );
+
+    texteFormule = resultatFormulation.content?.trim() ?? "Analyse terminée. Consultez les données ci-dessus.";
+    dernierModele = resultatFormulation.meta.modelName;
+    dernierCache = resultatFormulation.meta.cached;
+  }
 
   return {
     texte: nettoyerReponse(texteFormule),
-    outilAppele: appel.name,
-    donnees,
+    outilAppele: dernierOutil,
+    donnees: dernieresDonnees,
     horsPerimetre: false,
-    modele: resultatFormulation.meta.modelName,
-    cached: resultatFormulation.meta.cached,
+    modele: dernierModele,
+    cached: dernierCache,
   };
 }
 
@@ -999,15 +1181,41 @@ async function analyserNotes(
   }
 
   if (dimension === "evolution") {
-    // Comparaison des moyennes entre la première et la dernière période de l'année.
-    const annee = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { id: true },
+    // Comparaison des moyennes entre la première et la dernière période de
+    // l'année qui a des notes. On cherche d'abord l'année courante, mais si
+    // elle n'a pas de notes (ex: année nouvellement créée sans saisie), on
+    // remonte à l'année la plus récente qui en a.
+    const annees = await prisma.anneesScolaires.findMany({
+      where: { tenantId },
+      select: { id: true, libelle: true, isCurrent: true },
+      orderBy: { libelle: "desc" },
     });
-    if (!annee) return { dimension: "evolution", message: "Aucune année active" };
+
+    let anneeUtilisee: { id: string; libelle: string } | null = null;
+    for (const an of annees) {
+      const periodes = await prisma.periode.findMany({
+        where: { anneeId: an.id },
+        select: { id: true },
+      });
+      if (periodes.length === 0) continue;
+      const notesCount = await prisma.note.count({
+        where: { tenantId, periodeId: { in: periodes.map((p) => p.id) }, ...siteFilterForRelation(claims, "classe") },
+      });
+      if (notesCount > 0) {
+        anneeUtilisee = an;
+        break;
+      }
+    }
+
+    if (!anneeUtilisee) {
+      return {
+        dimension: "evolution",
+        message: "Aucune année avec des notes n'a été trouvée pour ce tenant.",
+      };
+    }
 
     const periodes = await prisma.periode.findMany({
-      where: { anneeId: annee.id },
+      where: { anneeId: anneeUtilisee.id },
       orderBy: { numero: "asc" },
       select: { id: true, nom: true, numero: true },
     });

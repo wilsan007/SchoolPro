@@ -24,6 +24,34 @@ export function semaineScolaire(date: Date, debutAnnee: Date): number {
   return Math.max(1, Math.floor(ecart / MS_PAR_SEMAINE) + 1);
 }
 
+/**
+ * Numéro de semaine ISO 8601 d'une date.
+ *
+ * La semaine scolaire peut différer de la semaine civile (décalage par les
+ * vacances), mais l'affichage a besoin du numéro civil pour l'usager : sans
+ * lui, les semaines « 0 » apparaissent quand la planification s'arrête à 44, et
+ * toute la couverture basculerait à 100 %.
+ *
+ * Convention ISO 8601 : la semaine 1 est celle qui contient le premier jeudi de
+ * janvier, et les semaines commencent le lundi. C'est la règle des calendriers
+ * français, et elle évite qu'un 1er janvier tombant un dimanche ouvre une
+ * « semaine 1 » d'un seul jour.
+ */
+export function semaineCivile(date: Date): number {
+  // Copie ramenée au jeudi de la même semaine : la semaine ISO appartient à
+  // l'année de son jeudi, ce qui règle d'un coup les 31 décembre en semaine 1
+  // et les 1er janvier en semaine 52 de l'année précédente.
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const jour = (d.getDay() + 6) % 7; // lundi = 0
+  d.setDate(d.getDate() - jour + 3);
+
+  const premierJeudi = new Date(d.getFullYear(), 0, 4);
+  const jourPremier = (premierJeudi.getDay() + 6) % 7;
+  premierJeudi.setDate(premierJeudi.getDate() - jourPremier + 3);
+
+  return 1 + Math.round((d.getTime() - premierJeudi.getTime()) / (7 * 86_400_000));
+}
+
 /** Dates de début et de fin d'une semaine scolaire. */
 export function datesDeLaSemaine(
   numero: number,

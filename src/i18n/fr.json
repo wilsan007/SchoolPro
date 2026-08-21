@@ -84,7 +84,9 @@
     "salle": "Salle",
     "grilleCompetences": "Grille compétences",
     "aucuneEvaluation": "Aucune évaluation de compétence disponible",
-    "eleve": "Élève"
+    "eleve": "Élève",
+    "actionsATraiter": "Actions à traiter",
+    "activiteRecente": "Activité récente"
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -2762,7 +2764,8 @@
       "aucuneAnnee": "Aucune année scolaire active",
       "aucuneAnneeAide": "Définissez l'année en cours dans Paramètres → Années scolaires.",
       "aucunChapitre": "Aucun chapitre pour cette matière. Créez-les dans l'onglet Compétences.",
-      "repartirAuto": "Répartir automatiquement",
+      "repartirAuto": "Répartir cette matière",
+      "toutRepartir": "Tout répartir + sauvegarder",
       "repartitionFaite": "{n} chapitres répartis sur {semaines} semaines — ajustez ensuite.",
       "couverture": "Couverture : {pct} % de l'année",
       "tousNiveaux": "Tous les niveaux",
@@ -2935,6 +2938,8 @@
       "rienAsignaler": "Rien ne demande votre attention aujourd'hui.",
       "avertissementCalibrage": "Un écart n'est pas une faute : classe difficile, exigence assumée, ou vrai problème de calibrage. C'est une question à poser, jamais un verdict.",
       "comparateurSites": "Comparaison inter-sites",
+      "activiteRecente": "Activité récente",
+      "retardsExecution": "Retards d'exécution",
       "fileValidation": "File de validation",
       "site": "Site",
       "effectif": "Effectif",
@@ -3017,6 +3022,19 @@
       "PARCOURS_INTROUVABLE": "Parcours introuvable.",
       "RECOMMANDATION_INTROUVABLE": "Recommandation introuvable.",
       "SEANCE_INTROUVABLE": "Séance introuvable.",
+      "CLASSE_INTROUVABLE": "Classe introuvable.",
+      "PERIODE_INTROUVABLE": "Période introuvable.",
+      "ACTION_PRISE_REQUISE": "Vous devez décrire l'action concrètement prise pour résoudre l'incident.",
+      "MOTIF_CLASSEMENT_REQUIS": "Vous devez indiquer le motif du classement.",
+      "SANCTION_INTROUVABLE": "Sanction introuvable.",
+      "SANCTION_NON_EXCLUSION": "Cette sanction n'est pas une exclusion.",
+      "EXCLUSION_DEJA_CLOSE": "Cette exclusion est déjà close.",
+      "TRAVAIL_DONNE_REQUIS": "Vous devez renseigner le travail donné avant de réintégrer l'élève.",
+      "CONSEIL_INTROUVABLE": "Conseil introuvable.",
+      "REUNION_INTROUVABLE": "Réunion introuvable.",
+      "RESOLUTION_INTROUVABLE": "Résolution introuvable.",
+      "MENTORAT_INTROUVABLE": "Mentorat introuvable.",
+      "CONFLIT_MENTORAT_EXISTANT": "Une relation de mentorat active existe déjà entre ces deux personnes.",
       "PLANIFICATION_INTROUVABLE": "Planification introuvable.",
       "ANNEE_INTROUVABLE": "Année scolaire introuvable.",
       "EVENEMENT_INTROUVABLE": "Événement calendaire introuvable.",
@@ -3747,7 +3765,9 @@
     "elevesSansPhoto": "Élèves sans photo",
     "parentsSansCompte": "Parents sans compte",
     "rienATraiter": "Rien à traiter — tout est à jour",
-    "traiter": "Traiter"
+    "traiter": "Traiter",
+    "actionsATraiter": "Actions à traiter",
+    "activiteRecente": "Activité récente"
   },
   "comptabilite": {
     "titre": "Comptabilité",
@@ -3888,7 +3908,9 @@
     "incidents": "Incidents",
     "details": "Détails",
     "aucunParent": "Aucun parent rattaché",
-    "eleve": "Élève"
+    "eleve": "Élève",
+    "actionsATraiter": "Actions à traiter",
+    "activiteRecente": "Activité récente"
   },
   "profil": {
     "title": "Mon profil",

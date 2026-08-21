@@ -54,6 +54,20 @@ export interface AiTask {
   inputRef?: string | null;
   /** Utilisateur à l'origine de la demande, si elle n'est pas autonome. */
   actorId?: string | null;
+  /**
+   * Un humain attend la réponse devant son écran.
+   *
+   * Ne change pas QUELS fournisseurs sont candidats — seulement leur ORDRE :
+   * ceux qui se déclarent trop lents pour l'interactif (le modèle local sur un
+   * poste sans GPU) passent en dernier au lieu de passer en premier. La chaîne
+   * reste complète, donc une installation qui n'a que le modèle local répond
+   * toujours ; elle répond simplement lentement, ce qui est le comportement
+   * attendu quand il n'y a rien d'autre.
+   *
+   * À laisser absent pour tout traitement de fond : là, le moins cher d'abord
+   * reste la bonne règle (LEARNOS §36).
+   */
+  interactif?: boolean;
 }
 
 /** Durée de vie du cache. Une génération identique reste servie 24 h. */
@@ -73,13 +87,28 @@ const PROVIDERS: AiProvider[] = [ollamaProvider, groqProvider, glmProvider].sort
  * envoie une copie scannée ne répond pas « je ne vois rien », il **invente** une
  * transcription crédible. Un fournisseur sans modèle vision est donc écarté.
  */
-function candidates(needsTools: boolean, needsVision = false): AiProvider[] {
-  return PROVIDERS.filter(
+function candidates(
+  needsTools: boolean,
+  needsVision = false,
+  interactif = false
+): AiProvider[] {
+  const utilisables = PROVIDERS.filter(
     (p) =>
       p.isAvailable() &&
       (!needsTools || p.supportsTools) &&
       (!needsVision || p.visionModelId() !== null)
   );
+
+  if (!interactif) return utilisables;
+
+  // Tri STABLE en deux groupes : les fournisseurs assez rapides d'abord, les
+  // autres ensuite. À l'intérieur de chaque groupe, l'ordre par coût croissant
+  // est conservé — on ne renonce pas au « moins cher d'abord », on le
+  // subordonne à « qui peut répondre pendant que l'utilisateur regarde ».
+  return [
+    ...utilisables.filter((p) => p.interactif),
+    ...utilisables.filter((p) => !p.interactif),
+  ];
 }
 
 /**
@@ -204,7 +233,7 @@ export async function routeAi(
 
   const needsTools = Boolean(options?.tools?.length);
   const needsVision = messages.some(contientImage);
-  const chain = candidates(needsTools, needsVision);
+  const chain = candidates(needsTools, needsVision, task.interactif);
 
   if (chain.length === 0) {
     throw new AiAllProvidersFailedError(

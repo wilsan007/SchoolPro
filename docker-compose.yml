@@ -237,6 +237,15 @@ services:
       # enforce : un appel sans contexte échoue au lieu de rendre une page
       #        vide. Procédure complète : RUNBOOK.md, « Activation de la RLS ».
       RLS_MODE: ${RLS_MODE:-off}
+      # --- Double authentification ---------------------------------------
+      # Nombre de jours laissés aux rôles sensibles (direction, comptable,
+      # caissier, super-admin) pour activer leur second facteur. 0 = pas
+      # d'obligation. La VÉRIFICATION d'un 2FA déjà activé, elle, est
+      # toujours en vigueur, quelle que soit cette valeur.
+      TWO_FACTOR_GRACE_DAYS: ${TWO_FACTOR_GRACE_DAYS:-0}
+      # Clé de chiffrement des secrets TOTP en base. La perdre rend
+      # inutilisables toutes les configurations 2FA existantes.
+      TWO_FACTOR_SECRET: ${TWO_FACTOR_SECRET:-${AUTH_SECRET}}
       # --- Services externes --------------------------------------------
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}

@@ -19,6 +19,7 @@ import {
   AiUnavailableError,
   contientImage,
   texteDeMessage,
+  listeModeles,
   type AiProvider,
   type AiMessage,
   type AiGenerateOptions,
@@ -63,6 +64,9 @@ export const ollamaProvider: AiProvider = {
   // `false` — le routeur enverra les tâches à outils vers un autre fournisseur
   // plutôt que de recevoir une réponse silencieusement dégradée.
   supportsTools: false,
+  get interactif() {
+    return process.env.OLLAMA_INTERACTIF === "true";
+  },
 
   isAvailable() {
     return Boolean(process.env.OLLAMA_BASE_URL);
@@ -70,6 +74,10 @@ export const ollamaProvider: AiProvider = {
 
   modelId() {
     return process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
+  },
+
+  modelIds() {
+    return listeModeles(process.env.OLLAMA_MODEL, DEFAULT_MODEL);
   },
 
   /**

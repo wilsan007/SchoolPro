@@ -10,11 +10,11 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { texteErreur } from "@/lib/erreurs-client";
 
-interface Attestation {
+export interface Attestation {
   id: string;
   /** Déjà signée : il ne reste qu'à la lancer, élève devant soi. */
   signee: boolean;
-  creeeLe: string;
+  creeeLe: string | Date;
   nbExercices: number;
   competence: { libelle: string; code: string } | null;
   matiere: { nom: string; couleur: string | null } | null;
@@ -41,29 +41,20 @@ interface Attestation {
  * que l'élève n'y est pas doit pouvoir le dire sans que la demande revienne
  * le lendemain.
  */
-export function AttestationsAValider() {
+export function AttestationsAValider({
+  attestations: initiales,
+  onCountChange,
+}: {
+  attestations: Attestation[];
+  onCountChange?: (n: number) => void;
+}) {
   const t = useTranslations("learnos.attestations");
   const tc = useTranslations("learnos.commun");
   const te = useTranslations("learnos.erreurs");
 
-  const [attestations, setAttestations] = useState<Attestation[] | null>(null);
+  const [attestations, setAttestations] = useState<Attestation[]>(initiales);
   const [traitees, setTraitees] = useState<Set<string>>(new Set());
   const [enCours, demarrer] = useTransition();
-
-  useEffect(() => {
-    let annule = false;
-    fetch("/api/learnos/attestations")
-      .then((r) => (r.ok ? r.json() : { attestations: [] }))
-      .then((d) => {
-        if (!annule) setAttestations(d.attestations ?? []);
-      })
-      .catch(() => {
-        if (!annule) setAttestations([]);
-      });
-    return () => {
-      annule = true;
-    };
-  }, []);
 
   function decider(id: string, decision: "valider" | "ecarter" | "demarrer") {
     demarrer(async () => {
@@ -97,8 +88,13 @@ export function AttestationsAValider() {
 
   // Le silence vaut mieux qu'un bloc vide : rien à signer n'est pas une
   // information dont un enseignant a besoin chaque matin.
-  if (!attestations) return null;
   const restantes = attestations.filter((a) => !traitees.has(a.id));
+
+  // Notifier le parent du nombre restant (pour le badge d'onglet).
+  useEffect(() => {
+    onCountChange?.(restantes.length);
+  }, [restantes.length, onCountChange]);
+
   if (restantes.length === 0) return null;
 
   return (

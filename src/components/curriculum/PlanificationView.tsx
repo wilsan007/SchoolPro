@@ -189,7 +189,10 @@ export function PlanificationView({
   }, [debutAnnee, evenementsCalendaires, totalSemaines]);
 
   function repartirAuto() {
-    if (chapitresMatiere.length === 0) return;
+    if (chapitresMatiere.length === 0) {
+      toast.error(t("aucunChapitre"));
+      return;
+    }
     const proposition = repartirEgalement(
       chapitresMatiere.map((c) => c.id),
       totalSemaines,
@@ -206,6 +209,74 @@ export function PlanificationView({
     toast.success(
       t("repartitionFaite", { n: proposition.length, semaines: nbSemainesUtilisees })
     );
+  }
+
+  /**
+   * Répartit TOUTES les matières d'un coup et sauvegarde automatiquement.
+   * L'utilisateur n'a pas à cliquer 14 fois "Répartir" + "Enregistrer" par matière.
+   */
+  function repartirEtSauvegarderTout() {
+    if (!anneeId) {
+      toast.error(t("aucuneAnnee"));
+      return;
+    }
+    // Grouper les chapitres par matière.
+    const parMatiere = new Map<string, typeof chapitres>();
+    for (const c of chapitres) {
+      const liste = parMatiere.get(c.matiereId) ?? [];
+      liste.push(c);
+      parMatiere.set(c.matiereId, liste);
+    }
+
+    // Construire le brouillon complet pour toutes les matières.
+    const nouveauBrouillon: Brouillon = {};
+    let totalChapitres = 0;
+    for (const [, liste] of parMatiere) {
+      const proposition = repartirEgalement(
+        liste.map((c) => c.id),
+        totalSemaines,
+        1,
+        semainesEnseigneesListe
+      );
+      for (const p of proposition) {
+        nouveauBrouillon[p.chapitreId] = { debut: p.semaineDebut, fin: p.semaineFin };
+      }
+      totalChapitres += proposition.length;
+    }
+
+    if (totalChapitres === 0) {
+      toast.error(t("aucunChapitre"));
+      return;
+    }
+
+    // Mettre à jour le brouillon local.
+    setBrouillon((b) => ({ ...b, ...nouveauBrouillon }));
+
+    // Sauvegarder automatiquement toutes les matières d'un coup.
+    demarrer(async () => {
+      try {
+        const res = await fetch("/api/curriculum/planification", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anneeId,
+            lignes: chapitres
+              .filter((c) => nouveauBrouillon[c.id])
+              .map((c) => ({
+                chapitreId: c.id,
+                semaineDebut: nouveauBrouillon[c.id].debut,
+                semaineFin: nouveauBrouillon[c.id].fin,
+              })),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(texteErreur(data, te, tc("erreurServeur")));
+        toast.success(t("repartitionFaite", { n: totalChapitres, semaines: totalSemaines }));
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : tc("erreur"));
+      }
+    });
   }
 
   /** Décale ce chapitre et tous les suivants — voir `decalerAPartirDe`. */
@@ -427,7 +498,21 @@ export function PlanificationView({
                 <Wand2 className="mr-1.5 h-4 w-4" />
                 {t("repartirAuto")}
               </Button>
-              <Button size="sm" onClick={enregistrer} disabled={enCours}>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={repartirEtSauvegarderTout}
+                disabled={enCours}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {enCours ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="mr-1.5 h-4 w-4" />
+                )}
+                {t("toutRepartir")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={enregistrer} disabled={enCours}>
                 {enCours ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 ) : (

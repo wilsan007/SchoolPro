@@ -53,6 +53,8 @@ const CATALOGUE = {
   PARCOURS_INTROUVABLE: { statut: 404, fr: "Parcours introuvable" },
   RECOMMANDATION_INTROUVABLE: { statut: 404, fr: "Recommandation introuvable" },
   SEANCE_INTROUVABLE: { statut: 404, fr: "Séance introuvable" },
+  CLASSE_INTROUVABLE: { statut: 404, fr: "Classe introuvable" },
+  PERIODE_INTROUVABLE: { statut: 404, fr: "Période introuvable" },
   PLANIFICATION_INTROUVABLE: { statut: 404, fr: "Planification introuvable" },
   ANNEE_INTROUVABLE: { statut: 404, fr: "Année scolaire introuvable" },
   EVENEMENT_INTROUVABLE: { statut: 404, fr: "Événement calendaire introuvable" },
@@ -201,8 +203,43 @@ const CATALOGUE = {
 
   // — Ressources introuvables (suite) —
   INCIDENT_INTROUVABLE: { statut: 404, fr: "Incident introuvable" },
+  // — Vie scolaire : documentation de la résolution —
+  ACTION_PRISE_REQUISE: {
+    statut: 400,
+    fr: "Vous devez décrire l'action concrètement prise pour résoudre l'incident",
+  },
+  MOTIF_CLASSEMENT_REQUIS: {
+    statut: 400,
+    fr: "Vous devez préciser le motif du classement sans suite",
+  },
+  // — Vie scolaire : cycle de vie des exclusions —
+  SANCTION_INTROUVABLE: { statut: 404, fr: "Sanction introuvable" },
+  SANCTION_NON_EXCLUSION: {
+    statut: 400,
+    fr: "Cette sanction n'est pas une exclusion : aucune réintégration à tracer",
+  },
+  EXCLUSION_DEJA_CLOSE: {
+    statut: 409,
+    fr: "Cette exclusion est déjà close : l'élève a déjà été réintégré",
+  },
+  TRAVAIL_DONNE_REQUIS: {
+    statut: 400,
+    fr: "La continuité pédagogique est obligatoire : renseignez le travail donné à l'élève",
+  },
   ETABLISSEMENT_INTROUVABLE: { statut: 404, fr: "Établissement introuvable" },
   UTILISATEUR_INTROUVABLE: { statut: 404, fr: "Utilisateur introuvable" },
+
+  // — Gouvernance —
+  CONSEIL_INTROUVABLE: { statut: 404, fr: "Conseil introuvable" },
+  REUNION_INTROUVABLE: { statut: 404, fr: "Réunion introuvable" },
+  RESOLUTION_INTROUVABLE: { statut: 404, fr: "Résolution introuvable" },
+
+  // — Mentorat —
+  MENTORAT_INTROUVABLE: { statut: 404, fr: "Mentorat introuvable" },
+  CONFLIT_MENTORAT_EXISTANT: {
+    statut: 409,
+    fr: "Une relation de mentorat active existe déjà entre ces deux personnes",
+  },
 
   // — Conflits (suite) —
   SLUG_DEJA_UTILISE: { statut: 409, fr: "Ce slug est déjà utilisé" },

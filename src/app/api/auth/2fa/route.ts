@@ -6,7 +6,9 @@ import {
   verify2FA,
   disable2FA,
   verifyBackupCode,
+  verifierCodeConnexion,
 } from "@/lib/two-factor";
+import { deuxFacteursObligatoire } from "@/lib/two-factor-policy";
 
 /**
  * POST /api/auth/2fa
@@ -50,9 +52,23 @@ export async function POST(req: NextRequest) {
       }
 
       case "disable": {
-        // Exiger le token pour désactiver
+        // Un rôle sensible ne peut pas retirer sa propre protection. Le
+        // contrôle est ICI et pas seulement dans l'interface : masquer un
+        // bouton n'empêche personne d'appeler l'API directement.
+        if (deuxFacteursObligatoire(session.user.role)) {
+          return erreurJson("STATUT_INVALIDE", undefined, {
+            detail:
+              "La double authentification est obligatoire pour ce rôle et ne peut pas être désactivée.",
+          });
+        }
+
+        // Un code valide est exigé : sinon, une session volée suffirait à
+        // retirer la protection, ce qui la viderait de son sens.
         if (!body.token) return erreurJson("DONNEES_INVALIDES");
-        const success = await verify2FA(session.user.id, body.token);
+        // `verifierCodeConnexion` et non `verify2FA` : cette dernière ACTIVE
+        // le 2FA en cas de succès — l'appeler ici revenait à l'activer juste
+        // avant de le désactiver.
+        const success = await verifierCodeConnexion(session.user.id, body.token);
         if (!success) {
           return erreurJson("STATUT_INVALIDE", undefined, {
             detail: "Code TOTP invalide",

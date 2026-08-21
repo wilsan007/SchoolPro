@@ -5,11 +5,15 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SuiviClasseView } from "@/components/learnos/SuiviClasseView";
+import { ActionRubricGrid, type RubricData } from "@/components/dashboard/ActionRubric";
+import { ActivityTimeline, type ActivityItemData } from "@/components/dashboard/ActivityTimeline";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { syntheseClasse } from "@/lib/learnos/suivi-classe";
 import { getDemoNow } from "@/lib/demo-now";
+import { getClassTeacherCounts } from "@/lib/action-counts";
+import { getActivityFeed, type ActivityItem } from "@/lib/activity-feed";
 import { Users, MessageSquare, ExternalLink, ChevronRight } from "lucide-react";
 
 /**
@@ -63,9 +67,31 @@ export default async function MaClassePage({
 
   const classeId = classeDemandee ?? classes[0]?.id;
   const maintenant = await getDemoNow();
-  const synthese = classeId
-    ? await syntheseClasse(tenantId, classeId, claims, maintenant)
-    : null;
+  const classeIds = classes.map((c) => c.id);
+
+  const [synthese, rubrics, feedRecent, feedAujourdhui, feedSemaine, feedMois] = await Promise.all([
+    classeId ? syntheseClasse(tenantId, classeId, claims, maintenant) : Promise.resolve(null),
+    classeIds.length > 0
+      ? getClassTeacherCounts(tenantId, claims, session!.user.id, classeIds)
+      : Promise.resolve([]),
+    getActivityFeed(tenantId, claims, "recent", maintenant),
+    getActivityFeed(tenantId, claims, "aujourdhui", maintenant),
+    getActivityFeed(tenantId, claims, "semaine", maintenant),
+    getActivityFeed(tenantId, claims, "mois", maintenant),
+  ]);
+
+  const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
+    items.map((i) => ({
+      id: i.id, type: i.type, titre: i.titre, description: i.description,
+      date: i.date.toISOString(), href: i.href,
+    }));
+
+  const itemsParPeriode = {
+    recent: serialiser(feedRecent),
+    aujourdhui: serialiser(feedAujourdhui),
+    semaine: serialiser(feedSemaine),
+    mois: serialiser(feedMois),
+  };
 
   // ---------------------------------------------------------------
   // Fiche élève consolidée + contact famille
@@ -107,6 +133,14 @@ export default async function MaClassePage({
                   </Link>
                 </Button>
               </div>
+            )}
+
+            {/* Rubriques d'action — files d'attente cliquables */}
+            {rubrics.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold">{tmc("actionsATraiter")}</h2>
+                <ActionRubricGrid rubrics={rubrics as RubricData[]} />
+              </section>
             )}
 
             {/* Suivi unifié existant — conservé intact. */}
@@ -200,6 +234,12 @@ export default async function MaClassePage({
                 )}
               </CardContent>
             </Card>
+
+            {/* Timeline d'activité */}
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold">{tmc("activiteRecente")}</h2>
+              <ActivityTimeline itemsParPeriode={itemsParPeriode} />
+            </section>
           </>
         )}
       </div>

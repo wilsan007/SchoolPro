@@ -17,13 +17,19 @@ export interface MobileUser {
  */
 export type MobileScope = MobileUser & SessionSiteClaims;
 
-function mobileSecret(): Uint8Array {
+/**
+ * Secret de signature/vérification des jetons mobiles. Source unique : la
+ * route qui ÉMET les jetons (`/api/auth/mobile`) et celles qui les
+ * VÉRIFIENT doivent utiliser exactement la même valeur, faute de quoi soit
+ * les jetons sont refusés, soit — bien pire — un secret de repli public
+ * permet d'en forger. En production, l'absence d'`AUTH_SECRET` est une
+ * erreur bloquante, jamais un repli silencieux.
+ */
+export function mobileSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
   if (!secret) {
-    // Le repli en dur signifiait qu'une plateforme déployée sans AUTH_SECRET
-    // acceptait des jetons forgés par quiconque connaît la valeur par défaut.
     if (process.env.NODE_ENV === "production") {
-      throw new Error("AUTH_SECRET est requis pour vérifier les jetons mobiles");
+      throw new Error("AUTH_SECRET est requis pour signer/vérifier les jetons mobiles");
     }
     return new TextEncoder().encode("ecolpro-dev-secret");
   }

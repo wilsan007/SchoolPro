@@ -16,6 +16,7 @@
 import {
   contientImage,
   postJson,
+  listeModeles,
   type AiProvider,
   type AiMessage,
   type AiGenerateOptions,
@@ -51,6 +52,7 @@ export const groqProvider: AiProvider = {
   name: "groq",
   costTier: 1,
   supportsTools: true,
+  interactif: true,
 
   isAvailable() {
     return Boolean(process.env.GROQ_API_KEY);
@@ -58,6 +60,10 @@ export const groqProvider: AiProvider = {
 
   modelId() {
     return process.env.GROQ_MODEL ?? DEFAULT_MODEL;
+  },
+
+  modelIds() {
+    return listeModeles(process.env.GROQ_MODEL, DEFAULT_MODEL);
   },
 
   visionModelId() {

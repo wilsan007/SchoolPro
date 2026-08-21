@@ -50,6 +50,8 @@ const FILES = [
     icone: AlertTriangle,
     accent: "text-red-600",
     bordure: "border-l-red-500",
+    bg: "bg-red-500/5",
+    ring: "ring-red-500/20",
   },
   {
     cle: "RECOMMANDEE",
@@ -58,6 +60,8 @@ const FILES = [
     icone: Target,
     accent: "text-amber-600",
     bordure: "border-l-amber-500",
+    bg: "bg-amber-500/5",
+    ring: "ring-amber-500/20",
   },
   {
     cle: "PROPOSEE",
@@ -66,6 +70,8 @@ const FILES = [
     icone: Sparkles,
     accent: "text-violet-600",
     bordure: "border-l-violet-500",
+    bg: "bg-violet-500/5",
+    ring: "ring-violet-500/20",
   },
 ] as const;
 
@@ -117,10 +123,10 @@ export function RecommandationsView({
 
   if (restantes === 0) {
     return (
-      <Card>
-        <CardContent className="py-14 text-center">
+      <Card className="border-emerald-500/20 bg-emerald-500/5">
+        <CardContent className="py-10 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-500" />
-          <p className="font-medium">{t("rienATraiter")}</p>
+          <p className="font-medium text-emerald-700 dark:text-emerald-400">{t("rienATraiter")}</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             {t(recommandations.length > 0 ? "toutesTraitees" : "aucunePourInstant")}
           </p>
@@ -130,20 +136,23 @@ export function RecommandationsView({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {FILES.map((file) => {
         const items = parStatut.get(file.cle) ?? [];
         if (items.length === 0) return null;
         const Icone = file.icone;
 
         return (
-          <section key={file.cle} className="space-y-3">
-            <div className="flex items-start gap-2">
-              <Icone className={cn("mt-0.5 h-5 w-5 shrink-0", file.accent)} />
-              <div>
-                <h2 className="flex items-center gap-2 font-semibold">
+          <section key={file.cle} className={cn("rounded-xl ring-1 p-4", file.ring, file.bg)}>
+            {/* En-tête de file — plus visible qu'avant */}
+            <div className="flex items-center gap-3 mb-3 pb-3 border-b border-border/40">
+              <div className={cn("flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center", file.bg)}>
+                <Icone className={cn("h-5 w-5", file.accent)} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="flex items-center gap-2 font-semibold text-base">
                   {t(file.titreCle)}
-                  <Badge variant="secondary">{items.length}</Badge>
+                  <Badge variant="secondary" className="h-5">{items.length}</Badge>
                 </h2>
                 <p className="text-sm text-muted-foreground">{t(file.sousTitreCle)}</p>
               </div>
@@ -151,7 +160,7 @@ export function RecommandationsView({
 
             <div className="space-y-2">
               {items.map((r) => (
-                <Card key={r.id} className={cn("border-l-4", file.bordure)}>
+                <Card key={r.id} className={cn("border-l-4 shadow-none", file.bordure)}>
                   <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">

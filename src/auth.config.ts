@@ -40,6 +40,11 @@ export const authConfig: NextAuthConfig = {
         }
         // mustChangePassword : forçage du changement au 1er login
         token.mustChangePassword = (user as { mustChangePassword?: boolean }).mustChangePassword ?? false;
+        // twoFactorSetupRequired : rôle sensible sans 2FA configurée, délai
+        // de tolérance écoulé. Porté par le jeton pour que le middleware
+        // puisse restreindre l'accès sans requête en base (runtime Edge).
+        token.twoFactorSetupRequired =
+          (user as { twoFactorSetupRequired?: boolean }).twoFactorSetupRequired ?? false;
       }
       return token;
     },
@@ -62,6 +67,8 @@ export const authConfig: NextAuthConfig = {
         // mustChangePassword : forçage du changement au 1er login
         (session.user as { mustChangePassword?: boolean }).mustChangePassword =
           (token.mustChangePassword as boolean | undefined) ?? false;
+        (session.user as { twoFactorSetupRequired?: boolean }).twoFactorSetupRequired =
+          (token.twoFactorSetupRequired as boolean | undefined) ?? false;
         // Impersonation : expose les champs au session pour la bannière
         (session.user as { impersonating?: boolean }).impersonating = (token.impersonating as boolean | undefined) ?? false;
         (session.user as { impersonatedTenantId?: string | null }).impersonatedTenantId = (token.impersonatedTenantId as string | null | undefined) ?? null;

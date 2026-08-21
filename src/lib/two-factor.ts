@@ -204,6 +204,60 @@ export async function disable2FA(userId: string): Promise<void> {
 }
 
 /**
+ * Vérifie un code de double authentification À LA CONNEXION.
+ *
+ * Distincte de `verify2FA`, qui sert à l'ACTIVATION et met
+ * `twoFactorEnabled` à true en cas de succès : appelée à la connexion,
+ * elle activerait le 2FA d'un utilisateur qui ne l'a jamais configuré.
+ * Ici, on vérifie sans jamais rien activer.
+ *
+ * Accepte indifféremment un code TOTP à 6 chiffres ou un code de secours
+ * au format XXXX-XXXX — un utilisateur qui a perdu son téléphone doit
+ * pouvoir entrer dans l'application, pas ouvrir un ticket.
+ *
+ * @returns true si le code est valide.
+ */
+export async function verifierCodeConnexion(
+  userId: string,
+  code: string
+): Promise<boolean> {
+  const propre = code.trim().toUpperCase();
+
+  // Un code de secours contient un tiret ; un code TOTP n'a que 6 chiffres.
+  if (propre.includes("-")) {
+    const ok = await verifyBackupCode(userId, propre);
+    if (ok) await marquerVerification(userId);
+    return ok;
+  }
+
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- connexion : aucune session n'existe encore, l'utilisateur est identifié par son mot de passe déjà validé
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, totpSecret: true, totpSecretIv: true },
+  });
+  if (!user?.totpSecret || !user.totpSecretIv) return false;
+
+  const secretBase32 = dechiffrerSecret(user.totpSecret, user.totpSecretIv);
+  const totp = creerTOTP(secretBase32, user.email);
+
+  // window: 1 tolère un décalage d'horloge d'une période (±30 s). Au-delà,
+  // on refuse : élargir la fenêtre allonge d'autant la durée de validité
+  // d'un code intercepté.
+  if (totp.validate({ token: propre, window: 1 }) === null) return false;
+
+  await marquerVerification(userId);
+  return true;
+}
+
+async function marquerVerification(userId: string): Promise<void> {
+  // eslint-disable-next-line ecolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorVerifiedAt: new Date() },
+  });
+}
+
+/**
  * Vérifie si le 2FA est requis pour un utilisateur donné.
  * Utilisé par le middleware d'authentification.
  */

@@ -159,8 +159,12 @@ export async function PATCH(
       // Même patron que generer-comptes/route.ts.
       const password = formatDOB(candidature.dateNaissance);
       if (password) {
+        // Unicité insensible à la casse : voir src/lib/email.ts.
         // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'unicité globale par email avant création de compte élève
-        const existingUser = await prisma.user.findUnique({ where: { email: matricule } });
+        const existingUser = await prisma.user.findFirst({
+          where: { email: { equals: matricule, mode: "insensitive" } },
+          select: { id: true },
+        });
         if (!existingUser) {
           const hashedPassword = await bcrypt.hash(password, 10);
           const user = await prisma.user.create({

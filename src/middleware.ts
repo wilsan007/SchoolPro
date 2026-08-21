@@ -28,6 +28,16 @@ export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_EXACT.has(pathname)) return NextResponse.next();
+
+  // Les endpoints /api/test/* n'existent que pour le développement : ils
+  // envoient des messages (WhatsApp/Telegram/SMS) vers des numéros arbitraires
+  // et créent des données. Bloqués en production, sans exception, quel que soit
+  // l'appelant — un seul point de contrôle qu'aucun nouvel endpoint de test ne
+  // peut contourner.
+  if (process.env.NODE_ENV === "production" && pathname.startsWith("/api/test")) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   // Segment complet exigé : `/loginfoo` ne doit pas hériter de `/login`.
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
@@ -59,6 +69,22 @@ export default async function middleware(req: NextRequest) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // ─── Rôle sensible sans double authentification configurée ──────────────
+  // L'accès est restreint à la page de configuration tant que le second
+  // facteur n'est pas en place. Ce n'est PAS la barrière de sécurité — la
+  // vérification du code, elle, a lieu dans `authorize`, avant l'émission du
+  // jeton, et ne peut donc pas être contournée en appelant l'API. Ici, on ne
+  // fait qu'accompagner l'utilisateur vers la configuration.
+  //
+  // Vaut toujours false tant que TWO_FACTOR_GRACE_DAYS n'est pas défini :
+  // personne ne se retrouve enfermé dehors par un simple déploiement.
+  if (
+    token.twoFactorSetupRequired === true &&
+    !pathname.startsWith("/profil/securite")
+  ) {
+    return NextResponse.redirect(new URL("/profil/securite?2fa=requis", req.url));
   }
 
   const role = (token.role as string) ?? "";

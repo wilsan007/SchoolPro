@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
+import { normaliserEmail } from "@/lib/email";
 
 /**
  * Ajoute un utilisateur existant (par email) à un tenant.
@@ -27,6 +28,11 @@ export async function addUserToTenant(params: {
   if (!session?.user?.tenantId) {
     throw new Error("Non autorisé");
   }
+
+  // Normalisation immédiate : l'adresse sert à la fois de clé de recherche et
+  // de valeur stockée. Une majuscule laissée passer ici crée un compte que
+  // personne ne peut plus retrouver à la connexion.
+  const email = normaliserEmail(params.email);
 
   // Seuls TENANT_ADMIN et SUPER_ADMIN peuvent ajouter des utilisateurs
   if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
@@ -66,9 +72,11 @@ export async function addUserToTenant(params: {
   // déjà été vérifiée ci-dessus (SUPER_ADMIN ou TENANT_ADMIN dudit tenant) ;
   // aucune donnée d'un autre tenant n'est renvoyée à l'appelant au-delà de ce
   // que cette action doit précisément lier.
+  // Insensible à la casse : rattacher un compte existant doit fonctionner
+  // quelle que soit la casse sous laquelle il a été enregistré.
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
-  const existingUser = await prisma.user.findUnique({
-    where: { email: params.email },
+  const existingUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
     select: { id: true, name: true, password: true },
   });
 
@@ -177,12 +185,12 @@ export async function addUserToTenant(params: {
   const tempPassword = params.temporaryPassword || "EcolPro2026!";
   const hashed = await bcrypt.hash(tempPassword, 10);
 
-  const [firstName, ...restName] = params.email.split("@");
+  const [firstName, ...restName] = email.split("@");
   const name = firstName.charAt(0).toUpperCase() + firstName.slice(1);
 
   const newUser = await prisma.user.create({
     data: {
-      email: params.email,
+      email,
       name,
       password: hashed,
       role: params.role,

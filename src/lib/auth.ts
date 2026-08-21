@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -7,11 +7,44 @@ import type { Role } from "@prisma/client";
 import { authConfig, type AvailableTenant } from "@/auth.config";
 import { deriveClaims, CLAIMS_VERSION } from "@/lib/tenant-claims";
 import { auditFire } from "@/lib/audit";
+import { normaliserEmail } from "@/lib/email";
+import { verifierCodeConnexion } from "@/lib/two-factor";
+import { activation2FARequise } from "@/lib/two-factor-policy";
 
 const LoginSchema = z.object({
-  email: z.string().email(),
+  // La saisie est normalisée avant toute recherche : un clavier mobile qui
+  // met une majuscule initiale ne doit pas rendre un compte inaccessible.
+  email: z.string().email().transform(normaliserEmail),
   password: z.string().min(6),
+  // Code de double authentification : TOTP à 6 chiffres, ou code de
+  // secours XXXX-XXXX. Absent au premier envoi du formulaire ; le client le
+  // redemande après le code d'erreur `2fa_requis`.
+  totp: z.string().trim().optional(),
 });
+
+/**
+ * Codes d'erreur renvoyés au formulaire de connexion.
+ *
+ * `2fa_requis` et `2fa_invalide` ne sont émis QU'APRÈS vérification
+ * réussie du mot de passe. Ils ne révèlent donc rien à un attaquant qui
+ * n'aurait pas déjà le mot de passe — et permettent au formulaire de
+ * demander le code au bon moment, plutôt qu'un « identifiants invalides »
+ * incompréhensible pour l'utilisateur légitime.
+ */
+export const ERREUR_2FA_REQUIS = "2fa_requis";
+export const ERREUR_2FA_INVALIDE = "2fa_invalide";
+
+/**
+ * NextAuth n'expose au client que la propriété `code` d'une
+ * `CredentialsSignin` — le message, lui, est volontairement masqué pour ne
+ * pas laisser fuiter de détail d'authentification. D'où cette sous-classe :
+ * sans elle, toute erreur remonterait indistinctement en « credentials ».
+ */
+class Erreur2FA extends CredentialsSignin {
+  constructor(public code: string) {
+    super(code);
+  }
+}
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
@@ -133,16 +166,22 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Mot de passe", type: "password" },
+        totp: { label: "Code de vérification", type: "text" },
       },
       async authorize(credentials) {
         const parsed = LoginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        const { email, password, totp } = parsed.data;
 
+        // Recherche insensible à la casse : les comptes déjà enregistrés avec
+        // une majuscule doivent rester joignables sans attendre une
+        // normalisation des données. `findFirst` est obligatoire ici,
+        // `findUnique` n'acceptant pas `mode: "insensitive"`. L'unicité reste
+        // garantie par la contrainte `@unique` sur `email`.
         // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- login: no session exists yet, user must be looked up across all sites/tenants
-        const user = await prisma.user.findUnique({
-          where: { email },
+        const user = await prisma.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" } },
           select: {
             id: true,
             email: true,
@@ -151,6 +190,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             avatarUrl: true,
             isActive: true,
             mustChangePassword: true,
+            twoFactorEnabled: true,
+            createdAt: true,
           },
         });
 
@@ -178,6 +219,31 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             metadata: { email },
           });
           return null;
+        }
+
+        // ─── Double authentification ────────────────────────────────────
+        // Contrôlée ICI, avant toute émission de jeton. Une vérification
+        // faite plus tard (redirection, middleware) laisserait une session
+        // valide exister entre-temps : les routes API, qui ne passent pas
+        // par le middleware, seraient alors accessibles sans second facteur.
+        if (user.twoFactorEnabled) {
+          if (!totp) {
+            // Le mot de passe est bon : on demande le second facteur.
+            throw new Erreur2FA(ERREUR_2FA_REQUIS);
+          }
+          const codeValide = await verifierCodeConnexion(user.id, totp);
+          if (!codeValide) {
+            auditFire({
+              userId: user.id,
+              action: "auth:login",
+              verdict: "DENIED",
+              resource: "user",
+              resourceId: user.id,
+              reason: "Code de double authentification invalide",
+              metadata: { email },
+            });
+            throw new Erreur2FA(ERREUR_2FA_INVALIDE);
+          }
         }
 
         // Mettre à jour lastLoginAt — l'id provient du compte dont le mot de
@@ -223,6 +289,17 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           availableRoles: claims.availableRoles,
           claimsVersion: claims.claimsVersion,
           mustChangePassword: user.mustChangePassword,
+          // Rôle sensible sans 2FA configurée, délai de tolérance écoulé :
+          // l'accès est restreint à la page de configuration (voir
+          // src/middleware.ts). Vaut toujours false tant que
+          // TWO_FACTOR_GRACE_DAYS n'est pas défini — activer la contrainte
+          // reste une décision explicite, jamais un effet de bord d'un
+          // déploiement.
+          twoFactorSetupRequired: activation2FARequise(
+            claims.role,
+            user.twoFactorEnabled,
+            user.createdAt
+          ),
         };
       },
     }),
@@ -253,6 +330,8 @@ declare module "next-auth" {
       availableRoles?: Role[];
       /** L'utilisateur doit changer son mot de passe au prochain login. */
       mustChangePassword?: boolean;
+      /** Rôle sensible sans double authentification configurée. */
+      twoFactorSetupRequired?: boolean;
       /** Impersonation : vrai si le SUPER_ADMIN a pris le contrôle d'un tenant. */
       impersonating?: boolean;
       /** Tenant cible de l'impersonation. */

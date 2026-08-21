@@ -61,10 +61,13 @@ describe("matrice canAccessRoute — audit 16 rôles", () => {
     expect(canAccessRoute("SUPERVISOR", "/absences")).toBe(true);
   });
 
-  it("SUBJECT_LEAD accède à /ma-classe, /curriculum, /recommandations", () => {
-    expect(canAccessRoute("SUBJECT_LEAD", "/ma-classe")).toBe(true);
+  it("SUBJECT_LEAD accède à /ma-matiere, /curriculum, /recommandations", () => {
+    // `/ma-classe` est réservé au prof principal (CLASS_TEACHER) : SUBJECT_LEAD
+    // n'est pas prof principal → page vide. Son espace dédié est `/ma-matiere`.
+    expect(canAccessRoute("SUBJECT_LEAD", "/ma-matiere")).toBe(true);
     expect(canAccessRoute("SUBJECT_LEAD", "/curriculum")).toBe(true);
     expect(canAccessRoute("SUBJECT_LEAD", "/recommandations")).toBe(true);
+    expect(canAccessRoute("SUBJECT_LEAD", "/ma-classe")).toBe(false);
   });
 
   it("PARENT/STUDENT n'accèdent pas aux nouveaux écrans du personnel", () => {

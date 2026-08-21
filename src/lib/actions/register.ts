@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { normaliserEmail } from "@/lib/email";
 
 const RegisterSchema = z.object({
   // Établissement
@@ -18,7 +19,7 @@ const RegisterSchema = z.object({
   // Administrateur
   adminFirstName: z.string().min(1, "Le prénom est requis"),
   adminLastName: z.string().min(1, "Le nom est requis"),
-  adminEmail: z.string().email("Email administrateur invalide"),
+  adminEmail: z.string().email("Email administrateur invalide").transform(normaliserEmail),
   adminPassword: z.string().min(8, "Le mot de passe doit faire au moins 8 caractères"),
   adminPhone: z.string().optional(),
 
@@ -45,9 +46,11 @@ export async function registerTenant(data: RegisterFormData) {
   // est justement en train d'en créer un) — la recherche d'unicité de l'email
   // administrateur est nécessairement inter-tenants, comme pour la connexion
   // (cf. src/lib/auth.ts).
+  // Insensible à la casse : un compte enregistré avec une majuscule doit
+  // être détecté comme doublon (cf. src/lib/email.ts).
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
-  const existingUser = await prisma.user.findUnique({
-    where: { email: values.adminEmail },
+  const existingUser = await prisma.user.findFirst({
+    where: { email: { equals: values.adminEmail, mode: "insensitive" } },
     select: { id: true },
   });
   if (existingUser) {

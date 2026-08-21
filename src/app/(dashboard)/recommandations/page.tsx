@@ -1,14 +1,17 @@
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
-import { RecommandationsView } from "@/components/learnos/RecommandationsView";
-import { PlansAValider } from "@/components/learnos/PlansAValider";
-import { AttestationsAValider } from "@/components/learnos/AttestationsAValider";
+import { RecommandationsTabs } from "@/components/learnos/RecommandationsTabs";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
-import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import {
+  siteFilterForModel,
+  personalScopeFilter,
+  mergeFilters,
+  type SessionSiteClaims,
+} from "@/lib/site-scope";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
-import type { Role } from "@prisma/client";
+import type { Role, Prisma } from "@prisma/client";
 
 /**
  * Recommandations — la liste de travail de l'enseignant.
@@ -100,6 +103,88 @@ async function getPlansAValider(
   });
 }
 
+/**
+ * Attestations en attente de validation.
+ *
+ * Récupérées côté serveur pour que le wrapper connaisse le compte dès le
+ * premier rendu — avant, le composant faisait son propre fetch client et
+ * l'onglet affichait 0 jusqu'à la réponse.
+ *
+ * Reproduit la logique de `/api/learnos/attestations` : feuilles de type
+ * `attestation` en statut `PROPOSEE` (à signer) ou `ASSIGNEE` sans
+ * `assigneeLe` (acceptées, à lancer en classe), avec le profil de maîtrise
+ * qui justifie la proposition.
+ */
+async function getAttestations(
+  tenantId: string,
+  claims: SessionSiteClaims & { userId?: string; id?: string },
+  scope?: { classeIds: string[]; isRestricted: boolean }
+) {
+  const feuilles = await prisma.feuilleExercices.findMany({
+    where: mergeFilters(
+      { tenantId, type: "attestation" },
+      {
+        OR: [
+          { statut: "PROPOSEE" },
+          { statut: "ASSIGNEE", assigneeLe: null },
+        ],
+      },
+      ...(scope?.isRestricted
+        ? [{ eleve: { classeId: { in: scope.classeIds.length > 0 ? scope.classeIds : ["__none__"] } } }]
+        : []),
+      siteFilterForModel("feuilleExercices", claims),
+      personalScopeFilter(claims, "eleve"),
+    ) as Prisma.FeuilleExercicesWhereInput,
+    select: {
+      id: true,
+      statut: true,
+      assigneeLe: true,
+      createdAt: true,
+      competenceAttesteeId: true,
+      competenceAttestee: { select: { libelle: true, code: true } },
+      matiere: { select: { nom: true, couleur: true } },
+      eleve: {
+        select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } },
+      },
+      _count: { select: { exercices: true } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+  });
+
+  if (feuilles.length === 0) return [];
+
+  // Profil de maîtrise — lu en une passe, comme la route API.
+  const profils = await prisma.studentLearningProfile.findMany({
+    where: {
+      tenantId,
+      OR: feuilles
+        .filter((f) => f.competenceAttesteeId)
+        .map((f) => ({ eleveId: f.eleve.id, competenceId: f.competenceAttesteeId! })),
+      ...siteFilterForModel("studentLearningProfile", claims),
+    },
+    select: {
+      eleveId: true,
+      competenceId: true,
+      masteryScore: true,
+      confidenceScore: true,
+      evidenceCount: true,
+    },
+  });
+  const profilDe = new Map(profils.map((p) => [`${p.eleveId}|${p.competenceId}`, p]));
+
+  return feuilles.map((f) => ({
+    id: f.id,
+    signee: f.statut === "ASSIGNEE",
+    creeeLe: f.createdAt,
+    nbExercices: f._count.exercices,
+    competence: f.competenceAttestee,
+    matiere: f.matiere,
+    eleve: f.eleve,
+    profil: profilDe.get(`${f.eleve.id}|${f.competenceAttesteeId}`) ?? null,
+  }));
+}
+
 export default async function RecommandationsPage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.recommandations")]);
   await guardPage(session);
@@ -112,9 +197,10 @@ export default async function RecommandationsPage() {
       )
     : undefined;
 
-  const [recommandations, plans] = await Promise.all([
+  const [recommandations, plans, attestations] = await Promise.all([
     getRecommandations(session!.user.tenantId!, session!.user, scope),
     getPlansAValider(session!.user.tenantId!, session!.user, scope),
+    getAttestations(session!.user.tenantId!, session!.user, scope),
   ]);
 
   return (
@@ -125,14 +211,11 @@ export default async function RecommandationsPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 space-y-6 sm:space-y-8 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        {/* En tête, avant les parcours : une attestation est un travail que
-            l'élève a DÉJÀ fait et qui attend l'enseignant, alors qu'un parcours
-            est une décision à prendre. Ce qui attend passe devant. */}
-        <AttestationsAValider />
-        <PlansAValider plans={plans} />
-        <RecommandationsView recommandations={recommandations} />
-      </div>
+      <RecommandationsTabs
+        attestations={attestations}
+        plans={plans}
+        recommandations={recommandations}
+      />
     </div>
   );
 }

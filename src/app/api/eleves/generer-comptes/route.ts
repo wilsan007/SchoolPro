@@ -71,8 +71,14 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
+    // Unicité vérifiée sans tenir compte de la casse : la connexion recherche
+    // désormais en `mode: "insensitive"`, deux comptes ne différant que par la
+    // casse rendraient donc l'authentification ambiguë.
     // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'unicité globale par email avant création de compte élève
-    const existing = await prisma.user.findUnique({ where: { email: username } });
+    const existing = await prisma.user.findFirst({
+      where: { email: { equals: username, mode: "insensitive" } },
+      select: { id: true },
+    });
     if (existing) {
       skipped.push({
         matricule: eleve.matricule,

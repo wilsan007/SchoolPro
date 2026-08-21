@@ -317,7 +317,7 @@ export const ROUTE_RULES: RouteRule[] = [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
   ] },
   { pattern: /^\/analytics/, permission: "analytics:read", roles: [
-    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT",
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "ACCOUNTANT", "INSPECTOR",
   ] },
   // Comparateur inter-sites / inter-années : direction et inspection.
   // L'API refuse la comparaison inter-sites si le rôle n'est pas tenant-wide.
@@ -329,11 +329,21 @@ export const ROUTE_RULES: RouteRule[] = [
   { pattern: /^\/intelligence/, permission: "analytics:read", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "INSPECTOR",
   ] },
-  { pattern: /^\/mon-espace/, permission: "notes:write" },
+  // `mon-espace` est l'espace de l'enseignant : planning « ma semaine » et
+  // grille élèves × compétences. La direction a `notes:*` qui débloque la
+  // permission, mais n'est pas enseignant → planning et grille vides, KPIs
+  // qui dupliquent `/direction`. On restreint aux rôles qui ont un service.
+  { pattern: /^\/mon-espace/, permission: "notes:write", roles: [
+    "TEACHER", "CLASS_TEACHER",
+  ] },
   // Suivi pédagogique d'une classe : ni le comptable ni l'infirmerie,
   // qui ont `eleves:read` pour des raisons administratives.
+  // `ma-classe` filtre les classes dont l'utilisateur est professeur
+  // principal. Un TEACHER ou SUBJECT_LEAD n'est pas prof principal → page
+  // vide. La direction n'a pas « sa » classe : elle supervise via `/direction`
+  // et `/eleves`. Seul CLASS_TEACHER a un périmètre utile ici.
   { pattern: /^\/ma-classe/, permission: "eleves:read", roles: [
-    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+    "CLASS_TEACHER",
   ] },
   { pattern: /^\/rapports/, permission: "rapports:read" },
 
@@ -447,8 +457,11 @@ export const ROUTE_RULES: RouteRule[] = [
   { pattern: /^\/conseiller/, permission: "vie-scolaire:read", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "COUNSELOR",
   ] },
+  // `ma-matiere` résout l'enseignant par `userId` puis sa première matière.
+  // La direction n'est pas enseignant → la page retourne « aucune classe ».
+  // Seul le coordinateur de matière (SUBJECT_LEAD) y a un périmètre utile.
   { pattern: /^\/ma-matiere/, permission: "notes:read", roles: [
-    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SUBJECT_LEAD",
+    "SUBJECT_LEAD",
   ] },
 
   // — Configuration —

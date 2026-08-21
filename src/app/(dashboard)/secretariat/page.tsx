@@ -1,19 +1,32 @@
-import Link from "next/link";
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ActionRubricGrid, type RubricData } from "@/components/dashboard/ActionRubric";
+import { ActivityTimeline, type ActivityItemData } from "@/components/dashboard/ActivityTimeline";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
-import { siteFilterForModel, siteFilterForRelation, type SessionSiteClaims } from "@/lib/site-scope";
+import { getSecretariatCounts } from "@/lib/action-counts";
+import { getActivityFeed, type ActivityItem, type Periode } from "@/lib/activity-feed";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
- * Espace du secrétariat.
+ * Espace du secrétariat — rubriques d'action + timeline d'activité.
  *
- * Le secrétariat traite des dossiers, pas des statistiques : chaque compteur
- * est une file d'attente qui pointe vers l'écran où agir. Un chiffre sans
- * action derrière n'a pas sa place ici.
+ * Le secrétariat traite des dossiers, pas des statistiques : chaque rubrique
+ * est une file d'attente cliquable qui mène à l'écran où agir. La timeline
+ * montre ce qui s'est passé récemment (aujourd'hui / semaine / mois) pour
+ * donner du contexte sans noyer sous des chiffres.
  */
+function serialiserItems(items: ActivityItem[]): ActivityItemData[] {
+  return items.map((i) => ({
+    id: i.id,
+    type: i.type,
+    titre: i.titre,
+    description: i.description,
+    date: i.date.toISOString(),
+    href: i.href,
+  }));
+}
+
 export default async function SecretariatPage() {
   const [session, t] = await Promise.all([
     auth(),
@@ -22,52 +35,24 @@ export default async function SecretariatPage() {
   await guardPage(session);
 
   const tenantId = session!.user.tenantId!;
-  const claims = session!.user as SessionSiteClaims;
+  const claims = session!.user;
+  const now = await getDemoNow();
 
-  const [inscriptionsEnAttente, dossiersIncomplets, absencesAJustifier, parentsSansCompte] =
-    await Promise.all([
-      prisma.candidature.count({
-        where: {
-          tenantId,
-          statut: "SOUMISE",
-          ...siteFilterForModel("candidature", claims),
-        },
-      }),
-      prisma.eleve.count({
-        where: {
-          tenantId,
-          statut: "ACTIF",
-          ...siteFilterForModel("eleve", claims),
-          OR: [{ lieuNaissance: null }, { nationalite: null }],
-        },
-      }),
-      prisma.absence.count({
-        where: {
-          tenantId,
-          statut: "EN_ATTENTE",
-          ...siteFilterForModel("absence", claims),
-        },
-      }),
-      // EleveParent n'a pas de colonne tenantId : le rattachement au tenant
-      // passe par la relation parent. Un parent sans `user` est un parent
-      // créé « sur papier » dont le compte n'a pas encore été provisionné.
-      // Le filtre de site passe par la relation `eleve` (SITE_PATHS.eleveParent = { one: "eleve" }).
-      prisma.eleveParent.count({
-        where: {
-          parent: { tenantId, user: null },
-          ...siteFilterForRelation(claims, "eleve"),
-        },
-      }),
-    ]);
+  // Compteurs des rubriques + timeline pour les 4 périodes, en parallèle.
+  const [rubrics, feedRecent, feedAujourdhui, feedSemaine, feedMois] = await Promise.all([
+    getSecretariatCounts(tenantId, claims),
+    getActivityFeed(tenantId, claims, "recent", now),
+    getActivityFeed(tenantId, claims, "aujourdhui", now),
+    getActivityFeed(tenantId, claims, "semaine", now),
+    getActivityFeed(tenantId, claims, "mois", now),
+  ]);
 
-  const files = [
-    { label: t("inscriptionsEnAttente"), value: inscriptionsEnAttente, href: "/eleves" },
-    { label: t("dossiersIncomplets"), value: dossiersIncomplets, href: "/eleves" },
-    { label: t("absencesAJustifier"), value: absencesAJustifier, href: "/absences" },
-    { label: t("parentsSansCompte"), value: parentsSansCompte, href: "/parents" },
-  ];
-
-  const totalATraiter = files.reduce((acc, f) => acc + f.value, 0);
+  const itemsParPeriode = {
+    recent: serialiserItems(feedRecent),
+    aujourdhui: serialiserItems(feedAujourdhui),
+    semaine: serialiserItems(feedSemaine),
+    mois: serialiserItems(feedMois),
+  };
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -77,37 +62,18 @@ export default async function SecretariatPage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-thin">
-        {totalATraiter === 0 ? (
-          <p className="text-sm text-emerald-700 dark:text-emerald-400">
-            {t("rienATraiter")}
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {files.map((file) => (
-              <Link key={file.label} href={file.href} className="block">
-                <Card className="h-full transition-colors hover:bg-muted/50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">
-                      {file.label}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p
-                      className={
-                        file.value > 0
-                          ? "text-2xl font-bold text-amber-600 dark:text-amber-400"
-                          : "text-2xl font-bold text-muted-foreground"
-                      }
-                    >
-                      {file.value}
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 scrollbar-thin">
+        {/* Rubriques d'action — files d'attente cliquables */}
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">{t("actionsATraiter")}</h2>
+          <ActionRubricGrid rubrics={rubrics as RubricData[]} />
+        </section>
+
+        {/* Timeline d'activité */}
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">{t("activiteRecente")}</h2>
+          <ActivityTimeline itemsParPeriode={itemsParPeriode} />
+        </section>
       </div>
     </div>
   );

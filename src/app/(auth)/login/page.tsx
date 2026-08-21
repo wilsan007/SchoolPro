@@ -17,8 +17,16 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
   const [isPending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "", totp: "" });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  /**
+   * Le champ du second facteur n'apparaît qu'une fois le mot de passe
+   * validé côté serveur. L'afficher d'emblée révélerait à un inconnu quels
+   * comptes ont activé la double authentification — et donc lesquels ne
+   * l'ont pas.
+   */
+  const [demande2FA, setDemande2FA] = useState(false);
+  const [erreur2FA, setErreur2FA] = useState<string | null>(null);
   const t = useTranslations("login");
 
   const LoginSchema = z.object({
@@ -44,10 +52,27 @@ function LoginForm() {
       const result = await signIn("credentials", {
         email: form.email,
         password: form.password,
+        // Envoyé uniquement au second passage, quand le serveur l'a demandé.
+        ...(demande2FA ? { totp: form.totp } : {}),
         redirect: false,
       });
 
-      if (result?.error) {
+      // NextAuth expose le code d'erreur tantôt en `code`, tantôt dans
+      // `error` selon la version : on regarde les deux plutôt que de
+      // dépendre d'un détail d'implémentation.
+      const code = String(
+        (result as { code?: string } | undefined)?.code ?? result?.error ?? ""
+      );
+
+      if (code.includes("2fa_requis")) {
+        setDemande2FA(true);
+        setErreur2FA(null);
+      } else if (code.includes("2fa_invalide")) {
+        setDemande2FA(true);
+        setErreur2FA("Code de vérification incorrect ou expiré.");
+        setForm((f) => ({ ...f, totp: "" }));
+      } else if (result?.error) {
+        setDemande2FA(false);
         toast.error(t("invalidCredentials"));
       } else {
         toast.success(t("title") === "Sign In" ? "Signed in!" : "Connexion réussie !");
@@ -117,6 +142,36 @@ function LoginForm() {
             <p className="text-xs text-destructive">{errors.password}</p>
           )}
         </div>
+
+        {/* Second facteur — affiché seulement quand le serveur le réclame */}
+        {demande2FA && (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="totp">
+              Code de vérification
+            </label>
+            <Input
+              id="totp"
+              name="totp"
+              /* inputMode numeric : ouvre le pavé numérique sur mobile.
+                 Le type reste `text` car un code de secours contient un
+                 tiret et des lettres. */
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              placeholder="123456"
+              value={form.totp}
+              onChange={(e) => setForm({ ...form, totp: e.target.value })}
+              className={erreur2FA ? "border-destructive" : ""}
+            />
+            <p className="text-muted-foreground text-xs">
+              Code à 6 chiffres de votre application d&apos;authentification,
+              ou l&apos;un de vos codes de secours.
+            </p>
+            {erreur2FA && (
+              <p className="text-xs text-destructive">{erreur2FA}</p>
+            )}
+          </div>
+        )}
 
         <Button
           type="submit"

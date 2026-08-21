@@ -81,7 +81,10 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: "dashboard", icon: LayoutDashboard, href: "/dashboard", color: "text-blue-500" },
       { labelKey: "direction", icon: Gauge, href: "/direction", color: "text-sky-600" },
-      { labelKey: "chatbotDirection", icon: BarChart3, href: "/chatbot-direction", color: "text-blue-700" },
+      // Chatbot direction temporairement invisible (CHATBOT_DIRECTION_ACTIF = false).
+      // La route et la règle de permissions sont conservées pour une réactivation
+      // propre après enrichissement du catalogue de questions fermées.
+      // { labelKey: "chatbotDirection", icon: BarChart3, href: "/chatbot-direction", color: "text-blue-700" },
       { labelKey: "monEspace", icon: Briefcase, href: "/mon-espace", color: "text-emerald-600" },
       { labelKey: "maClasse", icon: Users, href: "/ma-classe", color: "text-teal-600" },
       { labelKey: "maMatiere", icon: Target, href: "/ma-matiere", color: "text-fuchsia-600" },

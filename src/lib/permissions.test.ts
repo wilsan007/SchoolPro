@@ -107,10 +107,14 @@ describe("cloisonnement de l'élève", () => {
 });
 
 describe("périmètre de l'enseignant", () => {
-  it("ouvre le curriculum, le suivi de classe et les recommandations", () => {
-    for (const route of ["/curriculum", "/ma-classe", "/recommandations", "/mon-espace", "/notes", "/evaluations"]) {
+  it("ouvre le curriculum, les recommandations et son espace", () => {
+    // `/ma-classe` est réservé au prof principal (CLASS_TEACHER) : un TEACHER
+    // n'est pas prof principal → page vide. `/mon-espace` reste son accueil.
+    for (const route of ["/curriculum", "/recommandations", "/mon-espace", "/notes", "/evaluations"]) {
       expect(canAccessRoute("TEACHER", route)).toBe(true);
     }
+    expect(canAccessRoute("TEACHER", "/ma-classe")).toBe(false);
+    expect(canAccessRoute("TEACHER", "/ma-matiere")).toBe(false);
   });
 
   it("lui donne l'écriture sur la banque de questions LEARNOS", () => {
@@ -158,10 +162,19 @@ describe("administration générale", () => {
     }
   });
 
-  it("laisse la direction suivre la pédagogie et l'entraînement", () => {
-    for (const route of ["/curriculum", "/recommandations", "/ma-classe", "/mon-espace"]) {
+  it("laisse la direction suivre la pédagogie via curriculum et recommandations", () => {
+    // `/ma-classe` et `/mon-espace` sont les espaces de travail de l'enseignant
+    // et du prof principal : la direction n'y a pas de périmètre utile (pas
+    // d'enseignant, pas de classe dont elle est prof principal). Elle supervise
+    // via `/direction`, `/curriculum` et `/recommandations`.
+    for (const route of ["/curriculum", "/recommandations"]) {
       expect(canAccessRoute("TENANT_ADMIN", route)).toBe(true);
       expect(canAccessRoute("PRINCIPAL", route)).toBe(true);
+    }
+    for (const route of ["/ma-classe", "/mon-espace", "/ma-matiere"]) {
+      expect(canAccessRoute("TENANT_ADMIN", route)).toBe(false);
+      expect(canAccessRoute("PRINCIPAL", route)).toBe(false);
+      expect(canAccessRoute("SUPER_ADMIN", route)).toBe(false);
     }
   });
 
@@ -300,6 +313,51 @@ describe("écrans de saisie : le personnel garde ses accès", () => {
     for (const rule of ROUTE_RULES) {
       if (rule.roles) expect(rule.roles.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("cohérence outcome ↔ rôle : pas d'écran vide", () => {
+  // Principe : un rôle n'accède à un écran que si celui-ci produit un outcome
+  // utile pour lui. Les pages « ma classe », « ma matière » et « mon espace »
+  // résolvent l'enseignant par `userId` : un rôle qui n'est pas enseignant (ou
+  // pas prof principal) obtient une page vide — un menu qui mène à rien.
+  //
+  // Ces tests verrouillent la correction et empêchent une régression où la
+  // direction ou un enseignant non-prof-principal récupère ces écrans.
+
+  it("réserve /ma-classe au seul prof principal", () => {
+    expect(canAccessRoute("CLASS_TEACHER", "/ma-classe")).toBe(true);
+    for (const role of [
+      "TEACHER", "SUBJECT_LEAD", "PRINCIPAL", "TENANT_ADMIN", "SUPER_ADMIN",
+    ] as RoleKey[]) {
+      expect(canAccessRoute(role, "/ma-classe")).toBe(false);
+    }
+  });
+
+  it("réserve /ma-matiere au seul coordinateur de matière", () => {
+    expect(canAccessRoute("SUBJECT_LEAD", "/ma-matiere")).toBe(true);
+    for (const role of [
+      "TEACHER", "CLASS_TEACHER", "PRINCIPAL", "TENANT_ADMIN", "SUPER_ADMIN",
+    ] as RoleKey[]) {
+      expect(canAccessRoute(role, "/ma-matiere")).toBe(false);
+    }
+  });
+
+  it("réserve /mon-espace aux enseignants qui ont un service", () => {
+    for (const role of ["TEACHER", "CLASS_TEACHER"] as RoleKey[]) {
+      expect(canAccessRoute(role, "/mon-espace")).toBe(true);
+    }
+    for (const role of [
+      "PRINCIPAL", "TENANT_ADMIN", "SUPER_ADMIN", "SUBJECT_LEAD",
+    ] as RoleKey[]) {
+      expect(canAccessRoute(role, "/mon-espace")).toBe(false);
+    }
+  });
+
+  it("donne à l'inspecteur l'accès à /analytics", () => {
+    // L'inspecteur a `analytics:read` mais n'était pas dans la liste `roles`
+    // de `/analytics` → il ne voyait pas l'analytique, son outil de travail.
+    expect(canAccessRoute("INSPECTOR", "/analytics")).toBe(true);
   });
 });
 

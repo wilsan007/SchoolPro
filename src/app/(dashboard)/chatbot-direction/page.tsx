@@ -1,8 +1,10 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Header } from "@/components/layout/Header";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { ChatbotDirection } from "@/components/learnos/ChatbotDirection";
+import { CHATBOT_DIRECTION_ACTIF } from "@/lib/learnos/chatbot-direction";
 
 /**
  * Chatbot d'analyse de données en langage naturel pour la direction.
@@ -12,8 +14,16 @@ import { ChatbotDirection } from "@/components/learnos/ChatbotDirection";
  *
  * ACCÈS : TENANT_ADMIN, PRINCIPAL, SUPER_ADMIN uniquement.
  * La garde de page vérifie le rôle via la règle de route.
+ *
+ * TEMPORAIREMENT DÉSACTIVÉ — voir `CHATBOT_DIRECTION_ACTIF`.
+ * Tant que le flag est `false`, la page redirige vers `/direction` sans
+ * rendre le composant ni appeler l'API. Aucun coût LLM n'est engagé.
  */
 export default async function ChatbotDirectionPage() {
+  if (!CHATBOT_DIRECTION_ACTIF) {
+    redirect("/direction");
+  }
+
   const [session, t] = await Promise.all([
     auth(),
     getTranslations("learnos.chatbotDirection"),

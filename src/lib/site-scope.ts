@@ -456,6 +456,12 @@ export const SITE_PATHS: Record<string, SitePath> = {
   objectifMentorat: "tenant",
   seanceMentorat: "tenant",
 
+  // --- Journal de Progression Pédagogique (JPP) ---
+  // SeancePedagogique porte un siteId propre. SeanceCompetence n'en a pas :
+  // son rattachement passe par la séance.
+  seancePedagogique: "column",
+  seanceCompetence: { one: "seance" },
+
   // --- Modules activables (niveau tenant, pas de siteId) ---
   module: "tenant",
   moduleActivation: "tenant",
@@ -509,6 +515,21 @@ const SHARED_NULL_MODELS = new Set([
   // qui ne relève d'aucun site (message direct). L'exclure du filtre ferait
   // disparaître les conversations personnelles de tout compte site-scopé.
   "conversation",
+  // Référentiel pédagogique LEARNOS. Chapitres et compétences décrivent le
+  // programme national : il est le même sur tous les campus, comme les
+  // matières auxquelles ils se rattachent. Les traiter comme « non assignés »
+  // revenait à réserver le curriculum au site qui le portait — l'annexe
+  // n'affichait alors aucun chapitre. Les seuils, la planification annuelle et
+  // les grilles d'évaluation suivent la même logique : ils sont arrêtés au
+  // niveau de l'établissement, pas du campus.
+  "chapitre",
+  "competence",
+  "seuilsRecommandation",
+  "planificationChapitre",
+  "planificationCompetence",
+  "rubriqueEvaluation",
+  // Journal technique des décisions IA : transverse au tenant.
+  "aiDecisionLog",
 ]);
 
 /**

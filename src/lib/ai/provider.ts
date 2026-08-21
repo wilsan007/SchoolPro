@@ -40,6 +40,24 @@ export interface AiMessage {
   tool_call_id?: string;
 }
 
+/**
+ * Découpe une liste de modèles séparés par des virgules, avec défaut.
+ *
+ * Plusieurs modèles peuvent être déclarés pour un fournisseur, séparés par des
+ * virgules : le routeur essaie le premier, puis le suivant en cas d'échec. Les
+ * configurations existantes continuent de fonctionner sans être touchées.
+ * Les entrées vides sont écartées, pour qu'une virgule en trop ne produise pas
+ * une tentative sur un modèle nommé "".
+ */
+export function listeModeles(valeur: string | undefined, defaut?: string): string[] {
+  const liste = (valeur ?? "")
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  if (liste.length > 0) return liste;
+  return defaut ? [defaut] : [];
+}
+
 /** Le message porte-t-il au moins une image ? */
 export function contientImage(message: AiMessage): boolean {
   return Array.isArray(message.content) && message.content.some((p) => p.type === "image_url");
@@ -103,6 +121,8 @@ export interface AiGenerateOptions {
   promptVersion?: string;
   /** Coupe l'appel au-delà de ce délai (défaut : 30 s). */
   timeoutMs?: number;
+  /** Forcer un modèle spécifique au lieu du premier de la liste. */
+  model?: string;
   /**
    * Validateur de sortie, optionnel.
    *
@@ -129,6 +149,12 @@ export interface AiProvider {
   readonly costTier: 0 | 1 | 2;
   /** Le fournisseur supporte-t-il le function calling ? */
   readonly supportsTools: boolean;
+  /**
+   * Le fournisseur est-il suffisamment rapide pour les écrans interactifs
+   * (chatbot, import de programme) ? Les fournisseurs locaux lents ne le sont
+   * pas : le routeur ne les sollicite que pour les tâches batch.
+   */
+  readonly interactif: boolean;
   /** `false` si la configuration est absente : le routeur passe au suivant. */
   isAvailable(): boolean;
   /**
@@ -146,6 +172,11 @@ export interface AiProvider {
    * scan — il répondrait en décrivant l'image qu'il n'a pas reçue.
    */
   visionModelId(): string | null;
+  /**
+   * Liste des modèles configurés pour ce fournisseur (fallback chain).
+   * Le routeur essaie le premier, puis le suivant en cas d'échec.
+   */
+  modelIds(): string[];
   generate(messages: AiMessage[], options?: AiGenerateOptions): Promise<AiResult>;
 }
 

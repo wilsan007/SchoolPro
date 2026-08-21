@@ -3,22 +3,24 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
 import { z } from "zod";
+import { normaliserEmail } from "@/lib/email";
+import { mobileSecret } from "@/lib/mobile-auth";
 
 const MobileLoginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().transform(normaliserEmail),
   password: z.string().min(1),
   tenantSlug: z.string().optional(),
 });
 
 async function signToken(payload: Record<string, unknown>): Promise<string> {
-  const secret = new TextEncoder().encode(
-    process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "ecolpro-dev-secret"
-  );
+  // Même secret que la vérification (src/lib/mobile-auth.ts) : en production,
+  // pas de repli en dur — un secret par défaut public permettrait de forger
+  // des jetons pour n'importe quel compte.
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(secret);
+    .sign(mobileSecret());
 }
 
 export async function POST(req: Request) {
@@ -34,9 +36,12 @@ export async function POST(req: Request) {
 
     const { email, password, tenantSlug } = parsed.data;
 
+    // Recherche insensible à la casse, comme sur le chemin web : un compte
+    // enregistré avec une majuscule doit rester joignable. `findUnique`
+    // n'accepte pas `mode: "insensitive"`, d'où `findFirst`.
     // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- endpoint d'authentification mobile : lookup par email/password, pas de session utilisateur disponible
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
       select: {
         id: true,
         email: true,

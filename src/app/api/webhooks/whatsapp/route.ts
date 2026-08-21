@@ -4,7 +4,14 @@ import { verifyMetaSignature } from "@/lib/webhooks";
 import { repondreAuParent } from "@/lib/learnos/bot-parent-webhook";
 import { erreurJson } from "@/lib/erreurs-api";
 
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN ?? "ecolpro_whatsapp_token";
+// Pas de valeur par défaut publique : un jeton de vérification connu de tous
+// laisserait un tiers valider le webhook. En production, l'absence de
+// configuration désactive la vérification (handshake refusé) plutôt que
+// d'accepter un jeton par défaut. Les messages entrants restent de toute
+// façon protégés par verifyMetaSignature (HMAC clé secrète de l'app).
+const VERIFY_TOKEN =
+  process.env.WHATSAPP_VERIFY_TOKEN ??
+  (process.env.NODE_ENV === "production" ? undefined : "ecolpro_whatsapp_token");
 
 /**
  * GET /api/webhooks/whatsapp

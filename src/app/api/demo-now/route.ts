@@ -1,56 +1,109 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import {
+  DEMO_NOW_COOKIE,
+  DEMO_NOW_ENABLED_COOKIE,
+  peutDeplacerHorloge,
+} from "@/lib/demo-now";
 
 /**
- * API route pour gérer la date de démonstration (Time Machine).
+ * API de la date de démonstration (Time Machine).
  *
- * GET    → retourne la date actuelle de démo (ou null si désactivée)
- * POST   → définit la date de démo (body: { date: ISO string | null })
- * DELETE → désactive la date de démo (retour à la vraie heure)
+ * GET    → état de l'horloge, et droit du compte à la déplacer
+ * POST   → fixe la date de démo (body: { date: ISO string | null })
+ * DELETE → revient à l'heure réelle
+ *
+ * RÉSERVÉE À L'ADMINISTRATEUR DU TENANT
+ * Le contrôle est ici, pas dans le bouton : masquer un bouton n'empêche
+ * personne d'appeler la route. Depuis l'ajout de l'horizon de démonstration
+ * (cf. `demo-horizon`), déplacer l'horloge masque des données — un compte
+ * quelconque ne doit pas pouvoir s'en servir.
  */
-
-const DEMO_NOW_COOKIE = "demo_now";
-const DEMO_NOW_ENABLED_COOKIE = "demo_now_enabled";
 
 const bodySchema = z.object({
   date: z.string().datetime().nullable(),
 });
 
+/** Durée de vie des cookies : une semaine, comme la session de démonstration. */
+function dansUneSemaine(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  return d;
+}
+
+/**
+ * Cookies posés en `httpOnly`.
+ *
+ * Sans cela, la restriction par rôle ne vaudrait rien : n'importe quel compte
+ * pourrait écrire `document.cookie` et se placer à la date de son choix. Aucun
+ * code client ne lit ces cookies — l'état passe par le GET ci-dessous.
+ */
+function poserCookies(date: string | null): Headers {
+  const headers = new Headers();
+  const expires = dansUneSemaine().toUTCString();
+  const commun = `path=/; httpOnly; SameSite=Lax`;
+
+  if (date === null) {
+    headers.append("Set-Cookie", `${DEMO_NOW_ENABLED_COOKIE}=false; ${commun}; expires=${expires}`);
+    headers.append(
+      "Set-Cookie",
+      `${DEMO_NOW_COOKIE}=; ${commun}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+    );
+  } else {
+    headers.append("Set-Cookie", `${DEMO_NOW_ENABLED_COOKIE}=true; ${commun}; expires=${expires}`);
+    headers.append(
+      "Set-Cookie",
+      `${DEMO_NOW_COOKIE}=${encodeURIComponent(date)}; ${commun}; expires=${expires}`
+    );
+  }
+  return headers;
+}
+
+async function roleAutorise(): Promise<boolean> {
+  const session = await auth();
+  return peutDeplacerHorloge(session?.user?.role);
+}
+
 export async function GET() {
+  const autorise = await roleAutorise();
+  const realNow = new Date().toISOString();
+
+  // Le champ `autorise` sert au bouton à se retirer de la barre. Pour un compte
+  // non autorisé, l'horloge est rapportée inactive : son état ne le regarde pas.
+  if (!autorise) {
+    return NextResponse.json({ autorise: false, enabled: false, date: null, realNow });
+  }
+
   const cookieStore = await cookies();
   const enabled = cookieStore.get(DEMO_NOW_ENABLED_COOKIE)?.value;
   const iso = cookieStore.get(DEMO_NOW_COOKIE)?.value;
 
   if (enabled !== "true" || !iso) {
-    return NextResponse.json({
-      enabled: false,
-      date: null,
-      realNow: new Date().toISOString(),
-    });
+    return NextResponse.json({ autorise: true, enabled: false, date: null, realNow });
   }
 
   const d = new Date(decodeURIComponent(iso));
   if (isNaN(d.getTime())) {
-    return NextResponse.json({
-      enabled: false,
-      date: null,
-      realNow: new Date().toISOString(),
-    });
+    return NextResponse.json({ autorise: true, enabled: false, date: null, realNow });
   }
 
   return NextResponse.json({
+    autorise: true,
     enabled: true,
     date: d.toISOString(),
-    realNow: new Date().toISOString(),
+    realNow,
   });
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const parsed = bodySchema.safeParse(body);
+  if (!(await roleAutorise())) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
 
+  try {
+    const parsed = bodySchema.safeParse(await req.json());
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Date invalide", details: parsed.error.issues },
@@ -59,33 +112,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { date } = parsed.data;
-    const expires = new Date();
-    expires.setDate(expires.getDate() + 7);
-
-    const headers = new Headers();
-    if (date === null) {
-      headers.append(
-        "Set-Cookie",
-        `${DEMO_NOW_ENABLED_COOKIE}=false; path=/; expires=${expires.toUTCString()}; SameSite=Lax`
-      );
-      headers.append(
-        "Set-Cookie",
-        `${DEMO_NOW_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
-      );
-    } else {
-      headers.append(
-        "Set-Cookie",
-        `${DEMO_NOW_ENABLED_COOKIE}=true; path=/; expires=${expires.toUTCString()}; SameSite=Lax`
-      );
-      headers.append(
-        "Set-Cookie",
-        `${DEMO_NOW_COOKIE}=${encodeURIComponent(date)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`
-      );
-    }
-
     return NextResponse.json(
-      { enabled: date !== null, date, realNow: new Date().toISOString() },
-      { headers }
+      { autorise: true, enabled: date !== null, date, realNow: new Date().toISOString() },
+      { headers: poserCookies(date) }
     );
   } catch {
     return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
@@ -93,21 +122,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE() {
-  const expires = new Date();
-  expires.setDate(expires.getDate() + 7);
-
-  const headers = new Headers();
-  headers.append(
-    "Set-Cookie",
-    `${DEMO_NOW_ENABLED_COOKIE}=false; path=/; expires=${expires.toUTCString()}; SameSite=Lax`
-  );
-  headers.append(
-    "Set-Cookie",
-    `${DEMO_NOW_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
-  );
+  if (!(await roleAutorise())) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
 
   return NextResponse.json(
-    { enabled: false, date: null, realNow: new Date().toISOString() },
-    { headers }
+    { autorise: true, enabled: false, date: null, realNow: new Date().toISOString() },
+    { headers: poserCookies(null) }
   );
 }

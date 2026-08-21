@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import type { Session } from "next-auth";
 import { erreurJson } from "@/lib/erreurs-api";
+import { normaliserEmail } from "@/lib/email";
 
 function requireSuperAdmin(session: Session | null) {
   if (!session?.user || session.user.role !== "SUPER_ADMIN") {
@@ -21,7 +22,7 @@ const CreateTenantSchema = z.object({
   country: z.string().default("SN"),
   plan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]).default("STARTER"),
   // Compte admin de l'école
-  adminEmail: z.string().email(),
+  adminEmail: z.string().email().transform(normaliserEmail),
   adminName: z.string().min(2),
   adminPassword: z.string().min(8),
   // Synchronisation locale (sauvegarde automatique sur PC du principal)

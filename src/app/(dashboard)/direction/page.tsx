@@ -5,12 +5,16 @@ import { Header } from "@/components/layout/Header";
 import { GrilleKpi } from "@/components/learnos/GrilleKpi";
 import { AlertesAnticipees } from "@/components/curriculum/PlanificationView";
 import { AlerteDecalage } from "@/components/learnos/AlerteDecalage";
+import { ActivityTimeline, type ActivityItemData } from "@/components/dashboard/ActivityTimeline";
+import { DelaysByTheme, type ThemeRetardData } from "@/components/dashboard/DelaysByTheme";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { kpisDirection } from "@/lib/learnos/kpi";
 import { getDemoNow } from "@/lib/demo-now";
 import { alertesAnticipees } from "@/lib/learnos/planification";
 import { siteFilterForModel, isTenantWideRole } from "@/lib/site-scope";
+import { getActivityFeed, type ActivityItem } from "@/lib/activity-feed";
+import { getTeacherDelays } from "@/lib/teacher-delays";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, AlertTriangle, ShieldAlert, UserX } from "lucide-react";
 
@@ -34,10 +38,28 @@ export default async function DirectionPage() {
   });
 
   const maintenant = await getDemoNow();
-  const [kpis, alertes] = await Promise.all([
+  const [kpis, alertes, feedRecent, feedAujourdhui, feedSemaine, feedMois, retards] = await Promise.all([
     kpisDirection(tenantId, claims, maintenant),
     annee ? alertesAnticipees(tenantId, annee.id, claims) : Promise.resolve([]),
+    getActivityFeed(tenantId, claims, "recent", maintenant),
+    getActivityFeed(tenantId, claims, "aujourdhui", maintenant),
+    getActivityFeed(tenantId, claims, "semaine", maintenant),
+    getActivityFeed(tenantId, claims, "mois", maintenant),
+    getTeacherDelays(tenantId, claims),
   ]);
+
+  const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
+    items.map((i) => ({
+      id: i.id, type: i.type, titre: i.titre, description: i.description,
+      date: i.date.toISOString(), href: i.href,
+    }));
+
+  const itemsParPeriode = {
+    recent: serialiser(feedRecent),
+    aujourdhui: serialiser(feedAujourdhui),
+    semaine: serialiser(feedSemaine),
+    mois: serialiser(feedMois),
+  };
 
   // ──────────────────────────────────────────────────────────────
   // 1. Comparateur inter-sites (TENANT_ADMIN et SUPER_ADMIN seulement)
@@ -200,6 +222,12 @@ export default async function DirectionPage() {
           </section>
         )}
 
+        {/* ── Retards d'exécution des enseignants et profs principaux ── */}
+        <section className="space-y-3">
+          <h2 className="text-lg sm:text-xl font-semibold">{t("retardsExecution")}</h2>
+          <DelaysByTheme themes={retards as ThemeRetardData[]} />
+        </section>
+
         {/* ── Comparateur inter-sites ─────────────────────────────── */}
         {peutComparerSites && (
           <section className="space-y-3">
@@ -248,6 +276,12 @@ export default async function DirectionPage() {
             )}
           </section>
         )}
+
+        {/* ── Timeline d'activité ─────────────────────────────── */}
+        <section className="space-y-3">
+          <h2 className="text-lg sm:text-xl font-semibold">{t("activiteRecente")}</h2>
+          <ActivityTimeline itemsParPeriode={itemsParPeriode} />
+        </section>
       </div>
     </div>
   );
