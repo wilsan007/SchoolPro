@@ -376,7 +376,9 @@ symptôme est « Identifiants invalides », la trace dans `audit_logs` est
 Repérer les comptes concernés :
 
 ```bash
-ssh root@VPS_IP 'docker exec ecolemiriam-postgres sh -c '"'"'PGPASSWORD="$(cat $POSTGRES_PASSWORD_FILE)" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT email FROM users WHERE email <> lower(email);"'"'"''
+make shell-db
+# puis, dans psql :
+#   SELECT email FROM users WHERE email <> lower(email);
 ```
 
 Correctif de données (transactionnel, refuse de s'exécuter en cas de

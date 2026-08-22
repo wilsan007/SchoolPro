@@ -23,6 +23,13 @@ wrangler.jsonc
 # .env.production contient les mots de passe PostgreSQL, AUTH_SECRET et le
 # jeton du tunnel Cloudflare (voir DEPLOYMENT-VPS.md) : jamais dans git.
 .env.production
+# Sauvegardes de fichiers d'environnement : même contenu, mêmes secrets.
+# Repéré le 2026-08-22 — .env.bak contenait des identifiants réels sans
+# être couvert par aucune règle.
+.env.bak
+.env.*.bak
+*.env.backup
+
 # Secrets chiffrés / clés de déploiement
 secrets/
 *.key

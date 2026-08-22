@@ -12,6 +12,37 @@ SHELL := /usr/bin/env bash
 VPS ?= root@localhost
 DEPLOY_DIR ?= /opt/ecolpro
 
+# ============================================================
+# Garde-fou d'inter-projets
+#
+# Un projet voisin — EcolPro / ecolemiriam.com — tourne en PRODUCTION sur
+# 169.58.208.217 (/opt/ecolemiriam) avec un schéma qui a divergé du nôtre
+# d'une cinquantaine de tables. Y lancer une cible de CE dépôt (déploiement,
+# migration, audit) corromprait une base contenant des élèves, des parents
+# et de la comptabilité.
+#
+# Toute cible qui ouvre une connexion SSH passe donc d'abord par
+# `verifier-vps`. Voir GARDE-FOUS.md.
+# ============================================================
+VPS_INTERDIT := 169.58.208.217
+
+.PHONY: verifier-vps
+verifier-vps:
+	@if echo "$(VPS)" | grep -q "$(VPS_INTERDIT)"; then \
+		echo ""; \
+		echo "$(R)  ╔══════════════════════════════════════════════════════════════╗$(N)"; \
+		echo "$(R)  ║  CIBLE REFUSÉE — MAUVAIS PROJET                              ║$(N)"; \
+		echo "$(R)  ╚══════════════════════════════════════════════════════════════╝$(N)"; \
+		echo ""; \
+		echo "  $(VPS) héberge ecolemiriam.com — projet EcolPro, PAS SchoolPro."; \
+		echo "  Les deux schémas ont divergé : y appliquer celui-ci détruirait"; \
+		echo "  une base de production."; \
+		echo ""; \
+		echo "  Pour intervenir sur ecolemiriam : ~/Projects/EcolPro-Ops"; \
+		echo ""; \
+		exit 1; \
+	fi
+
 # Labo de test (docker-compose.test.yml) — mots de passe publics assumés :
 # base éphémère, en mémoire, publiée sur 127.0.0.1 uniquement.
 RLS_TEST_OWNER_URL ?= postgresql://ecolpro_owner:test_owner_local_only@127.0.0.1:55433/ecolpro_test?schema=public&sslmode=require
@@ -21,6 +52,7 @@ RLS_TEST_PSQL ?= host=127.0.0.1 port=5432 user=ecolpro_owner dbname=ecolpro_test
 
 # Couleurs pour l'aide
 G := \033[0;32m
+R := \033[0;31m
 Y := \033[1;33m
 B := \033[1m
 N := \033[0m
@@ -54,22 +86,22 @@ help: ## Affiche cette aide
 # ============================================================
 
 .PHONY: harden-os
-harden-os: ## Sécurité — durcit le système d'exploitation du VPS (UFW, SSH, fail2ban)
+harden-os: verifier-vps ## Sécurité — durcit le système d'exploitation du VPS (UFW, SSH, fail2ban)
 	@echo "$(B)[1/1] Durcissement du système d'exploitation$(N)"
 	ssh $(VPS) 'bash -s' < docker/scripts/harden-os.sh
 
 .PHONY: audit
-audit: ## Sécurité — exécute l'audit scoré sur le VPS
+audit: verifier-vps ## Sécurité — exécute l'audit scoré sur le VPS
 	@echo "$(B)[1/1] Audit de sécurité$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && ./docker/scripts/security-audit.sh'
 
 .PHONY: audit-db
-audit-db: ## Sécurité — audit de la base de données (rôles, RLS, pgaudit)
+audit-db: verifier-vps ## Sécurité — audit de la base de données (rôles, RLS, pgaudit)
 	@echo "$(B)[1/1] Audit de la base de données$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && ./docker/scripts/security-audit-db.sh'
 
 .PHONY: trivy
-trivy: ## Sécurité — analyse les images Docker avec Trivy
+trivy: verifier-vps ## Sécurité — analyse les images Docker avec Trivy
 	@echo "$(B)[1/1] Analyse Trivy des images$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && \
 		for img in ecolpro/app ecolpro/db ecolpro/pgbouncer ecolpro/caddy; do \
@@ -105,15 +137,15 @@ secrets-view: ## Secrets — affiche les secrets en clair (à n'utiliser qu'en c
 # ============================================================
 
 .PHONY: deploy
-deploy: ## Déploiement — construit et déploie sur le VPS avec rollback auto
+deploy: verifier-vps ## Déploiement — construit et déploie sur le VPS avec rollback auto
 	./docker/scripts/deploy.sh --vps $(VPS) --deploy-dir $(DEPLOY_DIR)
 
 .PHONY: deploy-no-build
-deploy-no-build: ## Déploiement — déploie sans reconstruire les images
+deploy-no-build: verifier-vps ## Déploiement — déploie sans reconstruire les images
 	./docker/scripts/deploy.sh --vps $(VPS) --deploy-dir $(DEPLOY_DIR) --skip-build
 
 .PHONY: rollback
-rollback: ## Déploiement — revient à l'image précédente (ecolpro/app:previous)
+rollback: verifier-vps ## Déploiement — revient à l'image précédente (ecolpro/app:previous)
 	@echo "$(B)[1/1] Rollback vers l'image précédente$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && \
 		docker image inspect ecolpro/app:previous >/dev/null 2>&1 && \
@@ -123,23 +155,23 @@ rollback: ## Déploiement — revient à l'image précédente (ecolpro/app:previ
 		echo "Aucune image précédente disponible."'
 
 .PHONY: status
-status: ## Déploiement — affiche l'état de la stack sur le VPS
+status: verifier-vps ## Déploiement — affiche l'état de la stack sur le VPS
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && docker compose ps'
 
 .PHONY: logs
-logs: ## Déploiement — journaux de l'application en direct
+logs: verifier-vps ## Déploiement — journaux de l'application en direct
 	ssh $(VPS) 'docker logs -f --tail 100 ecolpro-app'
 
 .PHONY: logs-db
-logs-db: ## Déploiement — journaux de PostgreSQL en direct
+logs-db: verifier-vps ## Déploiement — journaux de PostgreSQL en direct
 	ssh $(VPS) 'docker logs -f --tail 100 ecolpro-db'
 
 .PHONY: shell
-shell: ## Déploiement — ouvre un shell sur le conteneur applicatif
+shell: verifier-vps ## Déploiement — ouvre un shell sur le conteneur applicatif
 	ssh $(VPS) 'docker exec -it ecolpro-app sh'
 
 .PHONY: shell-db
-shell-db: ## Déploiement — ouvre psql sur le conteneur PostgreSQL
+shell-db: verifier-vps ## Déploiement — ouvre psql sur le conteneur PostgreSQL
 	ssh $(VPS) 'docker exec -it ecolpro-db psql -U postgres -d ecolpro'
 
 .PHONY: ps
@@ -150,11 +182,11 @@ ps: status
 # ============================================================
 
 .PHONY: migrate
-migrate: ## Migration — Supabase Cloud → VPS (avec vérification des effectifs)
+migrate: verifier-vps ## Migration — Supabase Cloud → VPS (avec vérification des effectifs)
 	./docker/scripts/migrate-from-supabase.sh --vps $(VPS) --deploy-dir $(DEPLOY_DIR)
 
 .PHONY: fix-passwords
-fix-passwords: ## Migration — répare les hash de mots de passe des comptes chargés par SQL
+fix-passwords: verifier-vps ## Migration — répare les hash de mots de passe des comptes chargés par SQL
 	@echo "$(B)[1/2] Envoi du script de réparation$(N)"
 	scp prisma/sql/MANUAL-02-fix-hash-mots-de-passe.sql $(VPS):/tmp/fix-hash.sql
 	@echo "$(B)[2/2] Exécution — « comptes_casses » doit finir à 0$(N)"
@@ -165,17 +197,17 @@ fix-passwords: ## Migration — répare les hash de mots de passe des comptes ch
 # ============================================================
 
 .PHONY: backup
-backup: ## Maintenance — déclenche une sauvegarde pgBackRest immédiate
+backup: verifier-vps ## Maintenance — déclenche une sauvegarde pgBackRest immédiate
 	@echo "$(B)[1/1] Sauvegarde pgBackRest$(N)"
 	ssh $(VPS) 'docker exec ecolpro-db pgbackrest --stanza=ecolpro --type=full backup'
 
 .PHONY: backup-verify
-backup-verify: ## Maintenance — teste la restauration sur une base scratch
+backup-verify: verifier-vps ## Maintenance — teste la restauration sur une base scratch
 	@echo "$(B)[1/1] Test de restauration$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && ./docker/scripts/backup-verify.sh'
 
 .PHONY: backup-offsite-init
-backup-offsite-init: ## Maintenance — initialise et teste le dépôt de sauvegarde hors site
+backup-offsite-init: verifier-vps ## Maintenance — initialise et teste le dépôt de sauvegarde hors site
 	@echo "$(B)[1/3] Création de la stanza sur le dépôt distant$(N)"
 	ssh $(VPS) 'docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=ecolpro --repo=2 stanza-create"'
 	@echo "$(B)[2/3] Vérification de l'\''accès au dépôt$(N)"
@@ -185,7 +217,7 @@ backup-offsite-init: ## Maintenance — initialise et teste le dépôt de sauveg
 	@echo "$(G)Dépôt hors site opérationnel.$(N) Vérifier : make backup-list"
 
 .PHONY: backup-list
-backup-list: ## Maintenance — liste les sauvegardes disponibles
+backup-list: verifier-vps ## Maintenance — liste les sauvegardes disponibles
 	ssh $(VPS) 'docker exec ecolpro-db pgbackrest --stanza=ecolpro info'
 
 # ============================================================
@@ -193,7 +225,7 @@ backup-list: ## Maintenance — liste les sauvegardes disponibles
 # ============================================================
 
 .PHONY: update-images
-update-images: ## Maintenance — met à jour les images de base et reconstruit
+update-images: verifier-vps ## Maintenance — met à jour les images de base et reconstruit
 	@echo "$(B)[1/1] Mise à jour des images$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && \
 		docker compose --env-file .env.runtime pull && \
@@ -201,24 +233,24 @@ update-images: ## Maintenance — met à jour les images de base et reconstruit
 		docker compose --env-file .env.runtime up -d'
 
 .PHONY: update-os
-update-os: ## Maintenance — met à jour les paquets du système d'exploitation
+update-os: verifier-vps ## Maintenance — met à jour les paquets du système d'exploitation
 	@echo "$(B)[1/1] Mise à jour du système$(N)"
 	ssh $(VPS) 'apt-get update && apt-get -y upgrade && apt-get -y autoremove'
 
 .PHONY: prune
-prune: ## Maintenance — nettoie les images et conteneurs inutilisés
+prune: verifier-vps ## Maintenance — nettoie les images et conteneurs inutilisés
 	ssh $(VPS) 'docker system prune -f --volumes=false'
 
 .PHONY: restart
-restart: ## Maintenance — redémarre toute la stack
+restart: verifier-vps ## Maintenance — redémarre toute la stack
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && docker compose --env-file .env.runtime restart'
 
 .PHONY: down
-down: ## Maintenance — arrête toute la stack (sans supprimer les données)
+down: verifier-vps ## Maintenance — arrête toute la stack (sans supprimer les données)
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && docker compose --env-file .env.runtime down'
 
 .PHONY: up
-up: ## Maintenance — démarre la stack sans reconstruire
+up: verifier-vps ## Maintenance — démarre la stack sans reconstruire
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && docker compose --env-file .env.runtime up -d'
 
 # ============================================================
@@ -313,7 +345,7 @@ rls-test: ## Sécurité — prouve l'isolation multi-tenant en base (labo requis
 rls-full: test-db-up rls-apply-test rls-test ## Sécurité — labo + application + preuve, d'un trait
 
 .PHONY: rls-apply-prod
-rls-apply-prod: ## Sécurité — applique fonctions + politiques RLS en PRODUCTION
+rls-apply-prod: verifier-vps ## Sécurité — applique fonctions + politiques RLS en PRODUCTION
 	@echo "$(Y)Application de la RLS sur la PRODUCTION ($(VPS)).$(N)"
 	@echo "Prérequis : RLS_MODE=warn déployé, journaux [rls] silencieux, sauvegarde fraîche."
 	@echo "Voir RUNBOOK.md — « Activation de la RLS ». Ctrl-C pour annuler."

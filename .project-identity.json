@@ -1,0 +1,61 @@
+{
+  "project": "SchoolPro",
+  "repository": "github.com/wilsan007/SchoolPro",
+
+  "_pourquoi_ce_fichier": [
+    "Deux projets voisins existent, issus d'un ancêtre commun et portant des",
+    "noms très proches — d'où des confusions répétées, et un risque réel de",
+    "corruption :",
+    "",
+    "  SchoolPro  → github.com/wilsan007/SchoolPro  → ~112 modèles, AVEC LEARNOS",
+    "  EcolPro    → github.com/wilsan007/EcolPro    → 66 tables, SANS LEARNOS,",
+    "               déployé sur le VPS 169.58.208.217 (/opt/ecolemiriam),",
+    "               base « ecolemiriam », qui sert une école EN PRODUCTION.",
+    "",
+    "Les deux schémas ont divergé : environ 46 tables (dont toutes les",
+    "learnos_*) n'existent que dans SchoolPro, et des tables comme",
+    "cahier_textes ou user_permissions n'existent que dans EcolPro.",
+    "",
+    "Un `prisma db push` ou `migrate deploy` lancé depuis CE dépôt contre la",
+    "base d'ecolemiriam tenterait de créer des dizaines de tables absentes et",
+    "d'aligner le schéma existant : corruption immédiate d'une base de",
+    "production contenant des élèves, des parents et des données financières.",
+    "",
+    "Ce fichier décrit l'empreinte attendue de la base cible. Le garde-fou",
+    "scripts/guard-target-db.cjs la vérifie AVANT toute opération destructrice.",
+    "Voir aussi : GARDE-FOUS.md"
+  ],
+
+  "database": {
+    "marqueurs_obligatoires": [
+      "learnos_questions",
+      "learnos_competences"
+    ],
+    "_note_marqueurs": [
+      "Ces listes ne sont pas devinées : elles sont la différence ensembliste",
+      "réelle entre les 116 tables de SchoolPro et les 66 d'ecolemiriam,",
+      "calculée le 2026-08-22. Attention aux faux amis — progressions_eleves,",
+      "par exemple, existe dans LES DEUX et ne peut donc pas servir de",
+      "marqueur. Recalculer cette différence si l'un des schémas évolue."
+    ],
+    "marqueurs_interdits": [
+      "cahier_textes",
+      "cahier_texte_commentaires",
+      "enseignant_affectations",
+      "enseignant_matieres",
+      "user_permissions"
+    ],
+    "hotes_autorises": [
+      "127.0.0.1",
+      "localhost",
+      "aws-1-eu-west-1.pooler.supabase.com"
+    ]
+  },
+
+  "interdits": {
+    "hotes": [
+      "169.58.208.217"
+    ],
+    "raison": "VPS de production d'ecolemiriam.com — appartient au projet EcolPro, schéma incompatible avec celui-ci."
+  }
+}
