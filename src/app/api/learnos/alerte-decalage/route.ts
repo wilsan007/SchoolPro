@@ -5,6 +5,7 @@ import { erreurJson } from "@/lib/erreurs-api";
 import prisma from "@/lib/prisma";
 import { detecterDecalageSemaine } from "@/lib/learnos/alerte-decalage";
 import { getDemoNow } from "@/lib/demo-now";
+import { anneeALaDate } from "@/lib/annee-scolaire";
 
 /**
  * GET /api/learnos/alerte-decalage?semaine=N
@@ -32,11 +33,11 @@ export async function GET(req: NextRequest) {
   const semaineParam = searchParams.get("semaine");
   const semaine = semaineParam ? parseInt(semaineParam, 10) : undefined;
 
-  // Résoudre l'année courante.
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
-    select: { id: true },
-  });
+  // Résoudre l'année active au sens chronologique (respecte la Time Machine
+  // et le trou estival : pendant les vacances, c'est la dernière année
+  // terminée, pas la prochaine marquée isCurrent qui n'a pas commencé).
+  const maintenant = await getDemoNow();
+  const annee = await anneeALaDate(tenantId, maintenant);
 
   if (!annee) {
     return NextResponse.json(
@@ -45,8 +46,20 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // En période estivale (l'année active n'a pas encore commencé), il n'y a
+  // ni planification ni enseignement : on retourne un résultat vide plutôt
+  // que de chercher des décalages sur une année qui n'existe pas encore.
+  if (annee.dateDebut > maintenant) {
+    return NextResponse.json({
+      resume: { total: 0, decalages: 0, declaresSeuls: 0, alignes: 0 },
+      details: [],
+      semaine: 0,
+      debut: annee.dateDebut.toISOString(),
+      fin: annee.dateDebut.toISOString(),
+    });
+  }
+
   try {
-    const maintenant = await getDemoNow();
     const resultat = await detecterDecalageSemaine(
       tenantId,
       annee.id,

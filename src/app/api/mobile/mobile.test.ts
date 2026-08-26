@@ -22,11 +22,13 @@ vi.mock("@/lib/prisma", () => ({
     absence: { count: vi.fn(), findMany: vi.fn() },
     evaluation: { findMany: vi.fn() },
     deviceToken: { upsert: vi.fn() },
+    anneesScolaires: { findFirst: vi.fn(async () => ({ libelle: "2025-2026" })) },
   },
 }));
 
 vi.mock("@/lib/demo-now", () => ({
   getDemoNow: vi.fn(async () => new Date("2025-11-15T10:00:00Z")),
+  getDemoDate: vi.fn(() => null),
   bornesDuJour: vi.fn(() => ({
     debut: new Date("2025-11-15T00:00:00Z"),
     fin: new Date("2025-11-15T23:59:59Z"),
@@ -37,6 +39,7 @@ vi.mock("@/lib/site-scope", () => ({
   eleveScopeFilter: vi.fn(() => ({})),
   siteFilterForModel: vi.fn(() => ({})),
   siteFilterForRelation: vi.fn(() => ({})),
+  isRelationScopedRole: vi.fn(() => false),
 }));
 
 vi.mock("@/lib/site-filter", () => ({

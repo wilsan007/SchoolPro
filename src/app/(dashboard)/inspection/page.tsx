@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
  * Espace de l'inspecteur MENFOP.
@@ -21,6 +23,8 @@ export default async function InspectionPage() {
 
   const tenantId = session!.user.tenantId!;
   const claims = session!.user as SessionSiteClaims;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const maintenant = await getDemoNow();
 
   const [effectif, classes, absences, notesAgg, notesPassees, notesTotal] = await Promise.all([
     prisma.eleve.count({
@@ -28,18 +32,22 @@ export default async function InspectionPage() {
         tenantId,
         statut: "ACTIF",
         ...siteFilterForModel("eleve", claims),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
     }),
     prisma.classe.count({
       where: {
         tenantId,
         ...siteFilterForModel("classe", claims),
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
       },
     }),
     prisma.absence.count({
       where: {
         tenantId,
         ...siteFilterForModel("absence", claims),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+        date: { lte: maintenant },
       },
     }),
     // Moyenne générale sur l'ensemble des notes (valeur normalisée /20).
@@ -47,6 +55,8 @@ export default async function InspectionPage() {
       where: {
         tenantId,
         ...siteFilterForModel("note", claims),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+        date: { lte: maintenant },
       },
       _avg: { valeur: true },
     }),
@@ -56,6 +66,8 @@ export default async function InspectionPage() {
         tenantId,
         valeur: { gte: 10 },
         ...siteFilterForModel("note", claims),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+        date: { lte: maintenant },
       },
     }),
     // Effectif total de notes (dénominateur du taux de réussite).
@@ -63,6 +75,8 @@ export default async function InspectionPage() {
       where: {
         tenantId,
         ...siteFilterForModel("note", claims),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+        date: { lte: maintenant },
       },
     }),
   ]);

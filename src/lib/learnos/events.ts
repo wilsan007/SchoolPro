@@ -38,6 +38,9 @@ export const LEARNOS_EVENT_TYPES = [
   "note.deleted",
   "absence.recorded",
   "evaluation.completed",
+  "seance.cloturee",
+  "devoir.enretard",
+  "decalage.detecte",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -57,6 +60,38 @@ export interface NoteRecordedPayload {
   intitule: string | null;
   date: string;
   saisieParId: string | null;
+}
+
+/** Instantané d'une séance au moment où elle est clôturée (EFFECTUEE). */
+export interface SeanceClotureePayload {
+  seanceId: string;
+  classeId: string;
+  matiereId: string;
+  chapitreId: string | null;
+  enseignantId: string | null;
+  semaine: number;
+  competences: { competenceId: string; niveau: string }[];
+  devoirsDonnes: number;
+  presents: number | null;
+  absents: number | null;
+}
+
+/** Instantané d'un devoir en retard (dateRendu dépassée, non rendu/corrigé). */
+export interface DevoirEnRetardPayload {
+  devoirId: string;
+  classeId: string;
+  matiereId: string;
+  joursRetard: number;
+}
+
+/** Décalage détecté entre la planification et la réalité du terrain. */
+export interface DecalageDetectePayload {
+  classeId: string | null;
+  matiereId: string;
+  chapitreId: string;
+  semainePrevue: number;
+  semaineActuelle: number;
+  niveauDecalage: string;
 }
 
 export interface LearnosEventInput {

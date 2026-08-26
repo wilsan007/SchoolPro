@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
+import { getDemoNow } from "@/lib/demo-now";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   const parent = eleve.parents[0]?.parent;
   const dateStr = dateConvocation ? format(new Date(dateConvocation), "dd MMMM yyyy à HH:mm", { locale: fr }) : "Date à confirmer";
-  const todayStr = format(new Date(), "dd MMMM yyyy", { locale: fr });
+  const todayStr = format(await getDemoNow(), "dd MMMM yyyy", { locale: fr });
 
   const html = `<!DOCTYPE html>
 <html lang="fr">

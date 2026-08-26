@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
   id: string;
@@ -39,7 +40,7 @@ const TITRES = ["attScolarite", "attCertificat", "attInscription"];
 const HONORIFIQUES_VALUES = ["Monsieur", "Madame", "Mademoiselle"];
 const TITRES_VALUES = ["Attestation de scolarité", "Certificat de scolarité", "Attestation d'inscription"];
 
-export function AttestationForm({ classes, tenant }: { classes: Classe[]; tenant: TenantInfo }) {
+export function AttestationForm({ classes, tenant, hierarchie }: { classes: Classe[]; tenant: TenantInfo; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("eleves");
   const [honorifique, setHonorifique] = useState("Monsieur");
   const [titre, setTitre] = useState("Attestation de scolarité");

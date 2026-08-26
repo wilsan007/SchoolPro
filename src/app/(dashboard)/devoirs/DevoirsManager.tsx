@@ -14,8 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Plus } from "lucide-react";
+import { ClassGroupedSelect } from "@/components/classes/ClassGroupedSelect";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
-type ClasseOption = { id: string; nom: string };
 type MatiereOption = { id: string; nom: string; couleur?: string | null };
 type DevoirItem = {
   id: string;
@@ -28,11 +30,11 @@ type DevoirItem = {
 };
 
 export function DevoirsManager({
-  classes,
+  hierarchie,
   matieres,
   devoirs: initial,
 }: {
-  classes: ClasseOption[];
+  hierarchie: ClassesHierarchie;
   matieres: MatiereOption[];
   devoirs: DevoirItem[];
 }) {
@@ -41,7 +43,8 @@ export function DevoirsManager({
   const [pending, startTransition] = useTransition();
 
   // champs du formulaire
-  const [classeId, setClasseId] = useState(classes[0]?.id ?? "");
+  const allClasses = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes));
+  const [classeId, setClasseId] = useState(allClasses[0]?.id ?? "");
   const [matiereId, setMatiereId] = useState(matieres[0]?.id ?? "");
   const [titre, setTitre] = useState("");
   const [description, setDescription] = useState("");
@@ -97,13 +100,13 @@ export function DevoirsManager({
   const statutBadge = (s: DevoirItem["statut"]) => {
     switch (s) {
       case "A_FAIRE":
-        return <Badge variant="outline">{t("aFaire")}</Badge>;
+        return <span className="inline-flex items-center rounded-full bg-[#0ea5e9]/10 text-[#0369a1] px-2.5 py-0.5 text-xs font-medium border border-[#0ea5e9]/20">{t("aFaire")}</span>;
       case "EN_COURS":
-        return <Badge variant="secondary">{t("enCours")}</Badge>;
+        return <span className="inline-flex items-center rounded-full bg-[#9b6fe0]/10 text-[#7c3aed] px-2.5 py-0.5 text-xs font-medium border border-[#9b6fe0]/20">{t("enCours")}</span>;
       case "RENDU":
-        return <Badge variant="secondary">{t("rendu")}</Badge>;
+        return <span className="inline-flex items-center rounded-full bg-[#14b8a6]/10 text-[#0d9488] px-2.5 py-0.5 text-xs font-medium border border-[#14b8a6]/20">{t("rendu")}</span>;
       case "CORRIGE":
-        return <Badge variant="default">{t("corrige")}</Badge>;
+        return <span className="inline-flex items-center rounded-full bg-gradient-to-r from-[#0ea5e9] to-[#9b6fe0] text-white px-2.5 py-0.5 text-xs font-medium shadow-[0_2px_8px_rgba(155,111,224,0.2)]">{t("corrige")}</span>;
     }
   };
 
@@ -112,29 +115,29 @@ export function DevoirsManager({
       {/* Formulaire de création */}
       <form
         onSubmit={creer}
-        className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-sm"
+        className="card-bloom p-6 space-y-4"
       >
-        <h3 className="font-semibold">{t("nouveau")}</h3>
+        <div className="flex items-center gap-3 pb-3 border-b border-border/60">
+          <div className="pastille-azure w-9 h-9 rounded-xl flex items-center justify-center">
+            <Plus className="w-4 h-4 text-white" />
+          </div>
+          <h3 className="font-display text-lg font-semibold text-foreground">{t("nouveau")}</h3>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="classe">{t("classe")}</Label>
-            <Select value={classeId} onValueChange={setClasseId}>
-              <SelectTrigger id="classe">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="classe" className="text-muted-foreground font-medium">{t("classe")}</Label>
+            <ClassGroupedSelect
+              hierarchie={hierarchie}
+              value={classeId}
+              onValueChange={setClasseId}
+              id="classe"
+              className="bg-input/50 border-border rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="matiere">{t("matiere")}</Label>
+            <Label htmlFor="matiere" className="text-muted-foreground font-medium">{t("matiere")}</Label>
             <Select value={matiereId} onValueChange={setMatiereId}>
-              <SelectTrigger id="matiere">
+              <SelectTrigger id="matiere" className="bg-input/50 border-border rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -148,35 +151,38 @@ export function DevoirsManager({
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="titre">{t("titreDevoir")}</Label>
+          <Label htmlFor="titre" className="text-muted-foreground font-medium">{t("titreDevoir")}</Label>
           <Input
             id="titre"
             value={titre}
             onChange={(e) => setTitre(e.target.value)}
             required
+            className="bg-input/50 border-border rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200"
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="description">{t("description")}</Label>
+          <Label htmlFor="description" className="text-muted-foreground font-medium">{t("description")}</Label>
           <Textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
+            className="bg-input/50 border-border rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200"
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="dateRendu">{t("dateRendu")}</Label>
+          <Label htmlFor="dateRendu" className="text-muted-foreground font-medium">{t("dateRendu")}</Label>
           <Input
             id="dateRendu"
             type="date"
             value={dateRendu}
             onChange={(e) => setDateRendu(e.target.value)}
             required
+            className="bg-input/50 border-border rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200"
           />
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} className="bg-primary hover:bg-primary/90 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20">
           {t("creer")}
         </Button>
       </form>
@@ -184,54 +190,65 @@ export function DevoirsManager({
       {/* Liste des devoirs existants */}
       <div className="space-y-3">
         {devoirs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("aucun")}</p>
+          <div className="card-bloom p-12 text-center">
+            <p className="text-sm text-muted-foreground">{t("aucun")}</p>
+          </div>
         ) : (
-          devoirs.map((d) => (
-            <div
-              key={d.id}
-              className="rounded-xl border border-border bg-card p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <h4 className="font-semibold leading-tight">{d.titre}</h4>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{d.classe.nom}</span>
-                    <span>·</span>
-                    <span>{d.matiere.nom}</span>
-                    <span>·</span>
-                    <span>
-                      {t("dateRendu")} :{" "}
-                      {new Date(d.dateRendu).toLocaleDateString()}
-                    </span>
+          devoirs.map((d) => {
+            const couleur = d.matiere.couleur ?? "#0ea5e9";
+            return (
+              <div
+                key={d.id}
+                className="halo-hover rounded-[18px] border border-border bg-azure-mist p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: couleur, boxShadow: `0 0 8px ${couleur}40` }}
+                      />
+                      <h4 className="font-semibold leading-tight text-foreground truncate">{d.titre}</h4>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center rounded-md bg-[#0ea5e9]/8 text-[#0369a1] px-2 py-0.5 font-medium">{d.classe.nom}</span>
+                      <span>·</span>
+                      <span className="inline-flex items-center rounded-md bg-[#9b6fe0]/8 text-[#7c3aed] px-2 py-0.5 font-medium">{d.matiere.nom}</span>
+                      <span>·</span>
+                      <span className="text-muted-foreground/80">
+                        {t("dateRendu")} :{" "}
+                        {new Date(d.dateRendu).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {d.description && (
+                      <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                        {d.description}
+                      </p>
+                    )}
                   </div>
-                  {d.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {d.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {statutBadge(d.statut)}
-                  <Select
-                    value={d.statut}
-                    onValueChange={(v) =>
-                      changerStatut(d.id, v as DevoirItem["statut"])
-                    }
-                  >
-                    <SelectTrigger className="h-8 w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A_FAIRE">{t("aFaire")}</SelectItem>
-                      <SelectItem value="EN_COURS">{t("enCours")}</SelectItem>
-                      <SelectItem value="RENDU">{t("rendu")}</SelectItem>
-                      <SelectItem value="CORRIGE">{t("corrige")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {statutBadge(d.statut)}
+                    <Select
+                      value={d.statut}
+                      onValueChange={(v) =>
+                        changerStatut(d.id, v as DevoirItem["statut"])
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-[140px] rounded-lg border-border/60 bg-card/50">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A_FAIRE">{t("aFaire")}</SelectItem>
+                        <SelectItem value="EN_COURS">{t("enCours")}</SelectItem>
+                        <SelectItem value="RENDU">{t("rendu")}</SelectItem>
+                        <SelectItem value="CORRIGE">{t("corrige")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

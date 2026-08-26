@@ -5,15 +5,18 @@ import { Header } from "@/components/layout/Header";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { DevoirsManager } from "./DevoirsManager";
 
 /**
  * Devoirs — saisie et suivi pour les enseignants et la direction.
  *
  * Les enseignants (TEACHER / CLASS_TEACHER) ne voient que les classes de leur
- * périmètre (`getTeacherScope`). La direction (TENANT_ADMIN, SUPER_ADMIN,
- * PRINCIPAL) voit toutes les classes du tenant.
+ * périmètre (`getTeacherScope` intégré dans `getClassesHierarchie`). La
+ * direction (TENANT_ADMIN, SUPER_ADMIN, PRINCIPAL) voit toutes les classes
+ * du tenant, groupées par catégorie → niveau → classe.
  */
 export default async function DevoirsPage() {
   const [session, t] = await Promise.all([
@@ -24,27 +27,21 @@ export default async function DevoirsPage() {
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
-  const role = session.user.role;
-  const userId = session.user.id;
   const claims = session.user as SessionSiteClaims;
 
-  // Résoudre le périmètre de classes.
-  let classeIds: string[] | null = null; // null = toutes les classes
-  if (isTeacherRole(role)) {
-    const scope = await getTeacherScope(tenantId, userId, role);
-    classeIds = scope.classeIds;
-  }
+  // Année scolaire courante — filtre obligatoire pour ne pas mélanger
+  // les devoirs de plusieurs années (le modèle Devoir n'a pas de champ
+  // annee direct, on filtre via la relation classe).
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  // Date simulée par la Time Machine : ne pas afficher les devoirs dont
+  // la date de rendu est dans le futur (relativement à la date simulée).
+  const maintenant = await getDemoNow();
 
-  const [classes, matieres, devoirs] = await Promise.all([
-    prisma.classe.findMany({
-      where: {
-        tenantId,
-        ...(classeIds ? { id: { in: classeIds } } : {}),
-        ...siteFilterForModel("classe", claims),
-      },
-      select: { id: true, nom: true },
-      orderBy: { nom: "asc" },
-    }),
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  const hierarchie = await getClassesHierarchie(tenantId, session.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+
+  const [matieres, devoirs] = await Promise.all([
     prisma.matiere.findMany({
       where: { tenantId, ...siteFilterForModel("matiere", claims) },
       select: { id: true, nom: true, couleur: true },
@@ -53,8 +50,13 @@ export default async function DevoirsPage() {
     prisma.devoir.findMany({
       where: {
         tenantId,
-        ...(classeIds ? { classeId: { in: classeIds } } : {}),
+        // Restreindre aux classes de la hiérarchie (scope enseignant déjà appliqué)
+        ...(hierarchieClasseIds.length > 0
+          ? { classeId: { in: hierarchieClasseIds } }
+          : {}),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
         ...siteFilterForModel("devoir", claims),
+        dateRendu: { lte: maintenant },
       },
       include: {
         classe: { select: { nom: true } },
@@ -74,7 +76,7 @@ export default async function DevoirsPage() {
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <DevoirsManager
-          classes={classes.map((c) => ({ id: c.id, nom: c.nom }))}
+          hierarchie={hierarchie}
           matieres={matieres.map((m) => ({
             id: m.id,
             nom: m.nom,

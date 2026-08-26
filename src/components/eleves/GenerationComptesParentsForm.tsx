@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ExportMenu } from "@/components/ui/ExportMenu";
 import type { ExportColumn } from "@/lib/export";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
   id: string;
@@ -31,7 +32,7 @@ interface Skipped {
   raison: string;
 }
 
-export function GenerationComptesParentsForm({ classes }: { classes: Classe[] }) {
+export function GenerationComptesParentsForm({ classes, hierarchie }: { classes: Classe[]; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("eleves");
   const [classeId, setClasseId] = useState("");
   const [useCustomPassword, setUseCustomPassword] = useState(false);

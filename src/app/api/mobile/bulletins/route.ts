@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 /**
  * Bulletins accessibles depuis l'app mobile.
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
   const periodeId = searchParams.get("periodeId");
 
   const scopeFilter = eleveScopeFilter(user, "eleve");
+  const anneeId = await anneeActiveId(user.tenantId);
 
   const bulletins = await prisma.bulletin.findMany({
     where: mergeFilters(
@@ -28,6 +30,7 @@ export async function GET(req: NextRequest) {
         tenantId: user.tenantId,
         ...(eleveId ? { eleveId } : {}),
         ...(periodeId ? { periodeId } : {}),
+        ...(anneeId ? { periode: { anneeId } } : {}),
       },
       scopeFilter
     ),

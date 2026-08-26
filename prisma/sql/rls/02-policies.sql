@@ -31,10 +31,10 @@
 -- pourrait insérer une ligne au nom d'un autre tenant — invisible pour
 -- lui, bien réelle pour la victime.
 --
--- Couverture : 108 tables
---    52 tenant + site
---    33 tenant seul
---    23 rattachées via un parent
+-- Couverture : 117 tables
+--    55 tenant + site
+--    37 tenant seul
+--    25 rattachées via un parent
 --     7 exclues (motivées ci-dessous)
 --
 -- Exclusions :
@@ -80,6 +80,19 @@ CREATE POLICY absences_isolation ON public."absences"
 ALTER TABLE public."absences_personnel" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS absences_personnel_isolation ON public."absences_personnel";
 CREATE POLICY absences_personnel_isolation ON public."absences_personnel"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
+  );
+
+-- AffectationEnseignant
+ALTER TABLE public."affectations_enseignants" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS affectations_enseignants_isolation ON public."affectations_enseignants";
+CREATE POLICY affectations_enseignants_isolation ON public."affectations_enseignants"
   FOR ALL
   TO ecolpro_app
   USING (
@@ -143,6 +156,19 @@ CREATE POLICY budgets_isolation ON public."budgets"
   WITH CHECK (
       tenant_matches("tenantId")
       AND site_matches("siteId")
+  );
+
+-- BulletinHistorique
+ALTER TABLE public."bulletin_historique" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS bulletin_historique_isolation ON public."bulletin_historique";
+CREATE POLICY bulletin_historique_isolation ON public."bulletin_historique"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
   );
 
 -- BulletinMatiere
@@ -321,6 +347,21 @@ CREATE POLICY cours_isolation ON public."cours"
   )
   WITH CHECK (
       ("tenantId" IS NULL OR tenant_matches("tenantId"))
+      AND site_matches("siteId")
+  );
+
+-- DemandeFourniture
+ALTER TABLE public."demandes_fournitures" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS demandes_fournitures_isolation ON public."demandes_fournitures";
+CREATE POLICY demandes_fournitures_isolation ON public."demandes_fournitures"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
       AND site_matches("siteId")
   );
 
@@ -696,6 +737,34 @@ CREATE POLICY historique_classes_isolation ON public."historique_classes"
 ALTER TABLE public."incidents" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS incidents_isolation ON public."incidents";
 CREATE POLICY incidents_isolation ON public."incidents"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
+  );
+
+-- IndisponibiliteEnseignant
+ALTER TABLE public."indisponibilites_enseignants" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS indisponibilites_enseignants_isolation ON public."indisponibilites_enseignants";
+CREATE POLICY indisponibilites_enseignants_isolation ON public."indisponibilites_enseignants"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  );
+
+-- InscriptionHistorique
+ALTER TABLE public."inscription_historique" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS inscription_historique_isolation ON public."inscription_historique";
+CREATE POLICY inscription_historique_isolation ON public."inscription_historique"
   FOR ALL
   TO ecolpro_app
   USING (
@@ -1170,6 +1239,44 @@ CREATE POLICY learnos_student_learning_profiles_isolation ON public."learnos_stu
       AND site_matches("siteId")
   );
 
+-- ListeFournitureItem
+ALTER TABLE public."liste_fourniture_items" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS liste_fourniture_items_isolation ON public."liste_fourniture_items";
+CREATE POLICY liste_fourniture_items_isolation ON public."liste_fourniture_items"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      EXISTS (
+        SELECT 1 FROM public.listes_fournitures_classes p0
+        WHERE p0.id = "listeId"
+          AND tenant_matches(p0."tenantId")
+        AND site_matches(p0."siteId")
+        )
+  )
+  WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.listes_fournitures_classes p0
+        WHERE p0.id = "listeId"
+          AND tenant_matches(p0."tenantId")
+        AND site_matches(p0."siteId")
+        )
+  );
+
+-- ListeFournitureClasse
+ALTER TABLE public."listes_fournitures_classes" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS listes_fournitures_classes_isolation ON public."listes_fournitures_classes";
+CREATE POLICY listes_fournitures_classes_isolation ON public."listes_fournitures_classes"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  );
+
 -- Matiere
 ALTER TABLE public."matieres" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS matieres_isolation ON public."matieres";
@@ -1528,6 +1635,29 @@ CREATE POLICY sanctions_isolation ON public."sanctions"
         )
   );
 
+-- SeanceCommentaire
+ALTER TABLE public."seance_commentaires" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS seance_commentaires_isolation ON public."seance_commentaires";
+CREATE POLICY seance_commentaires_isolation ON public."seance_commentaires"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      EXISTS (
+        SELECT 1 FROM public.seances_pedagogiques p0
+        WHERE p0.id = "seanceId"
+          AND tenant_matches(p0."tenantId")
+        AND site_matches(p0."siteId")
+        )
+  )
+  WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.seances_pedagogiques p0
+        WHERE p0.id = "seanceId"
+          AND tenant_matches(p0."tenantId")
+        AND site_matches(p0."siteId")
+        )
+  );
+
 -- SeanceCompetence
 ALTER TABLE public."seances_competences" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS seances_competences_isolation ON public."seances_competences";
@@ -1694,6 +1824,19 @@ CREATE POLICY tarifs_niveau_isolation ON public."tarifs_niveau"
   WITH CHECK (
       tenant_matches("tenantId")
       AND site_matches("siteId")
+  );
+
+-- UserPermission
+ALTER TABLE public."user_permissions" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_permissions_isolation ON public."user_permissions";
+CREATE POLICY user_permissions_isolation ON public."user_permissions"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
   );
 
 -- UserRole

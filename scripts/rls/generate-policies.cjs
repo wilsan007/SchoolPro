@@ -88,6 +88,8 @@ const ORPHAN_PATHS = {
   ExerciceReponse:         [{ parent: "ExerciceAssigne",    fk: "exerciceAssigneId" },
                             { parent: "FeuilleExercices",   fk: "feuilleId" }],
   SeanceCompetence:        [{ parent: "SeancePedagogique",  fk: "seanceId" }],
+  SeanceCommentaire:       [{ parent: "SeancePedagogique",  fk: "seanceId" }],
+  ListeFournitureItem:     [{ parent: "ListeFournitureClasse", fk: "listeId" }],
 };
 
 // ============================================================

@@ -4,7 +4,11 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { publishEvent } from "@/lib/learnos/events";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { z } from "zod";
+import type { Prisma, Role } from "@prisma/client";
 
 const STATUTS = ["PLANIFIEE", "EFFECTUEE", "ANNULEE", "REPORTEE"] as const;
 const RYTHMES = ["EN_AVANCE", "A_TEMPS", "EN_RETARD", "NON_EVALUEE"] as const;
@@ -29,6 +33,32 @@ const PatchSchema = z.object({
       }),
     )
     .optional(),
+  objectifs: z.array(z.string()).nullable().optional(),
+  activites: z
+    .array(z.object({ nom: z.string(), duree: z.number(), type: z.string() }))
+    .nullable()
+    .optional(),
+  supports: z
+    .array(
+      z.object({
+        type: z.string(),
+        lien: z.string(),
+        description: z.string().optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
+  differentiation: z
+    .array(
+      z.object({
+        eleve: z.string().optional(),
+        groupe: z.string().optional(),
+        adaptation: z.string(),
+      }),
+    )
+    .nullable()
+    .optional(),
+  planLeconId: z.string().nullable().optional(),
 });
 
 /**
@@ -63,7 +93,22 @@ export async function GET(
             competence: { select: { id: true, code: true, libelle: true } },
           },
         },
-        devoirs: { select: { id: true, titre: true, dateRendu: true, statut: true } },
+        devoirs: { select: { id: true, titre: true, dateRendu: true, statut: true, type: true } },
+        planLecon: {
+          select: {
+            id: true,
+            titre: true,
+            objectifs: true,
+            etapes: true,
+            differentiation: true,
+          },
+        },
+        commentaires: {
+          include: {
+            auteur: { select: { id: true, name: true, avatarUrl: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
@@ -96,11 +141,36 @@ export async function PATCH(
     }
 
     // Ownership check before update (custom ESLint rule).
+    // Un enseignant ne peut modifier que ses propres séances (classe + matière
+    // de son périmètre, pour l'année courante).
+    const role = session.user.role as Role;
+    const teacherScope = isTeacherRole(role)
+      ? await getTeacherScope(
+          session.user.tenantId,
+          session.user.id,
+          role,
+          await getAnneeCouranteLibelle(session.user.tenantId),
+        )
+      : null;
+    const scopeFilter = teacherScope?.isRestricted
+      ? {
+          AND: [
+            ...(teacherScope.classeIds.length > 0
+              ? [{ classeId: { in: teacherScope.classeIds } }]
+              : [{ id: "__none__" as const }]),
+            ...(teacherScope.matiereIds.length > 0
+              ? [{ matiereId: { in: teacherScope.matiereIds } }]
+              : [{ id: "__none__" as const }]),
+          ],
+        }
+      : {};
+
     const existing = await prisma.seancePedagogique.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...scopeFilter,
       },
     });
     if (!existing) return erreurJson("SEANCE_INTROUVABLE");
@@ -117,6 +187,11 @@ export async function PATCH(
     if (parsed.data.chapitreId !== undefined) data.chapitreId = parsed.data.chapitreId;
     if (parsed.data.planificationId !== undefined) data.planificationId = parsed.data.planificationId;
     if (parsed.data.enseignantId !== undefined) data.enseignantId = parsed.data.enseignantId;
+    if (parsed.data.objectifs !== undefined) data.objectifs = parsed.data.objectifs as unknown as Prisma.InputJsonValue;
+    if (parsed.data.activites !== undefined) data.activites = parsed.data.activites as unknown as Prisma.InputJsonValue;
+    if (parsed.data.supports !== undefined) data.supports = parsed.data.supports as unknown as Prisma.InputJsonValue;
+    if (parsed.data.differentiation !== undefined) data.differentiation = parsed.data.differentiation as unknown as Prisma.InputJsonValue;
+    if (parsed.data.planLeconId !== undefined) data.planLeconId = parsed.data.planLeconId;
 
     // Mise à jour des compétences abordées (remplacement complet).
     if (parsed.data.competences !== undefined) {
@@ -143,6 +218,42 @@ export async function PATCH(
       },
     });
 
+    // Publication d'un fait observé pour LEARNOS : la clôture d'une séance
+    // déclenche la boucle du cahier-journal (mise à jour des planifications).
+    // On ne publie que si le statut VIENT de passer à EFFECTUEE — un
+    // re-clôture ne doit pas relancer la boucle inutilement.
+    if (parsed.data.statut === "EFFECTUEE" && existing.statut !== "EFFECTUEE") {
+      const competences =
+        updated.competences?.map((c) => ({
+          competenceId: c.competenceId,
+          niveau: c.niveau,
+        })) ?? [];
+      // eslint-disable-next-line ecolpro/require-tenant-id -- seanceId is already tenant-verified above
+      const devoirsCount = await prisma.devoir.count({ where: { seanceId: id } });
+      // `void` et non `await` : la réponse HTTP ne doit pas attendre l'écriture
+      // de l'événement. L'outbox garantit la livraison même si la fonction est
+      // gelée aussitôt après.
+      void publishEvent({
+        tenantId: session.user.tenantId,
+        siteId: updated.siteId ?? null,
+        eventType: "seance.cloturee",
+        aggregateType: "seancePedagogique",
+        aggregateId: id,
+        payload: {
+          seanceId: id,
+          classeId: updated.classeId,
+          matiereId: updated.matiereId,
+          chapitreId: updated.chapitreId ?? null,
+          enseignantId: updated.enseignantId ?? null,
+          semaine: updated.semaine,
+          competences,
+          devoirsDonnes: devoirsCount,
+          presents: updated.presents ?? null,
+          absents: updated.absents ?? null,
+        },
+      });
+    }
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API/cahier-journal/seances/:id PATCH]", error);
@@ -164,11 +275,36 @@ export async function DELETE(
     if (denied) return denied;
 
     const { id } = await params;
+    // Un enseignant ne peut supprimer que ses propres séances (classe + matière
+    // de son périmètre, pour l'année courante).
+    const role = session.user.role as Role;
+    const teacherScope = isTeacherRole(role)
+      ? await getTeacherScope(
+          session.user.tenantId,
+          session.user.id,
+          role,
+          await getAnneeCouranteLibelle(session.user.tenantId),
+        )
+      : null;
+    const scopeFilter = teacherScope?.isRestricted
+      ? {
+          AND: [
+            ...(teacherScope.classeIds.length > 0
+              ? [{ classeId: { in: teacherScope.classeIds } }]
+              : [{ id: "__none__" as const }]),
+            ...(teacherScope.matiereIds.length > 0
+              ? [{ matiereId: { in: teacherScope.matiereIds } }]
+              : [{ id: "__none__" as const }]),
+          ],
+        }
+      : {};
+
     const existing = await prisma.seancePedagogique.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...scopeFilter,
       },
     });
     if (!existing) return erreurJson("SEANCE_INTROUVABLE");

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AccentCard, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -29,7 +29,7 @@ export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteF
   }, [tenantId]);
 
   return (
-    <Card>
+    <AccentCard accent="amber">
       <CardHeader>
         <CardTitle className="text-base font-semibold">{t("absencesChart")}</CardTitle>
         <CardDescription>{t("last8Weeks")} — {new Date().getFullYear()}</CardDescription>
@@ -73,14 +73,14 @@ export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteF
                 iconSize={8}
                 wrapperStyle={{ fontSize: "12px" }}
               />
-              <Bar dataKey="justifiees" name={t("justified")} fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="injustifiees" name={t("unjustified")} fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="justifiees" name={t("justified")} fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="injustifiees" name={t("unjustified")} fill="#e11d48" radius={[4, 4, 0, 0]} />
               <Bar dataKey="retards" name={t("late")} fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
           </div>
         )}
       </CardContent>
-    </Card>
+    </AccentCard>
   );
 }

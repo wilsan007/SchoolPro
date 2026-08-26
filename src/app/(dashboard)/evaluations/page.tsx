@@ -10,7 +10,10 @@ import { Eye, Edit, Star, PenLine } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "next-intl/server";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getClassesHierarchie, aplatirHierarchie } from "@/lib/classes-hierarchie";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 export const metadata = {
   title: "Liste des examens | EcolPro",
@@ -32,17 +35,27 @@ export default async function EvaluationsPage({
 
   const tenantId = session.user.tenantId;
   const { matiereId } = sp;
+  const claims = session.user as SessionSiteClaims;
 
-  const evalFilter = siteFilterForModel("evaluation", session.user);
-  const classeFilter = siteFilterForModel("classe", session.user);
-  const matiereFilter = siteFilterForModel("matiere", session.user);
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const maintenant = await getDemoNow();
 
-  const [evaluations, classes, matieres, periodes] = await Promise.all([
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  const hierarchie = await getClassesHierarchie(tenantId, session.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+  const classes = aplatirHierarchie(hierarchie).map(c => ({ id: c.id, nom: c.nom }));
+
+  const [evaluations, matieres, periodes] = await Promise.all([
     prisma.evaluation.findMany({
       where: {
         tenantId,
-        ...evalFilter,
+        ...siteFilterForModel("evaluation", claims),
         ...(matiereId ? { matiereId } : {}),
+        ...(hierarchieClasseIds.length > 0
+          ? { classeId: { in: hierarchieClasseIds } }
+          : {}),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+        date: { lte: maintenant },
       },
       include: {
         classe: { select: { nom: true, niveau: true } },
@@ -52,8 +65,13 @@ export default async function EvaluationsPage({
       },
       orderBy: { date: "desc" }
     }),
-    prisma.classe.findMany({ where: { tenantId, ...classeFilter }, select: { id: true, nom: true } }),
-    prisma.matiere.findMany({ where: { tenantId, ...matiereFilter }, select: { id: true, nom: true } }),
+    prisma.matiere.findMany({
+      where: {
+        tenantId,
+        ...siteFilterForModel("matiere", claims),
+      },
+      select: { id: true, nom: true },
+    }),
     prisma.periode.findMany({ where: { annee: { tenantId } }, select: { id: true, nom: true } }),
   ]);
 
@@ -88,7 +106,7 @@ export default async function EvaluationsPage({
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">{t("title")}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{t("subtitle")}</p>
         </div>
-        <CreateEvaluationForm classes={classes} matieres={matieres} periodes={periodes} />
+        <CreateEvaluationForm classes={classes} hierarchie={hierarchie} matieres={matieres} periodes={periodes} />
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border overflow-hidden">

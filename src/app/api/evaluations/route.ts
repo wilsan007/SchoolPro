@@ -4,6 +4,10 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, siteFilterForRelation, requireSiteIdForCreate } from "@/lib/site-filter";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,12 +22,25 @@ export async function GET(req: NextRequest) {
     const classeId = searchParams.get("classeId");
 
     const siteFilter = siteFilterForRelation(session.user, "classe");
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+    const maintenant = await getDemoNow();
+
+    const teacherScope = isTeacherRole(session.user.role as Role)
+      ? await getTeacherScope(session.user.tenantId, session.user.id as string, session.user.role as Role, anneeCourante)
+      : null;
+    const teacherClasseIds = teacherScope?.isRestricted ? teacherScope.classeIds : null;
+    if (classeId && teacherClasseIds && !teacherClasseIds.includes(classeId)) {
+      return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+    }
+    const classeFilter = teacherClasseIds ? { classeId: { in: classeId ? [classeId] : teacherClasseIds } } : {};
 
     const evaluations = await prisma.evaluation.findMany({
       where: {
         tenantId: session.user.tenantId,
         ...siteFilter,
-        ...(classeId ? { classeId } : {}),
+        ...classeFilter,
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+        date: { lte: maintenant },
       },
       include: {
         classe: { select: { nom: true, niveau: true } },
@@ -73,6 +90,22 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+    if (isTeacherRole(session.user.role as Role)) {
+      const teacherScope = await getTeacherScope(
+        session.user.tenantId,
+        session.user.id as string,
+        session.user.role as Role,
+        anneeCourante
+      );
+      if (teacherScope.isRestricted && !teacherScope.classeIds.includes(data.classeId)) {
+        return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+      }
+      if (teacherScope.isRestricted && !teacherScope.matiereIds.includes(data.matiereId)) {
+        return NextResponse.json({ error: "Matière hors de votre périmètre" }, { status: 403 });
+      }
+    }
 
     const evaluation = await prisma.evaluation.create({
       data: {

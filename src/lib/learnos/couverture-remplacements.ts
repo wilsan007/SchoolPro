@@ -28,6 +28,8 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import type { Jour, MasteryStatus, StatutRemplacement } from "@prisma/client";
+import { getDemoNow } from "@/lib/demo-now";
+import { anneeActiveLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Constantes
@@ -302,7 +304,7 @@ async function findCreneauxOrphelins(
   dateFin?: Date
 ): Promise<CreneauOrphelinRaw[]> {
   // — Bornes de la fenêtre d'analyse (28 derniers jours par défaut) —
-  const fin = dateFin ?? new Date();
+  const fin = dateFin ?? await getDemoNow();
   const debut = dateDebut ?? new Date(fin.getTime() - FENETRE_DEFAUT_JOURS * 86400000);
 
   // 1. Récupérer les absences du personnel dans la fenêtre
@@ -440,7 +442,7 @@ export async function calculerTauxCouverture(
   dateDebut?: Date,
   dateFin?: Date
 ): Promise<TauxCouverture> {
-  const fin = dateFin ?? new Date();
+  const fin = dateFin ?? await getDemoNow();
   const debut =
     dateDebut ?? new Date(fin.getTime() - FENETRE_DEFAUT_JOURS * 86400000);
 
@@ -1004,11 +1006,7 @@ export async function identifierSallesGoulot(
   // Résoudre l'année scolaire si non fournie
   let anneeEffective = annee;
   if (!anneeEffective) {
-    const anneeCourante = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { libelle: true },
-    });
-    anneeEffective = anneeCourante?.libelle ?? undefined;
+    anneeEffective = (await anneeActiveLibelle(tenantId)) ?? undefined;
   }
 
   // — Récupérer toutes les salles (site-filtered) —

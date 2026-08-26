@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { eleveDeLUtilisateur } from "@/lib/learnos/dossier-eleve";
 import { RevisionSemaine } from "@/components/learnos/RevisionSemaine";
+import { anneeActive } from "@/lib/annee-scolaire";
 
 /**
  * Page de révision du cours de la semaine pour l'élève.
@@ -55,13 +56,11 @@ export default async function RevisionSemainePage() {
 
   if (!eleveId || !classeId) redirect("/dashboard");
 
-  // Charger l'année courante.
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
-    select: { id: true },
-  });
+  // Charger l'année active (respecte la Time Machine).
+  const annee = await anneeActive(tenantId);
+  const anneeId = annee?.id ?? null;
 
-  if (!annee) {
+  if (!anneeId) {
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header
@@ -89,7 +88,7 @@ export default async function RevisionSemainePage() {
         <RevisionSemaine
           eleveId={eleveId}
           classeId={classeId}
-          anneeId={annee.id}
+          anneeId={anneeId}
         />
       </div>
     </div>

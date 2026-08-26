@@ -17,6 +17,18 @@ vi.mock("@/lib/site-scope", () => ({
   siteFilterForModel: vi.fn(() => ({})),
 }));
 
+vi.mock("@/lib/annee-scolaire", () => ({
+  anneeActiveId: vi.fn().mockResolvedValue(null),
+  anneeActive: vi.fn().mockResolvedValue(null),
+  getAnneeCourante: vi.fn().mockResolvedValue(null),
+  getAnneeCouranteLibelle: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/lib/demo-now", () => ({
+  getDemoNow: vi.fn().mockResolvedValue(new Date()),
+  getDemoDate: vi.fn().mockResolvedValue(null),
+}));
+
 import prisma from "@/lib/prisma";
 import { calculerRisqueDecrochage } from "@/lib/learnos/risque-decrochage";
 

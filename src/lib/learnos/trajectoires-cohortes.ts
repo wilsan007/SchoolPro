@@ -27,6 +27,8 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getDemoNow } from "@/lib/demo-now";
+import { anneeActiveLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Utilitaires internes
@@ -1093,15 +1095,12 @@ export async function predireRemplissageClasses(
   //    Si non fournie, on prend l'année courante et on calcule la suivante.
   let anneeCibleFinale = anneeCible;
   if (!anneeCibleFinale) {
-    const anneeCourante = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { libelle: true },
-    });
-    if (anneeCourante) {
-      anneeCibleFinale = anneeSuivante(anneeCourante.libelle) ?? anneeCourante.libelle;
+    const anneeCouranteLibelle = await anneeActiveLibelle(tenantId);
+    if (anneeCouranteLibelle) {
+      anneeCibleFinale = anneeSuivante(anneeCouranteLibelle) ?? anneeCouranteLibelle;
     } else {
-      // Fallback : année courante calendaire.
-      const now = new Date();
+      // Fallback : année courante calendaire (respecte la Time Machine).
+      const now = await getDemoNow();
       const debut = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
       anneeCibleFinale = `${debut + 1}-${debut + 2}`;
     }

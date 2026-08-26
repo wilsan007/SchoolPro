@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { cn, formatDate, timeAgo } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -358,9 +359,10 @@ function NotifCard({ notif, onSend, onDelete }: {
 interface CommunicationViewProps {
   notifications: Notification[];
   classes: Classe[];
+  hierarchie?: ClassesHierarchie;
 }
 
-export function CommunicationView({ notifications: initial, classes }: CommunicationViewProps) {
+export function CommunicationView({ notifications: initial, classes, hierarchie }: CommunicationViewProps) {
   const t = useTranslations("communication");
   const [notifs, setNotifs] = useState<Notification[]>(initial);
   const [showCompose, setShowCompose] = useState(false);

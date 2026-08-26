@@ -13,6 +13,7 @@ import { BanqueQuestions } from "@/components/learnos/BanqueQuestions";
 import { CouvertureBanque } from "@/components/learnos/CouvertureBanque";
 import { CopiesPapier } from "@/components/learnos/CopiesPapier";
 import { IntelligencePedagogique } from "@/components/learnos/IntelligencePedagogique";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 /**
  * Deux vues du même domaine : ce qu'on enseigne, et quand on l'enseigne.
@@ -31,6 +32,7 @@ export function CurriculumTabs(props: {
   semaineCourante: number;
   alertes: Parameters<typeof AlertesAnticipees>[0]["alertes"];
   classes: { id: string; nom: string }[];
+  hierarchie?: ClassesHierarchie;
   evenementsCalendaires: { type: string; libelle: string; dateDebut: Date; dateFin: Date }[];
   debutAnnee: Date | null;
   planificationsCompetences: { competenceId: string; semaineDebut: number; semaineFin: number }[];

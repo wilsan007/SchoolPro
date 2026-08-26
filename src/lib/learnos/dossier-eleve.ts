@@ -34,6 +34,7 @@ import {
   siteFilterForModel,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 /** Fenêtre d'observation de l'assiduité, en jours. */
 const FENETRE_ASSIDUITE_JOURS = 30;
@@ -181,6 +182,8 @@ export async function dossierEleve(
     maintenant.getTime() - FENETRE_ASSIDUITE_JOURS * 86_400_000
   );
 
+  const anneeId = await anneeActiveId(tenantId);
+
   const [profils, recos, plans, absences, factures] = await Promise.all([
     prisma.studentLearningProfile.findMany({
       where: {
@@ -261,6 +264,7 @@ export async function dossierEleve(
             tenantId,
             eleveId,
             statut: "EN_RETARD",
+            ...(anneeId ? { anneeId } : {}),
             ...siteFilterForModel("facture", claims),
           },
           // Le reste dû se calcule : `Facture` porte le montant émis, les

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { normaliserEmail } from "@/lib/email";
+import { envoyerEmailVerification } from "@/lib/email-verification";
 
 const RegisterSchema = z.object({
   // Établissement
@@ -135,5 +136,12 @@ export async function registerTenant(data: RegisterFormData) {
   }
 
   revalidatePath("/");
+
+  try {
+    await envoyerEmailVerification(values.adminEmail, tenant.name);
+  } catch (err) {
+    console.error("[register] Envoi email de vérification échoué:", err);
+  }
+
   return { success: true, slug: tenant.slug };
 }

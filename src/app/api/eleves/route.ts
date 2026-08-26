@@ -4,8 +4,12 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { generateMatricule } from "@/lib/utils";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel, siteIdForCreate, requireSiteIdForCreate } from "@/lib/site-scope";
+import { siteFilterForModel, siteIdForCreate, requireSiteIdForCreate, mergeFilters } from "@/lib/site-scope";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 import { revalidateTag, revalidatePath } from "next/cache";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 const EleveSchema = z.object({
   nom: z.string().min(1).max(100),
@@ -34,6 +38,7 @@ export async function GET(req: NextRequest) {
     const denied = checkPermission(session.user.role, "eleves:read");
     if (denied) return denied;
     const siteFilter = siteFilterForModel("eleve", session.user);
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
@@ -42,20 +47,40 @@ export async function GET(req: NextRequest) {
     const isExport = searchParams.get("export") === "true";
 
 
-    const where = {
-      tenantId: session.user.tenantId,
-      ...siteFilter,
-      deletedAt: null, // Exclure les élèves supprimés (soft delete)
-      ...(classeId && { classeId }),
-      ...(statut && { statut: statut as "ACTIF" }),
-      ...(q && {
-        OR: [
-          { nom: { contains: q, mode: "insensitive" as const } },
-          { prenom: { contains: q, mode: "insensitive" as const } },
-          { matricule: { contains: q, mode: "insensitive" as const } },
-        ],
-      }),
-    };
+    // Périmètre enseignant : restreindre aux classes de l'affectation / EDT.
+    const teacherScope = isTeacherRole(session.user.role as Role)
+      ? await getTeacherScope(session.user.tenantId, session.user.id as string, session.user.role as Role, anneeCourante)
+      : null;
+    const teacherClasseIds = teacherScope?.isRestricted ? teacherScope.classeIds : null;
+
+    let allowedClasseIds: string[] | null = null;
+    if (teacherClasseIds !== null) {
+      allowedClasseIds = classeId
+        ? teacherClasseIds.includes(classeId)
+          ? [classeId]
+          : []
+        : teacherClasseIds;
+    } else if (classeId) {
+      allowedClasseIds = [classeId];
+    }
+
+    const where = mergeFilters(
+      {
+        tenantId: session.user.tenantId,
+        deletedAt: null, // Exclure les élèves supprimés (soft delete)
+        ...(anneeCourante && { classe: { annee: anneeCourante } }),
+        ...(statut && { statut: statut as "ACTIF" }),
+        ...(q && {
+          OR: [
+            { nom: { contains: q, mode: "insensitive" as const } },
+            { prenom: { contains: q, mode: "insensitive" as const } },
+            { matricule: { contains: q, mode: "insensitive" as const } },
+          ],
+        }),
+      },
+      siteFilter,
+      ...(allowedClasseIds ? [{ classeId: { in: allowedClasseIds } }] : [])
+    );
 
     const include = {
       classe: { select: { nom: true, niveau: true } },
@@ -137,7 +162,7 @@ export async function POST(req: NextRequest) {
 
     // Générer le matricule
     const count = await prisma.eleve.count({ where: { tenantId, ...siteFilter } });
-    const currentYear = new Date().getFullYear().toString();
+    const currentYear = (await getDemoNow()).getFullYear().toString();
     const annee = `${currentYear}-${(parseInt(currentYear) + 1)}`;
     const matricule = generateMatricule(annee, count + 1);
 

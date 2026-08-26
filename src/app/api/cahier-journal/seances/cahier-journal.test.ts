@@ -11,10 +11,28 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    devoir: {
+      count: vi.fn().mockResolvedValue(0),
+    },
   },
 }));
 
 vi.mock("@/lib/rbac", () => ({ checkPermission: vi.fn(() => null) }));
+
+vi.mock("@/lib/annee-scolaire", () => ({
+  getAnneeCouranteLibelle: vi.fn().mockResolvedValue("2025-2026"),
+}));
+
+vi.mock("@/lib/teacher-classes", () => ({
+  getTeacherScope: vi.fn().mockResolvedValue({
+    classeIds: ["c1"],
+    matiereIds: ["m1"],
+    isRestricted: true,
+  }),
+  isTeacherRole: vi.fn((role: string) =>
+    role === "TEACHER" || role === "CLASS_TEACHER"
+  ),
+}));
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";

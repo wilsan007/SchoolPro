@@ -5,6 +5,9 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 import { AiAllProvidersFailedError } from "@/lib/ai/provider";
 import { lireDocument } from "@/lib/ocr";
 import {
@@ -228,6 +231,33 @@ export async function PUT(req: NextRequest) {
   const tenantId = session.user.tenantId;
   const matiere = await matiereAccessible(tenantId, parsed.data.matiereId, session.user);
   if (!matiere) return erreurJson("MATIERE_INTROUVABLE");
+
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  if (isTeacherRole(session.user.role as Role)) {
+    const scope = await getTeacherScope(tenantId, session.user.id, session.user.role as Role, anneeCourante);
+    if (scope.isRestricted && !scope.matiereIds.includes(matiere.id)) {
+      return erreurJson("NON_AUTORISE");
+    }
+
+    if (parsed.data.classeId && !scope.classeIds.includes(parsed.data.classeId)) {
+      return erreurJson("NON_AUTORISE");
+    }
+
+    if (!parsed.data.classeId && parsed.data.eleveIds?.length) {
+      const elevesValides = await prisma.eleve.findMany({
+        where: {
+          id: { in: parsed.data.eleveIds },
+          tenantId,
+          ...siteFilterForModel("eleve", session.user),
+          classeId: { in: scope.classeIds },
+        },
+        select: { id: true },
+      });
+      if (elevesValides.length !== parsed.data.eleveIds.length) {
+        return erreurJson("NON_AUTORISE");
+      }
+    }
+  }
 
   // Une classe désignée vaut la liste de ses élèves actifs : l'usage courant est
   // « toute la classe », et faire remonter trente identifiants par le client

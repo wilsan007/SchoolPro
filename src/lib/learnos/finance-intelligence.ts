@@ -26,6 +26,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { anneeActiveId, anneeActiveLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Utilitaires internes
@@ -122,6 +123,8 @@ export async function calculerRisqueFamilles(
 
   if (parents.length === 0) return [];
 
+  const anneeId = await anneeActiveId(tenantId);
+
   // 2. Pour chaque parent, rassembler les élèves et calculer le score.
   const resultats: RisqueFamille[] = [];
 
@@ -135,6 +138,7 @@ export async function calculerRisqueFamilles(
         tenantId,
         eleveId: { in: eleveIds },
         statut: { not: "ANNULEE" },
+        ...(anneeId ? { anneeId } : {}),
         ...siteFilterForModel("facture", claims),
       },
       select: {
@@ -265,11 +269,7 @@ export async function calculerCoutParEleve(
   // 1. Résoudre l'année à analyser.
   let anneeAnalysee = annee;
   if (!anneeAnalysee) {
-    const anneeCourante = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { libelle: true },
-    });
-    anneeAnalysee = anneeCourante?.libelle ?? undefined;
+    anneeAnalysee = (await anneeActiveLibelle(tenantId)) ?? undefined;
   }
 
   if (!anneeAnalysee) {
@@ -466,11 +466,7 @@ export async function analyserDepassementsBudget(
   // 1. Résoudre l'année.
   let anneeAnalysee = annee;
   if (!anneeAnalysee) {
-    const anneeCourante = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { libelle: true },
-    });
-    anneeAnalysee = anneeCourante?.libelle ?? undefined;
+    anneeAnalysee = (await anneeActiveLibelle(tenantId)) ?? undefined;
   }
 
   if (!anneeAnalysee) return [];
@@ -607,8 +603,13 @@ export async function analyserEfficaciteRelances(
 
   // 2. Regrouper les factures concernées pour charger les paiements en lot.
   const factureIds = [...new Set(relances.map((r) => r.factureId))];
+  const anneeId = await anneeActiveId(tenantId);
   const paiements = await prisma.paiement.findMany({
-    where: { factureId: { in: factureIds }, ...siteFilterForModel("paiement", claims) },
+    where: {
+      factureId: { in: factureIds },
+      ...(anneeId ? { facture: { anneeId } } : {}),
+      ...siteFilterForModel("paiement", claims),
+    },
     select: { factureId: true, date: true },
   });
 
@@ -980,6 +981,7 @@ export async function simulerContreFactuelRemises(
 
   // 2. Pour chaque famille, déterminer si elle bénéficie d'une remise et
   //    collecter les délais de paiement de ses échéances payées.
+  const anneeId = await anneeActiveId(tenantId);
   const delaisAvecRemise: number[] = [];
   const delaisSansRemise: number[] = [];
   let nbFamillesAvecRemise = 0;
@@ -995,6 +997,7 @@ export async function simulerContreFactuelRemises(
         tenantId,
         eleveId: { in: eleveIds },
         statut: { not: "ANNULEE" },
+        ...(anneeId ? { anneeId } : {}),
         ...siteFilterForModel("facture", claims),
       },
       select: {

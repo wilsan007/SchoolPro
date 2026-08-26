@@ -306,6 +306,7 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // --- colonne siteId directe ---
   alumni: "column",
   candidature: "column",
+  inscriptionHistorique: { one: "candidature" },
   classe: "column",
   cours: "column",
   eleve: "column",
@@ -323,6 +324,7 @@ export const SITE_PATHS: Record<string, SitePath> = {
   matiere: "column",
   structure: "column",
   disponibiliteEnseignant: "column",
+  indisponibiliteEnseignant: "column",
   // Journal de suppression d'un site : rattaché au site qu'il décrit.
   siteDeletionLog: "column",
   // Grille tarifaire : `null` = tarif commun à tous les sites du tenant.
@@ -334,6 +336,7 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // --- rattachement via l'élève ---
   absence: { one: "eleve" },
   bulletin: { one: "eleve" },
+  bulletinHistorique: { chain: ["bulletin", "eleve"] },
   note: { one: "eleve" },
   incident: { one: "eleve" },
   dispenseMatiere: { one: "eleve" },
@@ -461,6 +464,7 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // son rattachement passe par la séance.
   seancePedagogique: "column",
   seanceCompetence: { one: "seance" },
+  seanceCommentaire: { one: "seance" },
 
   // --- Modules activables (niveau tenant, pas de siteId) ---
   module: "tenant",
@@ -494,6 +498,17 @@ export const SITE_PATHS: Record<string, SitePath> = {
 
   // --- Calendrier officiel (global, pas de tenantId) ---
   calendrierOfficiel: "tenant",
+
+  // --- Permissions utilisateur (niveau tenant, pas de siteId) ---
+  userPermission: "tenant",
+
+  // --- Affectation enseignant (rattaché à la classe qui porte siteId) ---
+  affectationEnseignant: { one: "classe" },
+
+  // --- Fournitures scolaires (portent siteId) ---
+  demandeFourniture: "column",
+  listeFournitureClasse: "column",
+  listeFournitureItem: "tenant",
 };
 
 /**
@@ -509,6 +524,7 @@ const SHARED_NULL_MODELS = new Set([
   "matiere",
   "structure",
   "disponibiliteEnseignant",
+  "indisponibiliteEnseignant",
   // Tarif applicable à tous les sites faute de site précisé.
   "tarifNiveau",
   // Une conversation sans site n'est pas « non assignée » : c'est un échange

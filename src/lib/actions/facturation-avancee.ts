@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { sendPaymentWhatsApp } from "@/lib/notifications/whatsapp";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
 
 // ============================================================
@@ -108,6 +110,12 @@ export async function genererMensualites(params: {
   const tenantId = session.user.tenantId;
   const { mois, annee, inclureCantine = false, inclureTransport = false } = params;
 
+  // Résoudre l'ID de l'année scolaire depuis le libellé
+  const anneeRecord = await prisma.anneesScolaires.findFirst({
+    where: { tenantId, libelle: annee },
+    select: { id: true },
+  });
+
   const moisNoms = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
   const moisNom = moisNoms[mois - 1] ?? `Mois ${mois}`;
 
@@ -143,7 +151,7 @@ export async function genererMensualites(params: {
     const libelle = `Scolarité ${moisNom} ${annee}`;
     const existing = await prisma.facture.findFirst({
       where: mergeFilters(
-        { tenantId, eleveId: eleve.id, libelle },
+        { tenantId, eleveId: eleve.id, libelle, ...(anneeRecord ? { anneeId: anneeRecord.id } : {}) },
         siteFilterForModel("facture", session.user)
       ),
       select: { id: true },
@@ -173,6 +181,7 @@ export async function genererMensualites(params: {
         tenantId,
         siteId: eleve.siteId,
         eleveId: eleve.id,
+        anneeId: anneeRecord?.id ?? null,
         numero,
         libelle,
         montant,
@@ -208,6 +217,12 @@ export async function genererFraisInscription(params: {
   const tenantId = session.user.tenantId;
   const { eleveIds, type, annee } = params;
 
+  // Résoudre l'ID de l'année scolaire depuis le libellé
+  const anneeRecord = await prisma.anneesScolaires.findFirst({
+    where: { tenantId, libelle: annee },
+    select: { id: true },
+  });
+
   const tarifs = await prisma.tarifNiveau.findMany({
     where: { tenantId, annee, actif: true },
   });
@@ -236,7 +251,10 @@ export async function genererFraisInscription(params: {
 
     // Vérifier si déjà facturé
     const existing = await prisma.facture.findFirst({
-      where: mergeFilters({ tenantId, eleveId, libelle }, siteFilterForModel("facture", session.user)),
+      where: mergeFilters(
+        { tenantId, eleveId, libelle, ...(anneeRecord ? { anneeId: anneeRecord.id } : {}) },
+        siteFilterForModel("facture", session.user)
+      ),
       select: { id: true },
     });
     if (existing) { skipped++; continue; }
@@ -252,6 +270,7 @@ export async function genererFraisInscription(params: {
         tenantId,
         siteId: eleve.siteId,
         eleveId,
+        anneeId: anneeRecord?.id ?? null,
         numero,
         libelle,
         montant,
@@ -488,12 +507,14 @@ export async function getExclusionsForTenant() {
 export async function detecterFacturesEnRetard() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
-  const now = new Date();
+  const now = await getDemoNow();
+  const anneeId = await anneeActiveId(session.user.tenantId);
 
   const factures = await prisma.facture.findMany({
     where: mergeFilters(
       {
         tenantId: session.user.tenantId,
+        ...(anneeId ? { anneeId } : {}),
         statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
         echeance: { lt: now },
       },

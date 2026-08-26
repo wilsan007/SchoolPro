@@ -12,6 +12,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { cn } from "@/lib/utils";
 
 /**
@@ -40,12 +41,16 @@ export default async function TravailPage({
   };
   const { enfant: demande } = await searchParams;
 
+  // Année scolaire courante — filtre les élèves par leur classe de l'année.
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   // Résoudre les élèves selon le rôle (PARENT : ses enfants, STUDENT : lui-même).
   const eleves = await prisma.eleve.findMany({
     where: {
       tenantId,
       deletedAt: null,
       statut: "ACTIF",
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       ...eleveScopeFilter(claims, null),
     },
     select: {
@@ -98,6 +103,7 @@ export default async function TravailPage({
       tenantId,
       classeId: choisi.classeId,
       dateRendu: { gte: now },
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       ...siteFilterForModel("devoir", claims),
     },
     include: {

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
   id: string;
@@ -43,7 +44,7 @@ interface TenantInfo {
   currentYear: string;
 }
 
-export function ConvocationForm({ classes, tenant }: { classes: Classe[]; tenant: TenantInfo }) {
+export function ConvocationForm({ classes, tenant, hierarchie }: { classes: Classe[]; tenant: TenantInfo; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("vieScolaire");
   const [classeId, setClasseId] = useState("");
   const [eleveId, setEleveId] = useState("");

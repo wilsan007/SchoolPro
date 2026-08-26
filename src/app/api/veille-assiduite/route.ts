@@ -8,6 +8,7 @@ import {
 } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Veille Assiduité Prédictive — surveillance dédiée de l'assiduité.
@@ -42,6 +43,9 @@ export async function GET(req: NextRequest) {
   const tenantId = session.user.tenantId;
   const user = session.user;
   const maintenant = await getDemoNow();
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
+  const anneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
 
   // Fenêtre courante : 30 derniers jours. Fenêtre précédente : 30-60 jours.
   const FENETRE = 30;
@@ -56,6 +60,7 @@ export async function GET(req: NextRequest) {
       deletedAt: null,
       ...(classeId ? { classeId } : {}),
       ...siteFilterForModel("eleve", user),
+      ...anneeClasse,
     },
     select: {
       id: true,
@@ -81,6 +86,7 @@ export async function GET(req: NextRequest) {
       eleveId: { in: eleveIds },
       date: { gte: debutPrecedente, lte: maintenant },
       ...siteFilterForModel("absence", user),
+      ...anneeEleve,
     },
     select: {
       eleveId: true,

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useTranslations, useFormatter } from "next-intl";
 import Link from "next/link";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface ClasseOption {
   id: string;
@@ -55,9 +56,11 @@ interface Synthese {
 
 interface Props {
   classes: ClasseOption[];
+  /** Hiérarchie catégorie → niveau → classe (scope enseignant appliqué). */
+  hierarchie?: ClassesHierarchie;
 }
 
-export function VeilleAssiduiteView({ classes }: Props) {
+export function VeilleAssiduiteView({ classes, hierarchie }: Props) {
   const t = useTranslations("veilleAssiduite");
   const format = useFormatter();
   const [classeId, setClasseId] = useState<string>("all");

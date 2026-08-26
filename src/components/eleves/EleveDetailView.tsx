@@ -17,7 +17,7 @@ import {
   ArrowLeft, Edit, User, Phone, MapPin, BookOpen,
   CalendarX, AlertTriangle, CreditCard, TrendingUp,
   Clock, CheckCircle2, XCircle, AlertCircle, ShieldOff, Lock, Target,
-  Trash2, Loader2, Plus, Banknote, FileText, LineChart,
+  Trash2, Loader2, Plus, Banknote, FileText, LineChart, Brain,
 } from "lucide-react";
 import { DispenseMatiereManager } from "./DispenseMatiereManager";
 import { useTranslations } from "next-intl";
@@ -187,6 +187,7 @@ export function EleveDetailView({
   matieres = [],
   dispenses = [],
   situationFinanciere,
+  userRole,
 }: {
   eleve: Eleve;
   matieres?: MatiereInfo[];
@@ -202,10 +203,19 @@ export function EleveDetailView({
     exclusionMotif: string | null;
     exclusionDateDebut: Date | null;
   };
+  userRole?: string;
 }) {
   const t = useTranslations("eleveDetail");
   const router = useRouter();
-  const [tab, setTab] = useState("notes");
+
+  // Le comptable ne voit que la facturation et les absences dans le profil élève.
+  // Les autres rôles voient tous les onglets.
+  const isComptable = userRole === "ACCOUNTANT";
+  const visibleTabs = isComptable
+    ? ["absences", "facturation"]
+    : ["notes", "competences", "absences", "discipline", "facturation", "parcours", "dispenses", "evolution"];
+
+  const [tab, setTab] = useState(isComptable ? "facturation" : "notes");
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -260,23 +270,31 @@ export function EleveDetailView({
             {t("backToList")}
           </Link>
         </Button>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm" className="gap-2">
-            <Link href={`/eleves/${eleve.id}/modifier`}>
-              <Edit className="h-4 w-4" />
-              {t("editProfile")}
-            </Link>
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-2"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            {t("deleteStudent")}
-          </Button>
-        </div>
+        {!isComptable && (
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={`/eleves/${eleve.id}/modifier`}>
+                <Edit className="h-4 w-4" />
+                {t("editProfile")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={`/dossier-progression/${eleve.id}`}>
+                <Brain className="h-4 w-4" />
+                {t("dossierProgression")}
+              </Link>
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-2"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t("deleteStudent")}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Delete confirmation dialog */}
@@ -359,24 +377,28 @@ export function EleveDetailView({
         </div>
       </Card>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard
-          label={t("generalAverage")}
-          value={moyenneGenerale ? `${moyenneGenerale}/20` : "—"}
-          sub={t("notesCount", { count: eleve.notes.length })}
-          color={
-            moyenneGenerale
-              ? parseFloat(moyenneGenerale) >= 14
-                ? "text-green-600"
-                : parseFloat(moyenneGenerale) >= 10
-                ? "text-blue-600"
-                : "text-red-600"
-              : undefined
-          }
-        />
+      {/* KPI strip — le comptable ne voit que les absences et le solde dû */}
+      <div className={cn("grid gap-4", isComptable ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}>
+        {!isComptable && (
+          <StatCard
+            label={t("generalAverage")}
+            value={moyenneGenerale ? `${moyenneGenerale}/20` : "—"}
+            sub={t("notesCount", { count: eleve.notes.length })}
+            color={
+              moyenneGenerale
+                ? parseFloat(moyenneGenerale) >= 14
+                  ? "text-green-600"
+                  : parseFloat(moyenneGenerale) >= 10
+                  ? "text-blue-600"
+                  : "text-red-600"
+                : undefined
+            }
+          />
+        )}
         <StatCard label={t("absences")} value={totalAbsences} sub={t("latesCount", { count: totalRetards })} color="text-orange-600" />
-        <StatCard label={t("incidents")} value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
+        {!isComptable && (
+          <StatCard label={t("incidents")} value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
+        )}
         <StatCard
           label={t("balanceDue")}
           value={`${(totalDu - totalPaye).toLocaleString()} FDJ`}
@@ -416,38 +438,54 @@ export function EleveDetailView({
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full sm:w-auto overflow-x-auto">
-          <TabsTrigger value="notes" className="gap-1.5">
-            <BookOpen className="h-3.5 w-3.5" />
-            {t("tabNotes")}
-          </TabsTrigger>
-          <TabsTrigger value="competences" className="gap-1.5">
-            <Target className="h-3.5 w-3.5" />
-            Compétences
-          </TabsTrigger>
-          <TabsTrigger value="absences" className="gap-1.5">
-            <CalendarX className="h-3.5 w-3.5" />
-            {t("tabAbsences")}
-          </TabsTrigger>
-          <TabsTrigger value="discipline" className="gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            {t("tabDiscipline")}
-          </TabsTrigger>
-          <TabsTrigger value="facturation" className="gap-1.5">
-            <CreditCard className="h-3.5 w-3.5" />
-            {t("tabBilling")}
-          </TabsTrigger>
-          <TabsTrigger value="parcours" className="gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" />
-            {t("tabParcours")}
-          </TabsTrigger>
-          <TabsTrigger value="dispenses" className="gap-1.5">
-            <ShieldOff className="h-3.5 w-3.5" />
-            {t("tabDispenses")}
-          </TabsTrigger>
-          <TabsTrigger value="evolution" className="gap-1.5">
-            <LineChart className="h-3.5 w-3.5" />
-            {t("tabEvolution")}
-          </TabsTrigger>
+          {visibleTabs.includes("notes") && (
+            <TabsTrigger value="notes" className="gap-1.5">
+              <BookOpen className="h-3.5 w-3.5" />
+              {t("tabNotes")}
+            </TabsTrigger>
+          )}
+          {visibleTabs.includes("competences") && (
+            <TabsTrigger value="competences" className="gap-1.5">
+              <Target className="h-3.5 w-3.5" />
+              Compétences
+            </TabsTrigger>
+          )}
+          {visibleTabs.includes("absences") && (
+            <TabsTrigger value="absences" className="gap-1.5">
+              <CalendarX className="h-3.5 w-3.5" />
+              {t("tabAbsences")}
+            </TabsTrigger>
+          )}
+          {visibleTabs.includes("discipline") && (
+            <TabsTrigger value="discipline" className="gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {t("tabDiscipline")}
+            </TabsTrigger>
+          )}
+          {visibleTabs.includes("facturation") && (
+            <TabsTrigger value="facturation" className="gap-1.5">
+              <CreditCard className="h-3.5 w-3.5" />
+              {t("tabBilling")}
+            </TabsTrigger>
+          )}
+          {visibleTabs.includes("parcours") && (
+            <TabsTrigger value="parcours" className="gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5" />
+              {t("tabParcours")}
+            </TabsTrigger>
+          )}
+          {visibleTabs.includes("dispenses") && (
+            <TabsTrigger value="dispenses" className="gap-1.5">
+              <ShieldOff className="h-3.5 w-3.5" />
+              {t("tabDispenses")}
+            </TabsTrigger>
+          )}
+          {visibleTabs.includes("evolution") && (
+            <TabsTrigger value="evolution" className="gap-1.5">
+              <LineChart className="h-3.5 w-3.5" />
+              {t("tabEvolution")}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ─ Compétences (LEARNOS) ─ */}
@@ -642,7 +680,7 @@ export function EleveDetailView({
 
           {/* Situation financière résumé */}
           {situationFinanciere && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
               <Card className="p-3">
                 <p className="text-xs text-muted-foreground">{t("totalBilled")}</p>
                 <p className="text-lg font-bold">{situationFinanciere.totalFacture.toLocaleString()} DJF</p>

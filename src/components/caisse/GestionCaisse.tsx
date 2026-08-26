@@ -221,7 +221,7 @@ export function GestionCaisse({ user }: { user: UserSession }) {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">{t("enAttente")}</p>

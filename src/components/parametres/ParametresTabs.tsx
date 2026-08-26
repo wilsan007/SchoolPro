@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Settings, Users, GraduationCap, BookOpen, UserCog, Settings2, Calendar, CalendarDays, Stamp, Building2,
-  School, UsersRound, BookOpenCheck, ChevronDown, DollarSign, CopyCheck, HardDrive,
+  School, UsersRound, BookOpenCheck, ChevronDown, DollarSign, CopyCheck, HardDrive, ShieldCheck,
+  DoorOpen, ClipboardList, CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EtablissementTab } from "./EtablissementTab";
@@ -21,6 +22,10 @@ import { DoublonsTab } from "./DoublonsTab";
 import { AnneesScolairesTab } from "./AnneesScolairesTab";
 import { CalendrierScolaireTab } from "./CalendrierScolaireTab";
 import { SyncTab } from "./SyncTab";
+import { UserPermissionsTab } from "./UserPermissionsTab";
+import { SallesTab } from "./SallesTab";
+import { EnseignantsAffectationTab } from "./EnseignantsAffectationTab";
+import { DisponibilitesTab } from "./DisponibilitesTab";
 
 import type { AvailableTenant } from "@/auth.config";
 
@@ -32,13 +37,17 @@ type Tab =
   | "parents"
   | "classes"
   | "matieres"
+  | "enseignants"
+  | "salles"
+  | "disponibilites"
   | "appreciations"
   | "periodes"
   | "signature"
   | "sites"
   | "tarifs"
   | "doublons"
-  | "sync";
+  | "sync"
+  | "userPermissions";
 
 type TabDef = { id: Tab; labelKey: string; icon: typeof Settings };
 
@@ -67,6 +76,7 @@ const tabGroups: TabGroup[] = [
     tabs: [
       { id: "utilisateurs", labelKey: "users", icon: Users },
       { id: "parents", labelKey: "parents", icon: UserCog },
+      { id: "userPermissions", labelKey: "userPermissions", icon: ShieldCheck },
       { id: "doublons", labelKey: "doublons", icon: CopyCheck },
     ],
   },
@@ -76,6 +86,9 @@ const tabGroups: TabGroup[] = [
     tabs: [
       { id: "classes", labelKey: "classes", icon: GraduationCap },
       { id: "matieres", labelKey: "matieres", icon: BookOpen },
+      { id: "enseignants", labelKey: "enseignantsAffectation", icon: ClipboardList },
+      { id: "salles", labelKey: "salles", icon: DoorOpen },
+      { id: "disponibilites", labelKey: "disponibilites", icon: CalendarClock },
       { id: "appreciations", labelKey: "appreciations", icon: Settings2 },
       { id: "periodes", labelKey: "periodes", icon: Calendar },
     ],
@@ -190,10 +203,15 @@ export function ParametresTabs({
         {activeTab === "etablissement" && <EtablissementTab etablissement={etablissement} canManage={canManage} />}
         {activeTab === "annees" && <AnneesScolairesTab annees={annees} canManage={canManage} />}
         {activeTab === "calendrier" && <CalendrierScolaireTab annees={annees} canManage={canManage} />}
-        {activeTab === "utilisateurs" && <UsersTab users={users} canManage={canManage} availableTenants={availableTenants} sites={sites} />}
+        {activeTab === "utilisateurs" && <UsersTab users={users} canManage={canManage} availableTenants={availableTenants} sites={sites} classes={classes} matieres={matieres} />}
         {activeTab === "parents" && <ParentsTab parents={parents} eleves={eleves} canManage={canManage} />}
         {activeTab === "classes" && <ClassesTab classes={classes} canManage={canManage} sites={sites} />}
         {activeTab === "matieres" && <MatieresTab matieres={matieres} canManage={canManage} />}
+        {activeTab === "enseignants" && (
+          <EnseignantsAffectationTab classes={classes} matieres={matieres} canManage={canManage} />
+        )}
+        {activeTab === "salles" && <SallesTab sites={sites} canManage={canManage} />}
+        {activeTab === "disponibilites" && <DisponibilitesTab canManage={canManage} />}
         {activeTab === "appreciations" && <ReglesAppreciationManager regles={regles} />}
         {activeTab === "periodes" && (
           <PeriodesClotureManager
@@ -224,6 +242,11 @@ export function ParametresTabs({
         {activeTab === "sync" && <SyncTab canManage={canManage} />}
         {activeTab === "tarifs" && <TarifsTab />}
         {activeTab === "doublons" && <DoublonsTab />}
+        {activeTab === "userPermissions" && (
+          <UserPermissionsTab
+            users={users.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role }))}
+          />
+        )}
       </div>
     </div>
   );

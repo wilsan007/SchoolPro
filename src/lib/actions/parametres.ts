@@ -109,6 +109,35 @@ const UserSchema = z.object({
   phone: z.string().optional(),
   password: z.string().min(8, "Min. 8 caractères").optional().or(z.literal("")),
   isActive: z.boolean().default(true),
+  // Champs spécifiques aux enseignants — obligatoires si role = TEACHER/CLASS_TEACHER
+  matiereId: z.string().optional().nullable(),
+  classeIds: z.array(z.string()).default([]),
+  // Si role = CLASS_TEACHER, la classe dont il est prof principal
+  classePrincipaleId: z.string().optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (data.role === "TEACHER" || data.role === "CLASS_TEACHER") {
+    if (!data.matiereId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La matière est obligatoire pour un enseignant",
+        path: ["matiereId"],
+      });
+    }
+    if (!data.classeIds || data.classeIds.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Au moins une classe est obligatoire pour un enseignant",
+        path: ["classeIds"],
+      });
+    }
+    if (data.role === "CLASS_TEACHER" && !data.classePrincipaleId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La classe principale est obligatoire pour un prof principal",
+        path: ["classePrincipaleId"],
+      });
+    }
+  }
 });
 
 export type UserFormData = z.infer<typeof UserSchema>;
@@ -203,15 +232,62 @@ export async function createUser(data: UserFormData) {
     },
   });
 
-  // Auto-create Enseignant record for teacher roles
+  // Auto-create Enseignant record for teacher roles + affectations
   if (v.role === "TEACHER" || v.role === "CLASS_TEACHER") {
-    await prisma.enseignant.create({
+    // Déduire le site depuis la première classe sélectionnée.
+    // L'enseignant n'a accès qu'au site de ses classes.
+    let siteIdDeduit: string | null = null;
+    if (v.classeIds.length > 0) {
+      const premiereClasse = await prisma.classe.findFirst({
+        where: { id: v.classeIds[0], tenantId: session.user.tenantId, ...siteFilterForModel("classe", session.user) },
+        select: { siteId: true },
+      });
+      siteIdDeduit = premiereClasse?.siteId ?? null;
+    }
+
+    // Mettre à jour le site du User si déduit.
+    // On vient de créer ce User (newUser.id) dans ce tenant, donc l'update
+    // est sûr — pas de risque de modification cross-tenant.
+    if (siteIdDeduit && !newUser.siteId) {
+      // eslint-disable-next-line ecolpro/require-tenant-id -- newUser vient d'être créé dans ce tenant
+      await prisma.user.update({
+        where: { id: newUser.id },
+        data: { siteId: siteIdDeduit },
+      });
+    }
+
+    const enseignant = await prisma.enseignant.create({
       data: {
         tenantId: session.user.tenantId,
         userId: newUser.id,
         dateEntree: new Date(),
+        // Lier l'enseignant au site déduit
+        sites: siteIdDeduit
+          ? { create: { siteId: siteIdDeduit } }
+          : undefined,
       },
     });
+
+    // Créer les affectations enseignant → classe → matière
+    if (v.matiereId && v.classeIds.length > 0) {
+      await prisma.affectationEnseignant.createMany({
+        data: v.classeIds.map((classeId) => ({
+          tenantId: session.user.tenantId!,
+          enseignantId: enseignant.id,
+          classeId,
+          matiereId: v.matiereId!,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Si prof principal, assigner la classe principale
+    if (v.role === "CLASS_TEACHER" && v.classePrincipaleId) {
+      await prisma.classe.update({
+        where: { id: v.classePrincipaleId },
+        data: { profPrincipalId: enseignant.id },
+      });
+    }
   }
 
   // Auto-create Parent record for parent role

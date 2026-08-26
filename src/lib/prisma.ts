@@ -16,14 +16,32 @@ const globalForPrisma = globalThis as unknown as {
  * renvoyé est le client Prisma d'origine, sans surcoût ni changement de
  * comportement. Voir src/lib/prisma-rls.ts pour la procédure de bascule
  * (off → warn → enforce).
+ *
+ * CHOIX DE L'URL :
+ *   — Dev : `DIRECT_URL` (mode session, port 5432) — 5x plus rapide grâce
+ *     aux prepared statements. Supabase limite à 15 connexions en mode
+ *     session, mais après optimisation des requêtes concurrentes (max ~16
+ *     sur /direction batch 2, dont 10 findMany take:50 qui se terminent
+ *     en <100ms), le pool ne s'épuise plus.
+ *   — Prod : `DATABASE_URL` (pooler transaction, port 6543) — nécessaire
+ *     en serverless pour limiter les connexions.
+ *   — Background : `DIRECT_URL` (mode session) — séquentiel, peu concurrent.
+ *
+ * Sur un VPS (PostgreSQL local), on passera en mode session direct sans
+ * pgbouncer : plus de limite de connexions, prepared statements actifs.
  */
+const appDbUrl =
+  process.env.NODE_ENV === "production"
+    ? process.env.DATABASE_URL
+    : process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+
 export const prisma =
   globalForPrisma.prisma ??
   withRlsExtension(new PrismaClient({
     log: ["error"],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: appDbUrl,
       },
     },
   }));

@@ -9,6 +9,7 @@ import { Loader2, Table } from "lucide-react";
 import { ExportMenu } from "@/components/ui/ExportMenu";
 import type { ExportColumn } from "@/lib/export";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface ClasseInfo {
   id: string;
@@ -33,7 +34,7 @@ interface RapportRow {
   [key: string]: any;
 }
 
-export function RapportClasseTable({ classes, periodes }: { classes: ClasseInfo[]; periodes: PeriodeInfo[] }) {
+export function RapportClasseTable({ classes, hierarchie, periodes }: { classes: ClasseInfo[]; hierarchie?: ClassesHierarchie; periodes: PeriodeInfo[] }) {
   const t = useTranslations("evaluations");
   const [classeId, setClasseId] = useState("");
   const [periodeId, setPeriodeId] = useState(periodes.find((p) => p.isCurrent)?.id ?? "");

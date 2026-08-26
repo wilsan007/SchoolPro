@@ -259,7 +259,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
 
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1.5 block">{t("contentType")}</label>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
               {(Object.keys(TYPE_CONTENU_CONFIG) as TypeContenu[]).map(tc => (
                 <button key={tc} onClick={() => set("type", tc)}
                   className={cn("flex flex-col items-center gap-1 p-2 rounded-lg border text-xs transition-all",
@@ -384,7 +384,7 @@ function CoursCard({ cours, siteColors, onSelect, onDelete }: {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-4">
           {[
             { label: t("chapters"), value: cours._count?.contenus ?? 0, icon: <Layers className="w-3.5 h-3.5" /> },
             { label: t("views"), value: cours.nbVues, icon: <Eye className="w-3.5 h-3.5" /> },
@@ -498,7 +498,7 @@ function CoursDetail({ cours: initial, onBack }: {
       </div>
 
       {/* Stats rapides */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[
           { label: t("chapters"), value: cours.contenus.length, icon: <Layers className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
           { label: t("totalDuration"), value: totalDuree > 0 ? `${totalDuree} ${t("min")}` : "—", icon: <Clock className="w-5 h-5 text-blue-600" />, bg: "bg-blue-100" },
@@ -664,7 +664,7 @@ export function CoursView({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[
           { label: t("totalCourses"), value: stats.total, icon: <BookOpen className="w-5 h-5 text-primary" />, bg: "bg-primary/10" },
           { label: t("published"), value: stats.publies, icon: <Globe className="w-5 h-5 text-green-600" />, bg: "bg-green-100 dark:bg-green-900/30" },

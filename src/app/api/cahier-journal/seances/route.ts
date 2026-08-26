@@ -4,7 +4,10 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { z } from "zod";
+import type { Prisma, Role } from "@prisma/client";
 
 const STATUTS = ["PLANIFIEE", "EFFECTUEE", "ANNULEE", "REPORTEE"] as const;
 const RYTHMES = ["EN_AVANCE", "A_TEMPS", "EN_RETARD", "NON_EVALUEE"] as const;
@@ -32,6 +35,17 @@ const CreateSchema = z.object({
       }),
     )
     .default([]),
+  fichiers: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(255),
+        type: z.string().min(1),
+        size: z.number().int().positive(),
+        data: z.string().min(1),
+      }),
+    )
+    .max(5)
+    .optional(),
 });
 
 /**
@@ -52,15 +66,43 @@ export async function GET(req: NextRequest) {
     const statut = searchParams.get("statut");
     const enseignantId = searchParams.get("enseignantId");
 
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+
+    // Scope enseignant : un prof ne voit que ses classes et matières,
+    // pour l'année courante uniquement.
+    const role = session.user.role as Role;
+    const teacherScope = isTeacherRole(role)
+      ? await getTeacherScope(
+          session.user.tenantId,
+          session.user.id,
+          role,
+          anneeCourante,
+        )
+      : null;
+    const scopeFilter = teacherScope?.isRestricted
+      ? {
+          AND: [
+            ...(teacherScope.classeIds.length > 0
+              ? [{ classeId: { in: teacherScope.classeIds } }]
+              : [{ id: "__none__" as const }]),
+            ...(teacherScope.matiereIds.length > 0
+              ? [{ matiereId: { in: teacherScope.matiereIds } }]
+              : [{ id: "__none__" as const }]),
+          ],
+        }
+      : {};
+
     const seances = await prisma.seancePedagogique.findMany({
       where: {
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...scopeFilter,
         ...(classeId ? { classeId } : {}),
         ...(matiereId ? { matiereId } : {}),
         ...(semaine ? { semaine: Number(semaine) } : {}),
         ...(statut ? { statut: statut as (typeof STATUTS)[number] } : {}),
         ...(enseignantId ? { enseignantId } : {}),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       include: {
         matiere: { select: { id: true, nom: true, code: true, couleur: true } },
@@ -75,6 +117,12 @@ export async function GET(req: NextRequest) {
           },
         },
         devoirs: { select: { id: true, titre: true, dateRendu: true, statut: true } },
+        commentaires: {
+          include: {
+            auteur: { select: { id: true, name: true, avatarUrl: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
         _count: { select: { devoirs: true } },
       },
       orderBy: { date: "asc" },
@@ -104,6 +152,31 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+
+    // ── Validation du périmètre enseignant ──
+    // Un prof ne peut créer une séance que pour une classe + matière
+    // auxquelles il est affecté, pour l'année courante. La direction
+    // (PRINCIPAL, ADMIN, etc.) n'est pas restreinte.
+    const role = session.user.role as Role;
+    if (isTeacherRole(role)) {
+      const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+      const scope = await getTeacherScope(
+        session.user.tenantId,
+        session.user.id,
+        role,
+        anneeCourante,
+      );
+      if (
+        scope.isRestricted &&
+        (!scope.classeIds.includes(data.classeId) ||
+          !scope.matiereIds.includes(data.matiereId))
+      ) {
+        return erreurJson("NON_AUTORISE", undefined, {
+          details: "Enseignant non affecté à cette classe/matière",
+        });
+      }
+    }
+
     const seance = await prisma.seancePedagogique.create({
       data: {
         tenantId: session.user.tenantId,
@@ -122,6 +195,9 @@ export async function POST(req: NextRequest) {
         rythme: data.rythme,
         presents: data.presents ?? null,
         absents: data.absents ?? null,
+        ...(data.fichiers
+          ? { fichiers: data.fichiers as unknown as Prisma.InputJsonValue }
+          : {}),
         competences: {
           create: data.competences.map((c) => ({
             competenceId: c.competenceId,

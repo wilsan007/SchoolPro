@@ -7,6 +7,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import bcrypt from 'bcryptjs';
 
 const OUT_DIR = path.dirname(new URL(import.meta.url).pathname);
 
@@ -19,7 +20,21 @@ const evidenceCompilation = {
   '2024': {}, // année N-1: compilé à partir des evidences 2024-2025
   '2025': {}, // année N: compilé à partir des evidences 2025-2026 (cumule N-1)
 };
-const HASH = '$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+// Mot de passe commun à tous les comptes de démonstration, et son hash bcrypt.
+// La correspondance est vérifiée ci-dessous : un hash écrit à la main ne peut
+// plus passer. C'est exactement ce qui s'était produit — un digest de coût 10
+// recollé derrière un préfixe `$2a$12$` — et `bcrypt.compare` échouait alors
+// pour les 6 221 comptes chargés, sans autre symptôme que « Identifiants
+// invalides » à la connexion.
+// Pour changer le mot de passe : node -e "console.log(require('bcryptjs').hashSync('NouveauMotDePasse', 12))"
+const PASSWORD = 'Ambouli@2026!';
+const HASH = '$2a$12$1b7BChA.QF/6pf3jZkl6B.YUM5iMNKRG67GePvECwZN7VJe5I9FDC';
+if (!bcrypt.compareSync(PASSWORD, HASH)) {
+  throw new Error(
+    `HASH ne correspond pas au mot de passe "${PASSWORD}" : les comptes générés seraient inutilisables. ` +
+    `Régénérer avec bcrypt.hashSync(PASSWORD, 12).`
+  );
+}
 const TS = '2024-09-15 12:00:00';
 const TS2 = '2025-01-15 12:00:00';
 const TRUE = true;
@@ -1884,7 +1899,15 @@ function genFile11() {
     const eleveId = ev[3];
     const cpId = ev[4];
     const matId = ev[5];
-    const score = ev[12]; // masteryScore (index 12)
+    // masterySignal (index 13) — score de maîtrise sur 0–1.
+    // ATTENTION : l'index 12 est `maxScore`, constant à 20. Le lire ici
+    // faisait remonter une « maîtrise » de 20 sur une échelle 0–1, ce qui
+    // saturait masteryAvant/masteryApres, portait l'écart des prédictions à
+    // 19,05 (predictionCorrecte faux partout, 3 % de justesse affichée) et
+    // produisait des seuils de calibration mélangeant les deux échelles
+    // (19,8 / 19,95 / 0,85 / 0,95). Cf. l'ordre des colonnes du batchInsert
+    // de `learnos_learning_evidences` plus bas.
+    const score = ev[13];
     const meta = eleveMap.get(eleveId);
     if (!meta) continue;
     const yr = meta.anneeYear;
@@ -2030,13 +2053,61 @@ function genFile13() {
     }
   }
 
-  // Patterns (30)
+  // ── Motifs pédagogiques, dérivés des preuves réellement générées ──
+  //
+  // Ces motifs sont l'argument « le système apprend de VOTRE établissement » :
+  // une génération par année, la seconde cumulant les deux cohortes. Deux
+  // choses les rendaient indémontrables auparavant :
+  //   — `masteryMoyenne`, `ecartType` et `tauxEchec` étaient tirés au hasard,
+  //     sans lien avec les preuves ; un directeur qui recoupait un motif avec
+  //     les notes de sa classe ne retrouvait rien.
+  //   — `anneesCouvertes` valait 1 sur toutes les lignes, y compris celles
+  //     censées cumuler N-1 et N : l'accumulation ne se voyait nulle part.
+  //
+  // On repart donc de `evidenceCompilation`, qui porte les scores de maîtrise
+  // réels par année/niveau/matière (cf. le correctif d'index plus haut).
   let ptIdx = 0, pdIdx = 0, calIdx = 0, jnIdx = 0, kpIdx = 0, alIdx = 0, ecIdx = 0, plIdx = 0, rbIdx = 0, alLogIdx = 0, acIdx = 0, evIdx = 0;
-  for (const niveau of niveaux) {
-    for (const matCode of matieresCodes.slice(0, 3)) {
-      ptIdx++;
-      const matId = `mat-${matCode}`;
-      patterns.push([`pat-${ptIdx}`,'tenant-ambouli',null,niveau,matId,null,0.3+rand()*0.5,0.7+rand()*0.2,randInt(20,100),0.1+rand()*0.2,0.1+rand()*0.3,`2024-09-01 00:00:00`,`2025-06-30 00:00:00`,1,randInt(1,36),TS,TS]);
+
+  /** Moyenne, écart-type et taux d'échec d'une liste de scores 0–1. */
+  const statsScores = (scores) => {
+    const n = scores.length;
+    const moyenne = scores.reduce((a, b) => a + b, 0) / n;
+    const variance = scores.reduce((a, b) => a + (b - moyenne) ** 2, 0) / n;
+    return {
+      moyenne: Math.round(moyenne * 1000) / 1000,
+      ecartType: Math.round(Math.sqrt(variance) * 1000) / 1000,
+      // Échec = maîtrise sous le seuil critique de référence (0,35).
+      tauxEchec: Math.round((scores.filter((s) => s < 0.35).length / n) * 1000) / 1000,
+      effectif: n,
+    };
+  };
+
+  // Génération 1 : N-1 seule. Génération 2 : N-1 + N cumulées.
+  const generationsMotifs = [
+    { annees: ['2024'], couvertes: 1, debut: '2024-09-01 00:00:00', fin: '2025-06-30 00:00:00', ts: TS },
+    { annees: ['2024', '2025'], couvertes: 2, debut: '2024-09-01 00:00:00', fin: '2026-06-30 00:00:00', ts: TS2 },
+  ];
+
+  for (const gen of generationsMotifs) {
+    for (const niveau of niveaux) {
+      for (const matCode of matieresCodes.slice(0, 3)) {
+        const scores = [];
+        for (const yr of gen.annees) {
+          const c = evidenceCompilation[yr]?.[niveau]?.[matCode];
+          if (c?.scores?.length) scores.push(...c.scores);
+        }
+        if (!scores.length) continue; // pas de preuve : pas de motif inventé
+        const s = statsScores(scores);
+        ptIdx++;
+        patterns.push([
+          `pat-${ptIdx}`, 'tenant-ambouli', null, niveau, `mat-${matCode}`, null,
+          s.moyenne,
+          // La confiance croît avec le volume observé, et plafonne à 0,92.
+          Math.round(Math.min(0.92, 0.45 + Math.log10(1 + s.effectif) * 0.14) * 1000) / 1000,
+          s.effectif, s.ecartType, s.tauxEchec,
+          gen.debut, gen.fin, gen.couvertes, randInt(1, 36), gen.ts, gen.ts,
+        ]);
+      }
     }
   }
 

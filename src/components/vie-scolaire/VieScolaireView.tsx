@@ -7,11 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, AlertTriangle, CheckCircle2, Clock, User,
   MapPin, FileText, Loader2, Shield, ChevronDown, ChevronUp,
-  Flag,
+  Flag, History, ChartColumn, Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { HistoriqueDisciplinaireDialog } from "./HistoriqueDisciplinaireDialog";
+import { RetardsStatsDialog } from "./RetardsStatsDialog";
+import { WorkflowSanctionDialog } from "./WorkflowSanctionDialog";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 type TypeIncident = "RETARD" | "BAVARDAGE" | "INSOLENCE" | "BAGARRE" | "TRICHE" | "VANDALISM" | "ABSENTEISME" | "AUTRE";
 type StatutIncident = "OUVERT" | "EN_TRAITEMENT" | "RESOLU" | "CLASSE";
@@ -201,7 +205,7 @@ function CreateIncidentModal({
   );
 }
 
-function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i: Incident) => void }) {
+function IncidentCard({ incident, onUpdate, onHisto, onWorkflow }: { incident: Incident; onUpdate: (i: Incident) => void; onHisto: (eleveId: string, nom: string) => void; onWorkflow: (inc: Incident) => void }) {
   const t = useTranslations("vieScolaire");
   const [expanded, setExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -281,7 +285,7 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto flex-wrap">
             {incident.statut === "OUVERT" && (
               <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatut("EN_TRAITEMENT")} disabled={isPending}>
                 {t("process")}
@@ -290,6 +294,26 @@ function IncidentCard({ incident, onUpdate }: { incident: Incident; onUpdate: (i
             {incident.statut === "EN_TRAITEMENT" && (
               <Button size="sm" variant="outline" className="text-xs text-green-700 border-green-200" onClick={() => updateStatut("RESOLU")} disabled={isPending}>
                 {t("resolve")}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs"
+              onClick={() => onHisto(incident.eleve.id, `${incident.eleve.prenom} ${incident.eleve.nom}`)}
+              title={t("historiqueDisciplinaire")}
+            >
+              <History className="w-4 h-4" />
+            </Button>
+            {(incident.statut === "OUVERT" || incident.statut === "EN_TRAITEMENT") && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs text-orange-600"
+                onClick={() => onWorkflow(incident)}
+                title={t("workflowSanction")}
+              >
+                <Workflow className="w-4 h-4" />
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>
@@ -333,11 +357,13 @@ export function VieScolaireView({
   incidents: initial,
   eleves,
   classes,
+  hierarchie: _hierarchie,
   currentUserId,
 }: {
   incidents: Incident[];
   eleves: Eleve[];
   classes: { id: string; nom: string }[];
+  hierarchie?: ClassesHierarchie;
   currentUserId: string;
   tenantId: string;
 }) {
@@ -347,6 +373,9 @@ export function VieScolaireView({
   const [filterStatut, setFilterStatut] = useState<StatutIncident | "ALL">("ALL");
   const [filterClasse, setFilterClasse] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [histoEleve, setHistoEleve] = useState<{ id: string; nom: string } | null>(null);
+  const [showRetards, setShowRetards] = useState(false);
+  const [workflowIncident, setWorkflowIncident] = useState<Incident | null>(null);
 
   const stats = {
     total: incidents.length,
@@ -427,6 +456,14 @@ export function VieScolaireView({
           <Plus className="w-4 h-4" />
           {t("report")}
         </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowRetards(true)}
+          className="gap-2 shrink-0 w-full sm:w-auto"
+        >
+          <ChartColumn className="w-4 h-4" />
+          {t("retardsStats")}
+        </Button>
       </div>
 
       {/* Liste */}
@@ -441,7 +478,13 @@ export function VieScolaireView({
       ) : (
         <div className="space-y-3">
           {filtered.map((inc) => (
-            <IncidentCard key={inc.id} incident={inc} onUpdate={updateIncident} />
+            <IncidentCard
+              key={inc.id}
+              incident={inc}
+              onUpdate={updateIncident}
+              onHisto={(eleveId, nom) => setHistoEleve({ id: eleveId, nom })}
+              onWorkflow={(inc) => setWorkflowIncident(inc)}
+            />
           ))}
         </div>
       )}
@@ -454,6 +497,23 @@ export function VieScolaireView({
           onCreated={addIncident}
         />
       )}
+
+      {histoEleve && (
+        <HistoriqueDisciplinaireDialog
+          eleveId={histoEleve.id}
+          eleveNom={histoEleve.nom}
+          open={!!histoEleve}
+          onOpenChange={(o) => !o && setHistoEleve(null)}
+        />
+      )}
+
+      <RetardsStatsDialog open={showRetards} onOpenChange={setShowRetards} />
+
+      <WorkflowSanctionDialog
+        incident={workflowIncident}
+        open={!!workflowIncident}
+        onOpenChange={(o) => !o && setWorkflowIncident(null)}
+      />
     </div>
   );
 }

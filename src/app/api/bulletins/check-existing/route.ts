@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (count === 0) {
-      return NextResponse.json({ exists: false, published: false });
+      return NextResponse.json({ exists: false, published: false, verrouille: false });
     }
 
     const publishedCount = await prisma.bulletin.count({
@@ -55,9 +55,21 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // Un bulletin est verrouillé si son statut est VERROUILLE ou PUBLIE
+    const verrouilleCount = await prisma.bulletin.count({
+      where: {
+        eleve: { classeId },
+        periodeId,
+        tenantId: session.user.tenantId,
+        statut: { in: ["VERROUILLE", "PUBLIE"] },
+        ...siteFilter,
+      },
+    });
+
     return NextResponse.json({
       exists: true,
       published: publishedCount > 0,
+      verrouille: verrouilleCount > 0,
       count,
     });
   } catch (error) {

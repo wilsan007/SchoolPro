@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { erreurJson } from "@/lib/erreurs-api";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/rbac";
-import { getAnneeCourante } from "@/lib/annee-scolaire";
+import { anneeActive } from "@/lib/annee-scolaire";
 import { eleveDeSeance, ouvrirSeance } from "@/lib/learnos/entrainement";
 
 /**
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     return erreurJson("ELEVE_INTROUVABLE");
   }
 
-  const annee = await getAnneeCourante(tenantId);
+  const annee = await anneeActive(tenantId);
   if (!annee) {
     return erreurJson("AUCUNE_ANNEE_COURANTE");
   }

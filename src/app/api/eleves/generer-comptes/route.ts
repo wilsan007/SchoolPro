@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidateTag } from "next/cache";
+import { checkPermission } from "@/lib/rbac";
 
 /**
  * POST /api/eleves/generer-comptes
@@ -25,6 +26,11 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+  // Génération de comptes de connexion : action d'écriture sur les élèves.
+  // Sans cette garde, n'importe quel utilisateur authentifié (y compris
+  // PARENT ou STUDENT) pouvait créer des comptes pour toute une classe.
+  const denied = checkPermission(session.user.role, "eleves:write");
+  if (denied) return denied;
 
   const body = await req.json();
   const { classeId, customPassword } = body as {

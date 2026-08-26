@@ -9,6 +9,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import bcrypt from 'bcryptjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 const SCHEMA = path.join(ROOT, 'prisma/schema.prisma');
@@ -307,6 +308,297 @@ for (const [table, t] of tables) {
   for (const [k, n] of enumBad) add('ERROR', table, 'ENUM_INVALIDE', `${n} ligne(s): ${k}`, null);
   if (dupIds.length) add('ERROR', table, 'ID_DUPLIQUE', `${dupIds.length} id(s) dupliqué(s)`, dupIds.slice(0, 3).join(', '));
   for (const [k, e] of fkMiss) add('ERROR', table, 'FK_ORPHELINE', `${e.n} ligne(s): ${k} introuvable`, e.ex.join(', '));
+}
+
+// ── 3 bis. Hash bcrypt des comptes ─────────────────────────────
+// Un hash syntaxiquement valide mais qui ne vérifie AUCUN mot de passe passe
+// tous les autres contrôles : le chargement réussit, les comptes existent,
+// `isActive` est vrai — et pourtant plus personne ne peut se connecter, avec
+// pour seul symptôme « Identifiants invalides ». C'est exactement ce qui
+// s'était produit (digest de coût 10 recollé derrière un préfixe `$2a$12$`).
+// On vérifie donc que chaque hash distinct correspond bien au mot de passe
+// de démonstration documenté.
+const MOT_DE_PASSE_DEMO = 'Ambouli@2026!';
+const usersTable = tables.get('users');
+if (usersTable) {
+  const hashes = new Map(); // hash -> nombre de lignes
+  for (const r of usersTable.rows) {
+    const v = r['password'];
+    if (!v || v.kind === 'null') continue;
+    const h = String(v.value);
+    hashes.set(h, (hashes.get(h) || 0) + 1);
+  }
+  for (const [h, n] of hashes) {
+    if (!/^\$2[aby]\$\d{2}\$[A-Za-z0-9./]{53}$/.test(h)) {
+      add('ERROR', 'users', 'HASH_MALFORME', `${n} ligne(s) avec un hash bcrypt malformé`, h.slice(0, 20) + '…');
+      continue;
+    }
+    if (!bcrypt.compareSync(MOT_DE_PASSE_DEMO, h)) {
+      add('ERROR', 'users', 'HASH_INVALIDE',
+        `${n} ligne(s) portent un hash qui ne vérifie pas le mot de passe "${MOT_DE_PASSE_DEMO}" — ces comptes seraient impossibles à connecter`,
+        h.slice(0, 20) + '…');
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// CONTRÔLES SÉMANTIQUES
+// ══════════════════════════════════════════════════════════════
+// POURQUOI ILS EXISTENT
+// Ce validateur annonçait « 0 problème » sur un jeu qui comportait 7 137 rangs
+// de bulletin faux, 85 % des lignes de matière en désaccord avec les notes, et
+// des scores de maîtrise à 20 sur une échelle 0–1 — parce qu'il ne vérifiait
+// que des volumes, des clés étrangères et des types. Les contrôles ci-dessous
+// portent sur le SENS des valeurs : c'est le seul niveau auquel ces défauts
+// étaient visibles.
+
+/** Valeurs numériques d'une colonne, NULL exclus. */
+function nombres(table, col) {
+  const t = tables.get(table);
+  if (!t) return [];
+  const out = [];
+  for (const r of t.rows) {
+    const v = r[col];
+    if (v && v.kind === 'num' && Number.isFinite(v.value)) out.push(v.value);
+  }
+  return out;
+}
+
+// ── 3a. Colonnes bornées à l'intervalle [0 ; 1] ─────────────────
+// Le défaut d'origine : la compilation des preuves lisait `maxScore`
+// (constamment 20) au lieu du signal de maîtrise. Tout ce qui en dérivait
+// sortait de l'échelle sans qu'aucun contrôle ne s'en aperçoive.
+const COLONNES_0_1 = [
+  ['learnos_learning_evidences', ['masterySignal', 'confidence']],
+  ['learnos_student_learning_profiles', ['masteryScore', 'confidenceScore']],
+  ['learnos_predictions', ['probaReussite', 'masteryAvant', 'confidenceAvant', 'masteryApres', 'ecart']],
+  ['learnos_patterns_pedago', ['masteryMoyenne', 'confidenceMoyenne', 'ecartType', 'tauxEchec']],
+  ['learnos_calibration_seuils', ['seuilCritique', 'seuilFragile', 'seuilConsolide', 'seuilAvance', 'confianceMinimale']],
+  ['learnos_seuils_recommandation', ['seuilCritique', 'seuilFragile', 'seuilConsolide', 'seuilAvance', 'confianceMinimale']],
+  ['learnos_plans_progression', ['masteryAvant', 'masteryApres']],
+  ['learnos_student_interventions', ['masteryBefore', 'masteryAfter']],
+];
+for (const [table, cols] of COLONNES_0_1) {
+  for (const col of cols) {
+    const vals = nombres(table, col);
+    const hors = vals.filter(v => v < 0 || v > 1);
+    if (hors.length) {
+      add('ERROR', table, 'ECHELLE_0_1',
+        `${hors.length} valeur(s) de "${col}" hors de l'intervalle [0 ; 1] — indice d'une confusion d'échelle (note sur 20 lue comme un score de maîtrise)`,
+        `max observé ${Math.max(...hors)}`);
+    }
+  }
+}
+
+// ── 3b. Ordre des seuils de maîtrise ────────────────────────────
+// Des seuils mélangeant deux échelles (19,8 / 19,95 / 0,85 / 0,95) rangeaient
+// tous les élèves dans la même bande : le classement n'ordonnait plus rien.
+for (const table of ['learnos_calibration_seuils', 'learnos_seuils_recommandation']) {
+  const t = tables.get(table);
+  if (!t) continue;
+  let desordre = 0, exemple = null;
+  for (const r of t.rows) {
+    const s = ['seuilCritique', 'seuilFragile', 'seuilConsolide', 'seuilAvance']
+      .map(c => (r[c] && r[c].kind === 'num') ? r[c].value : null);
+    if (s.some(v => v === null)) continue;
+    if (!(s[0] < s[1] && s[1] < s[2] && s[2] < s[3])) {
+      desordre++;
+      exemple = exemple || s.join(' / ');
+    }
+  }
+  if (desordre) {
+    add('ERROR', table, 'SEUILS_DESORDONNES',
+      `${desordre} ligne(s) où les seuils ne sont pas strictement croissants (critique < fragile < consolidé < avancé)`,
+      exemple);
+  }
+}
+
+// ── 3c. Cohérence des prédictions ───────────────────────────────
+// `predictionCorrecte` doit être la conséquence de `ecart`, pas une valeur
+// indépendante : c'est ce découplage qui laissait passer 3 % de justesse.
+const SEUIL_JUSTESSE = 0.15;
+const predTable = tables.get('learnos_predictions');
+if (predTable) {
+  let incoherentes = 0, verifiees = 0, justes = 0, exemple = null;
+  for (const r of predTable.rows) {
+    const ecart = r['ecart'], correcte = r['predictionCorrecte'];
+    if (!ecart || ecart.kind !== 'num' || !correcte || correcte.kind !== 'bool') continue;
+    verifiees++;
+    if (correcte.value) justes++;
+    const attendu = ecart.value < SEUIL_JUSTESSE;
+    if (attendu !== correcte.value) {
+      incoherentes++;
+      exemple = exemple || `ecart ${ecart.value} → ${correcte.value}`;
+    }
+  }
+  if (incoherentes) {
+    add('ERROR', 'learnos_predictions', 'JUSTESSE_INCOHERENTE',
+      `${incoherentes} prédiction(s) où predictionCorrecte ne découle pas de ecart < ${SEUIL_JUSTESSE}`, exemple);
+  }
+  // Un taux de justesse effondré n'est pas une erreur de structure, mais il
+  // trahit presque toujours un défaut de calcul en amont — et il s'affiche tel
+  // quel sur l'écran « Intelligence pédagogique ».
+  if (verifiees >= 20) {
+    const taux = justes / verifiees;
+    if (taux < 0.4) {
+      add('ERROR', 'learnos_predictions', 'JUSTESSE_ABERRANTE',
+        `Taux de justesse de ${(taux * 100).toFixed(1)} % sur ${verifiees} prédictions vérifiées — invraisemblable pour un modèle calibré`,
+        `${justes}/${verifiees}`);
+    } else if (taux > 0.95) {
+      add('WARN', 'learnos_predictions', 'JUSTESSE_SUSPECTE',
+        `Taux de justesse de ${(taux * 100).toFixed(1)} % — trop parfait pour être crédible devant un acheteur`,
+        `${justes}/${verifiees}`);
+    }
+  }
+}
+
+// ── 3d. Diversité de la difficulté prédite ──────────────────────
+// 322 prédictions sur 326 en « FACILE » : le panneau n'ordonnait plus rien.
+if (predTable) {
+  const dist = new Map();
+  for (const r of predTable.rows) {
+    const v = r['difficultePredite'];
+    if (!v || v.kind === 'null') continue;
+    dist.set(v.value, (dist.get(v.value) || 0) + 1);
+  }
+  const total = [...dist.values()].reduce((a, b) => a + b, 0);
+  if (total >= 50) {
+    const [dominante, n] = [...dist.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (n / total > 0.85) {
+      add('ERROR', 'learnos_predictions', 'DIFFICULTE_ECRASEE',
+        `${((n / total) * 100).toFixed(0)} % des prédictions portent la même difficulté ("${dominante}") — la répartition n'informe plus`,
+        [...dist.entries()].map(([k, v]) => `${k}:${v}`).join(' '));
+    }
+  }
+}
+
+// ── 3e. Bulletins : rang, moyenne, effectif ─────────────────────
+const bullTable = tables.get('bulletins');
+if (bullTable) {
+  let rangHorsEffectif = 0, moyHorsBareme = 0, exemple = null;
+  for (const r of bullTable.rows) {
+    const rang = r['rang'], eff = r['effectifClasse'], moy = r['moyenneGenerale'];
+    if (rang && rang.kind === 'num' && eff && eff.kind === 'num' && (rang.value < 1 || rang.value > eff.value)) {
+      rangHorsEffectif++;
+      exemple = exemple || `rang ${rang.value} sur ${eff.value}`;
+    }
+    if (moy && moy.kind === 'num' && (moy.value < 0 || moy.value > 20)) moyHorsBareme++;
+  }
+  if (rangHorsEffectif) {
+    add('ERROR', 'bulletins', 'RANG_HORS_EFFECTIF',
+      `${rangHorsEffectif} bulletin(s) avec un rang hors de l'effectif de la classe`, exemple);
+  }
+  if (moyHorsBareme) {
+    add('ERROR', 'bulletins', 'MOYENNE_HORS_BAREME',
+      `${moyHorsBareme} bulletin(s) avec une moyenne générale hors de l'intervalle [0 ; 20]`);
+  }
+}
+
+// ── 3f. Bulletins : colonnes structurantes jamais renseignées ───
+// `moyenneClasse`, `moyennePremier`, l'appréciation et le nom du professeur
+// étaient NULL sur 100 % des lignes : le bulletin imprimé affichait « — »
+// partout où le lecteur attend une comparaison.
+const COLONNES_ATTENDUES = [
+  ['bulletins', ['moyenneClasse', 'moyennePremier', 'appreciation']],
+  ['bulletin_matieres', ['moyenneEleve', 'moyenneMax', 'moyenneMin', 'appreciation', 'nomProfesseur']],
+];
+for (const [table, cols] of COLONNES_ATTENDUES) {
+  const t = tables.get(table);
+  if (!t || t.rows.length < 20) continue;
+  for (const col of cols) {
+    if (!t.cols.has(col)) continue;
+    const remplies = t.rows.filter(r => r[col] && r[col].kind !== 'null').length;
+    if (remplies === 0) {
+      add('ERROR', table, 'COLONNE_TOUJOURS_NULLE',
+        `"${col}" est NULL sur les ${t.rows.length} lignes — la colonne est affichée dans le bulletin et resterait vide`);
+    }
+  }
+}
+
+// ── 3g. Coefficients du bulletin alignés sur le référentiel ─────
+const matieresTable = tables.get('matieres');
+const bmTable = tables.get('bulletin_matieres');
+if (matieresTable && bmTable) {
+  const coefRef = new Map();
+  for (const r of matieresTable.rows) {
+    const id = r['id'], coef = r['coefficient'];
+    if (id && coef && coef.kind === 'num') coefRef.set(String(id.value), coef.value);
+  }
+  let faux = 0, exemple = null;
+  for (const r of bmTable.rows) {
+    const mid = r['matiereId'], coef = r['coefficient'];
+    if (!mid || !coef || coef.kind !== 'num') continue;
+    const attendu = coefRef.get(String(mid.value));
+    if (attendu !== undefined && attendu !== coef.value) {
+      faux++;
+      exemple = exemple || `${mid.value} : ${coef.value} au lieu de ${attendu}`;
+    }
+  }
+  if (faux) {
+    add('ERROR', 'bulletin_matieres', 'COEFFICIENT_DIVERGENT',
+      `${faux} ligne(s) dont le coefficient diffère de celui de la matière`, exemple);
+  }
+}
+
+// ── 3h. Emploi du temps : conflits et spécialité ────────────────
+const edtTable = tables.get('emplois_temps');
+const ensTable = tables.get('enseignants');
+if (edtTable) {
+  const vuProf = new Set(), vuSalle = new Set(), vuClasse = new Set();
+  let cProf = 0, cSalle = 0, cClasse = 0;
+  for (const r of edtTable.rows) {
+    const k = (...cs) => cs.map(c => (r[c] ? String(r[c].value) : '')).join('|');
+    const kp = k('annee', 'jour', 'heureDebut', 'enseignantId');
+    const ks = k('annee', 'jour', 'heureDebut', 'salle');
+    const kc = k('annee', 'jour', 'heureDebut', 'classeId');
+    if (r['enseignantId'] && r['enseignantId'].kind !== 'null') { if (vuProf.has(kp)) cProf++; else vuProf.add(kp); }
+    if (r['salle'] && r['salle'].kind !== 'null') { if (vuSalle.has(ks)) cSalle++; else vuSalle.add(ks); }
+    if (vuClasse.has(kc)) cClasse++; else vuClasse.add(kc);
+  }
+  if (cProf) add('ERROR', 'emplois_temps', 'CONFLIT_ENSEIGNANT', `${cProf} créneau(x) placent un enseignant sur deux classes à la même heure`);
+  if (cClasse) add('ERROR', 'emplois_temps', 'CONFLIT_CLASSE', `${cClasse} créneau(x) placent une classe sur deux cours à la même heure`);
+  if (cSalle) add('ERROR', 'emplois_temps', 'CONFLIT_SALLE', `${cSalle} créneau(x) placent deux classes dans la même salle`);
+
+  // Spécialité de l'enseignant : 92 % des créneaux affichaient un professeur
+  // hors de sa matière — un professeur de physique-chimie en cours d'anglais.
+  if (ensTable && matieresTable) {
+    const specialite = new Map();
+    for (const r of ensTable.rows) {
+      if (r['id'] && r['specialite'] && r['specialite'].kind !== 'null') specialite.set(String(r['id'].value), String(r['specialite'].value));
+    }
+    const codeMatiere = new Map();
+    for (const r of matieresTable.rows) {
+      if (r['id'] && r['code']) codeMatiere.set(String(r['id'].value), String(r['code'].value));
+    }
+    let hors = 0, total = 0, exemple = null;
+    for (const r of edtTable.rows) {
+      const eid = r['enseignantId'], mid = r['matiereId'];
+      if (!eid || eid.kind === 'null' || !mid) continue;
+      const sp = specialite.get(String(eid.value));
+      const code = codeMatiere.get(String(mid.value));
+      if (!sp || !code) continue;
+      total++;
+      if (sp !== code) { hors++; exemple = exemple || `spécialité ${sp} sur un cours de ${code}`; }
+    }
+    if (total >= 20 && hors / total > 0.1) {
+      add('ERROR', 'emplois_temps', 'ENSEIGNANT_HORS_SPECIALITE',
+        `${((hors / total) * 100).toFixed(0)} % des créneaux (${hors}/${total}) affichent un enseignant hors de sa spécialité`, exemple);
+    }
+  }
+
+  // Une matière enseignée à toute l'école à la même heure trahit un emploi du
+  // temps généré sans contrainte : 26 créneaux réunissaient 40 classes.
+  const parCreneauMatiere = new Map();
+  for (const r of edtTable.rows) {
+    const k = ['annee', 'jour', 'heureDebut', 'matiereId'].map(c => (r[c] ? String(r[c].value) : '')).join('|');
+    parCreneauMatiere.set(k, (parCreneauMatiere.get(k) || 0) + 1);
+  }
+  const massifs = [...parCreneauMatiere.values()].filter(n => n > 12).length;
+  if (massifs) {
+    add('WARN', 'emplois_temps', 'MATIERE_SIMULTANEE_MASSIVE',
+      `${massifs} créneau(x) placent plus de 12 classes sur la même matière à la même heure`,
+      `max ${Math.max(...parCreneauMatiere.values())} classes`);
+  }
 }
 
 // tables du schéma jamais alimentées (learnos + toutes)

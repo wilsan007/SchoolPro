@@ -1,29 +1,15 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { Sidebar } from "@/components/layout/Sidebar";
 import type { Role } from "@prisma/client";
-import { AiChatWidget } from "@/components/ai/AiChatWidget";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
 import { checkUserFinancialBlock } from "@/lib/financial-guard";
 import { PWAInstallPrompt } from "@/components/parent/PWAInstallPrompt";
-
-const AI_GREETINGS: Record<string, string> = {
-  SUPER_ADMIN:
-    "Posez-moi vos questions sur la gestion de l'établissement : synthèses, aide à la décision, rédaction de communications...",
-  TENANT_ADMIN:
-    "Posez-moi vos questions sur la gestion de l'établissement : synthèses, aide à la décision, rédaction de communications...",
-  PRINCIPAL:
-    "Posez-moi vos questions sur la gestion pédagogique et administrative de l'établissement...",
-  TEACHER:
-    "Posez-moi vos questions : préparation de cours, idées d'exercices, conseils pédagogiques...",
-  CLASS_TEACHER:
-    "Posez-moi vos questions : préparation de cours, conseil de classe, conseils pédagogiques...",
-  PARENT: "Posez-moi vos questions sur la scolarité de votre/vos enfant(s).",
-};
+import { WindowManagerProvider } from "@/components/workspace/WindowManager";
+import { Workspace } from "@/components/workspace/Workspace";
 
 const getTenantName = unstable_cache(
   async (tenantId: string) => {
@@ -132,24 +118,33 @@ export default async function DashboardLayout({
     STUDENT: tRoles("STUDENT"),
   };
 
+  // Mode embedded : les iframes du workspace chargent les routes avec ?embedded=1.
+  // On rend juste le contenu de la page, sans chrome (sidebar, header, dock).
+  const h = await headers();
+  // Deux signaux complémentaires :
+  //
+  //  — `Sec-Fetch-Dest: iframe` : envoyé par le navigateur pour TOUT chargement
+  //    de document dans une iframe, y compris après une redirection. C'est le
+  //    signal déterminant : `redirect()` perd la query string, donc un module
+  //    qui redirige (`/dashboard` → `/direction`, blocage financier, 2FA…)
+  //    reperdrait `?embedded=1` et ré-afficherait tout le chrome dans l'iframe.
+  //    Aucun risque de faux positif : `frame-ancestors 'self'` (next.config.ts)
+  //    interdit déjà l'encadrement cross-origin, donc une requête `iframe` ne
+  //    peut provenir que du workspace lui-même.
+  //
+  //  — `x-embedded` : injecté par le middleware depuis `?embedded=1`. Couvre les
+  //    navigations RSC internes à l'iframe, où `Sec-Fetch-Dest` vaut `empty`.
+  const isEmbedded =
+    h.get("sec-fetch-dest") === "iframe" || h.get("x-embedded") === "1";
+
+  if (isEmbedded) {
+    return <div className="h-screen bg-background overflow-auto">{children}</div>;
+  }
+
+  // Mode workspace : plein écran, dock en bas avec tous les modules
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar
-        userName={session.user.name}
-        userRole={roleLabels[session.user.role] ?? session.user.role}
-        userAvatar={session.user.image ?? undefined}
-        tenantName={tenantName}
-        tenantId={session.user.tenantId}
-        isSuperAdmin={session.user.role === "SUPER_ADMIN"}
-        roleKey={session.user.role}
-        availableTenants={session.user.availableTenants}
-        sites={sites}
-        currentSiteId={siteId}
-        isSiteAdmin={isSiteAdmin}
-        availableRoles={availableRoles}
-        currentRole={currentRole}
-      />
-      <main className="flex-1 flex flex-col overflow-hidden bg-background print:overflow-visible print:bg-white">
+    <WindowManagerProvider>
+      <div className="flex flex-col h-screen overflow-hidden bg-background">
         <ImpersonationBanner />
         {partialBlockMessage && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2 print:hidden">
@@ -159,15 +154,22 @@ export default async function DashboardLayout({
             <p className="text-sm text-amber-800">{partialBlockMessage}</p>
           </div>
         )}
-        {children}
-      </main>
-      {/* Bannière d'installation PWA — visible sur mobile pour tous les utilisateurs */}
+        <Workspace
+          roleKey={session.user.role}
+          userName={session.user.name}
+          userAvatar={session.user.image ?? undefined}
+          tenantName={tenantName}
+          tenantId={session.user.tenantId}
+          isSuperAdmin={session.user.role === "SUPER_ADMIN"}
+          availableTenants={session.user.availableTenants}
+          sites={sites}
+          currentSiteId={siteId}
+          isSiteAdmin={isSiteAdmin}
+          availableRoles={availableRoles}
+          currentRole={currentRole}
+        />
+      </div>
       <PWAInstallPrompt />
-      {/* AI chat widget temporarily hidden
-      {AI_GREETINGS[session.user.role] && (
-        <AiChatWidget greeting={AI_GREETINGS[session.user.role]} />
-      )}
-      */}
-    </div>
+    </WindowManagerProvider>
   );
 }

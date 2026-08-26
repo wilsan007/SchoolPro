@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getInitials, timeAgo } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface NotifItem {
   id: string;
@@ -37,6 +38,8 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
   const router = useRouter();
   const locale = useLocale();
   const tCommon = useTranslations("common");
+  const searchParams = useSearchParams();
+  const isEmbedded = searchParams.get("embedded") === "1";
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
@@ -51,7 +54,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
   }
 
   useEffect(() => {
-    const CACHE_KEY = "ecolpro_notif_cache";
+    const CACHE_KEY = "schoolpro_notif_cache";
     const CACHE_TTL = 120_000; // 2 minutes
 
     // Try cache first
@@ -94,21 +97,34 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // En mode embedded (iframe du workspace), on ne rend pas le header
+  // — la WindowFrame a déjà sa propre title bar. (Placé APRÈS tous les hooks
+  // pour respecter les rules of hooks.)
+  if (isEmbedded) return null;
+
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-4 sm:px-6 bg-background border-b border-border print:hidden">
+    <header className="sticky top-0 z-40 flex items-center justify-between h-[60px] px-4 sm:px-6 bg-card/70 backdrop-blur-[20px] border-b border-border print:hidden">
+      {/* Liseré dégradé turquoise→violet en bas du header */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(90deg, hsl(198 65% 46% / 0.5) 0%, hsl(258 58% 58% / 0.4) 50%, hsl(188 60% 42% / 0.4) 100%)",
+        }}
+      />
       {/* Titre de la page */}
       <div className="flex items-center gap-2 min-w-0">
         {/* Hamburger menu — mobile only */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("sidebar-mobile-toggle"))}
-          className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
+          className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-muted transition-colors flex-shrink-0"
           aria-label="Menu"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <h1 className="text-base sm:text-lg font-semibold text-foreground truncate">{title}</h1>
+          <h1 className="text-base sm:text-lg font-semibold font-display text-foreground truncate">{title}</h1>
           {site && (
             siteColor ? (
               <span
@@ -138,10 +154,10 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         {/* Recherche globale */}
         <div className="relative hidden md:flex items-center">
-          <Search className="absolute left-2.5 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder={tCommon("searchPlaceholder")}
-            className="pl-8 h-9 w-56 text-sm"
+            className="pl-9 h-9 w-60 text-sm rounded-full bg-input/80 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all duration-200"
           />
         </div>
 
@@ -169,22 +185,22 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
             <ChevronDown className="h-3 w-3" />
           </Button>
           {showLangMenu && (
-            <div className="absolute right-0 mt-1 w-32 bg-popover border rounded-lg shadow-lg py-1 z-50">
+            <div className="absolute right-0 mt-1 w-32 bg-popover border rounded-2xl shadow-lg py-1 z-50">
               <button
                 onClick={() => switchLocale("fr")}
-                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors ${locale === "fr" ? "font-bold text-primary" : ""}`}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors ${locale === "fr" ? "font-bold text-primary" : ""}`}
               >
                 🇫🇷 {tCommon("french")}
               </button>
               <button
                 onClick={() => switchLocale("en")}
-                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors ${locale === "en" ? "font-bold text-primary" : ""}`}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors ${locale === "en" ? "font-bold text-primary" : ""}`}
               >
                 🇬🇧 {tCommon("english")}
               </button>
               <button
                 onClick={() => switchLocale("so")}
-                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors ${locale === "so" ? "font-bold text-primary" : ""}`}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors ${locale === "so" ? "font-bold text-primary" : ""}`}
               >
                 🇸🇴 {tCommon("somali")}
               </button>
@@ -205,13 +221,13 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
           >
             <Bell className="h-4 w-4" />
             {notifCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-gradient-to-br from-rose-500 to-red-600 text-white text-[10px] font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(225,29,72,0.4)]">
                 {notifCount > 9 ? "9+" : notifCount}
               </span>
             )}
           </Button>
           {showNotifMenu && (
-            <div className="absolute right-0 mt-1 w-[calc(100vw-2rem)] max-w-80 bg-popover border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+            <div className="absolute right-0 mt-1 w-[calc(100vw-2rem)] max-w-80 bg-popover border rounded-2xl shadow-lg z-50 max-h-96 overflow-y-auto">
               <div className="px-4 py-3 border-b flex items-center justify-between">
                 <span className="text-sm font-semibold">{tCommon("notifications")}</span>
                 <button
@@ -229,7 +245,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
                 notifications.map((n) => (
                   <div
                     key={n.id}
-                    className="px-4 py-3 border-b last:border-0 hover:bg-accent cursor-pointer transition-colors"
+                    className="px-4 py-3 border-b last:border-0 hover:bg-muted cursor-pointer transition-colors"
                     onClick={() => { setShowNotifMenu(false); router.push("/communication"); }}
                   >
                     <div className="flex items-start gap-2">
@@ -260,11 +276,11 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
         <div className="relative">
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <Avatar className="h-7 w-7">
               {userAvatar && <AvatarImage src={userAvatar} />}
-              <AvatarFallback className="bg-primary text-white text-xs">
+              <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-xs font-semibold shadow-[0_2px_8px_rgba(14,165,233,0.3)]">
                 {getInitials(userName)}
               </AvatarFallback>
             </Avatar>
@@ -273,15 +289,18 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-1 w-44 sm:w-48 bg-popover border rounded-lg shadow-lg py-1 z-50">
-              <button className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors">
+            <div className="absolute right-0 mt-1 w-44 sm:w-48 bg-popover border rounded-2xl shadow-lg py-1 z-50">
+              <a
+                href="/profil"
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors"
+              >
                 <User className="h-4 w-4" />
                 {tCommon("myProfile")}
-              </button>
+              </a>
               <div className="border-t my-1" />
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-accent transition-colors"
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
               >
                 <LogOut className="h-4 w-4" />
                 {tCommon("logout")}

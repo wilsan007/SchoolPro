@@ -14,8 +14,20 @@ import {
 import { cn, getInitials, calculerMoyenne, timeAgo } from "@/lib/utils";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { FournituresClasse } from "@/components/fournitures/FournituresClasse";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface FournitureItemInfo {
+  id: string;
+  type: string;
+  nom: string;
+  description: string | null;
+  quantite: number;
+  format: string | null;
+  prixEstime: number | null;
+  matiere: { nom: string } | null;
+}
 
 interface EleveInfo {
   id: string;
@@ -23,10 +35,12 @@ interface EleveInfo {
   prenom: string;
   matricule: string;
   statut: string;
+  classeId: string | null;
   classe: { nom: string; niveau: string } | null;
   absences: { id: string }[];
   notes: { valeur: number; noteMax: number; coefficient: number }[];
   bulletins: { moyenneGenerale: number | null; isPublie: boolean }[];
+  fournitures: FournitureItemInfo[];
 }
 
 interface EleveParentInfo {
@@ -130,6 +144,16 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
             </div>
           )}
         </div>
+
+        {/* Fournitures scolaires */}
+        {enfant.fournitures && enfant.fournitures.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <FournituresClasse
+              items={enfant.fournitures as any}
+              classeNom={enfant.classe?.nom}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

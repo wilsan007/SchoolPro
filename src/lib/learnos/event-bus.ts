@@ -31,6 +31,7 @@ import {
   recalculerRecommandationsApresProfil,
   reinitialiserCaches,
 } from "@/lib/learnos/recommendation-engine";
+import { onSeanceCloturee } from "@/lib/learnos/boucle-cahier-journal";
 
 export interface DrainedEvent {
   id: string;
@@ -60,6 +61,11 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
     recalculerProfilsApresPreuve,
     recalculerRecommandationsApresProfil,
   ],
+  // La clôture d'une séance déclenche la boucle du cahier-journal : mise à
+  // jour des statuts de planification (chapitre et compétences) pour
+  // refléter la réalité du terrain. Le traitement est idempotent et ne lève
+  // jamais — il peut donc être rejoué sans risque.
+  "seance.cloturee": [onSeanceCloturee],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

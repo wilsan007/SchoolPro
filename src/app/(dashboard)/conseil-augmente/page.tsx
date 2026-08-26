@@ -5,24 +5,24 @@ import { getDemoNow } from "@/lib/demo-now";
 import { Header } from "@/components/layout/Header";
 import { ConseilAugmenteView } from "@/components/conseil-augmente/ConseilAugmenteView";
 import { getTranslations } from "next-intl/server";
-import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import type { Role } from "@prisma/client";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 import { guardPage } from "@/lib/guard-page";
 
 async function getConseilData(
   tenantId: string,
   claims: SessionSiteClaims,
-  scope?: { classeIds: string[]; isRestricted: boolean }
+  anneeCourante: string | null,
+  hierarchieClasseIds: string[],
 ) {
   const classeWhere = {
     tenantId,
     ...siteFilterForModel("classe", claims),
-    ...(scope?.isRestricted && scope.classeIds.length > 0
-      ? { id: { in: scope.classeIds } }
-      : scope?.isRestricted
-        ? { id: "__none__" }
-        : {}),
+    ...(anneeCourante ? { annee: anneeCourante } : {}),
+    ...(hierarchieClasseIds.length > 0
+      ? { id: { in: hierarchieClasseIds } }
+      : { id: "__none__" }),
   };
 
   const [classes, periodes] = await Promise.all([
@@ -67,14 +67,16 @@ export default async function ConseilAugmentePage() {
   await guardPage(session);
   if (!session?.user?.tenantId) redirect("/login");
 
-  const scope = isTeacherRole(session.user.role as Role)
-    ? await getTeacherScope(session.user.tenantId, session.user.id, session.user.role as Role)
-    : undefined;
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  const hierarchie: ClassesHierarchie = await getClassesHierarchie(session.user.tenantId, session.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
 
   const { classes, periodes, periodeCouranteId } = await getConseilData(
     session.user.tenantId,
     session.user,
-    scope
+    anneeCourante,
+    hierarchieClasseIds,
   );
 
   return (
@@ -88,6 +90,7 @@ export default async function ConseilAugmentePage() {
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <ConseilAugmenteView
           classes={classes}
+          hierarchie={hierarchie}
           periodes={periodes}
           periodeCouranteId={periodeCouranteId}
           canWrite={session.user.role === "TENANT_ADMIN" ||

@@ -51,6 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const newHeureFin = body.heureFin ?? existing.heureFin;
     const newSalle = body.salle !== undefined ? body.salle : existing.salle;
     const newEnseignantId = body.enseignantId !== undefined ? (body.enseignantId || null) : existing.enseignantId;
+    const newPeriodeId = body.periodeId !== undefined ? (body.periodeId || null) : existing.periodeId;
 
     // Check class overlap (excluding self)
     // Two creneaux with different groups (e.g. "Salle 101 (Groupe A)" vs "Salle 102 (Groupe B)")
@@ -61,10 +62,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         tenantId,
         classeId: existing.classeId,
         jour: newJour,
-        OR: [
-          { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
-          { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
-          { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+        AND: [
+          {
+            OR: [
+              { periodeId: newPeriodeId },
+              ...(newPeriodeId ? [{ periodeId: null }] : []),
+            ],
+          },
+          {
+            OR: [
+              { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
+              { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
+              { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+            ],
+          },
         ],
         ...siteFilterForModel("emploiTemps", session.user),
       },
@@ -97,10 +108,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           tenantId,
           enseignantId: newEnseignantId,
           jour: newJour,
-          OR: [
-            { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
-            { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
-            { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+          AND: [
+            {
+              OR: [
+                { periodeId: newPeriodeId },
+                ...(newPeriodeId ? [{ periodeId: null }] : []),
+              ],
+            },
+            {
+              OR: [
+                { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
+                { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
+                { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+              ],
+            },
           ],
           ...siteFilterForModel("emploiTemps", session.user),
         },
@@ -118,10 +139,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           tenantId,
           salle: newSalle,
           jour: newJour,
-          OR: [
-            { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
-            { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
-            { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+          AND: [
+            {
+              OR: [
+                { periodeId: newPeriodeId },
+                ...(newPeriodeId ? [{ periodeId: null }] : []),
+              ],
+            },
+            {
+              OR: [
+                { heureDebut: { lte: newHeureDebut }, heureFin: { gt: newHeureDebut } },
+                { heureDebut: { lt: newHeureFin }, heureFin: { gte: newHeureFin } },
+                { heureDebut: { gte: newHeureDebut }, heureFin: { lte: newHeureFin } },
+              ],
+            },
           ],
           ...siteFilterForModel("emploiTemps", session.user),
         },
@@ -139,6 +170,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(body.heureDebut && { heureDebut: body.heureDebut }),
         ...(body.heureFin && { heureFin: body.heureFin }),
         ...(body.enseignantId !== undefined && { enseignantId: body.enseignantId || null }),
+        ...(body.periodeId !== undefined && { periodeId: body.periodeId || null }),
       },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },

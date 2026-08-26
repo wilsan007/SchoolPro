@@ -181,39 +181,47 @@ export function AnalyticsView() {
   const [directionIntel, setDirectionIntel] = useState<DirectionIntelligenceData | null>(null);
   const [intelLoading, setIntelLoading] = useState(true);
 
+  // Fetch séquentiel pour éviter de saturer le pool de connexions Supabase
+  // (15 connexions max en mode session). Les 3 APIs tournent l'une après
+  // l'autre : analytics d'abord (le plus important), puis les indices LEARNOS.
   useEffect(() => {
-    fetch("/api/analytics")
-      .then((r) => {
+    let cancelled = false;
+    (async () => {
+      // 1. Analytics principal
+      try {
+        const r = await fetch("/api/analytics");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => setData(d))
-      .catch((e) => console.error("[Analytics] Erreur fetch:", e))
-      .finally(() => setLoading(false));
-  }, []);
-
-  // Fetch du score de risque de décrochage (I10 + A8)
-  useEffect(() => {
-    fetch("/api/learnos/risque-decrochage")
-      .then((r) => {
+        const d = await r.json();
+        if (!cancelled) setData(d);
+      } catch (e) {
+        console.error("[Analytics] Erreur fetch:", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+      // 2. Risque de décrochage (après analytics pour étaler les requêtes DB)
+      try {
+        const r = await fetch("/api/learnos/risque-decrochage");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => setRisqueDecrochage(d))
-      .catch((e) => console.error("[Analytics] Erreur risque-decrochage:", e))
-      .finally(() => setRisqueLoading(false));
-  }, []);
-
-  // Fetch des indices de santé (direction-intelligence)
-  useEffect(() => {
-    fetch("/api/learnos/direction-intelligence")
-      .then((r) => {
+        const d = await r.json();
+        if (!cancelled) setRisqueDecrochage(d);
+      } catch (e) {
+        console.error("[Analytics] Erreur risque-decrochage:", e);
+      } finally {
+        if (!cancelled) setRisqueLoading(false);
+      }
+      // 3. Direction intelligence (en dernier)
+      try {
+        const r = await fetch("/api/learnos/direction-intelligence");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => setDirectionIntel(d))
-      .catch((e) => console.error("[Analytics] Erreur direction-intelligence:", e))
-      .finally(() => setIntelLoading(false));
+        const d = await r.json();
+        if (!cancelled) setDirectionIntel(d);
+      } catch (e) {
+        console.error("[Analytics] Erreur direction-intelligence:", e);
+      } finally {
+        if (!cancelled) setIntelLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   if (loading) {
@@ -270,7 +278,7 @@ export function AnalyticsView() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* KPI principaux */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <StatCard
           title={t("activeStudents")}
           value={synthese.totalEleves}
@@ -734,7 +742,7 @@ export function AnalyticsView() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {/* Total élèves */}
                 <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 sm:p-4">
                   <p className="text-xs text-gray-500 mb-1">{t("rdTotalEleves")}</p>
@@ -809,7 +817,7 @@ export function AnalyticsView() {
                 </span>
               </div>
               {/* 4 indices clés avec mini barres de progression */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {([
                   { key: "isp", label: "ISP", color: "#6366f1", indice: directionIntel.isp },
                   { key: "ivf", label: "IVF", color: "#10b981", indice: directionIntel.ivf },

@@ -32,6 +32,9 @@ export type BulletinData = {
   ecoleVille: string;
   ecolePays: string;
   ecoleLogo?: string | null;
+  /** Coordonnées imprimées en tête du bulletin remis aux familles. */
+  ecoleEmail?: string | null;
+  ecoleTelephone?: string | null;
   chefEtablissement?: string | null;
   signatureUrl?: string | null;
   cachetUrl?: string | null;
@@ -196,6 +199,8 @@ export async function getBulletinData(
     ecoleVille: tenant.city ?? "Ville",
     ecolePays: tenant.country,
     ecoleLogo: tenant.logoUrl,
+    ecoleEmail: tenant.email,
+    ecoleTelephone: tenant.phone,
     chefEtablissement: tenant.chefEtablissement,
     signatureUrl: tenant.signatureUrl,
     cachetUrl: tenant.cachetUrl,
@@ -225,7 +230,13 @@ export async function getBulletinData(
 
     profPrincipalNom: eleve.classe.profPrincipal?.user.name,
 
-    generatedAt: bulletin.createdAt,
+    // Date portée sous la signature du chef d'établissement : c'est celle de
+    // la REMISE du bulletin, pas celle de sa création en base. Les deux
+    // divergent dès qu'un bulletin est préparé à l'avance ou régénéré — et
+    // sur un jeu chargé en une passe, `createdAt` est identique sur toutes
+    // les lignes : un bulletin du 2e trimestre 2025-2026 se retrouvait signé
+    // « le 15/09/2024 ».
+    generatedAt: bulletin.publishedAt ?? bulletin.updatedAt ?? bulletin.createdAt,
   };
 }
 
@@ -235,6 +246,9 @@ export type BulletinAnnuelData = {
   ecoleVille: string;
   ecolePays: string;
   ecoleLogo?: string | null;
+  /** Coordonnées imprimées en tête du bulletin remis aux familles. */
+  ecoleEmail?: string | null;
+  ecoleTelephone?: string | null;
   chefEtablissement?: string | null;
   signatureUrl?: string | null;
   cachetUrl?: string | null;
@@ -456,6 +470,8 @@ export async function getBulletinAnnuelData(
     ecoleVille: tenant.city ?? "Ville",
     ecolePays: tenant.country,
     ecoleLogo: tenant.logoUrl,
+    ecoleEmail: tenant.email,
+    ecoleTelephone: tenant.phone,
     chefEtablissement: tenant.chefEtablissement,
     signatureUrl: tenant.signatureUrl,
     cachetUrl: tenant.cachetUrl,

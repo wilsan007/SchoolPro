@@ -12,6 +12,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { cn } from "@/lib/utils";
 import type { Jour } from "@prisma/client";
 
@@ -35,6 +36,7 @@ export default async function MaJourneePage({
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const claims = session.user as SessionSiteClaims & {
     id?: string;
     userId?: string;
@@ -114,6 +116,7 @@ export default async function MaJourneePage({
         classeId: choisi.classeId,
         jour: todayJour,
         ...siteFilterForModel("emploiTemps", claims),
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
       },
       include: {
         matiere: { select: { nom: true, couleur: true } },
@@ -127,6 +130,7 @@ export default async function MaJourneePage({
         classeId: choisi.classeId,
         dateRendu: { gte: now },
         ...siteFilterForModel("devoir", claims),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       include: {
         matiere: { select: { nom: true, couleur: true } },
@@ -139,6 +143,7 @@ export default async function MaJourneePage({
         tenantId,
         classeId: choisi.classeId,
         ...siteFilterForModel("evaluation", claims),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       include: {
         matiere: { select: { nom: true, couleur: true } },

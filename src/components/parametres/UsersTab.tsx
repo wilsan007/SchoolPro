@@ -58,7 +58,21 @@ interface SiteItem {
   code: string | null;
 }
 
-export function UsersTab({ users, canManage, availableTenants = [], sites = [] }: { users: UserItem[]; canManage: boolean; availableTenants?: AvailableTenant[]; sites?: SiteItem[] }) {
+interface ClasseItem {
+  id: string;
+  nom: string;
+  niveau: string;
+  siteId?: string | null;
+  structureId?: string | null;
+}
+
+interface MatiereItem {
+  id: string;
+  nom: string;
+  code: string;
+}
+
+export function UsersTab({ users, canManage, availableTenants = [], sites = [], classes = [], matieres = [] }: { users: UserItem[]; canManage: boolean; availableTenants?: AvailableTenant[]; sites?: SiteItem[]; classes?: ClasseItem[]; matieres?: MatiereItem[] }) {
   const t = useTranslations("parametres");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -149,8 +163,58 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
     phone: "",
     password: "",
     isActive: true,
+    matiereId: null,
+    classeIds: [],
+    classePrincipaleId: null,
   });
   const [formSiteIds, setFormSiteIds] = useState<string[]>([]);
+
+  // Vérifier si le rôle sélectionné est un enseignant
+  const isTeacherRole = form.role === "TEACHER" || form.role === "CLASS_TEACHER";
+
+  // Déterminer si la matière sélectionnée est une matière de langue
+  // (français ou anglais) — autorise plusieurs classes au primaire
+  const isMatiereLangue = (() => {
+    if (!form.matiereId) return false;
+    const matiere = matieres.find((m) => m.id === form.matiereId);
+    if (!matiere) return false;
+    const nom = matiere.nom.toLowerCase();
+    return nom.includes("français") || nom.includes("francais") || nom.includes("anglais") || nom.includes("english") || nom.includes("french");
+  })();
+
+  // Déterminer la structure des classes sélectionnées (primaire vs collège/lycée)
+  const isPrimaire = (() => {
+    if (form.classeIds.length === 0) return false;
+    // On regarde le niveau de la première classe sélectionnée
+    const classe = classes.find((c) => c.id === form.classeIds[0]);
+    if (!classe) return false;
+    const niveau = (classe.niveau || "").toLowerCase();
+    return niveau.includes("cp") || niveau.includes("ce") || niveau.includes("cm") || niveau.includes("primaire") || niveau.includes("maternelle");
+  })();
+
+  // Au primaire : une seule classe, sauf pour les matières de langue
+  const maxClasses = isPrimaire && !isMatiereLangue ? 1 : 999;
+
+  function toggleFormClasse(classeId: string) {
+    setForm((prev) => {
+      let newClasseIds: string[];
+      if (prev.classeIds.includes(classeId)) {
+        newClasseIds = prev.classeIds.filter((id) => id !== classeId);
+      } else {
+        if (prev.classeIds.length >= maxClasses) {
+          // Remplacer la première si on est limité à 1
+          newClasseIds = maxClasses === 1 ? [classeId] : [...prev.classeIds, classeId];
+        } else {
+          newClasseIds = [...prev.classeIds, classeId];
+        }
+      }
+      // Si la classe principale n'est plus dans la liste, la nettoyer
+      const newClassePrincipaleId = newClasseIds.includes(prev.classePrincipaleId ?? "")
+        ? prev.classePrincipaleId
+        : null;
+      return { ...prev, classeIds: newClasseIds, classePrincipaleId: newClassePrincipaleId };
+    });
+  }
 
   function toggleFormSite(siteId: string) {
     setFormSiteIds((prev) =>
@@ -182,7 +246,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
       }
       toast.success(t("userCreated"));
       setShowForm(false);
-      setForm({ name: "", email: "", role: "TEACHER", phone: "", password: "", isActive: true });
+      setForm({ name: "", email: "", role: "TEACHER", phone: "", password: "", isActive: true, matiereId: null, classeIds: [], classePrincipaleId: null });
       setFormSiteIds([]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("genericError"));
@@ -387,8 +451,99 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [] }
                   onChange={(e) => setForm({ ...form, password: e.target.value })} />
               </div>
 
-              {/* Sélection des sites */}
-              {sites.length > 0 && (
+              {/* Sélection de la matière — obligatoire pour les enseignants */}
+              {isTeacherRole && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="matiereId">
+                    {t("matiere")} <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    id="matiereId"
+                    value={form.matiereId ?? ""}
+                    onChange={(e) => setForm({ ...form, matiereId: e.target.value || null })}
+                    required
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">— Sélectionner —</option>
+                    {matieres.map((m) => (
+                      <option key={m.id} value={m.id}>{m.nom}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Sélection des classes — obligatoire pour les enseignants */}
+              {isTeacherRole && (
+                <div className="md:col-span-2 space-y-2">
+                  <Label>
+                    {t("classes")} <span className="text-red-500">*</span>
+                    {isPrimaire && !isMatiereLangue && (
+                      <span className="ml-2 text-xs text-amber-600">
+                        (Primaire : 1 classe max)
+                      </span>
+                    )}
+                    {isPrimaire && isMatiereLangue && (
+                      <span className="ml-2 text-xs text-blue-600">
+                        (Matière de langue : plusieurs classes possibles)
+                      </span>
+                    )}
+                  </Label>
+                  {classes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      Aucune classe disponible. Créez d&apos;abord des classes dans l&apos;onglet Classes.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+                      {classes.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-muted/50 transition-colors text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.classeIds.includes(c.id)}
+                            onChange={() => toggleFormClasse(c.id)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <span>
+                            {c.nom}
+                            <span className="block text-xs text-muted-foreground">{c.niveau}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {form.classeIds.length === 0 && (
+                    <p className="text-xs text-red-500">
+                      Au moins une classe est obligatoire.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Classe principale — obligatoire pour le prof principal */}
+              {form.role === "CLASS_TEACHER" && form.classeIds.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="classePrincipaleId">
+                    {t("classePrincipale")} <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    id="classePrincipaleId"
+                    value={form.classePrincipaleId ?? ""}
+                    onChange={(e) => setForm({ ...form, classePrincipaleId: e.target.value || null })}
+                    required
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">— Sélectionner —</option>
+                    {classes.filter((c) => form.classeIds.includes(c.id)).map((c) => (
+                      <option key={c.id} value={c.id}>{c.nom}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Sélection des sites — masquée pour les enseignants (déduit des classes) */}
+              {sites.length > 0 && !isTeacherRole && (
                 <div className="md:col-span-2 space-y-2">
                   <Label>Accès aux sites</Label>
                   <label

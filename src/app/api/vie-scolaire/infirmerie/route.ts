@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 const PassageSchema = z.object({
   eleveId: z.string().min(1),
@@ -41,20 +43,21 @@ export async function GET(request: NextRequest) {
   const claims = { ...session.user, siteId: activeSiteId };
 
   const siteFilter = siteFilterForModel("passageInfirmerie", claims);
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  const anneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
+  const maintenant = await getDemoNow();
 
   const passages = await prisma.passageInfirmerie.findMany({
     where: {
       tenantId: session.user.tenantId,
       ...siteFilter,
       ...(eleveId ? { eleveId } : {}),
-      ...(dateFrom || dateTo
-        ? {
-            date: {
-              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-              ...(dateTo ? { lte: new Date(dateTo) } : {}),
-            },
-          }
-        : {}),
+      ...anneeEleve,
+      date: {
+        lte: maintenant,
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+        ...(dateTo ? { lte: new Date(dateTo) } : {}),
+      },
     },
     include: {
       eleve: {

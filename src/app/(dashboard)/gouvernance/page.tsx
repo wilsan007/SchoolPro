@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { GouvernanceView } from "@/components/gouvernance/GouvernanceView";
 import { guardPage } from "@/lib/guard-page";
+import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 
 export default async function GouvernancePage() {
   const session = await auth();
@@ -11,12 +12,13 @@ export default async function GouvernancePage() {
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const claims = session.user as SessionSiteClaims;
   const canWrite = session.user.role === "SUPER_ADMIN"
     || session.user.role === "TENANT_ADMIN"
     || session.user.role === "PRINCIPAL";
 
   const conseils = await prisma.conseil.findMany({
-    where: { tenantId },
+    where: { tenantId, ...siteFilterForModel("conseil", claims) },
     include: {
       membres: {
         include: {

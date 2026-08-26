@@ -5,6 +5,7 @@ import { SignJWT } from "jose";
 import { z } from "zod";
 import { normaliserEmail } from "@/lib/email";
 import { mobileSecret } from "@/lib/mobile-auth";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 
 const MobileLoginSchema = z.object({
   email: z.string().email().transform(normaliserEmail),
@@ -25,6 +26,16 @@ async function signToken(payload: Record<string, unknown>): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    // ─── Rate limiting : 10 tentatives / 15 min / IP ──────────────────────
+    const ip = getClientIP(req);
+    const rl = rateLimit({ max: 10, windowSec: 900, key: `mobile-login:${ip}` });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Trop de tentatives. Réessayez dans un instant." },
+        { status: 429, headers: { "Retry-After": "900" } },
+      );
+    }
+
     const body = await req.json();
     const parsed = MobileLoginSchema.safeParse(body);
     if (!parsed.success) {

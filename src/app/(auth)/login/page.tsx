@@ -7,8 +7,10 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, School } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
+import TurnstileWidget from "@/components/security/TurnstileWidget";
 
 // ─── Formulaire isolé dans un Suspense pour useSearchParams ───────────────────
 function LoginForm() {
@@ -27,6 +29,7 @@ function LoginForm() {
    */
   const [demande2FA, setDemande2FA] = useState(false);
   const [erreur2FA, setErreur2FA] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
   const t = useTranslations("login");
 
   const LoginSchema = z.object({
@@ -54,6 +57,9 @@ function LoginForm() {
         password: form.password,
         // Envoyé uniquement au second passage, quand le serveur l'a demandé.
         ...(demande2FA ? { totp: form.totp } : {}),
+        // Jeton Turnstile (anti-bot). En dev sans sitekey, le widget envoie
+        // "dev-bypass" et le serveur contourne la vérification.
+        turnstileToken,
         redirect: false,
       });
 
@@ -83,10 +89,10 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-md rounded-[28px] border border-white/40 bg-card/70 backdrop-blur-2xl shadow-[0_20px_60px_rgba(14,165,233,0.12),0_8px_24px_rgba(155,111,224,0.08)] px-8 py-10 sm:px-10 sm:py-12">
       <div className="mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <h1 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight text-foreground">{t("title")}</h1>
+        <p className="text-muted-foreground mt-1.5 text-sm">
           {t("subtitle")}
         </p>
       </div>
@@ -118,6 +124,12 @@ function LoginForm() {
             <label className="text-sm font-medium" htmlFor="password">
               {t("password")}
             </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              {t("forgotPassword")}
+            </Link>
           </div>
           <div className="relative">
             <Input
@@ -173,6 +185,13 @@ function LoginForm() {
           </div>
         )}
 
+        {/* Cloudflare Turnstile — défi anti-bot invisible */}
+        <TurnstileWidget
+          onVerify={setTurnstileToken}
+          onExpire={() => setTurnstileToken("")}
+          className="flex justify-center"
+        />
+
         <Button
           type="submit"
           className="w-full h-11 font-semibold"
@@ -195,14 +214,41 @@ function LoginForm() {
 // ─── Page principale avec Suspense (requis par Next.js 15 pour useSearchParams) ─
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 bg-background">
-      <Suspense fallback={
-        <div className="flex items-center justify-center w-full h-full">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="min-h-screen flex bg-background">
+      {/* Panneau gauche — gradient turquoise → violet (caché sur mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary via-[hsl(200,55%,42%)] to-accent">
+        {/* Halos décoratifs */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] rounded-full bg-accent/30 blur-3xl" />
+        <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-[0_4px_16px_rgba(0,140,200,0.3),0_0_20px_rgba(140,90,220,0.15)]">
+              <School className="w-7 h-7 text-white" />
+            </div>
+            <span className="text-2xl font-display font-bold tracking-wide">SchoolPro</span>
+          </div>
+          <div className="max-w-md">
+            <h2 className="text-4xl xl:text-5xl font-display font-bold leading-tight mb-4">
+              La gestion scolaire de nouvelle génération
+            </h2>
+            <p className="text-white/80 text-lg leading-relaxed">
+              Élèves, notes, absences, IA pédagogique LEARNOS — tout réuni dans une plateforme fluide et moderne.
+            </p>
+          </div>
+          <p className="text-white/60 text-sm">© SchoolPro — Djibouti</p>
         </div>
-      }>
-        <LoginForm />
-      </Suspense>
+      </div>
+
+      {/* Panneau droit — formulaire glassmorphique */}
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 bg-gradient-to-br from-background to-secondary/40">
+        <Suspense fallback={
+          <div className="flex items-center justify-center w-full h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }>
+          <LoginForm />
+        </Suspense>
+      </div>
     </div>
   );
 }

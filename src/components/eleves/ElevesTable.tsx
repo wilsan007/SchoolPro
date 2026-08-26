@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 import { useTranslations } from "next-intl";
 import type { SiteColor } from "@/lib/site-colors";
+import { CascadeClassFilter } from "@/components/classes/CascadeClassFilter";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Eleve {
   id: string;
@@ -55,13 +57,15 @@ interface ElevesTableProps {
    */
   effectifs?: Record<string, number>;
   classes: { id: string; nom: string; siteNom: string | null }[];
+  /** Hiérarchie des classes (catégorie → niveau → classe) pour les filtres cascade. */
+  hierarchie?: ClassesHierarchie;
   siteColors: Record<string, SiteColor>;
   initialQuery: string;
   initialClasse: string;
   initialStatut: string;
 }
 
-export function ElevesTable({ eleves, total, effectifs, classes, siteColors, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
+export function ElevesTable({ eleves, total, effectifs, classes, hierarchie, siteColors, initialQuery, initialClasse, initialStatut }: ElevesTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("eleves");
@@ -262,22 +266,31 @@ export function ElevesTable({ eleves, total, effectifs, classes, siteColors, ini
 
       {showFilters && (
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 px-4 pb-4 border-b">
-          <div className="flex items-center gap-2">
-            <label htmlFor="classe-filter" className="text-sm text-muted-foreground">{tCommon("class")}</label>
-            <select
-              id="classe-filter"
-              value={initialClasse}
-              onChange={(e) => setFilter("classeId", e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">{tCommon("all")}</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom}{c.siteNom ? ` — ${c.siteNom}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Filtre classe : cascade catégorie → niveau → classe si hiérarchie disponible */}
+          {hierarchie && hierarchie.length > 0 ? (
+            <CascadeClassFilter
+              hierarchie={hierarchie}
+              initialClasseId={initialClasse || null}
+              onChange={({ classeId }) => setFilter("classeId", classeId ?? "")}
+            />
+          ) : (
+            <div className="flex items-center gap-2">
+              <label htmlFor="classe-filter" className="text-sm text-muted-foreground">{tCommon("class")}</label>
+              <select
+                id="classe-filter"
+                value={initialClasse}
+                onChange={(e) => setFilter("classeId", e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">{tCommon("all")}</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom}{c.siteNom ? ` — ${c.siteNom}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <label htmlFor="statut-filter" className="text-sm text-muted-foreground">{tCommon("status")}</label>
             <select

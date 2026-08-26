@@ -27,6 +27,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Constantes
@@ -170,6 +171,7 @@ export async function calculerRisqueDecrochage(
   const depuis = new Date(maintenant.getTime() - FENETRE_JOURS * 86_400_000);
   // Fenêtre précédente (30-60 jours) pour détecter la hausse d'absences.
   const depuis60 = new Date(maintenant.getTime() - 2 * FENETRE_JOURS * 86_400_000);
+  const anneeId = await anneeActiveId(tenantId);
 
   // --- 2. Signaux en batch (un seul aller-retour par famille) ---
   const [
@@ -247,6 +249,7 @@ export async function calculerRisqueDecrochage(
         tenantId,
         eleveId: { in: ids },
         statut: "EN_RETARD",
+        ...(anneeId ? { anneeId } : {}),
         ...siteFilterForModel("facture", claims),
       },
       _count: { eleveId: true },

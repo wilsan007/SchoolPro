@@ -42,8 +42,19 @@ export function BulletinPreview({ data }: Props) {
     >
       {/* Header Info */}
       <div className="flex flex-col mb-4">
-        <div className="text-center text-red-600 font-bold mb-2">
-           Email: ecoleprivee@gmail.com
+        {/*
+          Coordonnées de l'établissement, lues sur le tenant. Une adresse
+          générique était écrite en dur ici et s'imprimait sur chaque bulletin
+          remis aux familles, quel que soit l'établissement.
+        */}
+        <div className="text-center font-bold mb-2">
+          {data.ecoleName}
+          {(data.ecoleEmail || data.ecoleTelephone) && (
+            <span className="font-normal">
+              {" — "}
+              {[data.ecoleEmail, data.ecoleTelephone].filter(Boolean).join(" · ")}
+            </span>
+          )}
         </div>
         
         {/* Ligne Infos Élève */}

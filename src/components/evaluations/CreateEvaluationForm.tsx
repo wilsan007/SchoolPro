@@ -11,14 +11,16 @@ import { PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Props {
   classes: { id: string; nom: string }[];
+  hierarchie?: ClassesHierarchie;
   matieres: { id: string; nom: string }[];
   periodes: { id: string; nom: string }[];
 }
 
-export function CreateEvaluationForm({ classes, matieres, periodes }: Props) {
+export function CreateEvaluationForm({ classes, hierarchie: _hierarchie, matieres, periodes }: Props) {
   const t = useTranslations("evaluations");
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();

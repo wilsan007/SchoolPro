@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
 import { CompetencesEvaluation } from "@/components/evaluations/CompetencesEvaluation";
 import { guardPage } from "@/lib/guard-page";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export default async function SaisieNotesPage({
   params
@@ -22,9 +23,10 @@ export default async function SaisieNotesPage({
 
   const { id: evaluationId } = await params;
   const siteFilter = siteFilterForRelation(session.user, "classe");
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const evaluation = await prisma.evaluation.findFirst({
-    where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter },
+    where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
     include: {
       classe: {
         include: {

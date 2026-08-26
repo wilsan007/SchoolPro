@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { PAYMENT_METHOD_IDS } from "@/lib/payment-methods";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
+import { anneeActiveId, getContexteAnnees } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
 
 const FactureSchema = z.object({
@@ -28,25 +30,88 @@ const PaiementSchema = z.object({
 
 export type PaiementFormData = z.infer<typeof PaiementSchema>;
 
-export async function getFacturesForTenant(filters?: { statut?: string; eleveId?: string }) {
+export async function getFacturesForTenant(filters?: { statut?: string; eleveId?: string; anneeId?: string }) {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
-  return prisma.facture.findMany({
-    where: mergeFilters(
-      {
-        tenantId: session.user.tenantId,
-        ...(filters?.statut && filters.statut !== "ALL" ? { statut: filters.statut as never } : {}),
-        ...(filters?.eleveId ? { eleveId: filters.eleveId } : {}),
+  const tenantId = session.user.tenantId;
+
+  // Si un anneeId explicite est fourni, on filtre strictement sur cette année.
+  if (filters?.anneeId) {
+    return prisma.facture.findMany({
+      where: mergeFilters(
+        {
+          tenantId,
+          anneeId: filters.anneeId,
+          ...(filters.statut && filters.statut !== "ALL" ? { statut: filters.statut as never } : {}),
+          ...(filters.eleveId ? { eleveId: filters.eleveId } : {}),
+        },
+        siteFilterForModel("facture", session.user)
+      ),
+      include: {
+        eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classeId: true, classe: { select: { nom: true } } } },
+        paiements: {
+          where: siteFilterForModel("paiement", session.user),
+          include: { enregistrePar: { select: { id: true, name: true } } },
+        },
+        relances: { select: { id: true, niveau: true } },
+        createdBy: { select: { id: true, name: true } },
       },
-      siteFilterForModel("facture", session.user)
-    ),
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // Sans anneeId explicite : utiliser le contexte annuel.
+  // En période estivale, on affiche :
+  //   — Toutes les factures de la nouvelle année (préparation)
+  //   — Les factures IMPAYÉES de l'année écoulée (retards à encaisser)
+  // En période normale : seulement l'année active.
+  const ctx = await getContexteAnnees(tenantId);
+  const anneeActiveIdVal = ctx.anneeActive?.id ?? null;
+  const anneeEcouleeId = ctx.anneeEcoulee?.id ?? null;
+
+  // En période estivale : factures de la nouvelle année + impayées de l'écoulée
+  const anneeIds: string[] = [];
+  if (anneeActiveIdVal) anneeIds.push(anneeActiveIdVal);
+  if (ctx.phase !== "normale" && anneeEcouleeId) {
+    // Les impayées de l'année écoulée : EN_ATTENTE, EN_RETARD (pas PAYEE ni ANNULEE)
+    // On les inclut via un OR ci-dessous
+  }
+
+  const whereBase = {
+    tenantId,
+    ...(filters?.statut && filters.statut !== "ALL" ? { statut: filters.statut as never } : {}),
+    ...(filters?.eleveId ? { eleveId: filters.eleveId } : {}),
+  };
+
+  const where =
+    ctx.phase !== "normale" && anneeEcouleeId
+      ? {
+          OR: [
+            // Factures de la nouvelle année
+            { ...whereBase, anneeId: anneeActiveIdVal },
+            // Factures impayées de l'année écoulée
+            {
+              ...whereBase,
+              anneeId: anneeEcouleeId,
+              statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
+            },
+          ],
+        }
+      : {
+          ...whereBase,
+          ...(anneeActiveIdVal ? { anneeId: anneeActiveIdVal } : {}),
+        };
+
+  return prisma.facture.findMany({
+    where: mergeFilters(where, siteFilterForModel("facture", session.user)),
     include: {
       eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classeId: true, classe: { select: { nom: true } } } },
       paiements: {
         where: siteFilterForModel("paiement", session.user),
         include: { enregistrePar: { select: { id: true, name: true } } },
       },
+      relances: { select: { id: true, niveau: true } },
       createdBy: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -109,11 +174,15 @@ export async function createFacture(data: FactureFormData) {
   });
   const factureSiteId = eleve?.siteId ?? null;
 
+  // Rattacher la facture à l'année scolaire active (Time Machine-aware)
+  const factureAnneeId = await anneeActiveId(tenantId);
+
   const facture = await prisma.facture.create({
     data: {
       tenantId,
       siteId: factureSiteId,
       eleveId: values.eleveId,
+      anneeId: factureAnneeId,
       numero,
       libelle: values.libelle,
       montant: values.montant,
@@ -204,7 +273,7 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
 
   if (totalPaye >= facture.montant) {
     newStatut = "PAYEE";
-  } else if (facture.echeance && new Date() > facture.echeance && totalPaye < facture.montant) {
+  } else if (facture.echeance && (await getDemoNow()) > facture.echeance && totalPaye < facture.montant) {
     newStatut = "EN_RETARD";
   }
 

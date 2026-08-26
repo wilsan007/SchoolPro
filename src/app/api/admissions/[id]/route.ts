@@ -26,7 +26,22 @@ const UpdateSchema = z.object({
   noteExamen: z.number().min(0).max(20).optional().nullable(),
   commentaire: z.string().optional(),
   motifRefus: z.string().optional(),
+  // ── Dossier d'inscription ──
+  dossierStatut: z.enum(["INCOMPLET", "EN_COURS", "COMPLETE", "VALIDE", "CLOS"]).optional(),
+  documentsInscription: z.array(z.object({
+    type: z.string(),
+    url: z.string(),
+    nom: z.string().optional(),
+    taille: z.number().optional(),
+    ajouteLe: z.string().optional(),
+    ajouteParId: z.string().optional(),
+  })).optional(),
 });
+
+// Rôles autorisés à valider le dossier (VALIDE) et à finaliser l'inscription (INSCRIT).
+// Le comptable et le secrétariat peuvent créer et faire évoluer le dossier,
+// mais seule la direction valide et finalise.
+const ROLES_VALIDATION = ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"];
 
 export async function PATCH(
   req: NextRequest,
@@ -43,6 +58,15 @@ export async function PATCH(
   const body = await req.json();
   const data = UpdateSchema.parse(body);
 
+  // ── Restriction : seule la direction peut valider le dossier ou finaliser l'inscription ──
+  const isValidationAction =
+    (data.dossierStatut === "VALIDE") || (data.statut === "INSCRIT");
+  if (isValidationAction && !ROLES_VALIDATION.includes(session.user.role)) {
+    return NextResponse.json(
+      { error: "Seul le chef d'établissement peut valider le dossier et finaliser l'inscription." },
+      { status: 403 }
+    );
+  }
 
   const siteFilter = siteFilterForModel("candidature", session.user);
   const candidature = await prisma.candidature.findFirst({
@@ -63,8 +87,56 @@ export async function PATCH(
       ...(data.noteExamen !== undefined && { noteExamen: data.noteExamen }),
       ...(data.commentaire !== undefined && { commentaire: data.commentaire }),
       ...(data.motifRefus !== undefined && { motifRefus: data.motifRefus }),
+      ...(data.dossierStatut && {
+        dossierStatut: data.dossierStatut,
+        ...(data.dossierStatut === "VALIDE" && {
+          valideParId: session.user.id,
+          valideLe: new Date(),
+        }),
+      }),
+      ...(data.documentsInscription !== undefined && {
+        documentsInscription: data.documentsInscription,
+      }),
     },
   });
+
+  // ── Audit trail : tracer les changements de statut du dossier ──
+  if (data.dossierStatut && data.dossierStatut !== candidature.dossierStatut) {
+    try {
+      await prisma.inscriptionHistorique.create({
+        data: {
+          tenantId: session.user.tenantId,
+          candidatureId: id,
+          type: "CHANGEMENT_STATUT",
+          description: `Dossier : ${candidature.dossierStatut} → ${data.dossierStatut}`,
+          auteurId: session.user.id,
+          auteurNom: session.user.name,
+          donnees: { ancienStatut: candidature.dossierStatut, nouveauStatut: data.dossierStatut },
+        },
+      });
+    } catch (histError) {
+      console.error("[API/admissions] Historique dossier échoué:", histError);
+    }
+  }
+
+  // ── Audit trail : tracer les changements de statut de candidature ──
+  if (data.statut && data.statut !== candidature.statut) {
+    try {
+      await prisma.inscriptionHistorique.create({
+        data: {
+          tenantId: session.user.tenantId,
+          candidatureId: id,
+          type: "CHANGEMENT_STATUT",
+          description: `Candidature : ${candidature.statut} → ${data.statut}`,
+          auteurId: session.user.id,
+          auteurNom: session.user.name,
+          donnees: { ancienStatut: candidature.statut, nouveauStatut: data.statut },
+        },
+      });
+    } catch (histError) {
+      console.error("[API/admissions] Historique candidature échoué:", histError);
+    }
+  }
 
   // --- Workflow INSCRIT : créer Eleve + Parent + compte User + notification ---
   // Déclenché uniquement quand le statut passe à INSCRIT. Toute la chaîne est

@@ -162,7 +162,9 @@ export function AlerteDecalage() {
     return (
       <Card>
         <CardContent className="py-4 text-sm text-muted-foreground">
-          {t("aucunChapitrePrevu", { semaine: data.semaine })}
+          {data.semaine === 0
+            ? "Période estivale — aucune planification à analyser."
+            : t("aucunChapitrePrevu", { semaine: data.semaine })}
         </CardContent>
       </Card>
     );

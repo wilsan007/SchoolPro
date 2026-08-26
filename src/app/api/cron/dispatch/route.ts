@@ -7,6 +7,8 @@ import {
   detecterAlertes,
   envoyerAlertesEnAttente,
 } from "@/lib/learnos/alertes-parent";
+import { envoyerRelancesAutomatiques } from "@/lib/relances-auto";
+import { detecterDevoirsEnRetard } from "@/lib/learnos/devoirs-retard-check";
 
 /**
  * Cron unique — répartiteur des tâches planifiées.
@@ -83,6 +85,23 @@ const TACHES: Tache[] = [
       }
       return { nouvelles, ...(await envoyerAlertesEnAttente()) };
     },
+  },
+  {
+    // 8 h UTC = 11 h à Djibouti. Les relances partent en milieu de matinée,
+    // pas en pleine nuit : un rappel de facture à 3 h du matin s'apparente
+    // à une urgence qu'elle n'est pas.
+    nom: "relances-auto",
+    heures: [8],
+    executer: () => envoyerRelancesAutomatiques(),
+  },
+  {
+    // 9 h UTC = 12 h à Djibouti. Détection des devoirs en retard : un devoir
+    // dont la date de rendu est dépassée sans avoir été rendu ou corrigé
+    // déclenche un événement `devoir.enretard` pour LEARNOS. L'alerte ne se
+    // répète pas : un événement par devoir, vérifié par idempotence.
+    nom: "devoirs-retard-check",
+    heures: [9],
+    executer: () => detecterDevoirsEnRetard(),
   },
 ];
 

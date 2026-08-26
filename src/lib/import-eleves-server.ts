@@ -63,7 +63,7 @@ export async function preparerPlan(
   buffer: ArrayBuffer,
   targetSiteId?: string | null
 ): Promise<ContextePlan> {
-  const { rows, erreurs, hash } = await parseElevesWorkbook(buffer);
+  const { rows, erreurs, hash, mappingColonnes, headers } = await parseElevesWorkbook(buffer);
 
   // Lorsqu'un site cible est explicitement fourni pour l'import, on restreint
   // la recherche des élèves et classes existantes à ce site uniquement — sans
@@ -112,7 +112,7 @@ export async function preparerPlan(
   }));
 
   const classesConnues = new Set(classes.map((c) => normalizeName(c.nom)));
-  const plan = analyzeImport(rows, erreurs, existants, classesConnues, hash);
+  const plan = analyzeImport(rows, erreurs, existants, classesConnues, hash, mappingColonnes, headers);
 
   if (importPrecedent) {
     let par: string | null = null;

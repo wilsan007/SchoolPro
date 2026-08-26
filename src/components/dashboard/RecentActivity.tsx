@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AccentCard, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials, formatDate, getNoteColor } from "@/lib/utils";
@@ -19,10 +19,10 @@ interface Note {
 export async function RecentActivity({ notes }: { notes: Note[] }) {
   const t = await getTranslations("dashboard");
   return (
-    <Card>
+    <AccentCard accent="emerald">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-base font-semibold">{t("recentGrades")}</CardTitle>
-        <Badge variant="secondary" className="text-xs">{t("latestCount", { count: notes.length })}</Badge>
+        <Badge variant="emerald" className="text-xs">{t("latestCount", { count: notes.length })}</Badge>
       </CardHeader>
       <CardContent>
         {notes.length === 0 ? (
@@ -54,7 +54,7 @@ export async function RecentActivity({ notes }: { notes: Note[] }) {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <span className={`text-sm font-bold ${getNoteColor(note.valeur, note.noteMax)}`}>
+                  <span className={`text-sm font-bold font-data ${getNoteColor(note.valeur, note.noteMax)}`}>
                     {note.valeur}/{note.noteMax}
                   </span>
                   <span className="text-xs text-muted-foreground">
@@ -66,6 +66,6 @@ export async function RecentActivity({ notes }: { notes: Note[] }) {
           </div>
         )}
       </CardContent>
-    </Card>
+    </AccentCard>
   );
 }

@@ -7,9 +7,11 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { kpisEnseignant } from "@/lib/learnos/kpi";
 import { getDemoNow } from "@/lib/demo-now";
-import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { isTeacherRole } from "@/lib/teacher-classes";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getTeacherCounts } from "@/lib/action-counts";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { getActivityFeed, type ActivityItem } from "@/lib/activity-feed";
 import prisma from "@/lib/prisma";
 import type { Jour, Role } from "@prisma/client";
@@ -37,27 +39,30 @@ export default async function MonEspacePage() {
 
   const role = session!.user.role as Role;
   // Un enseignant est borné à ses classes ; la direction voit tout.
-  const scope = isTeacherRole(role)
-    ? await getTeacherScope(session!.user.tenantId!, session!.user.id, role)
-    : undefined;
-
   const maintenant = await getDemoNow();
   const tenantId = session!.user.tenantId!;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const claims = session!.user;
+
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  const hierarchie = await getClassesHierarchie(tenantId, claims, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+  // Un enseignant est restreint à ses classes ; la direction (null) voit tout.
+  const scopedClasseIds = isTeacherRole(role) ? hierarchieClasseIds : null;
 
   const [kpis, rubrics, feedRecent, feedAujourdhui, feedSemaine, feedMois] = await Promise.all([
     kpisEnseignant(
       tenantId,
       claims,
       session!.user.id,
-      scope?.isRestricted ? scope.classeIds : null,
+      scopedClasseIds,
       maintenant
     ),
     getTeacherCounts(
       tenantId,
       claims,
       session!.user.id,
-      scope?.isRestricted ? scope.classeIds : null
+      scopedClasseIds
     ),
     getActivityFeed(tenantId, claims, "recent", maintenant),
     getActivityFeed(tenantId, claims, "aujourdhui", maintenant),
@@ -111,6 +116,7 @@ export default async function MonEspacePage() {
         enseignantId: enseignant.id,
         tenantId,
         ...siteFilterForModel("emploiTemps", claims),
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
       },
       include: {
         matiere: { select: { nom: true, couleur: true } },
@@ -183,7 +189,7 @@ export default async function MonEspacePage() {
 
   if (enseignant) {
     // Classes de l'enseignant : via le scope restreint, sinon via une requête.
-    let classeIdsDispo = scope?.isRestricted ? scope.classeIds : null;
+    let classeIdsDispo = scopedClasseIds;
     if (!classeIdsDispo || classeIdsDispo.length === 0) {
       const [emp, principals] = await Promise.all([
         prisma.emploiTemps.findMany({
@@ -191,6 +197,7 @@ export default async function MonEspacePage() {
             enseignantId: enseignant.id,
             tenantId,
             ...siteFilterForModel("emploiTemps", claims),
+            ...(anneeCourante ? { annee: anneeCourante } : {}),
           },
           select: { classeId: true },
           distinct: ["classeId"],
@@ -233,6 +240,7 @@ export default async function MonEspacePage() {
             tenantId,
             statut: "ACTIF",
             ...siteFilterForModel("eleve", claims),
+            ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
           },
           select: { id: true, nom: true, prenom: true },
           orderBy: [{ nom: "asc" }, { prenom: "asc" }],
@@ -263,6 +271,7 @@ export default async function MonEspacePage() {
             tenantId,
             competenceId: { in: competenceIds },
             ...siteFilterForModel("evaluationCompetence", claims),
+            ...(anneeCourante ? { evaluation: { classe: { annee: anneeCourante } } } : {}),
           },
           select: {
             competenceId: true,

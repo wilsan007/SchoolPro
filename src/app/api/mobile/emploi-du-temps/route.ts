@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForRelation, siteFilterForModel, isRelationScopedRole, personalScopeFilter } from "@/lib/site-filter";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export async function GET(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -11,8 +12,32 @@ export async function GET(req: NextRequest) {
   }
 
   // `EmploiTemps` n'a pas de colonne `siteId` : filtrage via la classe.
+  const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
+
+  // PARENT / STUDENT : restreindre aux seules classes de l'utilisateur / de ses enfants.
+  let classeIds: string[] | null = null;
+  if (isRelationScopedRole(user.role)) {
+    const eleves = await prisma.eleve.findMany({
+      where: {
+        tenantId: user.tenantId,
+        ...siteFilterForModel("eleve", user),
+        ...personalScopeFilter(user, null),
+      },
+      select: { classeId: true },
+    });
+    if (eleves.length === 0) {
+      return NextResponse.json({ emploi: [] });
+    }
+    classeIds = [...new Set(eleves.map((e) => e.classeId).filter((id): id is string => id !== null))];
+  }
+
   const emploi = await prisma.emploiTemps.findMany({
-    where: { tenantId: user.tenantId, ...siteFilterForRelation(user, "classe") },
+    where: {
+      tenantId: user.tenantId,
+      ...siteFilterForRelation(user, "classe"),
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
+      ...(classeIds ? { classeId: { in: classeIds } } : {}),
+    },
     select: {
       id: true,
       jour: true,

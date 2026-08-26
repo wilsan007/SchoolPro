@@ -17,6 +17,7 @@ const CreateSchema = z.object({
   heureFin: z.string().regex(/^\d{2}:\d{2}$/),
   salle: z.string().max(50).optional(),
   annee: z.string().optional(),
+  periodeId: z.string().optional().or(z.literal("")),
 });
 
 export async function GET(req: NextRequest) {
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
+    const periodeId = searchParams.get("periodeId");
     const tenantId = session.user.tenantId;
   const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const siteIds = (session.user as { siteIds?: string[] }).siteIds;
@@ -48,6 +50,9 @@ export async function GET(req: NextRequest) {
       where: { tenantId, ...emploiFilter,
         ...(classeId ? { classeId } : {}),
         ...(annee ? { annee } : {}),
+        // Si periodeId est fourni, on renvoie les créneaux de cette période
+        // ET les créneaux annuels (periodeId = null). Si non fourni, tout.
+        ...(periodeId ? { OR: [{ periodeId }, { periodeId: null }] } : {}),
       },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },
@@ -82,21 +87,35 @@ export async function POST(req: NextRequest) {
     const annee = await getAnneeCouranteLibelle(tenantId);
     if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
 
-    const { classeId, matiereId, enseignantId, jour, heureDebut, heureFin, salle } = parsed.data;
+    const { classeId, matiereId, enseignantId, jour, heureDebut, heureFin, salle, periodeId } = parsed.data;
+    const periodeIdValue = periodeId || null;
 
-    // Vérifier chevauchement pour la classe
+    // Vérifier chevauchement pour la classe — un créneau annuel et un
+    // créneau de période ne doivent pas se chevaucher pour la même classe.
     const overlap = await prisma.emploiTemps.findFirst({
-      where: { tenantId, ...emploiFilter,
+      where: {
+        tenantId, ...emploiFilter,
         classeId,
         jour,
         annee,
-        OR: [
-          // Cas 1 : le nouveau créneau commence dans un existant
-          { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
-          // Cas 2 : le nouveau créneau finit dans un existant
-          { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
-          // Cas 3 : le nouveau créneau contient un existant
-          { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+        // Conflit si même période OU si l'un est annuel (periodeId null)
+        AND: [
+          {
+            OR: [
+              { periodeId: periodeIdValue },
+              ...(periodeIdValue ? [{ periodeId: null }] : []),
+            ],
+          },
+          {
+            OR: [
+              // Cas 1 : le nouveau créneau commence dans un existant
+              { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
+              // Cas 2 : le nouveau créneau finit dans un existant
+              { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
+              // Cas 3 : le nouveau créneau contient un existant
+              { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+            ],
+          },
         ],
       },
     });
@@ -108,14 +127,25 @@ export async function POST(req: NextRequest) {
     // Vérifier conflit enseignant
     if (enseignantId) {
       const teacherConflict = await prisma.emploiTemps.findFirst({
-        where: { tenantId, ...emploiFilter,
+        where: {
+          tenantId, ...emploiFilter,
           enseignantId,
           jour: jour as Jour,
           annee,
-          OR: [
-            { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
-            { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
-            { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+          AND: [
+            {
+              OR: [
+                { periodeId: periodeIdValue },
+                ...(periodeIdValue ? [{ periodeId: null }] : []),
+              ],
+            },
+            {
+              OR: [
+                { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
+                { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
+                { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+              ],
+            },
           ],
         },
       });
@@ -127,14 +157,25 @@ export async function POST(req: NextRequest) {
     // Vérifier conflit salle
     if (salle) {
       const roomConflict = await prisma.emploiTemps.findFirst({
-        where: { tenantId, ...emploiFilter,
+        where: {
+          tenantId, ...emploiFilter,
           salle,
           jour: jour as Jour,
           annee,
-          OR: [
-            { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
-            { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
-            { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+          AND: [
+            {
+              OR: [
+                { periodeId: periodeIdValue },
+                ...(periodeIdValue ? [{ periodeId: null }] : []),
+              ],
+            },
+            {
+              OR: [
+                { heureDebut: { lte: heureDebut }, heureFin: { gt: heureDebut } },
+                { heureDebut: { lt: heureFin }, heureFin: { gte: heureFin } },
+                { heureDebut: { gte: heureDebut }, heureFin: { lte: heureFin } },
+              ],
+            },
           ],
         },
       });
@@ -154,6 +195,7 @@ export async function POST(req: NextRequest) {
         heureFin,
         salle: salle ?? null,
         annee,
+        periodeId: periodeIdValue,
       },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },

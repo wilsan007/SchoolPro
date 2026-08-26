@@ -3,6 +3,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { checkPermission } from "@/lib/rbac";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const TacheSchema = z.object({
   assigneeAId: z.string().min(1),
@@ -22,6 +26,8 @@ export async function GET(request: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+  const denied = checkPermission(session.user.role, "taches:read");
+  if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
   const assigneeAId = searchParams.get("assigneeAId");
@@ -38,6 +44,8 @@ export async function GET(request: NextRequest) {
   const claims = { ...session.user, siteId: activeSiteId };
 
   const siteFilter = siteFilterForModel("tache", claims);
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
 
   // Par défaut, un utilisateur voit ses propres tâches (assignées ou créées)
   // sauf s'il filtre explicitement par assigneeAId.
@@ -56,6 +64,7 @@ export async function GET(request: NextRequest) {
             },
           }
         : {}),
+      ...anneeClasse,
     },
     include: {
       assigneeA: { select: { name: true, email: true } },
@@ -78,10 +87,36 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+  const denied = checkPermission(session.user.role, "taches:write");
+  if (denied) return denied;
 
   try {
     const json = await request.json();
     const data = TacheSchema.parse(json);
+
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+    if (data.classeId && isTeacherRole(session.user.role as Role)) {
+      const scope = await getTeacherScope(
+        session.user.tenantId,
+        session.user.id as string,
+        session.user.role as Role,
+        anneeCourante
+      );
+      if (scope.isRestricted && !scope.classeIds.includes(data.classeId)) {
+        return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+      }
+    }
+    if (data.matiereId && isTeacherRole(session.user.role as Role)) {
+      const scope = await getTeacherScope(
+        session.user.tenantId,
+        session.user.id as string,
+        session.user.role as Role,
+        anneeCourante
+      );
+      if (scope.isRestricted && !scope.matiereIds.includes(data.matiereId)) {
+        return NextResponse.json({ error: "Matière hors de votre périmètre" }, { status: 403 });
+      }
+    }
 
     const siteId =
       data.siteId ?? (session.user as { siteId?: string | null }).siteId ?? null;

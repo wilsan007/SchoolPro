@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 type EtatExclusion = "EN_COURS" | "A_VENIR" | "CLOSE";
 type TypeExclusion = "EXCLUSION_COURS" | "EXCLUSION_TEMP";
@@ -335,10 +336,12 @@ function LigneExclusion({
 export function ExclusionsView({
   exclusions: initiales,
   classes,
+  hierarchie,
   dateReference,
 }: {
   exclusions: Exclusion[];
   classes: { id: string; nom: string }[];
+  hierarchie?: ClassesHierarchie;
   dateReference: string;
 }) {
   const [exclusions, setExclusions] = useState(initiales);

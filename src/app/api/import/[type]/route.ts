@@ -8,6 +8,7 @@ import {
   analyserClasses,
   analyserMatieres,
   analyserParents,
+  analyserEdtExternes,
   type TypeImport,
 } from "@/lib/import-unifie";
 
@@ -30,6 +31,7 @@ export async function POST(
     "classes",
     "matieres",
     "parents",
+    "edt-externes",
   ];
   if (!typesValides.includes(type as TypeImport)) {
     return erreurJson("DONNEES_INVALIDES", undefined, {
@@ -47,23 +49,26 @@ export async function POST(
   const empreinte = empreinteFichier(buffer);
 
   try {
-    const rows = await lireFichier(buffer, file.type);
+    const { headers, rows } = await lireFichier(buffer, file.type);
 
     const tenantId = session.user.tenantId;
     let plan;
 
     switch (type as TypeImport) {
       case "enseignants":
-        plan = await analyserEnseignants(rows, tenantId);
+        plan = await analyserEnseignants(rows, tenantId, headers);
         break;
       case "classes":
-        plan = await analyserClasses(rows, tenantId);
+        plan = await analyserClasses(rows, tenantId, headers);
         break;
       case "matieres":
-        plan = await analyserMatieres(rows, tenantId);
+        plan = await analyserMatieres(rows, tenantId, headers);
         break;
       case "parents":
-        plan = await analyserParents(rows, tenantId);
+        plan = await analyserParents(rows, tenantId, headers);
+        break;
+      case "edt-externes":
+        plan = await analyserEdtExternes(rows, tenantId, headers);
         break;
       case "eleves":
         // L'import élèves existant a sa propre route /api/import/eleves

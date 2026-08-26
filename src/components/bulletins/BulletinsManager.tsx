@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useTransition, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, Send, CheckCircle,
   Loader2, Eye, Users, ChevronRight, X,
-  BookOpen, TableProperties,
+  BookOpen, TableProperties, Brain, Lock, Unlock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -16,6 +17,7 @@ import { ConseilDeClasse } from "./ConseilDeClasse";
 import type { BulletinData } from "@/lib/pdf/bulletin-generator";
 import { BulletinPreview } from "./BulletinPreview";
 import { BulletinMatrix } from "./BulletinMatrix";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
   id: string;
@@ -46,11 +48,13 @@ interface EleveConseil {
 type View = "workflow" | "conseil" | "preview" | "matrix";
 
 export function BulletinsManager({
-  classes, periodes,
+  classes, hierarchie: _hierarchie, periodes, userRole,
 }: {
   classes: Classe[];
+  hierarchie?: ClassesHierarchie;
   periodes: Periode[];
   tenantId: string;
+  userRole?: string;
 }) {
   const t = useTranslations("bulletinsManager");
   const [selectedClasse, setSelectedClasse] = useState<Classe | null>(classes[0] ?? null);
@@ -60,6 +64,7 @@ export function BulletinsManager({
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState<Set<string>>(new Set());
   const [published, setPublished] = useState<Set<string>>(new Set());
+  const [verrouille, setVerrouille] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [view, setView] = useState<View>("workflow");
   const [conseilEleves, setConseilEleves] = useState<EleveConseil[]>([]);
@@ -70,6 +75,8 @@ export function BulletinsManager({
   const key = `${selectedClasse?.id}-${selectedPeriode?.id}`;
   const isGenerated = generated.has(key);
   const isPublished = published.has(key);
+  const isVerrouille = verrouille.has(key);
+  const isAdmin = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN";
 
   // Vérifier si des bulletins existent déjà en DB pour cette classe/période
   const checkExistingBulletins = useCallback(async (classeId: string, periodeId: string) => {
@@ -82,6 +89,9 @@ export function BulletinsManager({
           setGenerated((prev) => new Set([...prev, `${classeId}-${periodeId}`]));
           if (data.published) {
             setPublished((prev) => new Set([...prev, `${classeId}-${periodeId}`]));
+          }
+          if (data.verrouille) {
+            setVerrouille((prev) => new Set([...prev, `${classeId}-${periodeId}`]));
           }
           return true;
         }
@@ -144,9 +154,42 @@ export function BulletinsManager({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         setPublished((prev) => new Set([...prev, key]));
+        setVerrouille((prev) => new Set([...prev, key]));
         toast.success(t("successPublished", { count: data.count }));
       } catch {
         toast.error(t("errPublication"));
+      }
+    });
+  }
+
+  async function verrouillerBulletins() {
+    if (!selectedClasse || !selectedPeriode) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/bulletins/verrouiller", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            classeId: selectedClasse.id,
+            periodeId: selectedPeriode.id,
+            action: isVerrouille ? "deverrouiller" : "verrouiller",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (isVerrouille) {
+          setVerrouille((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+          toast.success(t("successUnlocked", { count: data.count }));
+        } else {
+          setVerrouille((prev) => new Set([...prev, key]));
+          toast.success(t("successLocked", { count: data.count }));
+        }
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : t("errVerrouillage"));
       }
     });
   }
@@ -285,6 +328,12 @@ export function BulletinsManager({
           {isPublished && (
             <Badge variant="success" className="text-xs">{t("published")}</Badge>
           )}
+          {isVerrouille && !isPublished && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <Lock className="h-3 w-3" />
+              {t("locked")}
+            </Badge>
+          )}
         </div>
       )}
 
@@ -400,8 +449,8 @@ export function BulletinsManager({
                       )}
                     </p>
                   </div>
-                  <Badge variant={isPublished ? "success" : isGenerated ? "info" : "outline"}>
-                    {isPublished ? t("published") : isGenerated ? t("generated") : t("pending")}
+                  <Badge variant={isPublished ? "success" : isVerrouille ? "secondary" : isGenerated ? "info" : "outline"}>
+                    {isPublished ? t("published") : isVerrouille ? t("locked") : isGenerated ? t("generated") : t("pending")}
                   </Badge>
                 </div>
 
@@ -457,7 +506,7 @@ export function BulletinsManager({
                 {/* Boutons d'action */}
                 <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                   {!isGenerated ? (
-                    <Button onClick={genererBulletins} disabled={generating || isPending} className="gap-2">
+                    <Button onClick={genererBulletins} disabled={generating || isPending || (isVerrouille && !isAdmin)} className="gap-2">
                       {generating ? (
                         <><Loader2 className="h-4 w-4 animate-spin" />{t("generating")}</>
                       ) : (
@@ -500,6 +549,25 @@ export function BulletinsManager({
                           )}
                         </Button>
                       )}
+                      {/* Verrouiller / Déverrouiller */}
+                      {isGenerated && !isPublished && (
+                        <Button
+                          variant={isVerrouille ? "outline" : "secondary"}
+                          onClick={verrouillerBulletins}
+                          disabled={isPending || (isVerrouille && !isAdmin)}
+                          className="gap-2"
+                          title={isVerrouille && !isAdmin ? t("lockedAdminOnly") : undefined}
+                        >
+                          {isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isVerrouille ? (
+                            <Unlock className="h-4 w-4" />
+                          ) : (
+                            <Lock className="h-4 w-4" />
+                          )}
+                          {isVerrouille ? t("unlock") : t("lock")}
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -527,6 +595,12 @@ export function BulletinsManager({
                 >
                   <Users className="h-4 w-4" />
                   {isGenerated ? t("openConseil") : t("generateFirst")}
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="w-full gap-2 mt-2">
+                  <Link href="/conseil-augmente">
+                    <Brain className="h-4 w-4" />
+                    {t("conseilAugmente")}
+                  </Link>
                 </Button>
               </CardContent>
             </Card>

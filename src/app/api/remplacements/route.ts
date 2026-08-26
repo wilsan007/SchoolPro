@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import type { StatutRemplacement } from "@prisma/client";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Validation Zod
@@ -48,6 +49,8 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId;
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date"); // ISO yyyy-mm-dd
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+    const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
 
     // Filtre de date optionnel : borne du jour reçu.
     let dateFilter: Record<string, unknown> | undefined;
@@ -73,6 +76,7 @@ export async function GET(req: NextRequest) {
         tenantId,
         ...(dateFilter ? { date: dateFilter } : {}),
         ...siteFilterForModel("remplacementCours", session.user),
+        ...anneeClasse,
       },
       include: {
         classe: { select: { nom: true } },
@@ -192,9 +196,9 @@ export async function PATCH(req: NextRequest) {
     const tenantId = session.user.tenantId;
     const { id, statut, decideParId, notes } = parsed.data;
 
-    // Vérifier l'appartenance au tenant avant toute modification.
+    // Vérifier l'appartenance au tenant et au site avant toute modification.
     const existing = await prisma.remplacementCours.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...siteFilterForModel("remplacementCours", session.user) },
     });
     if (!existing) {
       return NextResponse.json(

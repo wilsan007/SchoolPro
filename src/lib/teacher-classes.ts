@@ -11,15 +11,25 @@ export function isTeacherRole(role: Role): boolean {
 }
 
 /**
- * Récupère les IDs des classes attribuées à un enseignant
- * (via l'emploi du temps et/ou le rôle de prof principal).
+ * Récupère les IDs des classes attribuées à un enseignant.
+ *
+ * Source de vérité : `AffectationEnseignant` (créée lors de l'inscription).
+ * Sources secondaires (rétro-compatibilité) : `EmploiTemps` et `profPrincipalId`.
  *
  * Retourne également les IDs des matières qu'il enseigne.
+ *
+ * @param anneeCourante  Libellé de l'année scolaire (ex: "2025-2026").
+ *   Quand fourni, le périmètre est restreint aux classes de cette année :
+ *   - `AffectationEnseignant` filtrée par `classe.annee`
+ *   - `EmploiTemps` filtrée par son champ `annee`
+ *   - Classes dont l'enseignant est prof principal filtrées par `annee`
+ *   Quand omis (undefined), conserve le comportement historique (toutes années).
  */
 export async function getTeacherScope(
   tenantId: string,
   userId: string,
-  role: Role
+  role: Role,
+  anneeCourante?: string | null
 ): Promise<{
   classeIds: string[];
   matiereIds: string[];
@@ -39,15 +49,32 @@ export async function getTeacherScope(
     return { classeIds: [], matiereIds: [], isRestricted: true };
   }
 
+  // Filtre année : restreint les classes/matières à l'année courante.
+  // `AffectationEnseignant` n'a pas de champ `annee` mais sa `classe` en a un.
+  // `EmploiTemps` a son propre champ `annee` (libellé string).
+  const filtreAnneeClasse = anneeCourante ? { annee: anneeCourante } : {};
+  const filtreAnneeEmploi = anneeCourante ? { annee: anneeCourante } : {};
+
   /* eslint-disable ecolpro/require-site-filter -- teacher scope resolution, site scoping is caller's responsibility */
-  const [emploiEntries, principalClasses] = await Promise.all([
+  const [affectations, emploiEntries, principalClasses] = await Promise.all([
+    // Source principale : AffectationEnseignant
+    prisma.affectationEnseignant.findMany({
+      where: {
+        enseignantId: enseignant.id,
+        tenantId,
+        classe: filtreAnneeClasse,
+      },
+      select: { classeId: true, matiereId: true },
+    }),
+    // Source secondaire : EmploiTemps (rétro-compatibilité)
     prisma.emploiTemps.findMany({
-      where: { enseignantId: enseignant.id, tenantId },
+      where: { enseignantId: enseignant.id, tenantId, ...filtreAnneeEmploi },
       select: { classeId: true, matiereId: true },
       distinct: ["classeId", "matiereId"],
     }),
+    // Source secondaire : prof principal
     prisma.classe.findMany({
-      where: { profPrincipalId: enseignant.id, tenantId },
+      where: { profPrincipalId: enseignant.id, tenantId, ...filtreAnneeClasse },
       select: { id: true },
     }),
   ]);
@@ -55,13 +82,17 @@ export async function getTeacherScope(
 
   const classeIds = Array.from(
     new Set([
+      ...affectations.map((a) => a.classeId),
       ...emploiEntries.map((e) => e.classeId),
       ...principalClasses.map((c) => c.id),
     ])
   );
 
   const matiereIds = Array.from(
-    new Set(emploiEntries.map((e) => e.matiereId).filter(Boolean) as string[])
+    new Set([
+      ...affectations.map((a) => a.matiereId),
+      ...emploiEntries.map((e) => e.matiereId).filter(Boolean) as string[],
+    ])
   );
 
   return { classeIds, matiereIds, isRestricted: true };

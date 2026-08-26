@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus, Upload } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { unstable_cache } from "next/cache";
 import { ImportElevesButton } from "@/components/eleves/ImportElevesButton";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getSitesForUser } from "@/lib/actions/eleve";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getSiteColorMap } from "@/lib/site-colors";
-import type { Prisma } from "@prisma/client";
+import { isTeacherRole } from "@/lib/teacher-classes";
+import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
+import type { Prisma, Role } from "@prisma/client";
 
 /**
  * Périmètre commun à TOUTES les mesures de la page.
@@ -31,7 +32,9 @@ import type { Prisma } from "@prisma/client";
 function baseEleveWhere(
   tenantId: string,
   siteFilter: Record<string, unknown>,
-  userRole?: string
+  userRole?: string,
+  anneeCourante?: string | null,
+  hierarchieClasseIds?: string[] | null,
 ): Prisma.EleveWhereInput {
   return {
     tenantId,
@@ -40,6 +43,10 @@ function baseEleveWhere(
     // Pour les parents : masquer les enfants exclus. Ce filtre doit valoir
     // pour les statistiques comme pour le tableau.
     ...(userRole === "PARENT" && { statut: { not: "EXCLU" } }),
+    ...(anneeCourante && { classe: { annee: anneeCourante } }),
+    // Périmètre enseignant : restreint aux classes de la hiérarchie
+    // (résolue via getClassesHierarchie qui intègre getTeacherScope).
+    ...(hierarchieClasseIds && { classeId: { in: hierarchieClasseIds } }),
   } as Prisma.EleveWhereInput;
 }
 
@@ -101,41 +108,41 @@ async function getEffectifsParClasse(where: Prisma.EleveWhereInput, tenantId: st
   return effectifs;
 }
 
-const getClassesList = unstable_cache(
-  async (tenantId: string, siteFilter: Record<string, unknown>) => {
-    // eslint-disable-next-line ecolpro/require-site-filter -- where includes ...siteFilter spread, not detectable inside unstable_cache
-    const classes = await prisma.classe.findMany({
-      where: { tenantId, ...siteFilter } as Prisma.ClasseWhereInput,
-      select: { id: true, nom: true, site: { select: { nom: true } } },
-      orderBy: [{ site: { nom: "asc" } }, { nom: "asc" }],
-    });
-    const seen = new Map<string, { id: string; nom: string; siteNom: string | null }>();
-    for (const c of classes) {
-      seen.set(c.id, { id: c.id, nom: c.nom, siteNom: c.site?.nom ?? null });
-    }
-    return Array.from(seen.values());
-  },
-  ["classes-list"],
-  { revalidate: 300, tags: ["classes-list"] }
-);
-
 async function getElevesData(
   tenantId: string,
   siteFilter: Record<string, unknown>,
-  classeSiteFilter: Record<string, unknown>,
   filters: { q?: string; classeId?: string; statut?: string },
-  userRole?: string,
-  noClassLabel?: string,
+  userRole: string | undefined,
+  hierarchieClasseIds: string[] | null,
+  noClassLabel: string | undefined,
+  anneeCourante: string | null | undefined,
 ) {
   // Périmètre de référence : ce que voit l'utilisateur, filtres d'écran mis à
   // part. Statistiques et effectifs par classe en découlent tous les deux.
-  const base = baseEleveWhere(tenantId, siteFilter, userRole);
+  // Le scope enseignant est intégré via hierarchieClasseIds (résolu en amont
+  // par getClassesHierarchie, qui appelle getTeacherScope en interne).
+  const base = baseEleveWhere(tenantId, siteFilter, userRole, anneeCourante, hierarchieClasseIds);
+
+  // Résolution du filtre de classe : le filtre d'écran reste dans la limite
+  // des classes autorisées pour un enseignant. La base restreint déjà via
+  // classeId: { in: hierarchieClasseIds }, donc on n'ajoute le filtre écran
+  // que si une classe spécifique est sélectionnée (et qu'elle est autorisée).
+  let resolvedClasseId: Prisma.StringFilter | string | undefined;
+  if (hierarchieClasseIds) {
+    resolvedClasseId = filters.classeId
+      ? (hierarchieClasseIds.includes(filters.classeId)
+        ? filters.classeId
+        : { in: [] })
+      : undefined;
+  } else {
+    resolvedClasseId = filters.classeId;
+  }
 
   // Périmètre du tableau : le périmètre de référence, restreint par les
   // filtres choisis à l'écran.
   const where = {
     ...base,
-    ...(filters.classeId && { classeId: filters.classeId }),
+    ...(resolvedClasseId !== undefined && { classeId: resolvedClasseId }),
     ...(filters.statut && { statut: filters.statut as "ACTIF" }),
     ...(filters.q && {
       OR: [
@@ -146,7 +153,7 @@ async function getElevesData(
     }),
   } as Prisma.EleveWhereInput;
 
-  const [eleves, total, stats, classeNoms, effectifs] = await Promise.all([
+  const [eleves, total, stats, effectifs] = await Promise.all([
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.findMany({
       where,
@@ -172,11 +179,10 @@ async function getElevesData(
     // Sans filtre actif, les deux coïncident — c'est le contrôle que fait
     // naturellement l'utilisateur en additionnant les classes.
     getElevesStats(base),
-    getClassesList(tenantId, classeSiteFilter),
     getEffectifsParClasse(where, tenantId, noClassLabel ?? "Sans classe"),
   ]);
 
-  return { eleves, total, stats, classeNoms, effectifs };
+  return { eleves, total, stats, effectifs };
 }
 
 export default async function ElevesPage({
@@ -196,19 +202,39 @@ export default async function ElevesPage({
   const { q, classeId, statut } = sp;
 
   const siteFilter = siteFilterForModel("eleve", session.user);
-  const classeSiteFilter = siteFilterForModel("classe", session.user);
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const tenantHasSites = (session.user as { tenantHasSites?: boolean }).tenantHasSites ?? false;
-  const [sites, anneeCourante, siteColors, { eleves, total, stats, classeNoms, effectifs }] = await Promise.all([
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  // Hiérarchie des classes avec scope enseignant + site + année intégrés.
+  // Résolue avant le Promise.all car hierarchieClasseIds est nécessaire
+  // à la construction du where de getElevesData.
+  const hierarchie = await getClassesHierarchie(session.user.tenantId, session.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+  // Pour les enseignants, restreindre aux classes de la hiérarchie.
+  // Pour les non-enseignants, pas de restriction (null).
+  const teacherRestriction = session.user.role && isTeacherRole(session.user.role as Role)
+    ? hierarchieClasseIds
+    : null;
+  const [sites, siteColors, { eleves, total, stats, effectifs }] = await Promise.all([
     getSitesForUser(),
-    getAnneeCouranteLibelle(session.user.tenantId),
     getSiteColorMap(session.user.tenantId),
-    getElevesData(session.user.tenantId, siteFilter, classeSiteFilter, {
-      q,
-      classeId,
-      statut,
-    }, session.user.role, t("noClass")),
+    getElevesData(
+      session.user.tenantId,
+      siteFilter,
+      { q, classeId, statut },
+      session.user.role,
+      teacherRestriction,
+      t("noClass"),
+      anneeCourante,
+    ),
   ]);
+
+  // classeNoms dérivé de la hiérarchie (inclut siteNom pour ElevesTable).
+  const classeNoms = hierarchie.flatMap(c =>
+    c.niveaux.flatMap(n =>
+      n.classes.map(cls => ({ id: cls.id, nom: cls.nom, siteNom: cls.siteNom }))
+    )
+  );
 
   const currentSiteName = currentSiteId
     ? (sites.find((s) => s.id === currentSiteId)?.nom ?? tCommon("unknownSite"))
@@ -250,6 +276,7 @@ export default async function ElevesPage({
           total={total}
           effectifs={effectifs}
           classes={classeNoms}
+          hierarchie={hierarchie}
           siteColors={siteColors}
           initialQuery={q ?? ""}
           initialClasse={classeId ?? ""}

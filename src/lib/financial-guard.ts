@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import type { Session } from "next-auth";
 import { siteFilterForModel, mergeFilters, type SessionSiteClaims } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 export interface SituationFinanciere {
   totalFacture: number;
@@ -34,9 +36,10 @@ export async function getSituationFinanciere(
   tenantId: string,
   claims: SessionSiteClaims
 ): Promise<SituationFinanciere> {
+  const anneeId = await anneeActiveId(tenantId);
   const factures = await prisma.facture.findMany({
     where: mergeFilters(
-      { eleveId, tenantId, statut: { not: "ANNULEE" } },
+      { eleveId, tenantId, statut: { not: "ANNULEE" }, ...(anneeId ? { anneeId } : {}) },
       siteFilterForModel("facture", claims)
     ),
     include: {
@@ -57,13 +60,14 @@ export async function getSituationFinanciere(
   let totalPaye = 0;
   let nbFacturesEnRetard = 0;
   let nbRelances = 0;
+  const maintenant = await getDemoNow();
 
   const facturesDetail = factures.map((f) => {
     const paye = f.paiements.reduce((s, p) => s + p.montant, 0);
     const restant = f.montant - paye;
     totalFacture += f.montant;
     totalPaye += paye;
-    if (f.statut === "EN_RETARD" || (f.echeance && new Date() > f.echeance && restant > 0)) {
+    if (f.statut === "EN_RETARD" || (f.echeance && maintenant > f.echeance && restant > 0)) {
       nbFacturesEnRetard++;
     }
     nbRelances += f.relances.length;
@@ -92,6 +96,105 @@ export async function getSituationFinanciere(
     exclusionDateDebut: exclusion?.dateDebut ?? null,
     factures: facturesDetail,
   };
+}
+
+/**
+ * Version batchée de getSituationFinanciere pour plusieurs élèves.
+ *
+ * Au lieu de N×2 requêtes (une par élève), fait seulement 2 requêtes
+ * pour TOUS les élèves, puis partitionne les résultats en mémoire.
+ *
+ * @param eleveIds Liste des IDs d'élèves à traiter
+ * @returns Tableau de SituationFinanciere dans le même ordre que eleveIds
+ */
+export async function getSituationFinanciereBatch(
+  eleveIds: string[],
+  tenantId: string,
+  claims: SessionSiteClaims
+): Promise<SituationFinanciere[]> {
+  if (eleveIds.length === 0) return [];
+
+  const anneeId = await anneeActiveId(tenantId);
+  const maintenant = await getDemoNow();
+
+  // 1 seule requête pour toutes les factures de tous les élèves
+  const allFactures = await prisma.facture.findMany({
+    where: mergeFilters(
+      {
+        eleveId: { in: eleveIds },
+        tenantId,
+        statut: { not: "ANNULEE" },
+        ...(anneeId ? { anneeId } : {}),
+      },
+      siteFilterForModel("facture", claims)
+    ),
+    include: {
+      paiements: { where: siteFilterForModel("paiement", claims) },
+      relances: { where: siteFilterForModel("relance", claims), select: { id: true, niveau: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // 1 seule requête pour toutes les exclusions actives
+  const allExclusions = await prisma.exclusionEleve.findMany({
+    where: { eleveId: { in: eleveIds }, tenantId, dateFin: null },
+    select: { id: true, motif: true, dateDebut: true, eleveId: true },
+  });
+
+  // Indexer par eleveId pour un lookup rapide
+  const facturesByEleve = new Map<string, typeof allFactures>();
+  for (const f of allFactures) {
+    const arr = facturesByEleve.get(f.eleveId) ?? [];
+    arr.push(f);
+    facturesByEleve.set(f.eleveId, arr);
+  }
+  const exclusionByEleve = new Map(allExclusions.map((e) => [e.eleveId, e]));
+
+  // Calculer la situation pour chaque élève en mémoire
+  return eleveIds.map((eleveId) => {
+    const factures = facturesByEleve.get(eleveId) ?? [];
+    const exclusion = exclusionByEleve.get(eleveId);
+
+    let totalFacture = 0;
+    let totalPaye = 0;
+    let nbFacturesEnRetard = 0;
+    let nbRelances = 0;
+
+    const facturesDetail = factures.map((f) => {
+      const paye = f.paiements.reduce((s, p) => s + p.montant, 0);
+      const restant = f.montant - paye;
+      totalFacture += f.montant;
+      totalPaye += paye;
+      if (f.statut === "EN_RETARD" || (f.echeance && maintenant > f.echeance && restant > 0)) {
+        nbFacturesEnRetard++;
+      }
+      nbRelances += f.relances.length;
+      return {
+        id: f.id,
+        numero: f.numero,
+        libelle: f.libelle,
+        montant: f.montant,
+        paye,
+        restant,
+        statut: f.statut,
+        echeance: f.echeance,
+        nbRelances: f.relances.length,
+      };
+    });
+
+    return {
+      totalFacture,
+      totalPaye,
+      totalRestant: totalFacture - totalPaye,
+      nbFacturesEnRetard,
+      nbRelances,
+      estExclu: !!exclusion,
+      exclusionId: exclusion?.id ?? null,
+      exclusionMotif: exclusion?.motif ?? null,
+      exclusionDateDebut: exclusion?.dateDebut ?? null,
+      factures: facturesDetail,
+    };
+  });
 }
 
 /**

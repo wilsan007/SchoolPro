@@ -5,8 +5,10 @@ import { RHView } from "@/components/rh/RHView";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 async function getEnseignantsRH(tenantId: string, claims: SessionSiteClaims) {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const [enseignants, absencesPersonnel, congesPersonnel] = await Promise.all([
     prisma.enseignant.findMany({
       where: { tenantId, ...siteFilterForModel("enseignant", claims) },
@@ -27,7 +29,10 @@ async function getEnseignantsRH(tenantId: string, claims: SessionSiteClaims) {
           },
         },
         emploiTemps: {
-          where: siteFilterForModel("emploiTemps", claims),
+          where: {
+            ...siteFilterForModel("emploiTemps", claims),
+            ...(anneeCourante ? { annee: anneeCourante } : {}),
+          },
           select: {
             jour: true, heureDebut: true, heureFin: true,
             matiere: { select: { nom: true, couleur: true } },
@@ -35,7 +40,10 @@ async function getEnseignantsRH(tenantId: string, claims: SessionSiteClaims) {
           },
         },
         classesPrincipales: {
-          where: siteFilterForModel("classe", claims),
+          where: {
+            ...siteFilterForModel("classe", claims),
+            ...(anneeCourante ? { annee: anneeCourante } : {}),
+          },
           select: { id: true, nom: true, niveau: true },
         },
       },

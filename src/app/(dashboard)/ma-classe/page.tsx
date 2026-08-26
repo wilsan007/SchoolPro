@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SuiviClasseView } from "@/components/learnos/SuiviClasseView";
+import { CompetencesClasse } from "@/components/learnos/CompetencesClasse";
 import { ActionRubricGrid, type RubricData } from "@/components/dashboard/ActionRubric";
 import { ActivityTimeline, type ActivityItemData } from "@/components/dashboard/ActivityTimeline";
 import { guardPage } from "@/lib/guard-page";
@@ -13,8 +14,10 @@ import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { syntheseClasse } from "@/lib/learnos/suivi-classe";
 import { getDemoNow } from "@/lib/demo-now";
 import { getClassTeacherCounts } from "@/lib/action-counts";
-import { getActivityFeed, type ActivityItem } from "@/lib/activity-feed";
-import { Users, MessageSquare, ExternalLink, ChevronRight } from "lucide-react";
+import { getActivityFeedAllPeriodes, type ActivityItem } from "@/lib/activity-feed";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
+import { Users, MessageSquare, ExternalLink, ChevronRight, Target } from "lucide-react";
 
 /**
  * Espace du professeur principal.
@@ -44,40 +47,29 @@ export default async function MaClassePage({
   const claims: SessionSiteClaims = session!.user;
   const { classe: classeDemandee } = await searchParams;
 
-  // Classes dont l'utilisateur est professeur principal. La direction, elle,
-  // voit toutes les classes de son périmètre.
-  const enseignant = await prisma.enseignant.findFirst({
-    where: {
-      tenantId,
-      userId: session!.user.id,
-      ...siteFilterForModel("enseignant", claims),
-    },
-    select: { id: true },
-  });
+  // Hiérarchie des classes avec scope enseignant + site + année intégrés.
+  // La direction voit toutes les classes ; un professeur principal ne voit
+  // que les classes de son périmètre (getTeacherScope intégré).
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const hierarchie = await getClassesHierarchie(tenantId, session!.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
 
-  const classes = await prisma.classe.findMany({
-    where: {
-      tenantId,
-      ...siteFilterForModel("classe", claims),
-      ...(enseignant ? { profPrincipalId: enseignant.id } : {}),
-    },
-    select: { id: true, nom: true },
-    orderBy: { nom: "asc" },
-  });
-
-  const classeId = classeDemandee ?? classes[0]?.id;
+  const classeIds = hierarchieClasseIds;
+  // Empêcher l'injection d'un ?classe=... hors de la liste du périmètre.
+  const classeId =
+    classeDemandee && classeIds.includes(classeDemandee)
+      ? classeDemandee
+      : classeIds[0];
   const maintenant = await getDemoNow();
-  const classeIds = classes.map((c) => c.id);
 
-  const [synthese, rubrics, feedRecent, feedAujourdhui, feedSemaine, feedMois] = await Promise.all([
+  // Avant : 4 appels getActivityFeed en parallèle = 40 requêtes simultanées.
+  // Maintenant : 1 appel getActivityFeedAllPeriodes = 10 requêtes, partitionnées en mémoire.
+  const [synthese, rubrics, feedParPeriode] = await Promise.all([
     classeId ? syntheseClasse(tenantId, classeId, claims, maintenant) : Promise.resolve(null),
     classeIds.length > 0
       ? getClassTeacherCounts(tenantId, claims, session!.user.id, classeIds)
       : Promise.resolve([]),
-    getActivityFeed(tenantId, claims, "recent", maintenant),
-    getActivityFeed(tenantId, claims, "aujourdhui", maintenant),
-    getActivityFeed(tenantId, claims, "semaine", maintenant),
-    getActivityFeed(tenantId, claims, "mois", maintenant),
+    getActivityFeedAllPeriodes(tenantId, claims, maintenant),
   ]);
 
   const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
@@ -87,10 +79,10 @@ export default async function MaClassePage({
     }));
 
   const itemsParPeriode = {
-    recent: serialiser(feedRecent),
-    aujourdhui: serialiser(feedAujourdhui),
-    semaine: serialiser(feedSemaine),
-    mois: serialiser(feedMois),
+    recent: serialiser(feedParPeriode.recent),
+    aujourdhui: serialiser(feedParPeriode.aujourdhui),
+    semaine: serialiser(feedParPeriode.semaine),
+    mois: serialiser(feedParPeriode.mois),
   };
 
   // ---------------------------------------------------------------
@@ -145,6 +137,21 @@ export default async function MaClassePage({
 
             {/* Suivi unifié existant — conservé intact. */}
             <SuiviClasseView synthese={synthese} />
+
+            {/* Acquisition des compétences — vue complète de la classe. */}
+            {classeId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    {t("competencesClasse")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CompetencesClasse classeId={classeId} />
+                </CardContent>
+              </Card>
+            )}
 
             {/* 2. Fiches élèves consolidées (toutes matières). */}
             <Card>
@@ -278,6 +285,8 @@ async function chargerFichesConsolidees(
   classeId: string,
   claims: SessionSiteClaims
 ): Promise<FicheEleveConsolidee[]> {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   const eleves = await prisma.eleve.findMany({
     where: {
       tenantId,
@@ -285,6 +294,7 @@ async function chargerFichesConsolidees(
       statut: "ACTIF",
       deletedAt: null,
       ...siteFilterForModel("eleve", claims),
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
     },
     select: { id: true, nom: true, prenom: true, matricule: true },
     orderBy: [{ nom: "asc" }, { prenom: "asc" }],
@@ -298,6 +308,7 @@ async function chargerFichesConsolidees(
     classeId,
     eleveId: { in: ids },
     ...siteFilterForModel("note", claims),
+    ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
   };
 
   const [notesParMatiere, absences, incidents, eleveParents] =
@@ -315,6 +326,7 @@ async function chargerFichesConsolidees(
           tenantId,
           eleveId: { in: ids },
           ...siteFilterForModel("absence", claims),
+          ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
         },
         _count: { eleveId: true },
       }),
@@ -325,6 +337,7 @@ async function chargerFichesConsolidees(
           tenantId,
           eleveId: { in: ids },
           ...siteFilterForModel("incident", claims),
+          ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
         },
         _count: { eleveId: true },
       }),

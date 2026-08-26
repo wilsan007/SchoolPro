@@ -27,6 +27,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification";
+import { anneeALaDate } from "@/lib/annee-scolaire";
 
 export type UniteKpi = "pourcentage" | "nombre";
 
@@ -123,18 +124,23 @@ export async function kpisDirection(
 ): Promise<Kpi[]> {
   const precedents = await valeursPrecedentes(tenantId, claims, "DIRECTION", jourDe(maintenant));
 
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
-    select: { id: true, dateDebut: true },
-  });
+  // Année active au sens chronologique : celle qui contient `maintenant`.
+  // Pendant l'été, anneeALaDate retourne l'année isCurrent (à venir) pour
+  // permettre la préparation de la rentrée. Mais les KPIs pédagogiques
+  // (couverture, saisies en retard, élèves à risque) n'ont pas de sens
+  // sur une année qui n'a pas commencé — on l'indique au calcul ci-dessous.
+  const annee = await anneeALaDate(tenantId, maintenant);
+  const anneeId = annee?.id;
+  const fenetreDebut = annee?.dateDebut;
+  const anneePasEncoreCommencee = annee ? annee.dateDebut > maintenant : false;
 
   const [planifs, evaluationsSansNotes, elevesARisque, plansActifs, plansEnRetard] =
     await Promise.all([
-      annee
+      anneeId
         ? prisma.planificationChapitre.findMany({
             where: {
               tenantId,
-              anneeId: annee.id,
+              anneeId,
               ...siteFilterForModel("planificationChapitre", claims),
             },
             select: { statut: true, semaineFin: true },
@@ -142,10 +148,15 @@ export async function kpisDirection(
         : Promise.resolve([]),
 
       // Une évaluation passée sans aucune note : la saisie n'a pas été faite.
+      // Filtrée par la fenêtre de l'année active pour ne pas compter les
+      // évaluations d'une année précédente qui n'aurait jamais été saisie.
       prisma.evaluation.count({
         where: {
           tenantId,
-          date: { lt: maintenant },
+          date: {
+            gte: fenetreDebut ?? new Date(0),
+            lt: maintenant,
+          },
           statut: { not: "ANNULE" },
           notes: { none: {} },
           ...siteFilterForRelation(claims, "classe"),
@@ -153,11 +164,13 @@ export async function kpisDirection(
       }),
 
       // Profil de décrochage : au moins une compétence critique bloquante.
+      // Filtrée par la fenêtre de l'année pour ne pas cumuler les cohortes.
       prisma.recommandation.findMany({
         where: {
           tenantId,
           statut: "OBLIGATOIRE",
           resolueLe: null,
+          createdAt: { gte: fenetreDebut ?? new Date(0) },
           ...siteFilterForModel("recommandation", claims),
         },
         select: { eleveId: true },
@@ -168,6 +181,7 @@ export async function kpisDirection(
         where: {
           tenantId,
           statut: { in: ["PROPOSE", "ACTIF", "EN_REVUE"] },
+          createdAt: { gte: fenetreDebut ?? new Date(0) },
           ...siteFilterForModel("planProgression", claims),
         },
       }),
@@ -176,6 +190,7 @@ export async function kpisDirection(
         where: {
           tenantId,
           statut: "EN_REVUE",
+          createdAt: { gte: fenetreDebut ?? new Date(0) },
           ...siteFilterForModel("planProgression", claims),
         },
       }),
@@ -184,10 +199,16 @@ export async function kpisDirection(
   // Couverture : chapitres traités rapportés à ceux qui auraient dû l'être à
   // ce jour. Comparer au programme entier donnerait un chiffre bas toute
   // l'année et ne signalerait rien.
+  // En période estivale (année pas encore commencée), il n'y a ni
+  // planification ni enseignement : la couverture est N/A (0), pas 100%.
   const semaine = annee ? semaineScolaire(maintenant, annee.dateDebut) : 0;
   const dus = planifs.filter((p) => p.semaineFin <= semaine);
   const traites = dus.filter((p) => p.statut === "TRAITE").length;
-  const couverture = dus.length > 0 ? Math.round((traites / dus.length) * 100) : 100;
+  const couverture = anneePasEncoreCommencee
+    ? 0  // Année pas encore commencée : N/A, pas 100%
+    : dus.length > 0
+      ? Math.round((traites / dus.length) * 100)
+      : 100;  // Début d'année normal : aucun chapitre dû encore → 100%
 
   return [
     construireKpi("couvertureProgramme", couverture, "pourcentage", "hautEstBon", 80,

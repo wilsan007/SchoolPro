@@ -7,6 +7,7 @@ import { EleveDetailView } from "@/components/eleves/EleveDetailView";
 import { getSituationFinanciere, checkEleveAccess } from "@/lib/financial-guard";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
+import { FournituresClasse } from "@/components/fournitures/FournituresClasse";
 
 async function getEleveDetail(id: string, tenantId: string, siteFilter: Record<string, unknown>) {
   const eleve = await prisma.eleve.findFirst({
@@ -132,6 +133,39 @@ export default async function EleveDetailPage({
 
   const situationFinanciere = await getSituationFinanciere(id, session.user.tenantId, session.user);
 
+  // Liste de fournitures publiée pour la classe de l'élève
+  let fournituresClasse: { items: { id: string; type: any; nom: string; description: string | null; quantite: number; format: string | null; prixEstime: number | null; matiere: { nom: string } | null }[] } | null = null;
+  if (eleve.classeId) {
+    const liste = await prisma.listeFournitureClasse.findFirst({
+      where: {
+        classeId: eleve.classeId,
+        tenantId: session.user.tenantId,
+        statut: "PUBLIEE",
+        ...siteFilterForModel("listeFournitureClasse", session.user),
+      },
+      select: {
+        items: {
+          include: { matiere: { select: { nom: true } } },
+          orderBy: [{ type: "asc" }, { nom: "asc" }],
+        },
+      },
+    });
+    if (liste) {
+      fournituresClasse = {
+        items: liste.items.map((i) => ({
+          id: i.id,
+          type: i.type,
+          nom: i.nom,
+          description: i.description,
+          quantite: i.quantite,
+          format: i.format,
+          prixEstime: i.prixEstime,
+          matiere: i.matiere ? { nom: i.matiere.nom } : null,
+        })),
+      };
+    }
+  }
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
@@ -141,7 +175,12 @@ export default async function EleveDetailPage({
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <EleveDetailView eleve={eleve} matieres={matieres} dispenses={dispenses} situationFinanciere={situationFinanciere} />
+        <EleveDetailView eleve={eleve} matieres={matieres} dispenses={dispenses} situationFinanciere={situationFinanciere} userRole={session.user.role} />
+        {fournituresClasse && fournituresClasse.items.length > 0 && (
+          <div className="mt-6">
+            <FournituresClasse items={fournituresClasse.items} classeNom={eleve.classe?.nom} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 export async function GET(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -17,12 +19,17 @@ export async function GET(req: NextRequest) {
   // Les incidents de vie scolaire sont des données sensibles : filtrage par site
   // via l'élève, et périmètre personnel pour les comptes parent/élève.
   const scopeFilter = eleveScopeFilter(user, "eleve");
+  const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
+  const anneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
+  const maintenant = await getDemoNow();
 
   const incidents = await prisma.incident.findMany({
     where: mergeFilters(
       {
         tenantId: user.tenantId,
         ...(eleveId ? { eleveId } : {}),
+        ...anneeEleve,
+        date: { lte: maintenant },
       },
       scopeFilter
     ),

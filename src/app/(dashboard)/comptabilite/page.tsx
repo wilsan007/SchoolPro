@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import { getSituationFinanciere } from "@/lib/financial-guard";
+import { getSituationFinanciereBatch } from "@/lib/financial-guard";
 import { getDemoNow } from "@/lib/demo-now";
+import { anneeActiveId } from "@/lib/annee-scolaire";
+import { ExportFinancesButton } from "@/components/comptabilite/ExportFinancesButton";
 import Link from "next/link";
 
 /**
@@ -37,34 +39,38 @@ export default async function ComptabilitePage() {
   const siteFilterFacture = siteFilterForModel("facture", claims);
   const siteFilterRelance = siteFilterForModel("relance", claims);
 
+  const anneeId = await anneeActiveId(tenantId);
+
+  // Avant : 6 requêtes en parallèle (3 counts sur factures + 1 count relances +
+  // 1 count échéances + 1 aggregate). Maintenant : 1 groupBy pour les 3 counts
+  // de factures + 1 aggregate + 1 count relances + 1 count échéances = 4 requêtes.
   const [
-    facturesEnAttente,
-    facturesEnRetard,
-    facturesPartielles,
+    facturesParStatut,
+    montantEnSouffrance,
     relancesEnvoyees,
     echeances7Jours,
-    montantEnSouffrance,
   ] = await Promise.all([
-    prisma.facture.count({
-      where: {
-        tenantId,
-        statut: "EN_ATTENTE",
-        ...siteFilterFacture,
-      },
-    }),
-    prisma.facture.count({
-      where: {
-        tenantId,
-        statut: "EN_RETARD",
-        ...siteFilterFacture,
-      },
-    }),
-    // Factures non soldées ayant déjà reçu au moins un paiement.
-    prisma.facture.count({
+    // 1 groupBy remplace 3 counts (EN_ATTENTE, EN_RETARD, partielles)
+    prisma.facture.groupBy({
+      by: ["statut"],
       where: {
         tenantId,
         statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
-        paiements: { some: {} },
+        ...(anneeId ? { anneeId } : {}),
+        ...siteFilterFacture,
+      },
+      _count: true,
+    }),
+    // Somme des montants des factures en retard + partiellement payées.
+    prisma.facture.aggregate({
+      _sum: { montant: true },
+      where: {
+        tenantId,
+        OR: [
+          { statut: "EN_RETARD" },
+          { statut: "EN_ATTENTE", paiements: { some: {} } },
+        ],
+        ...(anneeId ? { anneeId } : {}),
         ...siteFilterFacture,
       },
     }),
@@ -86,19 +92,23 @@ export default async function ComptabilitePage() {
         statut: "EN_ATTENTE",
       },
     }),
-    // Somme des montants des factures en retard + partiellement payées.
-    prisma.facture.aggregate({
-      _sum: { montant: true },
-      where: {
-        tenantId,
-        OR: [
-          { statut: "EN_RETARD" },
-          { statut: "EN_ATTENTE", paiements: { some: {} } },
-        ],
-        ...siteFilterFacture,
-      },
-    }),
   ]);
+
+  // Compter les factures partielles (EN_ATTENTE ou EN_RETARD avec paiements)
+  // depuis le groupBy + une requête supplémentaire légère
+  const facturesEnAttente = facturesParStatut.find((g) => g.statut === "EN_ATTENTE")?._count ?? 0;
+  const facturesEnRetard = facturesParStatut.find((g) => g.statut === "EN_RETARD")?._count ?? 0;
+  // Pour les factures partielles, on a besoin de savoir combien ont des paiements
+  // On utilise une requête count séparée car groupBy ne supporte pas _count + filtre relation
+  const facturesPartielles = await prisma.facture.count({
+    where: {
+      tenantId,
+      statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
+      paiements: { some: {} },
+      ...(anneeId ? { anneeId } : {}),
+      ...siteFilterFacture,
+    },
+  });
 
   const montant = montantEnSouffrance._sum?.montant;
   const montantFormate = montant
@@ -115,6 +125,7 @@ export default async function ComptabilitePage() {
     where: {
       tenantId,
       statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
+      ...(anneeId ? { anneeId } : {}),
       ...siteFilterFacture,
     },
     include: {
@@ -191,6 +202,7 @@ export default async function ComptabilitePage() {
     where: {
       tenantId,
       statut: "EN_RETARD",
+      ...(anneeId ? { anneeId } : {}),
       ...siteFilterFacture,
     },
     _count: true,
@@ -217,10 +229,12 @@ export default async function ComptabilitePage() {
       })
     : [];
 
-  // Pour chaque élève en retard, récupérer la situation financière (blocage)
-  const situations = await Promise.all(
-    elevesAdmin.map((e) => getSituationFinanciere(e.id, tenantId, claims))
-  );
+  // Pour chaque élève en retard, récupérer la situation financière (blocage).
+  // Avant : N appels parallèles à getSituationFinanciere (2 requêtes chacun = 20 requêtes).
+  // Maintenant : 2 requêtes batchées pour tous les élèves, puis calcul en mémoire.
+  const situations = elevesAdmin.length > 0
+    ? await getSituationFinanciereBatch(eleveIdsRetard, tenantId, claims)
+    : [];
 
   // Fusionner les données administratives, le groupBy et la situation
   const elevesRetard = elevesAdmin.map((e) => {
@@ -260,6 +274,9 @@ export default async function ComptabilitePage() {
         userName={session!.user.name}
         userAvatar={session!.user.image ?? undefined}
       />
+      <div className="flex justify-end px-4 sm:px-6 lg:px-8 pt-4 print:hidden">
+        <ExportFinancesButton />
+      </div>
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6 scrollbar-thin">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {kpis.map((kpi) => (

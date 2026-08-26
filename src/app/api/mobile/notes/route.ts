@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
-import { eleveScopeFilter, siteFilterForModel, mergeFilters } from "@/lib/site-scope";
+import { eleveScopeFilter, siteFilterForModel, mergeFilters, personalScopeFilter } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -17,8 +21,24 @@ export async function GET(req: NextRequest) {
   // Sans filtre, un appel sans `eleveId` renvoyait les notes de TOUS les élèves
   // du tenant — tous sites confondus, et y compris pour un compte parent.
   const noteFilter = eleveScopeFilter(user, "eleve");
+  const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
+  const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
+  const anneeClasseDirect = anneeCourante ? { annee: anneeCourante } : {};
+  const maintenant = await getDemoNow();
 
-  const classeFilter = siteFilterForModel("classe", user);
+  // PARENT / STUDENT : les classes affichées doivent être celles de leurs enfants / eux-mêmes.
+  // TEACHER : restreindre aux classes de son périmètre (affectations + EDT).
+  let teacherClasseIds: string[] | null = null;
+  if (isTeacherRole(user.role as Role) && user.id) {
+    const scope = await getTeacherScope(user.tenantId, user.id, user.role as Role, anneeCourante);
+    teacherClasseIds = scope.classeIds;
+  }
+  const classeFilter = mergeFilters(
+    siteFilterForModel("classe", user),
+    personalScopeFilter(user, "eleves"),
+    teacherClasseIds ? { id: { in: teacherClasseIds } } : {}
+  );
+  const noteTeacherFilter = teacherClasseIds ? { classeId: { in: teacherClasseIds } } : {};
   const [notes, matieres, classes] = await Promise.all([
     prisma.note.findMany({
       where: mergeFilters(
@@ -26,6 +46,9 @@ export async function GET(req: NextRequest) {
           tenantId: user.tenantId,
           ...(eleveId ? { eleveId } : {}),
           ...(matiereId ? { matiereId } : {}),
+          ...anneeClasse,
+          ...noteTeacherFilter,
+          date: { lte: maintenant },
         },
         noteFilter
       ),
@@ -50,7 +73,7 @@ export async function GET(req: NextRequest) {
       orderBy: { nom: "asc" },
     }),
     prisma.classe.findMany({
-      where: { tenantId: user.tenantId, ...classeFilter },
+      where: { tenantId: user.tenantId, ...classeFilter, ...anneeClasseDirect },
       select: { id: true, nom: true, niveau: true },
       orderBy: { nom: "asc" },
     }),

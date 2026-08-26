@@ -35,6 +35,7 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel, siteFilterForRelation, type SessionSiteClaims } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification";
 import { executeAiQuery, getSchemaForRole } from "@/lib/learnos/ai-query-engine";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 // --- Nouvelles bibliothèques d'intelligence (outils fermés étendus) ---
 
@@ -1494,10 +1495,8 @@ async function analyserProgramme(
   maintenant: Date = new Date()
 ): Promise<unknown> {
   if (dimension === "couverture_globale") {
-    const annee = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { id: true, dateDebut: true },
-    });
+    const aId = await anneeActiveId(tenantId);
+    const annee = aId ? await prisma.anneesScolaires.findFirst({ where: { id: aId, tenantId }, select: { id: true, dateDebut: true } }) : null;
     if (!annee) return { dimension: "couverture_globale", message: "Aucune année active" };
 
     const semaine = semaineScolaire(maintenant, annee.dateDebut);
@@ -1528,10 +1527,8 @@ async function analyserProgramme(
   }
 
   if (dimension === "retards") {
-    const annee = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { id: true, dateDebut: true },
-    });
+    const aId = await anneeActiveId(tenantId);
+    const annee = aId ? await prisma.anneesScolaires.findFirst({ where: { id: aId, tenantId }, select: { id: true, dateDebut: true } }) : null;
     if (!annee) return { dimension: "retards", message: "Aucune année active" };
 
     const semaine = semaineScolaire(maintenant, annee.dateDebut);
@@ -1562,10 +1559,8 @@ async function analyserProgramme(
   }
 
   if (dimension === "predictions_difficulte") {
-    const annee = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, isCurrent: true },
-      select: { id: true },
-    });
+    const aId = await anneeActiveId(tenantId);
+    const annee = aId ? await prisma.anneesScolaires.findFirst({ where: { id: aId, tenantId }, select: { id: true } }) : null;
     if (!annee) return { dimension: "predictions_difficulte", message: "Aucune année active" };
 
     const predictions = await prisma.predictionDifficulte.findMany({
@@ -1604,11 +1599,13 @@ async function analyserFinances(
   claims: SessionSiteClaims,
   dimension: string
 ): Promise<unknown> {
+  const anneeId = await anneeActiveId(tenantId);
   if (dimension === "impayes_total") {
     const facturesImpayees = await prisma.facture.findMany({
       where: {
         tenantId,
         statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
+        ...(anneeId ? { anneeId } : {}),
         ...siteFilterForModel("facture", claims),
       },
       select: { montant: true },
@@ -1626,6 +1623,7 @@ async function analyserFinances(
       where: {
         tenantId,
         statut: { in: ["EN_ATTENTE", "EN_RETARD"] },
+        ...(anneeId ? { anneeId } : {}),
         ...siteFilterForModel("facture", claims),
       },
       select: {

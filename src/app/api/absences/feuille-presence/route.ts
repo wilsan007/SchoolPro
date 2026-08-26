@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -21,13 +23,14 @@ export async function GET(req: NextRequest) {
 
   const classeFilter = siteFilterForModel("classe", session.user);
   const eleveFilter = siteFilterForModel("eleve", session.user);
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const [classe, eleves, tenant] = await Promise.all([
     prisma.classe.findFirst({
-      where: { id: classeId, tenantId: session.user.tenantId, ...classeFilter },
+      where: { id: classeId, tenantId: session.user.tenantId, ...classeFilter, ...(anneeCourante ? { annee: anneeCourante } : {}) },
       include: { profPrincipal: { include: { user: { select: { name: true } } } } },
     }),
     prisma.eleve.findMany({
-      where: { classeId, tenantId: session.user.tenantId, ...eleveFilter, statut: "ACTIF" },
+      where: { classeId, tenantId: session.user.tenantId, ...eleveFilter, statut: "ACTIF", ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
       select: { id: true, nom: true, prenom: true, matricule: true, sexe: true },
       orderBy: { nom: "asc" },
     }),
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
   }
 
-  const today = format(new Date(), "dd MMMM yyyy", { locale: fr });
+  const today = format(await getDemoNow(), "dd MMMM yyyy", { locale: fr });
   const profNom = classe.profPrincipal?.user.name ?? "—";
 
   const html = `<!DOCTYPE html>

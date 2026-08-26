@@ -5,6 +5,10 @@ import { calculerMoyenne } from "@/lib/utils";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { enregistrerHistoriqueBulletin } from "@/lib/bulletin-historique";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const Schema = z.object({
   classeId: z.string().min(1),
@@ -68,10 +72,18 @@ export async function POST(req: NextRequest) {
 
     const { classeId, periodeId } = parsed.data;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
+    if (isTeacherRole(session.user.role as Role)) {
+      const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
+      if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
+        return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+      }
+    }
 
     console.log("[generer] step 1: fetching classe");
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user) },
+      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user), ...(anneeCourante ? { annee: anneeCourante } : {}) },
       include: {
         eleves: { where: { statut: "ACTIF", ...siteFilterForModel("eleve", session.user) } },
       },
@@ -224,6 +236,25 @@ export async function POST(req: NextRequest) {
       const appreciation = genererAppréciation(moyenneGenerale, "BULLETIN_PERIODE", reglesAppreciation);
 
       // Save bulletin
+      // Un bulletin déjà VERROUILLE ou PUBLIE ne peut être régénéré que par
+      // un admin — on préserve son statut existant au lieu de l'écraser.
+      const existingBulletin = await prisma.bulletin.findFirst({
+        where: {
+          tenantId,
+          eleveId: eleve.id,
+          periodeId,
+          ...siteFilterForModel("bulletin", session.user),
+        },
+        select: { id: true, statut: true },
+      });
+
+      const statutInitial = existingBulletin?.statut ?? "BROUILLON";
+
+      // L'upsert utilise la contrainte unique (eleveId, periodeId) ; le
+      // tenantId est injecté dans le `create` et vérifié en amont via le
+      // `findFirst` ci-dessus. Le lint ne peut pas le vérifier statiquement
+      // sur une clé composite.
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
       const bulletin = await prisma.bulletin.upsert({
         where: { eleveId_periodeId: { eleveId: eleve.id, periodeId } },
         update: {
@@ -236,12 +267,24 @@ export async function POST(req: NextRequest) {
           tenantId,
           eleveId: eleve.id,
           periodeId,
+          statut: "BROUILLON",
           moyenneGenerale,
           heuresAbsence,
           appreciation,
           effectifClasse: classe.eleves.length,
         },
       });
+
+      // Tracer la génération dans l'historique
+      await enregistrerHistoriqueBulletin(
+        bulletin.id,
+        tenantId,
+        { id: session.user.id, name: session.user.name, role: session.user.role },
+        "GENERER",
+        "moyenneGenerale",
+        null,
+        JSON.stringify(moyenneGenerale)
+      ).catch(() => {/* non-fatal */});
 
       // Update BulletinMatieres
       await prisma.bulletinMatiere.deleteMany({ where: { bulletinId: bulletin.id, tenantId } });

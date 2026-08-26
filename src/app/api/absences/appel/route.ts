@@ -8,7 +8,10 @@ import { sendEmail, renderNotificationEmail } from "@/lib/notifications/email";
 import { sendAbsenceWhatsApp, sendRetardWhatsApp } from "@/lib/notifications/whatsapp";
 import { sendAbsenceTelegram, sendRetardTelegram } from "@/lib/notifications/telegram";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { revalidateTag } from "next/cache";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const AppelSchema = z.object({
   classeId: z.string().min(1),
@@ -34,13 +37,36 @@ export async function POST(req: NextRequest) {
     const { classeId, date, presences } = parsed.data;
     const tenantId = session.user.tenantId;
     const appelDate = new Date(date);
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
+    // Vérifier que la classe appartient au périmètre enseignant (si applicable).
+    if (isTeacherRole(session.user.role as Role)) {
+      const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
+      if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
+        return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+      }
+    }
 
     // Vérifier que la classe appartient au tenant et au site
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user) },
+      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user), ...(anneeCourante ? { annee: anneeCourante } : {}) },
     });
     if (!classe) {
       return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
+    }
+
+    // Vérifier que les élèves saisis appartiennent bien à cette classe.
+    const eleveIdsSaisis = Object.keys(presences);
+    if (eleveIdsSaisis.length > 0) {
+      const elevesValides = await prisma.eleve.findMany({
+        where: { id: { in: eleveIdsSaisis }, tenantId, ...siteFilterForModel("eleve", session.user), classeId },
+        select: { id: true },
+      });
+      const validIds = new Set(elevesValides.map((e) => e.id));
+      const invalid = eleveIdsSaisis.some((id) => !validIds.has(id));
+      if (invalid) {
+        return NextResponse.json({ error: "Un ou plusieurs élèves ne sont pas dans cette classe" }, { status: 403 });
+      }
     }
 
     // Créer les absences pour les absents et retards

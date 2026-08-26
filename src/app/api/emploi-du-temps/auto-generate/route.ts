@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const emploiFilter = siteFilterForRelation(session.user, "classe");
     const body = await req.json();
-    const { classeId, matiereIds, matiereConfigs, heureMin, heureMax, jours } = body as {
+    const { classeId, matiereIds, matiereConfigs, heureMin, heureMax, jours, periodeId } = body as {
       classeId?: string;
       matiereIds?: string[];
       matiereConfigs?: Array<{
@@ -74,7 +74,9 @@ export async function POST(req: NextRequest) {
       heureMin?: string;
       heureMax?: string;
       jours?: string[];
+      periodeId?: string;
     };
+    const periodeIdValue = periodeId || null;
 
     if (!classeId) {
       return NextResponse.json({ error: "classeId requis" }, { status: 400 });
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch all data needed
-    const [classe, allMatieres, enseignants, allSalles, existingCreneaux, disponibilites] = await Promise.all([
+    const [classe, allMatieres, enseignants, allSalles, existingCreneaux, disponibilites, indisponibilites] = await Promise.all([
       prisma.classe.findFirst({ where: { id: classeId, tenantId, ...classeFilter }, select: { id: true, nom: true, siteId: true } }),
       prisma.matiere.findMany({ where: { tenantId, ...siteFilterForModel("matiere", session.user) }, orderBy: { coefficient: "desc" } }),
       prisma.enseignant.findMany({
@@ -107,6 +109,7 @@ export async function POST(req: NextRequest) {
       prisma.salle.findMany({ where: { tenantId, ...salleFilter } }),
       prisma.emploiTemps.findMany({ where: { tenantId, ...emploiFilter, annee } }),
       prisma.disponibiliteEnseignant.findMany({ where: { tenantId, ...siteFilterForModel("disponibiliteEnseignant", session.user) } }),
+      prisma.indisponibiliteEnseignant.findMany({ where: { tenantId, ...siteFilterForModel("indisponibiliteEnseignant", session.user) } }),
     ]);
 
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
@@ -116,9 +119,9 @@ export async function POST(req: NextRequest) {
       ? allSalles.filter((s) => s.siteId === classe.siteId)
       : allSalles;
 
-    // Delete existing creneaux for this classe/year before generating
+    // Delete existing creneaux for this classe/year/periode before generating
     const deleteResult = await prisma.emploiTemps.deleteMany({
-      where: { classeId, annee, tenantId },
+      where: { classeId, annee, tenantId, periodeId: periodeIdValue },
     });
     console.log(`[auto-generate] Deleted ${deleteResult.count} existing creneaux for classe ${classeId}, annee ${annee}`);
 
@@ -226,6 +229,15 @@ export async function POST(req: NextRequest) {
       const dm = dispoMap.get(d.enseignantId)!;
       if (!dm.has(d.jour)) dm.set(d.jour, []);
       dm.get(d.jour)!.push({ debut: d.heureDebut, fin: d.heureFin });
+    }
+
+    // Carte des indisponibilités (occupations externes, congés, formations…)
+    const indispoMap = new Map<string, Map<string, Array<{ debut: string; fin: string }>>>();
+    for (const ind of indisponibilites) {
+      if (!indispoMap.has(ind.enseignantId)) indispoMap.set(ind.enseignantId, new Map());
+      const dm = indispoMap.get(ind.enseignantId)!;
+      if (!dm.has(ind.jour)) dm.set(ind.jour, []);
+      dm.get(ind.jour)!.push({ debut: ind.heureDebut, fin: ind.heureFin });
     }
 
     // Determine matiere-teacher associations from existing data
@@ -361,6 +373,8 @@ export async function POST(req: NextRequest) {
                 if ((teacherBusy.get(ens.id)?.get(jour) || []).some((s) => overlaps(sStart, sEnd, s.debut, s.fin))) {
                   isBusy = true; break;
                 }
+                const isIndispo = (indispoMap.get(ens.id)?.get(jour) || []).some((s) => overlaps(sStart, sEnd, s.debut, s.fin));
+                if (isIndispo) { isBusy = true; break; }
                 const dispo = dispoMap.get(ens.id)?.get(jour) || [];
                 const hasDispo = dispo.length === 0 || dispo.some((s) => overlaps(sStart, sEnd, s.debut, s.fin));
                 if (!hasDispo) { isBusy = true; break; }
@@ -511,6 +525,7 @@ export async function POST(req: NextRequest) {
               heureFin: cand.heureFin,
               salle: salleLabel,
               annee,
+              periodeId: periodeIdValue,
             },
             include: {
               matiere: { select: { nom: true, code: true, couleur: true } },
@@ -568,6 +583,8 @@ export async function POST(req: NextRequest) {
               for (const ens of enseignants) {
                 const isBusy = (teacherBusy.get(ens.id)?.get(cand.jour) || []).some((s) => overlaps(cand.heureDebut, cand.heureFin, s.debut, s.fin));
                 if (isBusy) continue;
+                const isIndispo = (indispoMap.get(ens.id)?.get(cand.jour) || []).some((s) => overlaps(cand.heureDebut, cand.heureFin, s.debut, s.fin));
+                if (isIndispo) continue;
                 const dispo = dispoMap.get(ens.id)?.get(cand.jour) || [];
                 const hasDispo = dispo.length === 0 || dispo.some((s) => overlaps(cand.heureDebut, cand.heureFin, s.debut, s.fin));
                 if (!hasDispo) continue;
@@ -590,6 +607,7 @@ export async function POST(req: NextRequest) {
                     heureFin: cand.heureFin,
                     salle: pairedSalleLabel,
                     annee,
+                    periodeId: periodeIdValue,
                   },
                   include: {
                     matiere: { select: { nom: true, code: true, couleur: true } },

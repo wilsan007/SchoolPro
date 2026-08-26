@@ -11,6 +11,7 @@ import {
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import type { Jour, StatutRemplacement } from "@prisma/client";
 import { getDemoNow } from "@/lib/demo-now";
 
@@ -30,6 +31,7 @@ export default async function CouverturePage() {
 
   const tenantId = session!.user.tenantId!;
   const claims = session!.user;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   // — Bornes du jour courant (selon la date simulée) —
   const now = await getDemoNow();
@@ -84,6 +86,7 @@ export default async function CouverturePage() {
             jour: jourAujourdhui,
             enseignantId: { in: enseignantsAbsents },
             ...siteFilterForModel("emploiTemps", claims),
+            ...(anneeCourante ? { annee: anneeCourante } : {}),
           },
         })
       : 0;

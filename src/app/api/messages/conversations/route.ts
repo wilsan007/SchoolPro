@@ -16,7 +16,9 @@ import {
   MAX_AUDIENCE,
 } from "@/lib/messaging-audience";
 import { canAccessSite, mergeFilters, siteFilterForModel } from "@/lib/site-scope";
-import type { ConversationType, ParticipantRole } from "@prisma/client";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { ConversationType, ParticipantRole, Role } from "@prisma/client";
 
 const AudienceSchema = z.object({
   scope: z.union([
@@ -230,7 +232,16 @@ export async function POST(req: NextRequest) {
         })),
       ];
 
-      if (audience.scope.kind === "CLASSE") resolvedClasseId = audience.scope.id;
+      if (audience.scope.kind === "CLASSE") {
+        resolvedClasseId = audience.scope.id;
+        if (isTeacherRole(session.user.role as Role)) {
+          const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+          const scope = await getTeacherScope(tenantId, userId, session.user.role as Role, anneeCourante);
+          if (scope.isRestricted && !scope.classeIds.includes(audience.scope.id)) {
+            return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+          }
+        }
+      }
       if (audience.scope.kind === "SITE") resolvedSiteId = audience.scope.id;
       resolvedSubject = subject?.trim() || resolved.label;
     } else if (type === "CLASS_ANNOUNCEMENT" || type === "CLASS_DISCUSSION") {
@@ -244,6 +255,13 @@ export async function POST(req: NextRequest) {
       const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId, ...siteFilterForModel("classe", actor) } });
       if (!classe) {
         return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
+      }
+      if (isTeacherRole(session.user.role as Role)) {
+        const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+        const scope = await getTeacherScope(tenantId, userId, session.user.role as Role, anneeCourante);
+        if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
+          return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+        }
       }
       resolvedClasseId = classeId;
       resolvedSiteId = classe.siteId ?? null;

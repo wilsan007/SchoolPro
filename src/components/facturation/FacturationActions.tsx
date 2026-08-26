@@ -44,7 +44,7 @@ interface ExclusionItem {
 
 const MOIS_NOMS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-export function FacturationActions({ currentYear = "2025-2026" }: { currentYear?: string }) {
+export function FacturationActions({ currentYear = "2025-2026", userRole }: { currentYear?: string; userRole?: string }) {
   const t = useTranslations("facturation");
   const [isPending, setIsPending] = useState(false);
   const [showGenModal, setShowGenModal] = useState(false);

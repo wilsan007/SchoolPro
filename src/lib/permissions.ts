@@ -52,12 +52,15 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "eleves:*", "parents:*", "enseignants:*", "classes:*", "matieres:*",
     "notes:*", "evaluations:*", "bulletins:*", "absences:*", "examens:*",
     "curriculum:*", "cours:*", "emploi-du-temps:*",
+    "cahier-journal:read", "cahier-journal:write",
     "communication:*", "messages:*", "vie-scolaire:*",
     "admissions:*", "rh:*", "finance:*", "inventaire:*", "alumni:*",
     "orientation:*", "analytics:*", "rapports:*", "documents:*",
     "ai:*", "audit:read", "parametres:*",
     // Le directeur suit et valide, il ne fait pas les exercices.
     "entrainement:read", "entrainement:valider",
+    // Gouvernance, mentorat et tâches : pilotage de l'établissement.
+    "gouvernance:*", "mentorat:*", "taches:*",
   ],
 
   // Chef d'établissement — pédagogie et vie scolaire complètes ;
@@ -66,11 +69,14 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "eleves:*", "parents:*", "enseignants:*", "classes:*", "matieres:*",
     "notes:*", "evaluations:*", "bulletins:*", "absences:*", "examens:*",
     "curriculum:*", "cours:*", "emploi-du-temps:*",
+    "cahier-journal:read", "cahier-journal:write",
     "communication:*", "messages:*", "vie-scolaire:*",
     "admissions:*", "rh:read", "finance:read", "inventaire:*", "alumni:*",
     "orientation:*", "analytics:*", "rapports:*", "documents:*",
     "ai:*", "parametres:read",
     "entrainement:read", "entrainement:valider",
+    // Gouvernance, mentorat et tâches : pilotage de l'établissement.
+    "gouvernance:*", "mentorat:*", "taches:*",
   ],
 
   // Secrétariat — administratif. Ni pédagogie fine, ni finance, ni paramètres.
@@ -80,6 +86,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "communication:read", "communication:send", "messages:*",
     "admissions:*", "examens:read", "inventaire:read",
     "documents:*", "alumni:read", "bulletins:read", "rapports:read",
+    "taches:*",
   ],
 
   // Enseignant — sa pédagogie, de bout en bout.
@@ -96,9 +103,12 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "notes:*", "evaluations:*", "absences:read", "absences:write",
     "bulletins:read", "examens:read",
     "curriculum:read", "curriculum:write",
+    "cahier-journal:read", "cahier-journal:write",
     "cours:*", "emploi-du-temps:read", "messages:*",
     "entrainement:read", "entrainement:valider",
     "analytics:read", "documents:read", "ai:teacher",
+    // L'enseignant gère ses propres tâches.
+    "taches:*",
   ],
 
   // Professeur principal — enseignant + bulletins, conseil de classe,
@@ -108,10 +118,13 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "notes:*", "evaluations:*", "absences:*",
     "bulletins:read", "bulletins:write", "bulletins:publish",
     "examens:read", "curriculum:read", "curriculum:write",
+    "cahier-journal:read", "cahier-journal:write",
     "cours:*", "emploi-du-temps:read", "messages:*",
     "vie-scolaire:*", "orientation:read", "orientation:write",
     "entrainement:read", "entrainement:valider",
     "analytics:read", "documents:read", "ai:teacher",
+    // Le prof principal suit ses élèves en mentorat et gère ses tâches.
+    "mentorat:read", "mentorat:write", "taches:*",
   ],
 
   // Conseiller / CPE — vie scolaire et orientation.
@@ -120,6 +133,9 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "eleves:read", "parents:read", "absences:read", "bulletins:read",
     "vie-scolaire:*", "orientation:*", "entrainement:read",
     "messages:*", "communication:read", "analytics:read", "documents:read",
+    "cahier-journal:read",
+    // Le CPE suit ses élèves en mentorat et gère ses tâches.
+    "mentorat:read", "mentorat:write", "taches:*",
   ],
 
   // Infirmier(e) — strictement la santé et l'assiduité.
@@ -129,10 +145,15 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
   ],
 
   // Comptable — finance, paie et stock.
+  // Peut également créer des candidatures et faire évoluer les dossiers
+  // d'inscription (ajout de documents, passage EN_COURS → COMPLETE),
+  // mais seule la direction valide et finalise l'inscription.
   ACCOUNTANT: [
     "finance:*", "rh:*", "inventaire:*",
     "eleves:read", "parents:read",
+    "admissions:read", "admissions:write",
     "analytics:read", "rapports:read", "messages:*", "documents:read",
+    "taches:*",
   ],
 
   // Caissier — saisie des recettes (encaissements), remise de caisse.
@@ -155,6 +176,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "messages:*", "communication:read",
     "examens:read", "emploi-du-temps:read",
     "documents:read", "analytics:read",
+    "taches:*",
   ],
 
   // Coordinateur de matière — la maille intermédiaire entre l'enseignant
@@ -165,11 +187,13 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "notes:read", "evaluations:read", "bulletins:read",
     "absences:read", "examens:read",
     "curriculum:read", "curriculum:write",
+    "cahier-journal:read", "cahier-journal:write",
     "cours:read", "emploi-du-temps:read",
     "analytics:read", "rapports:read", "documents:read",
     "messages:*", "vie-scolaire:read",
     "entrainement:read", "entrainement:valider",
     "ai:teacher",
+    "taches:*",
   ],
 
   // Responsable d'exploitation site — salles, équipement, personnel de service.
@@ -179,6 +203,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "emploi-du-temps:read", "inventaire:*",
     "messages:*", "communication:read",
     "documents:read", "rapports:read",
+    "taches:*",
   ],
 
   // Inspecteur MENFOP — lecture seule, statistiques agrégées.
@@ -189,6 +214,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "analytics:read", "rapports:read",
     "bulletins:read", "examens:read",
     "curriculum:read", "cours:read",
+    "cahier-journal:read",
   ],
 
   // Parent / Tuteur — le périmètre de ses enfants, en lecture.
@@ -240,6 +266,13 @@ export function roleHasAnyPermission(
   const needed = Array.isArray(permission) ? permission : [permission];
   return needed.some((p) => roleHasPermission(role, p));
 }
+
+/** Toutes les permissions distinctes de la matrice, triées, pour l'UI d'override. */
+export const ALL_PERMISSIONS: string[] = [
+  ...new Set(
+    Object.values(ROLE_PERMISSIONS).flat().filter((p) => p !== "*")
+  ),
+].sort();
 
 // ============================================================
 // 3. Registre des routes
@@ -348,6 +381,12 @@ export const ROUTE_RULES: RouteRule[] = [
   { pattern: /^\/rapports/, permission: "rapports:read" },
 
   // — Pédagogie —
+  // `/eleves/comptes` expose la génération de comptes de connexion :
+  // action d'écriture, pas simple lecture de l'annuaire. Placé AVANT
+  // `/eleves` pour ne pas être capturé par sa règle `eleves:read`.
+  { pattern: /^\/eleves\/comptes/, permission: "eleves:write", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY",
+  ] },
   { pattern: /^\/eleves/, permission: "eleves:read" },
   { pattern: /^\/parents/, permission: "parents:read" },
   // `/notes/bulletins` reste **avant** `/notes` : c'est la console de
@@ -380,8 +419,13 @@ export const ROUTE_RULES: RouteRule[] = [
   { pattern: /^\/evaluations/, permission: "evaluations:read" },
   { pattern: /^\/examens/, permission: "examens:read" },
   { pattern: /^\/curriculum/, permission: "curriculum:read" },
-  { pattern: /^\/recommandations/, permission: "entrainement:read", roles: [
-    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER", "COUNSELOR", "SUBJECT_LEAD",
+  // Page enseignant : formuler les demandes de fournitures par niveau.
+  // Page secrétariat (/fournitures) : compiler, valider, publier.
+  { pattern: /^\/fournitures\/enseignant/, permission: "curriculum:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+  ] },
+  { pattern: /^\/fournitures/, permission: "eleves:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY",
   ] },
   // Même raisonnement que `/notes` : `cours:read` est accordé à PARENT et
   // STUDENT pour qu'ils voient les supports depuis leur espace, mais `/cours`
@@ -491,6 +535,67 @@ export const ROUTE_RULES: RouteRule[] = [
   // Génération de rubriques d'évaluation : enseignants et direction.
   { pattern: /^\/rubriques-evaluation/, permission: "curriculum:write", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+  ] },
+
+  // — Cahier journal —
+  // Outil central de l'enseignant : saisie des séances, suivi du programme.
+  // La direction a `cahier-journal:read` pour superviser, les enseignants
+  // ont `cahier-journal:write` pour saisir. Le CPE et l'inspecteur consultent.
+  { pattern: /^\/cahier-journal/, permission: "cahier-journal:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+    "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+    "COUNSELOR", "INSPECTOR", "SUPERVISOR",
+  ] },
+
+  // — Gouvernance —
+  // Conseils d'établissement, réunions, résolutions : direction uniquement.
+  { pattern: /^\/gouvernance/, permission: "gouvernance:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+  ] },
+
+  // — Mentorat —
+  // Suivi individualisé des élèves : direction, prof principal, CPE.
+  { pattern: /^\/mentorat/, permission: "mentorat:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+    "CLASS_TEACHER", "COUNSELOR",
+  ] },
+
+  // — Conseil de classe augmenté —
+  // Vue enrichie du conseil de classe avec signaux LEARNOS.
+  // Mêmes rôles que `/notes/bulletins` : direction + enseignants.
+  { pattern: /^\/conseil-augmente/, permission: "bulletins:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+    "TEACHER", "CLASS_TEACHER",
+  ] },
+
+  // — Tâches —
+  // Gestion de tâches interne : ouvert à tout le personnel authentifié.
+  // Le filtrage par assignation est fait côté page/API, pas par rôle.
+  { pattern: /^\/taches/, permission: "taches:read" },
+
+  // — Veille assiduité —
+  // Surveillance prédictive de l'assiduité : direction, CPE, surveillant.
+  { pattern: /^\/veille-assiduite/, permission: "absences:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+    "COUNSELOR", "SUPERVISOR",
+  ] },
+
+  // — Dossier de progression LEARNOS —
+  // Vue longitudinale d'un élève : accessible au personnel pédagogique
+  // qui a déjà accès à la fiche élève. Le filtrage par périmètre
+  // (site, classe) est fait côté page.
+  { pattern: /^\/dossier-progression/, permission: "eleves:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+    "TEACHER", "CLASS_TEACHER", "COUNSELOR",
+  ] },
+
+  // — Recommandations LEARNOS —
+  // Propositions de prérequis et plans de remédiation générés par l'IA,
+  // à valider par les enseignants et la direction.
+  { pattern: /^\/recommandations/, permission: "curriculum:read", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL",
+    "TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD",
+    "COUNSELOR", "INSPECTOR",
   ] },
 ];
 

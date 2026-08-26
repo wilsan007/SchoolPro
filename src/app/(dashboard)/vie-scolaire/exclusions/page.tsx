@@ -6,6 +6,8 @@ import { Header } from "@/components/layout/Header";
 import { ExclusionsView } from "@/components/vie-scolaire/ExclusionsView";
 import { guardPage } from "@/lib/guard-page";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 /// Types de sanction constituant une exclusion — doit rester aligné avec
 /// TYPES_EXCLUSION dans src/app/api/vie-scolaire/exclusions/route.ts.
@@ -22,12 +24,17 @@ export default async function ExclusionsPage() {
   // La date de référence suit la Time Machine pour que le registre reflète
   // l'état des exclusions à la date de démonstration sélectionnée.
   const maintenant = await getDemoNow();
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
-  const [sanctions, classes] = await Promise.all([
+  // Hiérarchie des classes avec scope enseignant + site + année intégrés.
+  const hierarchie = await getClassesHierarchie(tenantId, session.user, { anneeCourante });
+  const classes = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => ({ id: cls.id, nom: cls.nom }))));
+
+  const [sanctions] = await Promise.all([
     prisma.sanction.findMany({
       where: {
         type: { in: [...TYPES_EXCLUSION] },
-        incident: { tenantId },
+        incident: { tenantId, ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}) },
         ...siteFilterForModel("sanction", session.user),
       },
       include: {
@@ -53,11 +60,6 @@ export default async function ExclusionsPage() {
       },
       orderBy: { dateDebut: "desc" },
       take: 200,
-    }),
-    prisma.classe.findMany({
-      where: { tenantId, ...siteFilterForModel("classe", session.user) },
-      select: { id: true, nom: true },
-      orderBy: { nom: "asc" },
     }),
   ]);
 
@@ -108,6 +110,7 @@ export default async function ExclusionsPage() {
         <ExclusionsView
           exclusions={exclusions}
           classes={classes}
+          hierarchie={hierarchie}
           dateReference={maintenant.toISOString()}
         />
       </div>

@@ -11,6 +11,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import type { Role, Prisma } from "@prisma/client";
 
 /**
@@ -25,14 +26,22 @@ async function getRecommandations(
   claims: SessionSiteClaims,
   scope?: { classeIds: string[]; isRestricted: boolean }
 ) {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   return prisma.recommandation.findMany({
     where: {
       tenantId,
       ...siteFilterForModel("recommandation", claims),
       resolueLe: null,
       // Un enseignant ne voit que ses classes ; la direction voit tout.
-      ...(scope?.isRestricted
-        ? { eleve: { classeId: { in: scope.classeIds.length > 0 ? scope.classeIds : ["__none__"] } } }
+      ...(anneeCourante || scope?.isRestricted
+        ? {
+            eleve: {
+              ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+              ...(scope?.isRestricted
+                ? { classeId: { in: scope.classeIds.length > 0 ? scope.classeIds : ["__none__"] } }
+                : {}),
+            },
+          }
         : {}),
       statut: { in: ["OBLIGATOIRE", "RECOMMANDEE", "PROPOSEE"] },
     },
@@ -73,15 +82,19 @@ async function getPlansAValider(
   claims: SessionSiteClaims,
   scope?: { classeIds: string[]; isRestricted: boolean }
 ) {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   return prisma.planProgression.findMany({
     where: {
       tenantId,
       statut: "PROPOSE",
       ...siteFilterForModel("planProgression", claims),
-      ...(scope?.isRestricted
+      ...(anneeCourante || scope?.isRestricted
         ? {
             eleve: {
-              classeId: { in: scope.classeIds.length > 0 ? scope.classeIds : ["__none__"] },
+              ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+              ...(scope?.isRestricted
+                ? { classeId: { in: scope.classeIds.length > 0 ? scope.classeIds : ["__none__"] } }
+                : {}),
             },
           }
         : {}),
@@ -120,6 +133,7 @@ async function getAttestations(
   claims: SessionSiteClaims & { userId?: string; id?: string },
   scope?: { classeIds: string[]; isRestricted: boolean }
 ) {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const feuilles = await prisma.feuilleExercices.findMany({
     where: mergeFilters(
       { tenantId, type: "attestation" },
@@ -129,8 +143,15 @@ async function getAttestations(
           { statut: "ASSIGNEE", assigneeLe: null },
         ],
       },
-      ...(scope?.isRestricted
-        ? [{ eleve: { classeId: { in: scope.classeIds.length > 0 ? scope.classeIds : ["__none__"] } } }]
+      ...(anneeCourante || scope?.isRestricted
+        ? [{
+            eleve: {
+              ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+              ...(scope?.isRestricted
+                ? { classeId: { in: scope.classeIds.length > 0 ? scope.classeIds : ["__none__"] } }
+                : {}),
+            },
+          }]
         : []),
       siteFilterForModel("feuilleExercices", claims),
       personalScopeFilter(claims, "eleve"),

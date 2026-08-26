@@ -52,6 +52,25 @@ vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }));
 
+vi.mock("@/lib/annee-scolaire", () => ({
+  anneeActiveId: vi.fn().mockResolvedValue(null),
+  anneeActive: vi.fn().mockResolvedValue(null),
+  getAnneeCourante: vi.fn().mockResolvedValue(null),
+  getAnneeCouranteLibelle: vi.fn().mockResolvedValue(null),
+  getContexteAnnees: vi.fn().mockResolvedValue({
+    phase: "normale",
+    anneeActive: null,
+    anneeEcoulee: null,
+    anneeAVenir: null,
+    joursAvantRentree: null,
+  }),
+}));
+
+vi.mock("@/lib/demo-now", () => ({
+  getDemoNow: vi.fn().mockResolvedValue(new Date()),
+  getDemoDate: vi.fn().mockResolvedValue(null),
+}));
+
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 /**
  * Factures accessibles depuis l'app mobile.
@@ -22,11 +23,14 @@ export async function GET(req: NextRequest) {
 
   const scopeFilter = eleveScopeFilter(user, "eleve", { gardienOnly: true });
 
+  const anneeId = await anneeActiveId(user.tenantId);
+
   const factures = await prisma.facture.findMany({
     where: mergeFilters(
       {
         tenantId: user.tenantId,
         ...(eleveId ? { eleveId } : {}),
+        ...(anneeId ? { anneeId } : {}),
       },
       scopeFilter
     ),

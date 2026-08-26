@@ -22,9 +22,10 @@ import { getDemoNow } from "@/lib/demo-now";
 async function fetchDashboardData(
   tenantId: string,
   claims: DashboardScopeClaims,
-  maintenant: Date
+  maintenant: Date,
+  anneeLibelle: string | null
 ) {
-  const wheres = buildDashboardWheres(tenantId, claims);
+  const wheres = buildDashboardWheres(tenantId, claims, anneeLibelle);
   // Les filtres `where` sont construits par `buildDashboardWheres` (dans
   // `dashboard-scope.ts`), qui combine `siteFilterForModel` + `personalScopeFilter`
   // pour chaque modèle. Le linter `ecolpro/require-site-filter` ne remonte pas
@@ -111,10 +112,11 @@ const getCachedDashboardData = unstable_cache(
     scopeKey: string,
     tenantId: string,
     claims: DashboardScopeClaims,
-    maintenantKey: string
+    maintenantKey: string,
+    anneeLibelle: string | null
   ) => {
     void scopeKey;
-    return fetchDashboardData(tenantId, claims, new Date(maintenantKey));
+    return fetchDashboardData(tenantId, claims, new Date(maintenantKey), anneeLibelle);
   },
   ["dashboard-data"],
   { revalidate: 30, tags: ["dashboard-data"] }
@@ -123,19 +125,21 @@ const getCachedDashboardData = unstable_cache(
 async function getDashboardData(
   tenantId: string,
   claims: DashboardScopeClaims,
-  maintenant: Date
+  maintenant: Date,
+  anneeLibelle: string | null
 ) {
   // Aucune mise en cache pour les périmètres personnels : les données sont
   // nominatives et propres à une famille, on refuse de les faire transiter par
   // un cache partagé (ceinture et bretelles, en plus de la clé explicite).
   if (isRelationScopedRole(claims.role)) {
-    return fetchDashboardData(tenantId, claims, maintenant);
+    return fetchDashboardData(tenantId, claims, maintenant, anneeLibelle);
   }
   return getCachedDashboardData(
     dashboardCacheKey(tenantId, claims),
     tenantId,
     claims,
-    maintenant.toISOString()
+    maintenant.toISOString(),
+    anneeLibelle
   );
 }
 
@@ -168,13 +172,15 @@ export default async function DashboardPage() {
 
   const tenantId = session.user.tenantId;
   const maintenant = await getDemoNow();
-  const [data, sites, anneeCourante] = await Promise.all([
-    getDashboardData(tenantId, session.user, maintenant),
+  // Résoudre l'année active AVANT les requêtes pour l'injecter dans les filtres.
+  // `getAnneeCouranteLibelle` respecte la Time Machine (via `anneeActive()`).
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const [data, sites] = await Promise.all([
+    getDashboardData(tenantId, session.user, maintenant, anneeCourante),
     prisma.site.findMany({
       where: { tenantId, actif: true, deletedAt: null },
       select: { id: true, nom: true },
     }),
-    getAnneeCouranteLibelle(tenantId),
   ]);
 
   const currentSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
@@ -190,7 +196,7 @@ export default async function DashboardPage() {
       value: data.totalElevesActifs.toString(),
       total: data.totalEleves,
       icon: "users" as const,
-      color: "violet" as const,
+      color: "azure" as const,
       change: "+3",
       changePositive: true,
     },
@@ -198,14 +204,14 @@ export default async function DashboardPage() {
       label: t("totalClasses"),
       value: data.totalClasses.toString(),
       icon: "school" as const,
-      color: "blue" as const,
+      color: "indigo" as const,
       change: anneeCourante ?? "—",
     },
     {
       label: t("absencesToday"),
       value: data.absencesAujourdhui.toString(),
       icon: "clipboard" as const,
-      color: "orange" as const,
+      color: "amber" as const,
       change: `${data.absencesNonJustifiees}`,
       changePositive: data.absencesNonJustifiees === 0,
     },
@@ -215,7 +221,7 @@ export default async function DashboardPage() {
         ? new Intl.DateTimeFormat(locale === "en" ? "en-US" : "fr-FR", { day: "numeric", month: "short" }).format(data.prochainExamen.dateDebut)
         : (locale === "en" ? "None" : "Aucun"),
       icon: "graduation" as const,
-      color: "green" as const,
+      color: "emerald" as const,
       change: data.prochainExamen?.intitule ?? "",
     },
   ];

@@ -1,0 +1,5 @@
+# Politique de divulgation responsable — ecolemiriam.com
+Contact: mailto:security@ecolemiriam.com
+Expires: 2027-08-21T14:58:57Z
+Preferred-Languages: fr, en
+Canonical: https://ecolemiriam.com/.well-known/security.txt

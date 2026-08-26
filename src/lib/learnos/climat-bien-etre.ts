@@ -31,6 +31,7 @@ import {
   resolveSiteScope,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { anneeActive } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Constantes
@@ -287,10 +288,7 @@ function filtreSiteIdColumn(
 async function borneAnneeCourante(
   tenantId: string
 ): Promise<{ debut: Date; fin: Date } | null> {
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
-    select: { dateDebut: true, dateFin: true },
-  });
+  const annee = await anneeActive(tenantId);
 
   if (!annee) return null;
   return { debut: annee.dateDebut, fin: annee.dateFin };

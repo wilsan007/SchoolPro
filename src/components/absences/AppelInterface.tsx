@@ -10,6 +10,7 @@ import { CheckCircle2, XCircle, Clock, Users, CheckCheck, RotateCcw } from "luci
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Eleve {
   id: string;
@@ -32,9 +33,11 @@ type Presence = "present" | "absent" | "retard" | null;
 export function AppelInterface({
   classes,
   tenantId,
+  hierarchie,
 }: {
   classes: Classe[];
   tenantId: string;
+  hierarchie?: ClassesHierarchie;
 }) {
   const t = useTranslations("absences");
   const [selectedClasseId, setSelectedClasseId] = useState<string>(
@@ -97,7 +100,7 @@ export function AppelInterface({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
       {/* Sélection de classe */}
       <div className="lg:col-span-1">
         <Card>

@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import type { SessionSiteClaims } from "@/lib/site-scope";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Activity Feed — agrège les événements récents de l'établissement.
@@ -62,163 +63,98 @@ export async function getActivityFeed(
   tenantId: string,
   claims: SessionSiteClaims,
   periode: Periode,
-  now: Date = new Date()
+  now: Date = new Date(),
+  // Passer anneeId/anneeLibelle en paramètre évite 2-3 requêtes DB
+  // redondantes quand l'appelant les a déjà résolues (ex: page direction).
+  anneeIdPasse?: string | null,
+  anneeLibellePasse?: string | null
 ): Promise<ActivityItem[]> {
   const debut = debutPeriode(periode, now);
   const limite = periode === "recent" ? 10 : 50;
   const filtreDate = debut ? { gte: debut } : undefined;
+  const anneeId = anneeIdPasse !== undefined ? anneeIdPasse : await anneeActiveId(tenantId);
+  const anneeLibelle = anneeLibellePasse !== undefined ? anneeLibellePasse : await getAnneeCouranteLibelle(tenantId);
+  // Filtre pour les modèles qui utilisent un champ `annee` string (ex: "2025-2026")
+  const filtreAnneeString = anneeLibelle ? { annee: anneeLibelle } : {};
+  // Filtre pour les modèles sans champ année direct, via eleve.classe.annee
+  const filtreAnneeViaClasse = anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {};
 
-  // Les requêtes sont lancées en parallèle, puis fusionnées et triées par date.
-  const [
-    candidatures,
-    candidaturesTraitees,
-    elevesInscrits,
-    absences,
-    paiements,
-    incidents,
-    incidentsResolus,
-    notifications,
-    conges,
-    audits,
-  ] = await Promise.all([
-    // 1. Nouvelles candidatures
+  // Les requêtes sont lancées en 4 batches de 2-3 pour rester sous la limite
+  // du pool de connexions Supabase (15 en mode session), même avec des
+  // requêtes API concurrentes (alerte-decalage, demo-now, communication).
+
+  // Batch 1/4 : candidatures + élèves — filtrés par année scolaire courante
+  const [candidatures, candidaturesTraitees, elevesInscrits] = await Promise.all([
     prisma.candidature.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("candidature", claims),
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-      },
+      where: { tenantId, ...siteFilterForModel("candidature", claims), ...filtreAnneeString, ...(filtreDate ? { createdAt: filtreDate } : {}) },
       select: { id: true, nom: true, prenom: true, classeVoulue: true, statut: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: limite,
     }),
-
-    // 2. Candidatures traitées (statut changé)
     prisma.candidature.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("candidature", claims),
-        statut: { in: ["EN_EXAMEN", "ADMIS", "REFUSE", "INSCRIT"] },
-        ...(filtreDate ? { updatedAt: filtreDate } : {}),
-      },
+      where: { tenantId, ...siteFilterForModel("candidature", claims), ...filtreAnneeString, statut: { in: ["EN_EXAMEN", "ADMIS", "REFUSE", "INSCRIT"] }, ...(filtreDate ? { updatedAt: filtreDate } : {}) },
       select: { id: true, nom: true, prenom: true, classeVoulue: true, statut: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
       take: limite,
     }),
-
-    // 3. Élèves inscrits (dateInscription)
     prisma.eleve.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("eleve", claims),
-        dateInscription: filtreDate ?? undefined,
-        deletedAt: null,
-      },
+      where: { tenantId, ...siteFilterForModel("eleve", claims), anneeInscription: anneeLibelle ?? undefined, dateInscription: filtreDate ?? undefined, deletedAt: null },
       select: { id: true, nom: true, prenom: true, matricule: true, dateInscription: true, classe: { select: { nom: true } } },
       orderBy: { dateInscription: "desc" },
       take: limite,
     }),
+  ]);
 
-    // 4. Absences saisies
+  // Batch 2/4 : absences + paiements — absences filtrées par année via eleve.classe.annee
+  const [absences, paiements] = await Promise.all([
     prisma.absence.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("absence", claims),
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-      },
-      select: {
-        id: true, statut: true, isRetard: true, createdAt: true,
-        eleve: { select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } } },
-      },
+      where: { tenantId, ...siteFilterForModel("absence", claims), ...filtreAnneeViaClasse, ...(filtreDate ? { createdAt: filtreDate } : {}) },
+      select: { id: true, statut: true, isRetard: true, createdAt: true, eleve: { select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } } } },
       orderBy: { createdAt: "desc" },
       take: limite,
     }),
-
-    // 5. Paiements enregistrés
-    // Paiement n'a pas de tenantId/siteId : le filtre passe par la facture.
     // eslint-disable-next-line ecolpro/require-site-filter -- filtre via facture.tenantId + siteFilterForModel("facture")
     prisma.paiement.findMany({
-      where: {
-        facture: {
-          tenantId,
-          ...siteFilterForModel("facture", claims),
-        },
-        ...(filtreDate ? { date: filtreDate } : {}),
-      },
-      select: {
-        id: true, montant: true, devise: true, methode: true, date: true,
-        facture: { select: { id: true, numero: true, eleve: { select: { id: true, nom: true, prenom: true } } } },
-      },
+      where: { facture: { tenantId, ...(anneeId ? { anneeId } : {}), ...siteFilterForModel("facture", claims) }, ...(filtreDate ? { date: filtreDate } : {}) },
+      select: { id: true, montant: true, devise: true, methode: true, date: true, facture: { select: { id: true, numero: true, eleve: { select: { id: true, nom: true, prenom: true } } } } },
       orderBy: { date: "desc" },
       take: limite,
     }),
+  ]);
 
-    // 6. Incidents signalés
+  // Batch 3/4 : incidents + notifications — incidents filtrés par année via eleve.classe.annee
+  const [incidents, incidentsResolus, notifications] = await Promise.all([
     prisma.incident.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("incident", claims),
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-      },
-      select: {
-        id: true, type: true, gravite: true, description: true, createdAt: true,
-        eleve: { select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } } },
-      },
+      where: { tenantId, ...siteFilterForModel("incident", claims), ...filtreAnneeViaClasse, ...(filtreDate ? { createdAt: filtreDate } : {}) },
+      select: { id: true, type: true, gravite: true, description: true, createdAt: true, eleve: { select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } } } },
       orderBy: { createdAt: "desc" },
       take: limite,
     }),
-
-    // 7. Incidents résolus
     prisma.incident.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("incident", claims),
-        dateResolution: filtreDate ?? undefined,
-      },
-      select: {
-        id: true, type: true, actionPrise: true, dateResolution: true,
-        eleve: { select: { id: true, nom: true, prenom: true } },
-      },
+      where: { tenantId, ...siteFilterForModel("incident", claims), ...filtreAnneeViaClasse, dateResolution: filtreDate ?? undefined },
+      select: { id: true, type: true, actionPrise: true, dateResolution: true, eleve: { select: { id: true, nom: true, prenom: true } } },
       orderBy: { dateResolution: "desc" },
       take: limite,
     }),
-
-    // 8. Notifications envoyées
     prisma.notification.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("notification", claims),
-        envoyeeAt: filtreDate ?? undefined,
-      },
+      where: { tenantId, ...siteFilterForModel("notification", claims), envoyeeAt: filtreDate ?? undefined },
       select: { id: true, titre: true, canal: true, nbDestinataires: true, envoyeeAt: true },
       orderBy: { envoyeeAt: "desc" },
       take: limite,
     }),
+  ]);
 
-    // 9. Congés demandés / approuvés
-    // CongePersonnel n'a pas de siteId : le filtre de tenant suffit (les congés
-    // sont au niveau établissement, pas par site).
+  // Batch 4/4 : congés + audits
+  const [conges, audits] = await Promise.all([
     // eslint-disable-next-line ecolpro/require-site-filter -- pas de siteId sur ce modèle
     prisma.congePersonnel.findMany({
-      where: {
-        tenantId,
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-      },
-      select: {
-        id: true, type: true, statut: true, nbJours: true, createdAt: true, approuveAt: true,
-        enseignant: { select: { user: { select: { name: true } } } },
-      },
+      where: { tenantId, ...(filtreDate ? { createdAt: filtreDate } : {}) },
+      select: { id: true, type: true, statut: true, nbJours: true, createdAt: true, approuveAt: true, enseignant: { select: { user: { select: { name: true } } } } },
       orderBy: { createdAt: "desc" },
       take: limite,
     }),
-
-    // 10. Audit log — connexions et actions sensibles
     prisma.auditLog.findMany({
-      where: {
-        tenantId,
-        verdict: "ALLOWED",
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-      },
+      where: { tenantId, verdict: "ALLOWED", ...(filtreDate ? { createdAt: filtreDate } : {}) },
       select: { id: true, action: true, resource: true, createdAt: true, userId: true },
       orderBy: { createdAt: "desc" },
       take: limite,
@@ -350,4 +286,36 @@ export async function getActivityFeed(
   // Tri par date décroissante + limite
   items.sort((a, b) => b.date.getTime() - a.date.getTime());
   return items.slice(0, periode === "recent" ? 10 : 50);
+}
+
+/**
+ * Toutes les périodes en une seule série de requêtes.
+ *
+ * Au lieu d'appeler `getActivityFeed` 4 fois (recent / aujourdhui / semaine /
+ * mois) — soit 40 requêtes concurrentes contre un pool de 21 connexions —
+ * cette fonction récupère une seule fois la période la plus large (`mois`)
+ * et partitionne les résultats en mémoire.
+ *
+ * « recent » correspond aux 10 items les plus récents du lot complet ;
+ * « aujourdhui » et « semaine » sont des sous-ensembles filtrés par date.
+ */
+export async function getActivityFeedAllPeriodes(
+  tenantId: string,
+  claims: SessionSiteClaims,
+  now: Date = new Date(),
+  anneeIdPasse?: string | null,
+  anneeLibellePasse?: string | null
+): Promise<Record<Periode, ActivityItem[]>> {
+  // Une seule série de 10 requêtes : la période « mois » (la plus large).
+  const tous = await getActivityFeed(tenantId, claims, "mois", now, anneeIdPasse, anneeLibellePasse);
+
+  const debutAujourdhui = debutPeriode("aujourdhui", now)!;
+  const debutSemaine = debutPeriode("semaine", now)!;
+
+  return {
+    recent: tous.slice(0, 10),
+    aujourdhui: tous.filter((i) => i.date >= debutAujourdhui),
+    semaine: tous.filter((i) => i.date >= debutSemaine),
+    mois: tous,
+  };
 }

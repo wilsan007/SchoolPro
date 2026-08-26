@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DossierEnfant } from "@/components/learnos/DossierEnfant";
 import { EvolutionEleve } from "@/components/learnos/EvolutionEleve";
+import { CompetencesEleve } from "@/components/learnos/CompetencesEleve";
 import { PreferencesParentForm } from "@/components/learnos/PreferencesParentForm";
 import { JustifierAbsenceForm } from "@/components/learnos/JustifierAbsenceForm";
 import { ParentPortalTabs } from "@/components/parent/ParentPortalTabs";
@@ -19,6 +20,7 @@ import { PREFERENCES_PAR_DEFAUT } from "@/lib/learnos/alertes-parent";
 import prisma from "@/lib/prisma";
 import { mergeFilters, eleveScopeFilter, siteFilterForModel } from "@/lib/site-scope";
 import { cn } from "@/lib/utils";
+import { getAnneeCouranteLibelle, anneeActiveId } from "@/lib/annee-scolaire";
 
 /**
  * Espace du parent — portail complet avec onglets.
@@ -45,6 +47,9 @@ export default async function ParentPage({
 
   const tenantId = session!.user.tenantId!;
   const { enfant: demande } = await searchParams;
+
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const anneeId = await anneeActiveId(tenantId);
 
   const enfants = await enfantsDuParent(tenantId, session!.user);
 
@@ -87,32 +92,19 @@ export default async function ParentPage({
   });
 
   // --- Récupération de TOUTES les données nécessaires pour les onglets ---
+  // Les requêtes sont réparties en deux lots séquentiels pour limiter le
+  // nombre de requêtes concurrentes (~3 puis ~7) au lieu de 15+ d'un coup.
   const eleveRelFilter = eleveScopeFilter(session!.user, "eleve");
   const eleveRelFilterGardien = eleveScopeFilter(session!.user, "eleve", { gardienOnly: true });
   const maintenant = await getDemoNow();
 
-  const [
-    dossier,
-    preferences,
-    factures,
-    absences,
-    isGardien,
-    notes,
-    bulletins,
-    edt,
-    conversations,
-    documents,
-  ] = await Promise.all([
-    dossierEleve(tenantId, choisi.id, session!.user, {
-      pourResponsable: "parent",
-      avecFinance: true,
-      maintenant,
-    }),
-    preferencesDuCompte(tenantId, session!.user.id),
+  // Lot 1 — critique pour le premier rendu (vérification gardien, factures,
+  // absences). 3 requêtes concurrentes maximum.
+  const [factures, absences, isGardien] = await Promise.all([
     // Factures — réservées au parent GARDIEN
     prisma.facture.findMany({
       where: mergeFilters(
-        { tenantId, eleveId: choisi.id },
+        { tenantId, eleveId: choisi.id, ...(anneeCourante && { eleve: { classe: { annee: anneeCourante } } }) },
         eleveRelFilterGardien
       ),
       orderBy: { createdAt: "desc" },
@@ -134,7 +126,7 @@ export default async function ParentPage({
     }),
     // Absences — toutes (pas seulement injustifiées)
     prisma.absence.findMany({
-      where: mergeFilters({ tenantId, eleveId: choisi.id }, eleveRelFilter),
+      where: mergeFilters({ tenantId, eleveId: choisi.id, ...(anneeCourante && { eleve: { classe: { annee: anneeCourante } } }) }, eleveRelFilter),
       orderBy: { date: "desc" },
       take: 30,
       select: {
@@ -160,100 +152,113 @@ export default async function ParentPage({
         select: { isGardien: true },
       })
       .then((r) => !!r),
-    // Notes récentes
-    prisma.note.findMany({
-      where: mergeFilters({ tenantId, eleveId: choisi.id }, eleveRelFilter),
-      orderBy: { date: "desc" },
-      take: 30,
-      select: {
-        id: true,
-        valeur: true,
-        noteMax: true,
-        coefficient: true,
-        date: true,
-        intitule: true,
-        type: true,
-        matiere: { select: { id: true, nom: true, code: true, couleur: true, coefficient: true } },
-      },
-    }),
-    // Bulletins
-    prisma.bulletin.findMany({
-      where: mergeFilters({ tenantId, eleveId: choisi.id }, eleveRelFilter),
-      orderBy: [{ periode: { numero: "asc" } }],
-      select: {
-        id: true,
-        moyenneGenerale: true,
-        moyenneClasse: true,
-        rang: true,
-        effectifClasse: true,
-        appreciation: true,
-        decision: true,
-        isPublie: true,
-        pdfUrl: true,
-        periode: { select: { id: true, nom: true, numero: true } },
-      },
-    }),
-    // Emploi du temps de la classe de l'enfant
-    eleveAvecClasse?.classeId
-      ? prisma.emploiTemps.findMany({
-          where: {
-            tenantId,
-            classeId: eleveAvecClasse.classeId,
-            ...siteFilterForModel("emploiTemps", session!.user),
-          },
-          select: {
-            id: true,
-            jour: true,
-            heureDebut: true,
-            heureFin: true,
-            salle: true,
-            classe: { select: { id: true, nom: true, niveau: true } },
-            matiere: { select: { id: true, nom: true, code: true, couleur: true } },
-            enseignant: { select: { id: true, user: { select: { name: true } } } },
-          },
-          orderBy: [{ jour: "asc" }, { heureDebut: "asc" }],
-        })
-      : Promise.resolve([]),
-    // Conversations récentes
-    prisma.conversation.findMany({
-      where: {
-        tenantId,
-        participants: { some: { userId: session!.user.id } },
-      },
-      select: {
-        id: true,
-        subject: true,
-        type: true,
-        updatedAt: true,
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: {
-            id: true,
-            content: true,
-            senderId: true,
-            sender: { select: { name: true } },
-            createdAt: true,
+  ]);
+
+  // Lot 2 — données « below the fold » (dossier, préférences, notes, bulletins,
+  // emploi du temps, conversations, documents). 7 requêtes concurrentes max.
+  const [dossier, preferences, notes, bulletins, edt, conversations, documents] =
+    await Promise.all([
+      dossierEleve(tenantId, choisi.id, session!.user, {
+        pourResponsable: "parent",
+        avecFinance: true,
+        maintenant,
+      }),
+      preferencesDuCompte(tenantId, session!.user.id),
+      // Notes récentes
+      prisma.note.findMany({
+        where: mergeFilters({ tenantId, eleveId: choisi.id, ...(anneeCourante && { eleve: { classe: { annee: anneeCourante } } }) }, eleveRelFilter),
+        orderBy: { date: "desc" },
+        take: 30,
+        select: {
+          id: true,
+          valeur: true,
+          noteMax: true,
+          coefficient: true,
+          date: true,
+          intitule: true,
+          type: true,
+          matiere: { select: { id: true, nom: true, code: true, couleur: true, coefficient: true } },
+        },
+      }),
+      // Bulletins
+      prisma.bulletin.findMany({
+        where: mergeFilters({ tenantId, eleveId: choisi.id, ...(anneeId && { periode: { anneeId } }) }, eleveRelFilter),
+        orderBy: [{ periode: { numero: "asc" } }],
+        select: {
+          id: true,
+          moyenneGenerale: true,
+          moyenneClasse: true,
+          rang: true,
+          effectifClasse: true,
+          appreciation: true,
+          decision: true,
+          isPublie: true,
+          pdfUrl: true,
+          periode: { select: { id: true, nom: true, numero: true } },
+        },
+      }),
+      // Emploi du temps de la classe de l'enfant
+      eleveAvecClasse?.classeId
+        ? prisma.emploiTemps.findMany({
+            where: {
+              tenantId,
+              classeId: eleveAvecClasse.classeId,
+              ...siteFilterForModel("emploiTemps", session!.user),
+              ...(anneeCourante && { classe: { annee: anneeCourante } }),
+            },
+            select: {
+              id: true,
+              jour: true,
+              heureDebut: true,
+              heureFin: true,
+              salle: true,
+              classe: { select: { id: true, nom: true, niveau: true } },
+              matiere: { select: { id: true, nom: true, code: true, couleur: true } },
+              enseignant: { select: { id: true, user: { select: { name: true } } } },
+            },
+            orderBy: [{ jour: "asc" }, { heureDebut: "asc" }],
+          })
+        : Promise.resolve([]),
+      // Conversations récentes
+      prisma.conversation.findMany({
+        where: {
+          tenantId,
+          participants: { some: { userId: session!.user.id } },
+        },
+        select: {
+          id: true,
+          subject: true,
+          type: true,
+          updatedAt: true,
+          messages: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              id: true,
+              content: true,
+              senderId: true,
+              sender: { select: { name: true } },
+              createdAt: true,
+            },
           },
         },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 5,
-    }),
-    // Documents / attestations
-    prisma.document.findMany({
-      where: mergeFilters({ tenantId, eleveId: choisi.id }, eleveRelFilter),
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        nom: true,
-        type: true,
-        url: true,
-        createdAt: true,
-      },
-    }),
-  ]);
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+      }),
+      // Documents / attestations
+      prisma.document.findMany({
+        where: mergeFilters({ tenantId, eleveId: choisi.id, ...(anneeCourante && { eleve: { classe: { annee: anneeCourante } } }) }, eleveRelFilter),
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          nom: true,
+          type: true,
+          url: true,
+          createdAt: true,
+        },
+      }),
+    ]);
 
   // Statistiques absences
   const absStats = {
@@ -278,7 +283,7 @@ export default async function ParentPage({
   const overviewPanel = (
     <div className="space-y-4">
       {/* Cartes statistiques rapides */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label={t("moyenne")}
           value={
@@ -439,10 +444,12 @@ export default async function ParentPage({
     </div>
   );
 
+  const competencesPanel = <CompetencesEleve eleveId={choisi.id} />;
+
   const absencesPanel = (
     <div className="space-y-4">
       {/* Stats absences */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
           label={t("total")}
           value={String(absStats.total)}
@@ -622,7 +629,7 @@ export default async function ParentPage({
   const facturesPanel = (
     <div className="space-y-4">
       {/* Stats factures */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
           label={t("payees")}
           value={String(factStats.payees)}
@@ -756,6 +763,7 @@ export default async function ParentPage({
           panels={{
             overview: overviewPanel,
             notes: notesPanel,
+            competences: competencesPanel,
             absences: absencesPanel,
             edt: edtPanel,
             documents: documentsPanel,

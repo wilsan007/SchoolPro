@@ -4,6 +4,9 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const Schema = z.object({
   classeId: z.string().min(1),
@@ -33,7 +36,43 @@ export async function POST(req: NextRequest) {
     }
 
     const { periodeId, decisions } = parsed.data;
+    const { classeId } = parsed.data;
     const tenantId = session.user.tenantId;
+
+    // Vérifier que la classe existe et appartient au périmètre enseignant.
+    const classe = await prisma.classe.findFirst({
+      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user) },
+      select: { id: true },
+    });
+    if (!classe) {
+      return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
+    }
+    if (isTeacherRole(session.user.role as Role)) {
+      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+      const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
+      if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
+        return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+      }
+    }
+
+    // Vérifier que la période existe pour ce tenant.
+    const periode = await prisma.periode.findFirst({
+      where: { id: periodeId, annee: { tenantId } },
+      select: { id: true },
+    });
+    if (!periode) {
+      return NextResponse.json({ error: "Période introuvable" }, { status: 404 });
+    }
+
+    // Vérifier que chaque élève visé appartient à la classe.
+    const eleveIds = [...new Set(decisions.map((d) => d.eleveId))];
+    const elevesValides = await prisma.eleve.findMany({
+      where: { id: { in: eleveIds }, tenantId, ...siteFilterForModel("eleve", session.user), classeId },
+      select: { id: true },
+    });
+    if (elevesValides.length !== eleveIds.length) {
+      return NextResponse.json({ error: "Un ou plusieurs élèves ne sont pas dans cette classe" }, { status: 403 });
+    }
 
     await Promise.all(
       decisions.map(({ eleveId, decision, appreciation }) =>

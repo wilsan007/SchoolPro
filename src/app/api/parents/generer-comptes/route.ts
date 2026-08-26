@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { revalidateTag } from "next/cache";
+import { checkPermission } from "@/lib/rbac";
 
 /**
  * POST /api/parents/generer-comptes
@@ -28,6 +29,11 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+  // Génération de comptes parents : action d'écriture sur les élèves.
+  // Sans cette garde, n'importe quel utilisateur authentifié pouvait
+  // créer des comptes pour les parents d'une classe entière.
+  const denied = checkPermission(session.user.role, "eleves:write");
+  if (denied) return denied;
 
   const body = await req.json();
   const { classeId, customPassword } = body as {

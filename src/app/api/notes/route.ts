@@ -6,6 +6,10 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
 import { publishEvents, type NoteRecordedPayload } from "@/lib/learnos/events";
 import { revalidateTag } from "next/cache";
+import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const NoteSchema = z.object({
   eleveId: z.string().min(1),
@@ -102,6 +106,14 @@ export async function POST(req: NextRequest) {
     // utilisé pour valider le périmètre des élèves visés par la saisie.
     const { notes, isPubliee } = parsed.data;
 
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+    const teacherScope = isTeacherRole(session.user.role as Role)
+      ? await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante)
+      : null;
+    const teacherClasseFilter = teacherScope?.isRestricted
+      ? { classeId: { in: teacherScope.classeIds } }
+      : {};
+
     // Garde-fou : refuse la saisie sur une période clôturée ou dont la date limite est dépassée.
     const periodeIds = [...new Set(notes.map((n) => n.periodeId).filter((id): id is string => !!id))];
     if (periodeIds.length > 0) {
@@ -109,7 +121,7 @@ export async function POST(req: NextRequest) {
         where: { id: { in: periodeIds }, annee: { tenantId } },
         select: { id: true, nom: true, statut: true, dateLimiteSaisie: true },
       });
-      const now = new Date();
+      const now = await getDemoNow();
       const bloquee = periodes.find(
         (p) => p.statut === "CLOTUREE" || (p.dateLimiteSaisie && p.dateLimiteSaisie < now)
       );
@@ -124,6 +136,30 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
+
+      // ── Verrouillage des bulletins : si un bulletin VERROUILLE ou PUBLIE
+      //    existe pour cette période, la saisie de notes est bloquée.
+      //    Seul un TENANT_ADMIN / SUPER_ADMIN peut outrepasser ce verrou.
+      const estAdmin = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
+      if (!estAdmin) {
+        const bulletinsVerrouilles = await prisma.bulletin.findFirst({
+          where: {
+            tenantId,
+            ...siteFilterForModel("bulletin", session.user),
+            periodeId: { in: periodeIds },
+            statut: { in: ["VERROUILLE", "PUBLIE"] },
+          },
+          select: { id: true, periode: { select: { nom: true } } },
+        });
+        if (bulletinsVerrouilles) {
+          return NextResponse.json(
+            {
+              error: `Les bulletins de « ${bulletinsVerrouilles.periode.nom} » sont verrouillés. La saisie de notes n'est plus possible. Contactez un administrateur pour déverrouiller.`,
+            },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     // Vérifier que TOUS les élèves visés appartiennent au tenant ET au
@@ -135,10 +171,15 @@ export async function POST(req: NextRequest) {
     // plus bas : `Note` n'a pas de `siteId`, il découle de l'élève — et non du
     // site « sélectionné » par l'utilisateur, qui peut différer.
     const siteParEleve = new Map<string, string | null>();
+    const classeParEleve = new Map<string, string | null>();
     if (eleveIds.length > 0) {
       const autorises = await prisma.eleve.findMany({
-        where: { id: { in: eleveIds }, tenantId, ...eleveFilter },
-        select: { id: true, siteId: true },
+        where: mergeFilters(
+          { id: { in: eleveIds }, tenantId },
+          eleveFilter,
+          teacherClasseFilter
+        ),
+        select: { id: true, siteId: true, classeId: true },
       });
       if (autorises.length !== eleveIds.length) {
         return NextResponse.json(
@@ -146,11 +187,20 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
-      for (const e of autorises) siteParEleve.set(e.id, e.siteId);
+      for (const e of autorises) {
+        siteParEleve.set(e.id, e.siteId);
+        classeParEleve.set(e.id, e.classeId);
+      }
     }
 
     // Idem pour les matières visées.
     const matiereIds = [...new Set(notes.map((n) => n.matiereId).filter(Boolean))];
+    if (teacherScope?.isRestricted && matiereIds.length > 0) {
+      const interdit = (matiereIds as string[]).some((id) => !teacherScope.matiereIds.includes(id));
+      if (interdit) {
+        return NextResponse.json({ error: "Une ou plusieurs matières sont hors de votre périmètre" }, { status: 403 });
+      }
+    }
     if (matiereIds.length > 0) {
       const matieres = await prisma.matiere.count({
         where: { id: { in: matiereIds as string[] }, tenantId, ...siteFilterForModel("matiere", session.user) },
@@ -159,6 +209,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { error: "Une ou plusieurs matières sont introuvables" },
           { status: 403 }
+        );
+      }
+    }
+
+    // Coherence eleve.classeId ↔ note.classeId (donnée et périmètre)
+    for (const note of notes) {
+      const eleveClasse = classeParEleve.get(note.eleveId);
+      if (eleveClasse && note.classeId !== eleveClasse) {
+        return NextResponse.json(
+          { error: "La classe de la note ne correspond pas à celle de l'élève" },
+          { status: 400 }
         );
       }
     }

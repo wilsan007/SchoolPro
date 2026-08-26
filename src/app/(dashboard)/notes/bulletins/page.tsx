@@ -8,24 +8,24 @@ import { BilanAnnuelManager } from "@/components/bulletins/BilanAnnuelManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, List, Award } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import type { Role } from "@prisma/client";
 import { guardPage } from "@/lib/guard-page";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 async function getBulletinsData(
   tenantId: string,
   claims: SessionSiteClaims,
-  scope?: { classeIds: string[]; isRestricted: boolean }
+  hierarchieClasseIds: string[],
+  anneeCourante?: string | null
 ) {
   const classeWhere = {
     tenantId,
     ...siteFilterForModel("classe", claims),
-    ...(scope?.isRestricted && scope.classeIds.length > 0
-      ? { id: { in: scope.classeIds } }
-      : scope?.isRestricted
-        ? { id: "__none__" }
-        : {}),
+    ...(anneeCourante ? { annee: anneeCourante } : {}),
+    ...(hierarchieClasseIds.length > 0
+      ? { id: { in: hierarchieClasseIds } }
+      : { id: "__none__" }),
   };
 
   const [classes, periodes] = await Promise.all([
@@ -61,12 +61,15 @@ export default async function BulletinsPage() {
   // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
-  // Filtrer par classes de l'enseignant si applicable
-  const scope = isTeacherRole(session.user.role as Role)
-    ? await getTeacherScope(session.user.tenantId, session.user.id, session.user.role as Role)
-    : undefined;
+  const tenantId = session.user.tenantId;
+  const claims = session.user as SessionSiteClaims;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
-  const { classes, periodes, anneeId } = await getBulletinsData(session.user.tenantId, session.user, scope);
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  const hierarchie = await getClassesHierarchie(tenantId, session.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+
+  const { classes, periodes, anneeId } = await getBulletinsData(tenantId, claims, hierarchieClasseIds, anneeCourante);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -94,15 +97,15 @@ export default async function BulletinsPage() {
           </TabsList>
           
           <TabsContent value="generation" className="mt-0 outline-none">
-            <BulletinsManager classes={classes} periodes={periodes} tenantId={session.user.tenantId} />
+            <BulletinsManager classes={classes} hierarchie={hierarchie} periodes={periodes} tenantId={session.user.tenantId} userRole={session.user.role} />
           </TabsContent>
           
           <TabsContent value="liste" className="mt-0 outline-none">
-            <BulletinsList classes={classes} periodes={periodes} />
+            <BulletinsList classes={classes} hierarchie={hierarchie} periodes={periodes} userRole={session.user.role} />
           </TabsContent>
           
           <TabsContent value="annuel" className="mt-0 outline-none">
-            <BilanAnnuelManager classes={classes} anneeId={anneeId} />
+            <BilanAnnuelManager classes={classes} hierarchie={hierarchie} anneeId={anneeId} />
           </TabsContent>
         </Tabs>
       </div>

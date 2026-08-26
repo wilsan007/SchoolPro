@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import type { SessionSiteClaims } from "@/lib/site-scope";
 import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
  * Compteurs pour les rubriques d'action du secrétariat et de la direction.
@@ -22,6 +24,12 @@ export async function getSecretariatCounts(
   tenantId: string,
   claims: SessionSiteClaims
 ): Promise<RubricCount[]> {
+  const anneeLibelle = await getAnneeCouranteLibelle(tenantId);
+  // Filtre pour les modèles qui utilisent un champ `annee` string (ex: "2025-2026")
+  const filtreAnneeString = anneeLibelle ? { annee: anneeLibelle } : {};
+  // Filtre pour les modèles sans champ année direct, via eleve.classe.annee
+  const filtreAnneeViaClasse = anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {};
+
   const [
     inscriptionsEnAttente,
     dossiersIncomplets,
@@ -34,6 +42,7 @@ export async function getSecretariatCounts(
       where: {
         tenantId,
         statut: "SOUMISE",
+        ...filtreAnneeString,
         ...siteFilterForModel("candidature", claims),
       },
     }),
@@ -42,6 +51,7 @@ export async function getSecretariatCounts(
         tenantId,
         statut: "ACTIF",
         deletedAt: null,
+        anneeInscription: anneeLibelle ?? undefined,
         ...siteFilterForModel("eleve", claims),
         OR: [{ lieuNaissance: null }, { nationalite: null }],
       },
@@ -50,12 +60,14 @@ export async function getSecretariatCounts(
       where: {
         tenantId,
         statut: "EN_ATTENTE",
+        ...filtreAnneeViaClasse,
         ...siteFilterForModel("absence", claims),
       },
     }),
     prisma.eleveParent.count({
       where: {
         parent: { tenantId, user: null },
+        ...filtreAnneeViaClasse,
         ...siteFilterForRelation(claims, "eleve"),
       },
     }),
@@ -89,6 +101,7 @@ export async function getDirectionCounts(
   tenantId: string,
   claims: SessionSiteClaims
 ): Promise<RubricCount[]> {
+  const anneeId = await anneeActiveId(tenantId);
   const [
     bulletinsAValider,
     facturesRetard,
@@ -109,6 +122,7 @@ export async function getDirectionCounts(
       where: {
         tenantId,
         statut: "EN_RETARD",
+        ...(anneeId ? { anneeId } : {}),
         ...siteFilterForModel("facture", claims),
       },
     }),
@@ -175,7 +189,7 @@ export async function getTeacherCounts(
   classeIds: string[] | null
 ): Promise<RubricCount[]> {
   const perimetre = classeIds ? { classeId: { in: classeIds } } : {};
-  const maintenant = new Date();
+  const maintenant = await getDemoNow();
 
   // Trouver l'enseignant pour filtrer par ses ressources.
   const enseignant = await prisma.enseignant.findFirst({
@@ -282,7 +296,7 @@ export async function getClassTeacherCounts(
   userId: string,
   classeIds: string[]
 ): Promise<RubricCount[]> {
-  const maintenant = new Date();
+  const maintenant = await getDemoNow();
 
   const enseignant = await prisma.enseignant.findFirst({
     where: {

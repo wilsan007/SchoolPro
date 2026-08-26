@@ -32,6 +32,7 @@ export function SmartSuggestPanel({
   matieres,
   enseignants,
   matiereToEnseignants,
+  periodeId,
   onClose,
   onGenerated,
   onReplaced,
@@ -41,6 +42,7 @@ export function SmartSuggestPanel({
   matieres: Matiere[];
   enseignants: Enseignant[];
   matiereToEnseignants: Record<string, { id: string; user: { name: string | null } }[]>;
+  periodeId?: string;
   onClose: () => void;
   onGenerated: (creneaux: unknown[]) => void;
   onReplaced?: (creneaux: unknown[]) => void;
@@ -301,6 +303,7 @@ export function SmartSuggestPanel({
         classeId,
         matiereConfigs: matiereConfigsArr,
       };
+      if (periodeId) payload.periodeId = periodeId;
       if (heureMin) payload.heureMin = heureMin;
       if (heureMax) payload.heureMax = heureMax;
       if (selectedJours.size > 0) payload.jours = Array.from(selectedJours);

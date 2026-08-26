@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForRelation, siteFilterForModel } from "@/lib/site-filter";
 import { publishEvents, type NoteRecordedPayload } from "@/lib/learnos/events";
 import { revalidateTag } from "next/cache";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // GET : Récupérer la grille de notes (élèves de la classe + leurs notes actuelles pour cette évaluation)
 export async function GET(
@@ -22,9 +23,10 @@ export async function GET(
 
     const evaluationId = (await params).id;
     const siteFilter = siteFilterForRelation(session.user, "classe");
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     const evaluation = await prisma.evaluation.findFirst({
-      where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter },
+      where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
       include: {
         classe: {
           include: {
@@ -94,6 +96,32 @@ export async function PUT(
 
     if (!evaluation) {
       return NextResponse.json({ error: "Évaluation introuvable" }, { status: 404 });
+    }
+
+    // ── Verrouillage des bulletins : si un bulletin VERROUILLE ou PUBLIE
+    //    existe pour la période de cette évaluation, la saisie de notes
+    //    est bloquée. Seul un TENANT_ADMIN / SUPER_ADMIN peut outrepasser.
+    if (evaluation.periodeId) {
+      const estAdmin = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
+      if (!estAdmin) {
+        const bulletinVerrouille = await prisma.bulletin.findFirst({
+          where: {
+            tenantId: session.user.tenantId,
+            ...siteFilterForModel("bulletin", session.user),
+            periodeId: evaluation.periodeId,
+            statut: { in: ["VERROUILLE", "PUBLIE"] },
+          },
+          select: { id: true, periode: { select: { nom: true } } },
+        });
+        if (bulletinVerrouille) {
+          return NextResponse.json(
+            {
+              error: `Les bulletins de « ${bulletinVerrouille.periode.nom} » sont verrouillés. La saisie de notes n'est plus possible. Contactez un administrateur pour déverrouiller.`,
+            },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     const body = await req.json();

@@ -10,6 +10,7 @@ import { PenLine, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ClassSelector } from "@/components/sites/ClassSelector";
 import type { SiteColor } from "@/lib/site-colors";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Matiere {
   id: string;
@@ -32,11 +33,13 @@ interface Classe {
 export function NotesOverview({
   matieres,
   classes,
+  hierarchie: _hierarchie,
   siteColors,
   selectedClasseId = "",
 }: {
   matieres: Matiere[];
   classes: Classe[];
+  hierarchie?: ClassesHierarchie;
   siteColors: Record<string, SiteColor>;
   selectedClasseId?: string;
 }) {

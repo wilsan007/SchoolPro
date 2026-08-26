@@ -3,11 +3,12 @@
 import { useState, useTransition, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles, AlertCircle, CheckCircle2, Download, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SmartSuggestPanel } from "./SmartSuggestPanel";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -28,6 +29,8 @@ interface Matiere { id: string; nom: string; code: string; couleur: string | nul
 interface Enseignant { id: string; user: { name: string | null } }
 interface Salle { id: string; nom: string; capacite: number; type: string | null }
 interface Disponibilite { id: string; enseignantId: string; jour: string; heureDebut: string; heureFin: string }
+interface Indisponibilite { id: string; enseignantId: string; jour: string; heureDebut: string; heureFin: string; source: string; sourceLibelle: string | null }
+interface Periode { id: string; nom: string; numero: number }
 interface EmploiCreneau {
   id: string;
   jour: Jour;
@@ -86,8 +89,10 @@ function AddCreneauModal({
   matiereToEnseignants,
   salles,
   disponibilites,
+  indisponibilites,
   emploisExistants,
   availableSlots,
+  periodeId,
   onClose,
   onAdded,
 }: {
@@ -98,8 +103,10 @@ function AddCreneauModal({
   matiereToEnseignants: Record<string, { id: string; user: { name: string | null } }[]>;
   salles: Salle[];
   disponibilites: Disponibilite[];
+  indisponibilites: Indisponibilite[];
   emploisExistants: EmploiCreneau[];
   availableSlots: string[];
+  periodeId?: string;
   onClose: () => void;
   onAdded: (c: EmploiCreneau) => void;
 }) {
@@ -119,14 +126,24 @@ function AddCreneauModal({
   const filteredEnseignants = matiereToEnseignants[form.matiereId] ?? [];
 
   // Check if the selected enseignant is available at the chosen day/time
+  // and not indisponible (occupied elsewhere, on leave, in training, etc.)
   const enseignantDisponible = (() => {
     if (!form.enseignantId) return true;
+    const debutMin = timeToMinutes(form.heureDebut);
+    const finMin = timeToMinutes(form.heureFin);
+    // Vérifier les indisponibilités (occupations externes, congés, formations)
+    const indispo = indisponibilites.filter(
+      (d) => d.enseignantId === form.enseignantId && d.jour === form.jour
+    );
+    const estIndisponible = indispo.some(
+      (d) => timeToMinutes(d.heureDebut) < finMin && timeToMinutes(d.heureFin) > debutMin
+    );
+    if (estIndisponible) return false;
+    // Vérifier les disponibilités déclarées
     const dispo = disponibilites.filter(
       (d) => d.enseignantId === form.enseignantId && d.jour === form.jour
     );
     if (dispo.length === 0) return false; // No availability set for this day
-    const debutMin = timeToMinutes(form.heureDebut);
-    const finMin = timeToMinutes(form.heureFin);
     return dispo.some(
       (d) => timeToMinutes(d.heureDebut) <= debutMin && timeToMinutes(d.heureFin) >= finMin
     );
@@ -156,7 +173,7 @@ function AddCreneauModal({
         const res = await fetch("/api/emploi-du-temps", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, periodeId: periodeId || undefined }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? t("deleteError"));
@@ -308,21 +325,28 @@ function AddCreneauModal({
 
 export function EmploiDuTempsView({
   classes,
+  hierarchie,
   matieres,
   enseignants,
   emplois: initial,
   matiereToEnseignants,
   salles,
   disponibilites,
+  indisponibilites = [],
+  periodes = [],
   readOnly = false,
 }: {
   classes: Classe[];
+  /** Hiérarchie catégorie → niveau → classe (scope enseignant appliqué). */
+  hierarchie?: ClassesHierarchie;
   matieres: Matiere[];
   enseignants: Enseignant[];
   emplois: EmploiCreneau[];
   matiereToEnseignants: Record<string, { id: string; user: { name: string | null } }[]>;
   salles: Salle[];
   disponibilites: Disponibilite[];
+  indisponibilites?: Indisponibilite[];
+  periodes?: Periode[];
   tenantId: string;
   /** Mode consultation : masque la création, la suppression et le drag-drop. */
   readOnly?: boolean;
@@ -330,11 +354,13 @@ export function EmploiDuTempsView({
   const t = useTranslations("emploi");
   const [emplois, setEmplois] = useState<EmploiCreneau[]>(initial);
   const [selectedClasse, setSelectedClasse] = useState<Classe | null>(classes[0] ?? null);
+  const [selectedPeriodeId, setSelectedPeriodeId] = useState<string>("");
   const [showAdd, setShowAdd] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<{ jour: Jour; time: string } | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const dragOffsetRef = useRef(0);
 
   // Mémoïsé : recalculé à chaque rendu, ce tableau changeait d'identité en
@@ -344,12 +370,22 @@ export function EmploiDuTempsView({
     () =>
       selectedClasse
         ? emplois.filter(
-            (e) =>
-              e.classe.nom === selectedClasse.nom ||
-              (e as { classeId?: string }).classeId === selectedClasse.id
+            (e) => {
+              // Rapprochement par identifiant UNIQUEMENT. Le repli sur le nom
+              // de classe confondait les homonymes : un établissement à deux
+              // campus a une « 3ème A » sur chacun, et la grille superposait
+              // les deux — 52 h affichées au lieu de 26, chaque case portant
+              // deux cours à la fois.
+              if ((e as { classeId?: string }).classeId !== selectedClasse.id) return false;
+              // Filtre par période : si une période est sélectionnée, on affiche
+              // les créneaux de cette période + les créneaux annuels (periodeId null)
+              if (!selectedPeriodeId) return true;
+              const ePeriodeId = (e as { periodeId?: string | null }).periodeId ?? null;
+              return ePeriodeId === selectedPeriodeId || ePeriodeId === null;
+            }
           )
         : [],
-    [selectedClasse, emplois]
+    [selectedClasse, emplois, selectedPeriodeId]
   );
 
   function addCreneau(c: EmploiCreneau) {
@@ -595,6 +631,42 @@ export function EmploiDuTempsView({
     return sum + (timeToMinutes(c.heureFin) - timeToMinutes(c.heureDebut)) / 60;
   }, 0);
 
+  async function handleExportExcel() {
+    setShowExport(false);
+    try {
+      const params = new URLSearchParams({ format: "excel", scope: "classe" });
+      if (selectedClasse) params.set("classeId", selectedClasse.id);
+      if (selectedPeriodeId) params.set("periodeId", selectedPeriodeId);
+      const res = await fetch(`/api/emploi-du-temps/export?${params.toString()}`);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `emploi-du-temps-${selectedClasse?.nom ?? "all"}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(t("exportSuccess"));
+    } catch {
+      toast.error(t("exportError"));
+    }
+  }
+
+  function handleExportPdf() {
+    setShowExport(false);
+    const params = new URLSearchParams({ format: "pdf", scope: "classe" });
+    if (selectedClasse) params.set("classeId", selectedClasse.id);
+    if (selectedPeriodeId) params.set("periodeId", selectedPeriodeId);
+    window.open(`/api/emploi-du-temps/export?${params.toString()}`, "_blank");
+  }
+
+  function handlePrint() {
+    setShowExport(false);
+    window.print();
+  }
+
   // Get available slots for the add modal
   const availableSlotsForAdd = ALL_SLOTS;
 
@@ -615,7 +687,7 @@ export function EmploiDuTempsView({
         }
       `}</style>
 
-      {/* Classe selector */}
+      {/* Classe selector + Period selector */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 print:hidden">
         <div className="flex gap-2 flex-wrap">
           {classes.map((c) => (
@@ -633,6 +705,21 @@ export function EmploiDuTempsView({
             </button>
           ))}
         </div>
+        {/* Sélecteur de période (trimestre) */}
+        {periodes.length > 0 && (
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedPeriodeId}
+              onChange={(e) => setSelectedPeriodeId(e.target.value)}
+              className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium"
+            >
+              <option value="">{t("allPeriods")}</option>
+              {periodes.map((p) => (
+                <option key={p.id} value={p.id}>{p.nom}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           {selectedClasse && (
             <span className="text-sm text-gray-500">
@@ -649,6 +736,47 @@ export function EmploiDuTempsView({
             <Printer className="w-4 h-4" />
             {t("print")}
           </Button>
+          <div className="relative w-full sm:w-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 w-full sm:w-auto"
+              onClick={() => setShowExport(!showExport)}
+            >
+              <Download className="w-4 h-4" />
+              {t("export")}
+              <ChevronDown className="w-3 h-3" />
+            </Button>
+            {showExport && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowExport(false)} />
+                <div className="absolute right-0 mt-1 w-48 bg-popover border rounded-lg shadow-lg py-1 z-50">
+                  <button
+                    onClick={handleExportExcel}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                    {t("exportExcel")}
+                  </button>
+                  <button
+                    onClick={handleExportPdf}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  >
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    {t("exportPdf")}
+                  </button>
+                  <div className="border-t my-1" />
+                  <button
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  >
+                    <Printer className="h-4 w-4" />
+                    {t("print")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           {!readOnly && (
             <Button
               onClick={() => setShowSuggest(true)}
@@ -749,8 +877,10 @@ export function EmploiDuTempsView({
           matiereToEnseignants={matiereToEnseignants}
           salles={salles}
           disponibilites={disponibilites}
+          indisponibilites={indisponibilites}
           emploisExistants={emplois}
           availableSlots={availableSlotsForAdd}
+          periodeId={selectedPeriodeId}
           onClose={() => setShowAdd(false)}
           onAdded={addCreneau}
         />
@@ -763,6 +893,7 @@ export function EmploiDuTempsView({
           matieres={matieres}
           enseignants={enseignants}
           matiereToEnseignants={matiereToEnseignants}
+          periodeId={selectedPeriodeId}
           onClose={() => setShowSuggest(false)}
           onGenerated={(creneaux) => {
             setEmplois((prev) => [...prev, ...(creneaux as EmploiCreneau[])]);

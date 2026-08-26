@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowRight, ArrowLeft, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface EleveSimple {
   id: string;
@@ -23,7 +24,7 @@ interface ClasseSimple {
   eleves: EleveSimple[];
 }
 
-export function TransfertClasseForm({ classes }: { classes: ClasseSimple[] }) {
+export function TransfertClasseForm({ classes, hierarchie }: { classes: ClasseSimple[]; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("eleves");
   const [sourceClasseId, setSourceClasseId] = useState("");
   const [targetClasseId, setTargetClasseId] = useState("");
@@ -120,7 +121,7 @@ export function TransfertClasseForm({ classes }: { classes: ClasseSimple[] }) {
                 <Button variant="outline" size="sm" onClick={deselectAll}>{t("transfertDeselectAll")}</Button>
               </div>
             </div>
-            <div className="max-h-64 overflow-y-auto rounded-lg border">
+            <div className="max-h-64 overflow-y-auto overflow-x-auto rounded-lg border">
               <table className="w-full text-sm min-w-[400px]">
                 <thead className="bg-muted/50 sticky top-0">
                   <tr>

@@ -5,6 +5,8 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { ConvocationForm } from "@/components/vie-scolaire/ConvocationForm";
 import { guardPage } from "@/lib/guard-page";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 export default async function ConvocationsPage() {
   const session = await auth();
@@ -15,9 +17,20 @@ export default async function ConvocationsPage() {
 
 
   const siteFilter = siteFilterForModel("classe", session.user);
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+
+  // Hiérarchie des classes avec scope enseignant + site + année intégrés.
+  const hierarchie = await getClassesHierarchie(session.user.tenantId, session.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+
   const [classes, tenant] = await Promise.all([
     prisma.classe.findMany({
-      where: { tenantId: session.user.tenantId, ...siteFilter },
+      where: {
+        tenantId: session.user.tenantId,
+        ...siteFilter,
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
+        ...(hierarchieClasseIds.length > 0 ? { id: { in: hierarchieClasseIds } } : {}),
+      },
       include: {
         eleves: {
           where: { statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
@@ -50,7 +63,7 @@ export default async function ConvocationsPage() {
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <ConvocationForm classes={classes} tenant={tenant} />
+        <ConvocationForm classes={classes} tenant={tenant} hierarchie={hierarchie} />
       </div>
     </div>
   );

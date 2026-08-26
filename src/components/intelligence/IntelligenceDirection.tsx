@@ -494,7 +494,7 @@ function SectionRisque({ data }: { data: SyntheseRisqueApi | null }) {
   return (
     <div className="space-y-4">
       {/* 4 compteurs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         <CompteurRisque
           label={t("totalEleves")}
           valeur={data.totalEleves}
@@ -785,7 +785,7 @@ function SectionMesure({
   const adoptionIA = tauxAdoptionIAMoyen(efficacite?.adoptionIA ?? null);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
       <CarteResume
         label={t("tauxRecouvrement")}
         valeur={tauxRecouvrement !== null ? `${(tauxRecouvrement * 100).toFixed(0)}%` : t("donneesInsuffisantes")}

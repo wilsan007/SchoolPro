@@ -2,10 +2,12 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { Header } from "@/components/layout/Header";
 import { AttestationForm } from "@/components/eleves/AttestationForm";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
+import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 export default async function AttestationsPage() {
   const session = await auth();
@@ -17,9 +19,19 @@ export default async function AttestationsPage() {
   const te = await getTranslations("eleves");
 
   const siteFilter = siteFilterForModel("classe", session.user);
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  // Hiérarchie des classes avec scope enseignant + site + année intégrés.
+  const hierarchie = await getClassesHierarchie(session.user.tenantId, session.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
   const [classes, tenant] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter -- where includes ...siteFilter spread
     prisma.classe.findMany({
-      where: { tenantId: session.user.tenantId, ...siteFilter },
+      where: {
+        tenantId: session.user.tenantId,
+        ...siteFilter,
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
+        ...(hierarchieClasseIds.length > 0 ? { id: { in: hierarchieClasseIds } } : {}),
+      },
       include: {
         eleves: {
           where: { statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
@@ -50,7 +62,7 @@ export default async function AttestationsPage() {
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <AttestationForm classes={classes} tenant={tenant} />
+        <AttestationForm classes={classes} tenant={tenant} hierarchie={hierarchie} />
       </div>
     </div>
   );

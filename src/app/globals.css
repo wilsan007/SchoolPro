@@ -4,48 +4,104 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142.1 76.2% 36.3%;
-    --radius: 0.75rem;
+    /* Clash Grotesk (display/hero) — chargé via le CDN Fontshare dans layout.tsx */
+    --font-clash: "Clash Grotesk", var(--font-jakarta), system-ui, sans-serif;
+
+    /* === AZURE BLOOM — palette riche bleu/azur/ciel/violet === */
+
+    /* Fond principal : brume azur très claire (différent des cartes) */
+    --background: 205 30% 94%;
+    --foreground: 225 25% 12%;
+
+    /* Cartes : blanc azuré, plus clair que le fond pour contraster */
+    --card: 205 40% 99%;
+    --card-foreground: 225 25% 12%;
+
+    /* Popover : même que carte */
+    --popover: 205 40% 99%;
+    --popover-foreground: 225 25% 12%;
+
+    /* Primary : turquoise/azur vif */
+    --primary: 198 65% 46%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary : bleu ciel très pâle */
+    --secondary: 200 30% 92%;
+    --secondary-foreground: 215 25% 20%;
+
+    /* Muted : gris bleuté pour contours et zones neutres */
+    --muted: 210 22% 90%;
+    --muted-foreground: 215 18% 45%;
+
+    /* Accent : violet pour IA/LEARNOS */
+    --accent: 258 58% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive : rouge */
+    --destructive: 0 78% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders : gris bleuté subtil */
+    --border: 210 20% 86%;
+    --input: 200 25% 90%;
+    --ring: 198 65% 46%;
+
+    /* Info : teal/azur profond */
+    --info: 188 60% 42%;
+    --info-foreground: 0 0% 100%;
+
+    /* Tokens supplémentaires pour le workspace */
+    /* Bleu ciel clair pour fonds de sous-menus */
+    --sky-soft: 197 45% 88%;
+    /* Violet pâle pour fonds de pages actives */
+    --violet-soft: 255 45% 90%;
+    /* Bleu profond pour texte de menus principaux */
+    --navy: 222 40% 22%;
+
+    --radius: 1.125rem;
+
+    /* Sidebar : bleu-violet profond */
+    --sidebar: 232 38% 12%;
+    --sidebar-foreground: 205 30% 88%;
+    --sidebar-accent: 230 28% 18%;
+    --sidebar-border: 230 30% 20%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 142.4 71.8% 29.2%;
+    /* Fond : bleu-nuit très sombre */
+    --background: 225 30% 7%;
+    --foreground: 200 25% 90%;
+
+    /* Cartes : bleu-nuit légèrement plus clair */
+    --card: 225 28% 10%;
+    --card-foreground: 200 25% 90%;
+    --popover: 225 28% 10%;
+    --popover-foreground: 200 25% 90%;
+
+    --primary: 198 65% 55%;
+    --primary-foreground: 225 30% 7%;
+    --secondary: 225 22% 15%;
+    --secondary-foreground: 200 25% 90%;
+    --muted: 225 22% 15%;
+    --muted-foreground: 200 18% 58%;
+    --accent: 258 58% 65%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 225 22% 20%;
+    --input: 225 22% 15%;
+    --ring: 198 65% 55%;
+    --info: 188 60% 52%;
+    --info-foreground: 0 0% 100%;
+
+    --sky-soft: 197 35% 18%;
+    --violet-soft: 255 35% 20%;
+    --navy: 200 25% 85%;
+
+    --sidebar: 232 38% 10%;
+    --sidebar-foreground: 200 25% 88%;
+    --sidebar-accent: 230 28% 16%;
+    --sidebar-border: 230 28% 16%;
   }
 }
 
@@ -76,6 +132,334 @@
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
   }
+  /* Données / tableaux — Geist avec chiffres tabulaires (alignement colonnes) */
+  .font-data {
+    font-family: var(--font-geist), system-ui, sans-serif;
+    font-feature-settings: "tnum" 1, "cv01" 1;
+  }
+  /* Police display : Clash Grotesk pour titres/menus principaux */
+  .font-display {
+    font-family: var(--font-clash);
+  }
+  .genie-glow {
+    box-shadow: 0 0 40px hsl(198 65% 46% / 0.12), 0 0 80px hsl(258 58% 58% / 0.08);
+  }
+  .learnos-glow {
+    box-shadow: 0 0 40px hsl(258 58% 58% / 0.1);
+  }
+  /* Halo turquoise pour fenêtres actives */
+  .halo-primary {
+    box-shadow: 0 8px 32px hsl(198 65% 46% / 0.1), 0 2px 8px hsl(0 0% 0% / 0.03);
+  }
+  /* Halo violet pour accents IA */
+  .halo-accent {
+    box-shadow: 0 8px 32px hsl(258 58% 58% / 0.08), 0 0 20px hsl(258 58% 58% / 0.06);
+  }
+  /* Halo bleu azur — pour cartes d'information */
+  .halo-azure {
+    box-shadow: 0 8px 32px hsl(205 65% 50% / 0.08), 0 0 24px hsl(205 65% 50% / 0.05);
+  }
+  /* Halo bleu profond — pour cartes de données */
+  .halo-navy {
+    box-shadow: 0 8px 32px hsl(222 50% 40% / 0.08), 0 0 20px hsl(222 50% 40% / 0.04);
+  }
+  /* Halo teal — pour cartes de succès/info */
+  .halo-teal {
+    box-shadow: 0 8px 32px hsl(188 60% 42% / 0.08), 0 0 20px hsl(188 60% 42% / 0.05);
+  }
+  /* Halo mixte turquoise + violet — pour cartes hero */
+  .halo-bloom {
+    box-shadow:
+      0 8px 32px hsl(198 65% 46% / 0.08),
+      0 0 24px hsl(258 58% 58% / 0.06),
+      0 0 48px hsl(205 65% 50% / 0.04);
+  }
+  /* Halo au survol — s'intensifie */
+  .halo-hover {
+    transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
+  }
+  .halo-hover:hover {
+    box-shadow:
+      0 12px 40px hsl(198 65% 46% / 0.14),
+      0 0 32px hsl(258 58% 58% / 0.08),
+      0 0 60px hsl(205 65% 50% / 0.06);
+    transform: translateY(-2px);
+  }
+  /* Dégradé de fond bleu-azur très subtil pour cartes */
+  .bg-azure-mist {
+    background: linear-gradient(135deg, hsl(205 40% 99%) 0%, hsl(200 30% 96%) 100%);
+  }
+  /* Dégradé bleu-violet pour en-têtes de cartes */
+  .bg-bloom-header {
+    background: linear-gradient(135deg, hsl(205 65% 50% / 0.06) 0%, hsl(258 58% 58% / 0.04) 100%);
+  }
+  /* Dégradé violet pour zones LEARNOS */
+  .bg-violet-tint {
+    background: linear-gradient(135deg, hsl(258 58% 58% / 0.05) 0%, hsl(240 50% 55% / 0.03) 100%);
+  }
+  /* Dégradé teal pour zones de données */
+  .bg-teal-tint {
+    background: linear-gradient(135deg, hsl(188 60% 42% / 0.05) 0%, hsl(198 65% 46% / 0.03) 100%);
+  }
+  /* Bordure gradient bleu-violet */
+  .border-bloom {
+    border: 1px solid hsl(210 20% 86%);
+    box-shadow: inset 0 1px 0 hsl(205 65% 50% / 0.04);
+  }
+  /* Contour gris-bleu avec liseré interne subtil */
+  .contour-soft {
+    border: 1px solid hsl(210 20% 86%);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.04), 0 1px 3px hsl(225 25% 12% / 0.04);
+  }
+  .dark .contour-soft {
+    border: 1px solid hsl(225 22% 20%);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.03), 0 1px 3px hsl(0 0% 0% / 0.2);
+  }
+  /* Carte avec halo coloré permanent */
+  .card-bloom {
+    border-radius: 1.375rem;
+    border: 1px solid hsl(210 20% 86%);
+    background: linear-gradient(135deg, hsl(205 40% 99%) 0%, hsl(200 30% 97%) 100%);
+    box-shadow:
+      0 4px 24px hsl(198 65% 46% / 0.05),
+      0 0 32px hsl(258 58% 58% / 0.03),
+      inset 0 1px 0 hsl(0 0% 100% / 0.5);
+    transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
+  }
+  .card-bloom:hover {
+    box-shadow:
+      0 8px 36px hsl(198 65% 46% / 0.1),
+      0 0 48px hsl(258 58% 58% / 0.06),
+      inset 0 1px 0 hsl(0 0% 100% / 0.5);
+    transform: translateY(-2px);
+  }
+  .dark .card-bloom {
+    border: 1px solid hsl(225 22% 20%);
+    background: linear-gradient(135deg, hsl(225 28% 10%) 0%, hsl(225 28% 12%) 100%);
+    box-shadow:
+      0 4px 24px hsl(198 65% 46% / 0.06),
+      0 0 32px hsl(258 58% 58% / 0.04),
+      inset 0 1px 0 hsl(0 0% 100% / 0.03);
+  }
+  /* Pastille de couleur avec halo — pour icônes/stats */
+  .pastille-azure {
+    background: linear-gradient(135deg, hsl(198 65% 46%) 0%, hsl(205 65% 50%) 100%);
+    box-shadow: 0 4px 16px hsl(198 65% 46% / 0.2), 0 0 12px hsl(205 65% 50% / 0.1);
+  }
+  .pastille-violet {
+    background: linear-gradient(135deg, hsl(258 58% 58%) 0%, hsl(270 50% 55%) 100%);
+    box-shadow: 0 4px 16px hsl(258 58% 58% / 0.2), 0 0 12px hsl(270 50% 55% / 0.1);
+  }
+  .pastille-teal {
+    background: linear-gradient(135deg, hsl(188 60% 42%) 0%, hsl(175 55% 45%) 100%);
+    box-shadow: 0 4px 16px hsl(188 60% 42% / 0.2), 0 0 12px hsl(175 55% 45% / 0.1);
+  }
+  .pastille-navy {
+    background: linear-gradient(135deg, hsl(222 50% 40%) 0%, hsl(232 38% 35%) 100%);
+    box-shadow: 0 4px 16px hsl(222 50% 40% / 0.2), 0 0 12px hsl(232 38% 35% / 0.1);
+  }
+  /* Pastille ambre — pour alertes, absences, avertissements */
+  .pastille-amber {
+    background: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(28 90% 52%) 100%);
+    box-shadow: 0 4px 16px hsl(38 92% 50% / 0.25), 0 0 12px hsl(28 90% 52% / 0.12);
+  }
+  /* Pastille rose — pour incidents, sanctions, critiques */
+  .pastille-rose {
+    background: linear-gradient(135deg, hsl(346 78% 57%) 0%, hsl(352 70% 50%) 100%);
+    box-shadow: 0 4px 16px hsl(346 78% 57% / 0.25), 0 0 12px hsl(352 70% 50% / 0.12);
+  }
+  /* Pastille émeraude — pour succès, notes, validations */
+  .pastille-emerald {
+    background: linear-gradient(135deg, hsl(160 70% 42%) 0%, hsl(152 65% 38%) 100%);
+    box-shadow: 0 4px 16px hsl(160 70% 42% / 0.25), 0 0 12px hsl(152 65% 38% / 0.12);
+  }
+  /* Pastille ciel — pour communication, messages */
+  .pastille-sky {
+    background: linear-gradient(135deg, hsl(199 89% 48%) 0%, hsl(205 80% 52%) 100%);
+    box-shadow: 0 4px 16px hsl(199 89% 48% / 0.25), 0 0 12px hsl(205 80% 52% / 0.12);
+  }
+  /* Pastille indigo — pour analytics, rapports, finance */
+  .pastille-indigo {
+    background: linear-gradient(135deg, hsl(243 75% 59%) 0%, hsl(235 60% 55%) 100%);
+    box-shadow: 0 4px 16px hsl(243 75% 59% / 0.25), 0 0 12px hsl(235 60% 55% / 0.12);
+  }
+  /* === BORDURES COLORÉES PAR CATÉGORIE (border-top accent) === */
+  .border-accent-azure {
+    border-top: 3px solid hsl(198 65% 46%);
+    box-shadow: 0 4px 24px hsl(198 65% 46% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .border-accent-violet {
+    border-top: 3px solid hsl(258 58% 58%);
+    box-shadow: 0 4px 24px hsl(258 58% 58% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .border-accent-teal {
+    border-top: 3px solid hsl(188 60% 42%);
+    box-shadow: 0 4px 24px hsl(188 60% 42% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .border-accent-amber {
+    border-top: 3px solid hsl(38 92% 50%);
+    box-shadow: 0 4px 24px hsl(38 92% 50% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .border-accent-rose {
+    border-top: 3px solid hsl(346 78% 57%);
+    box-shadow: 0 4px 24px hsl(346 78% 57% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .border-accent-emerald {
+    border-top: 3px solid hsl(160 70% 42%);
+    box-shadow: 0 4px 24px hsl(160 70% 42% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .border-accent-sky {
+    border-top: 3px solid hsl(199 89% 48%);
+    box-shadow: 0 4px 24px hsl(199 89% 48% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .border-accent-indigo {
+    border-top: 3px solid hsl(243 75% 59%);
+    box-shadow: 0 4px 24px hsl(243 75% 59% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+  .dark .border-accent-azure { box-shadow: 0 4px 24px hsl(198 65% 46% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  .dark .border-accent-violet { box-shadow: 0 4px 24px hsl(258 58% 58% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  .dark .border-accent-teal { box-shadow: 0 4px 24px hsl(188 60% 42% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  .dark .border-accent-amber { box-shadow: 0 4px 24px hsl(38 92% 50% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  .dark .border-accent-rose { box-shadow: 0 4px 24px hsl(346 78% 57% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  .dark .border-accent-emerald { box-shadow: 0 4px 24px hsl(160 70% 42% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  .dark .border-accent-sky { box-shadow: 0 4px 24px hsl(199 89% 48% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  .dark .border-accent-indigo { box-shadow: 0 4px 24px hsl(243 75% 59% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+  /* === FONDS TEINTÉS PAR CATÉGORIE === */
+  .bg-tint-azure {
+    background: linear-gradient(160deg, hsl(198 65% 46% / 0.06) 0%, hsl(205 65% 50% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .bg-tint-violet {
+    background: linear-gradient(160deg, hsl(258 58% 58% / 0.07) 0%, hsl(270 50% 55% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .bg-tint-teal {
+    background: linear-gradient(160deg, hsl(188 60% 42% / 0.06) 0%, hsl(175 55% 45% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .bg-tint-amber {
+    background: linear-gradient(160deg, hsl(38 92% 50% / 0.07) 0%, hsl(28 90% 52% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .bg-tint-rose {
+    background: linear-gradient(160deg, hsl(346 78% 57% / 0.06) 0%, hsl(352 70% 50% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .bg-tint-emerald {
+    background: linear-gradient(160deg, hsl(160 70% 42% / 0.06) 0%, hsl(152 65% 38% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .bg-tint-sky {
+    background: linear-gradient(160deg, hsl(199 89% 48% / 0.06) 0%, hsl(205 80% 52% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .bg-tint-indigo {
+    background: linear-gradient(160deg, hsl(243 75% 59% / 0.06) 0%, hsl(235 60% 55% / 0.02) 60%, hsl(0 0% 100% / 0) 100%);
+  }
+  .dark .bg-tint-azure { background: linear-gradient(160deg, hsl(198 65% 46% / 0.1) 0%, hsl(205 65% 50% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  .dark .bg-tint-violet { background: linear-gradient(160deg, hsl(258 58% 58% / 0.12) 0%, hsl(270 50% 55% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  .dark .bg-tint-teal { background: linear-gradient(160deg, hsl(188 60% 42% / 0.1) 0%, hsl(175 55% 45% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  .dark .bg-tint-amber { background: linear-gradient(160deg, hsl(38 92% 50% / 0.12) 0%, hsl(28 90% 52% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  .dark .bg-tint-rose { background: linear-gradient(160deg, hsl(346 78% 57% / 0.1) 0%, hsl(352 70% 50% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  .dark .bg-tint-emerald { background: linear-gradient(160deg, hsl(160 70% 42% / 0.1) 0%, hsl(152 65% 38% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  .dark .bg-tint-sky { background: linear-gradient(160deg, hsl(199 89% 48% / 0.1) 0%, hsl(205 80% 52% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  .dark .bg-tint-indigo { background: linear-gradient(160deg, hsl(243 75% 59% / 0.1) 0%, hsl(235 60% 55% / 0.03) 60%, hsl(0 0% 0% / 0) 100%); }
+  /* === HALOS VIFS AU SURVOL (par catégorie) === */
+  .halo-vif-azure:hover {
+    box-shadow: 0 12px 40px hsl(198 65% 46% / 0.2), 0 0 32px hsl(198 65% 46% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-violet:hover {
+    box-shadow: 0 12px 40px hsl(258 58% 58% / 0.2), 0 0 32px hsl(258 58% 58% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-teal:hover {
+    box-shadow: 0 12px 40px hsl(188 60% 42% / 0.2), 0 0 32px hsl(188 60% 42% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-amber:hover {
+    box-shadow: 0 12px 40px hsl(38 92% 50% / 0.2), 0 0 32px hsl(38 92% 50% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-rose:hover {
+    box-shadow: 0 12px 40px hsl(346 78% 57% / 0.2), 0 0 32px hsl(346 78% 57% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-emerald:hover {
+    box-shadow: 0 12px 40px hsl(160 70% 42% / 0.2), 0 0 32px hsl(160 70% 42% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-sky:hover {
+    box-shadow: 0 12px 40px hsl(199 89% 48% / 0.2), 0 0 32px hsl(199 89% 48% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-indigo:hover {
+    box-shadow: 0 12px 40px hsl(243 75% 59% / 0.2), 0 0 32px hsl(243 75% 59% / 0.12);
+    transform: translateY(-2px);
+  }
+  .halo-vif-azure, .halo-vif-violet, .halo-vif-teal, .halo-vif-amber,
+  .halo-vif-rose, .halo-vif-emerald, .halo-vif-sky, .halo-vif-indigo {
+    transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
+  }
+  /* === TEXTES COLORÉS VIFS (pour titres et chiffres) === */
+  .text-vif-azure { color: hsl(198 65% 42%); }
+  .text-vif-violet { color: hsl(258 58% 52%); }
+  .text-vif-teal { color: hsl(188 60% 38%); }
+  .text-vif-amber { color: hsl(38 92% 46%); }
+  .text-vif-rose { color: hsl(346 78% 52%); }
+  .text-vif-emerald { color: hsl(160 70% 38%); }
+  .text-vif-sky { color: hsl(199 89% 44%); }
+  .text-vif-indigo { color: hsl(243 75% 55%); }
+  .dark .text-vif-azure { color: hsl(198 65% 58%); }
+  .dark .text-vif-violet { color: hsl(258 58% 68%); }
+  .dark .text-vif-teal { color: hsl(188 60% 52%); }
+  .dark .text-vif-amber { color: hsl(38 92% 58%); }
+  .dark .text-vif-rose { color: hsl(346 78% 62%); }
+  .dark .text-vif-emerald { color: hsl(160 70% 52%); }
+  .dark .text-vif-sky { color: hsl(199 89% 56%); }
+  .dark .text-vif-indigo { color: hsl(243 75% 65%); }
+  /* === BADGES COLORÉS VIFS (pastilles + texte) === */
+  .badge-vif-azure {
+    background: hsl(198 65% 46% / 0.12);
+    color: hsl(198 65% 38%);
+    border: 1px solid hsl(198 65% 46% / 0.2);
+  }
+  .badge-vif-violet {
+    background: hsl(258 58% 58% / 0.12);
+    color: hsl(258 58% 48%);
+    border: 1px solid hsl(258 58% 58% / 0.2);
+  }
+  .badge-vif-teal {
+    background: hsl(188 60% 42% / 0.12);
+    color: hsl(188 60% 36%);
+    border: 1px solid hsl(188 60% 42% / 0.2);
+  }
+  .badge-vif-amber {
+    background: hsl(38 92% 50% / 0.14);
+    color: hsl(32 90% 42%);
+    border: 1px solid hsl(38 92% 50% / 0.25);
+  }
+  .badge-vif-rose {
+    background: hsl(346 78% 57% / 0.12);
+    color: hsl(346 78% 50%);
+    border: 1px solid hsl(346 78% 57% / 0.2);
+  }
+  .badge-vif-emerald {
+    background: hsl(160 70% 42% / 0.12);
+    color: hsl(160 70% 36%);
+    border: 1px solid hsl(160 70% 42% / 0.2);
+  }
+  .badge-vif-sky {
+    background: hsl(199 89% 48% / 0.12);
+    color: hsl(205 80% 44%);
+    border: 1px solid hsl(199 89% 48% / 0.2);
+  }
+  .badge-vif-indigo {
+    background: hsl(243 75% 59% / 0.12);
+    color: hsl(243 75% 52%);
+    border: 1px solid hsl(243 75% 59% / 0.2);
+  }
+  .dark .badge-vif-azure { background: hsl(198 65% 46% / 0.18); color: hsl(198 65% 62%); border-color: hsl(198 65% 46% / 0.3); }
+  .dark .badge-vif-violet { background: hsl(258 58% 58% / 0.18); color: hsl(258 58% 72%); border-color: hsl(258 58% 58% / 0.3); }
+  .dark .badge-vif-teal { background: hsl(188 60% 42% / 0.18); color: hsl(188 60% 58%); border-color: hsl(188 60% 42% / 0.3); }
+  .dark .badge-vif-amber { background: hsl(38 92% 50% / 0.2); color: hsl(38 92% 62%); border-color: hsl(38 92% 50% / 0.35); }
+  .dark .badge-vif-rose { background: hsl(346 78% 57% / 0.18); color: hsl(346 78% 66%); border-color: hsl(346 78% 57% / 0.3); }
+  .dark .badge-vif-emerald { background: hsl(160 70% 42% / 0.18); color: hsl(160 70% 58%); border-color: hsl(160 70% 42% / 0.3); }
+  .dark .badge-vif-sky { background: hsl(199 89% 48% / 0.18); color: hsl(199 89% 62%); border-color: hsl(199 89% 48% / 0.3); }
+  .dark .badge-vif-indigo { background: hsl(243 75% 59% / 0.18); color: hsl(243 75% 68%); border-color: hsl(243 75% 59% / 0.3); }
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
@@ -87,6 +471,21 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 2px;
+  }
+  /* Scrollbar horizontale pour le dock */
+  .scrollbar-thin-x {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-thin-x::-webkit-scrollbar {
+    height: 4px;
+  }
+  .scrollbar-thin-x::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin-x::-webkit-scrollbar-thumb {
     background-color: hsl(var(--border));
     border-radius: 2px;
   }

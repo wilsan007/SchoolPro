@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 export type ParentTab =
   | "overview"
   | "notes"
+  | "competences"
   | "absences"
   | "edt"
   | "documents"
@@ -17,6 +18,7 @@ export type ParentTab =
 const TAB_ICONS: Record<ParentTab, string> = {
   overview: "📊",
   notes: "📝",
+  competences: "🎯",
   absences: "📅",
   edt: "🗓️",
   documents: "📄",
@@ -43,6 +45,7 @@ export function ParentPortalTabs({
   const tabs: { key: ParentTab; label: string }[] = [
     { key: "overview", label: t("tabOverview") },
     { key: "notes", label: t("tabNotes") },
+    { key: "competences", label: t("tabCompetences") },
     { key: "absences", label: t("tabAbsences") },
     { key: "edt", label: t("tabEdt") },
     { key: "documents", label: t("tabDocuments") },

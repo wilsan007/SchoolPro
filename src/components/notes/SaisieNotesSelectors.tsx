@@ -2,9 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Props {
   classes: { id: string; nom: string }[];
+  hierarchie?: ClassesHierarchie;
   matieres: { id: string; nom: string }[];
   evaluations: { id: string; titre: string; type: string }[];
   selectedClasseId?: string;
@@ -14,6 +16,7 @@ interface Props {
 
 export function SaisieNotesSelectors({
   classes,
+  hierarchie: _hierarchie,
   matieres,
   evaluations,
   selectedClasseId = "",

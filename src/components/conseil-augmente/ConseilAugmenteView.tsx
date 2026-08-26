@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { MobileCard, MobileList, MobileEmptyState } from "@/components/mobile/MobileUI";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 type Decision = "PASSAGE" | "REDOUBLEMENT" | "FELICITATIONS" | "ENCOURAGEMENTS" | "AVERTISSEMENT";
 
@@ -76,6 +77,8 @@ interface PeriodeOption {
 
 interface Props {
   classes: ClasseOption[];
+  /** Hiérarchie catégorie → niveau → classe (scope enseignant appliqué). */
+  hierarchie?: ClassesHierarchie;
   periodes: PeriodeOption[];
   periodeCouranteId: string | null;
   canWrite: boolean;
@@ -125,7 +128,7 @@ function SignalBadge({
   );
 }
 
-export function ConseilAugmenteView({ classes, periodes, periodeCouranteId, canWrite }: Props) {
+export function ConseilAugmenteView({ classes, hierarchie, periodes, periodeCouranteId, canWrite }: Props) {
   const t = useTranslations("conseilAugmente");
   const tBul = useTranslations("bulletins");
 

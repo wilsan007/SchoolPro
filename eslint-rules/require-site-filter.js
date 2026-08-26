@@ -29,7 +29,7 @@ const SITE_SCOPED_MODELS = new Set([
   "examen", "facture", "incident", "parent", "enseignant",
   "notification", "alumni", "candidature", "evenement", "salle",
   "cours", "itemInventaire", "emploiTemps", "dispenseMatiere",
-  "disponibiliteEnseignant", "structure", "enseignantSite",
+  "disponibiliteEnseignant", "indisponibiliteEnseignant", "structure", "enseignantSite",
   "userSite", "user", "eleveParent", "parcoursScolaire",
   "progressionEleve", "paiement", "sessionExamen", "ficheRH",
   "sanction", "bulletinMatiere", "contenuCours",

@@ -15,6 +15,7 @@ import {
   semaineScolaire,
   ANTICIPATION_SEMAINES,
 } from "@/lib/learnos/planification-pure";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 export * from "@/lib/learnos/planification-pure";
 
@@ -92,57 +93,133 @@ export async function alertesAnticipees(
     orderBy: { semaineDebut: "asc" },
   });
 
-  const alertes: AlerteAnticipee[] = [];
+  // ── Pré-calcul : collecter tous les prérequis et classes/niveaux ──
+  // Au lieu de faire 2 requêtes par chapitre (N+1), on collecte tous les
+  // IDs en amont et on fait 2 grosses requêtes batch.
+  const tousPrerequisIds = new Set<string>();
+  const prerequisParChapitre: Map<string, Map<string, string>> = new Map();
+  const classesIds = new Set<string>();
+  const niveaux = new Set<string>();
 
   for (const p of aVenir) {
-    // Prérequis externes au chapitre : ceux qu'il exige et qu'il n'enseigne pas.
     const internes = new Set(p.chapitre.competences.map((c) => c.id));
     const prerequis = new Map<string, string>();
     for (const c of p.chapitre.competences) {
       for (const q of c.prerequis) {
-        if (!internes.has(q.id)) prerequis.set(q.id, q.libelle);
+        if (!internes.has(q.id)) {
+          prerequis.set(q.id, q.libelle);
+          tousPrerequisIds.add(q.id);
+        }
       }
     }
-    if (prerequis.size === 0) continue;
+    prerequisParChapitre.set(p.chapitreId, prerequis);
+    if (p.classeId) {
+      classesIds.add(p.classeId);
+    } else {
+      niveaux.add(p.chapitre.niveau);
+    }
+  }
 
-    // Élèves concernés : ceux de la classe visée, ou de tout le niveau.
-    const eleves = await prisma.eleve.findMany({
-      where: {
-        tenantId,
-        statut: "ACTIF",
-        deletedAt: null,
-        ...siteFilterForModel("eleve", claims),
-        ...(p.classeId
-          ? { classeId: p.classeId }
-          : { classe: { niveau: p.chapitre.niveau } }),
-      },
-      select: { id: true, nom: true, prenom: true },
-    });
+  if (tousPrerequisIds.size === 0) return [];
+
+  // ── Batch 1 : tous les élèves concernés (par classe OU par niveau) ──
+  const [elevesParClasse, elevesParNiveau] = await Promise.all([
+    classesIds.size > 0
+      ? prisma.eleve.findMany({
+          where: {
+            tenantId,
+            statut: "ACTIF",
+            deletedAt: null,
+            classeId: { in: [...classesIds] },
+            ...siteFilterForModel("eleve", claims),
+          },
+          select: { id: true, nom: true, prenom: true, classeId: true },
+        })
+      : Promise.resolve([]),
+    niveaux.size > 0
+      ? prisma.eleve.findMany({
+          where: {
+            tenantId,
+            statut: "ACTIF",
+            deletedAt: null,
+            classe: { niveau: { in: [...niveaux] } },
+            ...siteFilterForModel("eleve", claims),
+          },
+          select: { id: true, nom: true, prenom: true, classe: { select: { niveau: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  // Index des élèves par classeId et par niveau
+  const elevesParClasseMap = new Map<string, typeof elevesParClasse>();
+  for (const e of elevesParClasse) {
+    if (e.classeId) {
+      const arr = elevesParClasseMap.get(e.classeId) ?? [];
+      arr.push(e);
+      elevesParClasseMap.set(e.classeId, arr);
+    }
+  }
+  const elevesParNiveauMap = new Map<string, typeof elevesParNiveau>();
+  for (const e of elevesParNiveau) {
+    const niv = e.classe?.niveau;
+    if (niv) {
+      const arr = elevesParNiveauMap.get(niv) ?? [];
+      arr.push(e);
+      elevesParNiveauMap.set(niv, arr);
+    }
+  }
+
+  // Tous les IDs d'élèves concernés (pour le batch de profils)
+  const tousElevesIds = new Set<string>();
+  for (const e of elevesParClasse) tousElevesIds.add(e.id);
+  for (const e of elevesParNiveau) tousElevesIds.add(e.id);
+
+  if (tousElevesIds.size === 0) return [];
+
+  // ── Batch 2 : tous les profils de maîtrise en une seule requête ──
+  const profils = await prisma.studentLearningProfile.findMany({
+    where: {
+      tenantId,
+      eleveId: { in: [...tousElevesIds] },
+      competenceId: { in: [...tousPrerequisIds] },
+      ...siteFilterForModel("studentLearningProfile", claims),
+    },
+    select: {
+      eleveId: true,
+      competenceId: true,
+      masteryScore: true,
+      masteryStatus: true,
+    },
+  });
+
+  // Index des profils par (eleveId, competenceId)
+  const profilsMap = new Map<string, typeof profils[number]>();
+  for (const pr of profils) {
+    profilsMap.set(`${pr.eleveId}|${pr.competenceId}`, pr);
+  }
+
+  // ── Assemblage des alertes (en mémoire, 0 requête) ──
+  const alertes: AlerteAnticipee[] = [];
+
+  for (const p of aVenir) {
+    const prerequis = prerequisParChapitre.get(p.chapitreId);
+    if (!prerequis || prerequis.size === 0) continue;
+
+    // Récupérer les élèves depuis l'index en mémoire
+    const eleves = p.classeId
+      ? elevesParClasseMap.get(p.classeId) ?? []
+      : elevesParNiveauMap.get(p.chapitre.niveau) ?? [];
     if (eleves.length === 0) continue;
-
-    const profils = await prisma.studentLearningProfile.findMany({
-      where: {
-        tenantId,
-        eleveId: { in: eleves.map((e) => e.id) },
-        competenceId: { in: [...prerequis.keys()] },
-        ...siteFilterForModel("studentLearningProfile", claims),
-      },
-      select: {
-        eleveId: true,
-        competenceId: true,
-        masteryScore: true,
-        masteryStatus: true,
-      },
-    });
 
     const parEleve = new Map(eleves.map((e) => [e.id, e]));
     const manquants: AlerteAnticipee["prerequisManquants"] = [];
 
     for (const [competenceId, libelle] of prerequis) {
-      const concernes = profils
+      const concernes = eleves
+        .map((e) => profilsMap.get(`${e.id}|${competenceId}`))
         .filter(
-          (pr) =>
-            pr.competenceId === competenceId &&
+          (pr): pr is NonNullable<typeof pr> =>
+            !!pr &&
             // `UNKNOWN` n'est pas une difficulté : on ne sait pas, on se tait.
             pr.masteryStatus !== "UNKNOWN" &&
             pr.masteryScore < SEUILS_MAITRISE.enDeveloppement
@@ -214,8 +291,10 @@ export async function exigencesAVenirPourEleve(
   });
   if (!eleve?.classe) return [];
 
+  const anneeId = await anneeActiveId(tenantId);
+  if (!anneeId) return [];
   const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
+    where: { id: anneeId, tenantId },
     select: { id: true, dateDebut: true },
   });
   if (!annee) return [];

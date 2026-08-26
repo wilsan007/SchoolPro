@@ -38,6 +38,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification-pure";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Types publics
@@ -122,8 +123,8 @@ function mediane(values: number[]): number | null {
 }
 
 /**
- * Résout l'année scolaire à utiliser : celle passée en argument, sinon la
- * année en cours (`isCurrent: true`). Retourne `null` si aucune n'existe.
+ * Résout l'année scolaire à utiliser : celle passée en argument, sinon l'année
+ * active (respecte la Time Machine). Retourne `null` si aucune n'existe.
  */
 async function resoudreAnnee(
   tenantId: string,
@@ -135,8 +136,10 @@ async function resoudreAnnee(
       select: { id: true, dateDebut: true, dateFin: true },
     });
   }
+  const activeId = await anneeActiveId(tenantId);
+  if (!activeId) return null;
   return prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
+    where: { id: activeId, tenantId },
     select: { id: true, dateDebut: true, dateFin: true },
   });
 }
@@ -376,9 +379,11 @@ export async function calculerIVF(
 ): Promise<IndiceComposite> {
   // Factures + paiements associés (Paiement est rattaché au site via la
   // facture, mais on filtre ici sur la facture elle-même qui porte siteId).
+  const anneeId = await anneeActiveId(tenantId);
   const factures = await prisma.facture.findMany({
     where: {
       tenantId,
+      ...(anneeId ? { anneeId } : {}),
       ...siteFilterForModel("facture", claims),
     },
     select: {

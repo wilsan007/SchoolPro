@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Award, AlertTriangle, TrendingUp, CheckCircle2, Save, Loader2, Star, ThumbsDown, Minus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { GenerateurCommentairesBulletin } from "@/components/learnos/GenerateurCommentairesBulletin";
 
 type Decision = "PASSAGE" | "REDOUBLEMENT" | "FELICITATIONS" | "ENCOURAGEMENTS" | "AVERTISSEMENT";
 
@@ -51,6 +52,29 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [aiLoadingId, setAiLoadingId] = useState<string | null>(null);
+
+  // — Générateur LEARNOS de commentaires par matière —
+  const [matieres, setMatieres] = useState<{ id: string; nom: string }[]>([]);
+  const [selectedEleveId, setSelectedEleveId] = useState<string | null>(null);
+  const [selectedMatiereId, setSelectedMatiereId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchMatieres() {
+      try {
+        const res = await fetch(`/api/bulletins/matrice?classeId=${classeId}&periodeId=${periodeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.matieres) {
+          setMatieres(data.matieres.map((m: { id: string; nom: string }) => ({ id: m.id, nom: m.nom })));
+        }
+      } catch {
+        // silent — la matrice n'est pas critique
+      }
+    }
+    fetchMatieres();
+    return () => { cancelled = true; };
+  }, [classeId, periodeId]);
 
   const stats = {
     felicitations: eleves.filter((e) => e.decision === "FELICITATIONS").length,
@@ -167,7 +191,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
       </div>
 
       {/* Stats rapides */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
         {[
           { label: "Félicitations", val: stats.felicitations, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950/30", icon: <Star className="w-4 h-4" /> },
           { label: "Encouragements", val: stats.encouragements, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", icon: <TrendingUp className="w-4 h-4" /> },
@@ -279,6 +303,51 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
           <span>
             {t("studentsWithoutDecision", { count: stats.nonRenseignés })}
           </span>
+        </div>
+      )}
+
+      {/* Générateur LEARNOS de commentaires par matière */}
+      {matieres.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">{t("learnosEleve")}</label>
+              <select
+                value={selectedEleveId ?? ""}
+                onChange={(e) => setSelectedEleveId(e.target.value || null)}
+                className="w-full text-sm border rounded px-2 py-1.5 bg-transparent border-gray-200 dark:border-gray-700"
+              >
+                <option value="">{t("learnosSelectEleve")}</option>
+                {eleves.map((e) => (
+                  <option key={e.id} value={e.id}>{e.nom} {e.prenom}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">{t("learnosMatiere")}</label>
+              <select
+                value={selectedMatiereId ?? ""}
+                onChange={(e) => setSelectedMatiereId(e.target.value || null)}
+                className="w-full text-sm border rounded px-2 py-1.5 bg-transparent border-gray-200 dark:border-gray-700"
+              >
+                <option value="">{t("learnosSelectMatiere")}</option>
+                {matieres.map((m) => (
+                  <option key={m.id} value={m.id}>{m.nom}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {selectedEleveId && selectedMatiereId && (
+            <GenerateurCommentairesBulletin
+              eleveId={selectedEleveId}
+              periodeId={periodeId}
+              matiereId={selectedMatiereId}
+              onSauvegarder={async (commentaire) => {
+                setAppreciation(selectedEleveId, commentaire);
+                toast.success(t("learnosCommentaireApplique"));
+              }}
+            />
+          )}
         </div>
       )}
     </div>

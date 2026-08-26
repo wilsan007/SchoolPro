@@ -3,12 +3,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/demo-now", () => ({
   getDemoNow: vi.fn(async () => new Date("2025-11-15T10:00:00Z")),
+  getDemoDate: vi.fn(() => null),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   default: {
     eleve: { findMany: vi.fn() },
     absence: { findMany: vi.fn() },
+    anneesScolaires: { findFirst: vi.fn(async () => ({ libelle: "2025-2026" })) },
   },
 }));
 
@@ -23,6 +25,7 @@ const mockCheckPermission = checkPermission as ReturnType<typeof vi.fn>;
 const mockPrisma = prisma as unknown as {
   eleve: { findMany: ReturnType<typeof vi.fn> };
   absence: { findMany: ReturnType<typeof vi.fn> };
+  anneesScolaires: { findFirst: ReturnType<typeof vi.fn> };
 };
 
 function req(url: string) {

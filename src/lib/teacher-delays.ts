@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import type { SessionSiteClaims } from "@/lib/site-scope";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { anneeALaDate } from "@/lib/annee-scolaire";
 
 /**
  * Retards d'exécution des tâches prévues pour les enseignants et les
@@ -45,25 +46,30 @@ type EnseignantAvecUser = {
 
 export async function getTeacherDelays(
   tenantId: string,
-  claims: SessionSiteClaims
+  claims: SessionSiteClaims,
+  maintenant: Date = new Date(),
+  // Passer l'année déjà résolue évite une requête DB redondante
+  // quand l'appelant (ex: page direction) l'a déjà calculée.
+  anneePasse?: { id: string; dateDebut: Date } | null
 ): Promise<ThemeRetard[]> {
-  const maintenant = new Date();
+  // Année active au sens chronologique : pendant l'été, c'est la dernière
+  // année terminée. Sans ce filtre, les retards cumulent toutes les années.
+  const annee = anneePasse !== undefined ? anneePasse : await anneeALaDate(tenantId, maintenant);
+  const anneeId = annee?.id;
+  const fenetreDebut = annee?.dateDebut;
 
   // ── Requêtes en parallèle ──────────────────────────────────────
 
-  const [
-    evalsSansNotes,
-    seancesPlanifiees,
-    devoirsARendre,
-    bulletinsNonPublies,
-    incidentsOuverts,
-    absencesEnAttente,
-  ] = await Promise.all([
-    // 1. Évaluations passées sans notes
+  // 2 batches de 3 pour rester sous la limite du pool Supabase (15 connexions).
+  const [evalsSansNotes, seancesPlanifiees, devoirsARendre] = await Promise.all([
+    // 1. Évaluations passées sans notes (dans l'année active)
     prisma.evaluation.findMany({
       where: {
         tenantId,
-        date: { lt: maintenant },
+        date: {
+          gte: fenetreDebut ?? new Date(0),
+          lt: maintenant,
+        },
         statut: { not: "ANNULE" },
         notes: { none: {} },
         ...siteFilterForModel("evaluation", claims),
@@ -77,11 +83,15 @@ export async function getTeacherDelays(
       take: 200,
     }),
 
-    // 2. Séances planifiées dont la date est passée
+    // 2. Séances planifiées dont la date est passée (dans l'année active)
     prisma.seancePedagogique.findMany({
       where: {
         tenantId,
         statut: "PLANIFIEE",
+        date: {
+          gte: fenetreDebut ?? new Date(0),
+          lt: maintenant,
+        },
         ...siteFilterForModel("seancePedagogique", claims),
       },
       select: {
@@ -94,11 +104,12 @@ export async function getTeacherDelays(
       take: 200,
     }),
 
-    // 3. Devoirs rendus mais non corrigés
+    // 3. Devoirs rendus mais non corrigés (dans l'année active)
     prisma.devoir.findMany({
       where: {
         tenantId,
         statut: "RENDU",
+        dateRendu: { gte: fenetreDebut ?? new Date(0) },
         ...siteFilterForModel("devoir", claims),
       },
       select: {
@@ -109,12 +120,15 @@ export async function getTeacherDelays(
       },
       take: 200,
     }),
+  ]);
 
-    // 4. Bulletins non publiés → on a besoin du prof principal de la classe
+  const [bulletinsNonPublies, incidentsOuverts, absencesEnAttente] = await Promise.all([
+    // 4. Bulletins non publiés (de l'année active) → prof principal
     prisma.bulletin.findMany({
       where: {
         tenantId,
         isPublie: false,
+        ...(anneeId ? { periode: { anneeId } } : {}),
         ...siteFilterForModel("bulletin", claims),
       },
       select: {
@@ -130,11 +144,15 @@ export async function getTeacherDelays(
       take: 200,
     }),
 
-    // 5. Incidents ouverts
+    // 5. Incidents ouverts (survenus dans l'année active)
     prisma.incident.findMany({
       where: {
         tenantId,
         statut: "OUVERT",
+        date: {
+          gte: fenetreDebut ?? new Date(0),
+          lte: maintenant,
+        },
         ...siteFilterForModel("incident", claims),
       },
       select: {
@@ -149,11 +167,15 @@ export async function getTeacherDelays(
       take: 200,
     }),
 
-    // 6. Absences en attente de justification
+    // 6. Absences en attente de justification (dans l'année active)
     prisma.absence.findMany({
       where: {
         tenantId,
         statut: "EN_ATTENTE",
+        date: {
+          gte: fenetreDebut ?? new Date(0),
+          lte: maintenant,
+        },
         ...siteFilterForModel("absence", claims),
       },
       select: {
@@ -198,11 +220,25 @@ export async function getTeacherDelays(
   );
 
   // ── Recherche des enseignants pour les évaluations sans notes ──
-  // L'évaluation n'a pas d'enseignantId direct : on cherche via l'emploi du temps
-  // (classeId + matiereId → enseignantId).
+  // L'évaluation n'a pas d'enseignantId direct : on cherche via
+  // AffectationEnseignant (source principale) puis EmploiTemps (repli).
   const evalKeys = new Set(
     evalsSansNotes.map((e) => `${e.classeId}|${e.matiereId}`)
   );
+
+  // Source principale : AffectationEnseignant
+  const affectationLinks = evalKeys.size > 0
+    ? await prisma.affectationEnseignant.findMany({
+        where: { tenantId },
+        select: {
+          classeId: true, matiereId: true,
+          enseignantId: true,
+          enseignant: { select: { id: true, user: { select: { name: true } } } },
+        },
+      })
+    : [];
+
+  // Source secondaire : EmploiTemps (repli pour les données pré-migration)
   const emploiLinks = evalKeys.size > 0
     ? await prisma.emploiTemps.findMany({
         where: {
@@ -219,6 +255,14 @@ export async function getTeacherDelays(
     : [];
 
   const enseignantParClasseMatiere = new Map<string, EnseignantAvecUser>();
+  // D'abord les affectations (source de vérité)
+  for (const a of affectationLinks) {
+    const key = `${a.classeId}|${a.matiereId}`;
+    if (!enseignantParClasseMatiere.has(key) && a.enseignant) {
+      enseignantParClasseMatiere.set(key, a.enseignant);
+    }
+  }
+  // Puis l'emploi du temps en repli
   for (const e of emploiLinks) {
     const key = `${e.classeId}|${e.matiereId}`;
     if (!enseignantParClasseMatiere.has(key) && e.enseignant) {

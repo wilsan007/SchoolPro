@@ -179,7 +179,7 @@ export function SuperAdminView() {
       </div>
 
       {/* Métriques globales */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {[
           { label: t("totalSchools"), value: stats.total, icon: School, color: "text-indigo-600" },
           { label: t("active"), value: stats.actifs, icon: CheckCircle, color: "text-green-600" },
@@ -202,7 +202,7 @@ export function SuperAdminView() {
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-indigo-500" /> {t("planDistribution")}
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {(Object.entries(PLAN_CONFIG) as [PlanType, typeof PLAN_CONFIG[PlanType]][]).map(([plan, cfg]) => (
             <div key={plan} className="text-center">
               <p className="text-2xl font-bold text-gray-900">{stats.parPlan[plan]}</p>

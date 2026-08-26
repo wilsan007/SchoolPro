@@ -1,13 +1,11 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
-import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { VeilleAssiduiteView } from "@/components/veille-assiduite/VeilleAssiduiteView";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
-import type { Role } from "@prisma/client";
-import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie, aplatirHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 export default async function VeilleAssiduitePage() {
   const [session, t] = await Promise.all([
@@ -17,26 +15,13 @@ export default async function VeilleAssiduitePage() {
   await guardPage(session);
   if (!session?.user?.tenantId) redirect("/login");
 
-  // Classes accessibles à l'appelant.
-  const scope = isTeacherRole(session.user.role as Role)
-    ? await getTeacherScope(session.user.tenantId, session.user.id, session.user.role as Role)
-    : undefined;
-
-  const classeWhere = {
-    tenantId: session.user.tenantId,
-    ...siteFilterForModel("classe", session.user),
-    ...(scope?.isRestricted && scope.classeIds.length > 0
-      ? { id: { in: scope.classeIds } }
-      : scope?.isRestricted
-        ? { id: "__none__" }
-        : {}),
-  };
-
-  const classes = await prisma.classe.findMany({
-    where: classeWhere,
-    select: { id: true, nom: true, niveau: true, annee: true },
-    orderBy: { nom: "asc" },
-  });
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  const hierarchie: ClassesHierarchie = await getClassesHierarchie(session.user.tenantId, session.user, { anneeCourante });
+  const classes = aplatirHierarchie(hierarchie).map((c) => ({
+    ...c,
+    annee: anneeCourante ?? "",
+  }));
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -47,7 +32,7 @@ export default async function VeilleAssiduitePage() {
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <VeilleAssiduiteView classes={classes} />
+        <VeilleAssiduiteView classes={classes} hierarchie={hierarchie} />
       </div>
     </div>
   );

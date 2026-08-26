@@ -20,6 +20,7 @@ const CreneauSchema = z.object({
 const Schema = z.object({
   classeId: z.string().min(1),
   creneaux: z.array(CreneauSchema).min(1).max(60),
+  periodeId: z.string().optional().or(z.literal("")),
 });
 
 /**
@@ -43,8 +44,9 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });
     }
-    const { classeId, creneaux } = parsed.data;
+    const { classeId, creneaux, periodeId } = parsed.data;
     const tenantId = session.user.tenantId;
+    const periodeIdValue = periodeId || null;
 
     const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId, ...siteFilter }, select: { id: true, nom: true } });
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
@@ -68,13 +70,23 @@ export async function POST(req: NextRequest) {
     if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
 
     const result = await prisma.$transaction(async (tx) => {
-      const deleted = await tx.emploiTemps.deleteMany({ where: { tenantId, ...siteFilter, classeId, annee } });
+      // Supprime les créneaux existants pour cette classe/année/période.
+      // Si periodeId est null, supprime les créneaux annuels uniquement.
+      // Si periodeId est renseigné, supprime les créneaux de cette période
+      // (mais pas les annuels — ils restent valables pour les autres périodes).
+      const deleted = await tx.emploiTemps.deleteMany({
+        where: { tenantId, ...siteFilter, classeId, annee, periodeId: periodeIdValue },
+      });
 
       // Revalidation contre les engagements des AUTRES classes (enseignants,
       // salles) — l'unique source de vérité au moment de l'écriture, pas au
-      // moment où le plan a été généré.
+      // moment où le plan a été généré. On vérifie les créneaux de la même
+      // période ET les créneaux annuels (qui s'appliquent à toutes les périodes).
       const autres = await tx.emploiTemps.findMany({
-        where: { tenantId, ...siteFilter, annee, classeId: { not: classeId } },
+        where: {
+          tenantId, ...siteFilter, annee, classeId: { not: classeId },
+          OR: [{ periodeId: periodeIdValue }, ...(periodeIdValue ? [{ periodeId: null }] : [])],
+        },
         select: { jour: true, heureDebut: true, heureFin: true, enseignantId: true, salle: true },
       });
 
@@ -107,6 +119,7 @@ export async function POST(req: NextRequest) {
           heureFin: c.heureFin,
           salle: c.salle,
           annee,
+          periodeId: periodeIdValue,
         })),
       });
 

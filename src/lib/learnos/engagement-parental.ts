@@ -26,6 +26,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Constantes
@@ -489,10 +490,12 @@ export async function analyserImpactAlertePaiement(
 
   // --- 3. Paiements pour calculer les délais ---
   // On récupère toutes les factures des élèves concernés avec leurs paiements.
+  const anneeId = await anneeActiveId(tenantId);
   const factures = await prisma.facture.findMany({
     where: {
       tenantId,
       eleveId: { in: ids },
+      ...(anneeId ? { anneeId } : {}),
       ...siteFilterForModel("facture", claims),
     },
     select: {

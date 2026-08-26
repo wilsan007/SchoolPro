@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { Header } from "@/components/layout/Header";
 import { TachesView } from "@/components/taches/TachesView";
 import { guardPage } from "@/lib/guard-page";
@@ -12,12 +13,14 @@ export default async function TachesPage() {
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   const [taches, users] = await Promise.all([
     prisma.tache.findMany({
       where: {
         tenantId,
         ...siteFilterForModel("tache", session.user),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       include: {
         assigneeA: { select: { id: true, name: true, email: true } },

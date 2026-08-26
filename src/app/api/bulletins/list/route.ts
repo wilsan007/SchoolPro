@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
     // `bulletins:read` et pouvait, sans ce filtre, lister les bulletins de tous
     // les élèves du tenant — ou cibler n'importe quel `eleveId`.
     const scopeFilter = eleveScopeFilter(session.user, "eleve");
+    const anneeId = await anneeActiveId(session.user.tenantId);
 
     const where: any = mergeFilters(
       {
@@ -29,6 +31,7 @@ export async function GET(req: NextRequest) {
         ...(periodeId ? { periodeId } : {}),
         ...(eleveId ? { eleveId } : {}),
         ...(!eleveId && classeId ? { eleve: { classeId } } : {}),
+        ...(anneeId ? { periode: { anneeId } } : {}),
       },
       scopeFilter
     );
@@ -54,7 +57,13 @@ export async function GET(req: NextRequest) {
       ]
     });
 
-    return NextResponse.json({ bulletins });
+    // Inclure le statut de verrouillage dans la réponse
+    const bulletinsAvecStatut = bulletins.map((b) => ({
+      ...b,
+      verrouille: b.statut === "VERROUILLE" || b.statut === "PUBLIE",
+    }));
+
+    return NextResponse.json({ bulletins: bulletinsAvecStatut });
   } catch (error) {
     console.error("[API/bulletins/list]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

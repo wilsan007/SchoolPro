@@ -20,6 +20,7 @@ import * as archiver from "archiver";
 import { Writable } from "stream";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 // ============================================================
 // TYPES
@@ -897,9 +898,11 @@ async function exportComptabilite(
   workbook.creator = "EcolPro";
   workbook.created = new Date();
 
+  const anneeId = await anneeActiveId(tenantId);
+
   const [factures, echeanciers, echeances, paiements, relances, tarifs] = await Promise.all([
     prisma.facture.findMany({
-      where: { tenantId, ...siteFilterForModel("facture", claims) },
+      where: { tenantId, ...(anneeId ? { anneeId } : {}), ...siteFilterForModel("facture", claims) },
       include: {
         eleve: { select: { matricule: true, nom: true, prenom: true } },
         site: { select: { nom: true } },
@@ -917,12 +920,12 @@ async function exportComptabilite(
       orderBy: { dateEcheance: "asc" },
     }),
     prisma.paiement.findMany({
-      where: { facture: { tenantId }, ...siteFilterForModel("paiement", claims) },
+      where: { facture: { tenantId, ...(anneeId ? { anneeId } : {}) }, ...siteFilterForModel("paiement", claims) },
       include: { facture: { include: { eleve: { select: { matricule: true, nom: true, prenom: true } } } } },
       orderBy: { date: "desc" },
     }),
     prisma.relance.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(anneeId ? { facture: { anneeId } } : {}) },
       include: { facture: { include: { eleve: { select: { matricule: true, nom: true, prenom: true } } } } },
       orderBy: { envoyeeLe: "desc" },
     }),

@@ -116,7 +116,7 @@ export async function generateBulkPlan(opts: BulkGenerateOptions): Promise<BulkG
   if (!annee) throw new Error("Aucune année scolaire active pour ce tenant");
 
   /* eslint-disable ecolpro/require-site-filter -- library function, caller passes tenantId and is responsible for site scoping */
-  const [classeExistants, autresCreneaux, allEnseignants, salles, disponibilites] = await Promise.all([
+  const [classeExistants, autresCreneaux, allEnseignants, salles, disponibilites, indisponibilites] = await Promise.all([
     prisma.emploiTemps.findMany({
       where: { tenantId, classeId, annee },
       include: { matiere: { select: { id: true, nom: true } } },
@@ -125,6 +125,7 @@ export async function generateBulkPlan(opts: BulkGenerateOptions): Promise<BulkG
     prisma.enseignant.findMany({ where: { tenantId }, include: { user: { select: { name: true } } } }),
     prisma.salle.findMany({ where: { tenantId } }),
     prisma.disponibiliteEnseignant.findMany({ where: { tenantId } }),
+    prisma.indisponibiliteEnseignant.findMany({ where: { tenantId } }),
   ]);
   /* eslint-enable ecolpro/require-site-filter */
 
@@ -186,6 +187,16 @@ export async function generateBulkPlan(opts: BulkGenerateOptions): Promise<BulkG
     dayMap.get(d.jour as Jour)!.push({ debut: d.heureDebut, fin: d.heureFin });
   }
 
+  // Carte des indisponibilités (occupations externes, congés, formations…)
+  // Liste noire : tout créneau chevauchant une indispo est rejeté.
+  const indispoMap = new Map<string, Map<Jour, Array<{ debut: string; fin: string }>>>();
+  for (const ind of indisponibilites) {
+    if (!indispoMap.has(ind.enseignantId)) indispoMap.set(ind.enseignantId, new Map());
+    const dayMap = indispoMap.get(ind.enseignantId)!;
+    if (!dayMap.has(ind.jour as Jour)) dayMap.set(ind.jour as Jour, []);
+    dayMap.get(ind.jour as Jour)!.push({ debut: ind.heureDebut, fin: ind.heureFin });
+  }
+
   // État local du plan en cours de construction (occupation propre à cette classe).
   const classBusy = new Map<Jour, Array<{ debut: string; fin: string }>>();
   const localTeacherBusy = new Map<string, Map<Jour, Array<{ debut: string; fin: string }>>>();
@@ -194,9 +205,10 @@ export async function generateBulkPlan(opts: BulkGenerateOptions): Promise<BulkG
   function isTeacherFree(enseignantId: string, jour: Jour, debut: string, fin: string): boolean {
     const globalBusy = (teacherBusy.get(enseignantId)?.get(jour) || []).some((s) => overlaps(debut, fin, s.debut, s.fin));
     const localBusy = (localTeacherBusy.get(enseignantId)?.get(jour) || []).some((s) => overlaps(debut, fin, s.debut, s.fin));
+    const isIndispo = (indispoMap.get(enseignantId)?.get(jour) || []).some((s) => overlaps(debut, fin, s.debut, s.fin));
     const dispo = dispoMap.get(enseignantId)?.get(jour) || [];
     const hasDispo = dispo.length === 0 || dispo.some((s) => overlaps(debut, fin, s.debut, s.fin));
-    return !globalBusy && !localBusy && hasDispo;
+    return !globalBusy && !localBusy && !isIndispo && hasDispo;
   }
 
   function isRoomFree(room: string, jour: Jour, debut: string, fin: string): boolean {

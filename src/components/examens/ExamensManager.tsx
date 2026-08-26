@@ -1,19 +1,21 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, Calendar, Clock, MapPin, Users, BookOpen,
   CheckCircle2, PlayCircle, XCircle, Loader2,
-  ChevronDown, ChevronUp, Edit2, Trash2,
+  ChevronDown, ChevronUp, Edit2, Trash2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { ClassSelector } from "@/components/sites/ClassSelector";
 import type { SiteColor } from "@/lib/site-colors";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 type StatutExamen = "PROGRAMME" | "EN_COURS" | "TERMINE" | "ANNULE";
 
@@ -568,11 +570,13 @@ function DeliberationPanel({ examId }: { examId: string }) {
 export function ExamensManager({
   examens: initial,
   classes,
+  hierarchie: _hierarchie,
   matieres,
   siteColors,
 }: {
   examens: Examen[];
   classes: Classe[];
+  hierarchie?: ClassesHierarchie;
   matieres: Matiere[];
   siteColors: Record<string, SiteColor>;
   tenantId: string;
@@ -607,7 +611,7 @@ export function ExamensManager({
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[
           { label: t("statTotal"), value: stats.total, color: "text-gray-700 dark:text-gray-300", bg: "bg-gray-50 dark:bg-gray-800" },
           { label: t("statProgrammed"), value: stats.programmes, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
@@ -639,13 +643,21 @@ export function ExamensManager({
             </button>
           ))}
         </div>
-        <Button
-          onClick={() => setShowCreate(true)}
-          className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-        >
-          <Plus className="w-4 h-4" />
-          {t("newExam")}
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button asChild variant="outline" className="gap-2 w-full sm:w-auto">
+            <Link href="/examens/rapport-classe">
+              <FileText className="w-4 h-4" />
+              {t("classReport")}
+            </Link>
+          </Button>
+          <Button
+            onClick={() => setShowCreate(true)}
+            className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+          >
+            <Plus className="w-4 h-4" />
+            {t("newExam")}
+          </Button>
+        </div>
       </div>
 
       {/* Filtre par classes coloré */}

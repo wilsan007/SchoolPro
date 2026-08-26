@@ -14,6 +14,7 @@
  */
 
 import { useState, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import {
   Loader2, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle,
   X, MapPin, ArrowLeft, Copy, Ban, RefreshCw, Plus, Undo2, CalendarClock,
+  Columns3, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +46,27 @@ interface LignePlan {
   existant?: { id: string; matricule: string; nom: string; prenom: string; classe: string | null; archive: boolean };
 }
 
+interface ColonneInferee {
+  index: number;
+  header: string;
+  type: string;
+  champCible?: string;
+  confianceType: number;
+  confianceMapping: number;
+  exemples: string[];
+  valeursNonVides: number;
+  totalLignes: number;
+  valeursDistinctes?: string[];
+  avertissements?: string[];
+}
+
+interface MappingColonnes {
+  champs: Record<string, number>;
+  colonnes: ColonneInferee[];
+  champsManquants: string[];
+  champsIncertains: string[];
+}
+
 interface PlanImport {
   hash: string;
   lignes: LignePlan[];
@@ -53,6 +76,8 @@ interface PlanImport {
   };
   dejaImporte?: { date: string; par: string | null };
   classesInconnues: string[];
+  mappingColonnes?: MappingColonnes;
+  headers?: string[];
 }
 
 interface ImportSummary {
@@ -112,6 +137,8 @@ export function ImportElevesDialog({
   const [result, setResult] = useState<ImportSummary | null>(null);
   const [seulementProblemes, setSeulementProblemes] = useState(true);
   const [datesConfirmees, setDatesConfirmees] = useState(false);
+  const [showMapping, setShowMapping] = useState(false);
+  const t = useTranslations("import");
 
   const siteBloque = tenantHasSites && sites.length > 0 && !selectedSiteId;
 
@@ -318,7 +345,7 @@ export function ImportElevesDialog({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 {[
                   { n: compte.CREER, l: "à créer", i: Plus, c: "text-green-600" },
                   { n: compte.METTRE_A_JOUR, l: "à mettre à jour", i: RefreshCw, c: "text-blue-600" },
@@ -332,6 +359,103 @@ export function ImportElevesDialog({
                   </div>
                 ))}
               </div>
+
+              {/* ── Mapping des colonnes inféré ── */}
+              {plan.mappingColonnes && plan.mappingColonnes.colonnes.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowMapping((s) => !s)}
+                    className="w-full flex items-center justify-between p-3 text-xs font-medium hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Columns3 className="h-4 w-4 text-muted-foreground" />
+                      {t("columnMapping.title")}
+                      <span className="text-muted-foreground font-normal">
+                        — {t("columnMapping.subtitle")}
+                      </span>
+                      {plan.mappingColonnes.champsManquants.length > 0 && (
+                        <span className="ml-1 rounded bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-semibold">
+                          {plan.mappingColonnes.champsManquants.length} {t("columnMapping.missingRequired")}
+                        </span>
+                      )}
+                      {plan.mappingColonnes.champsIncertains.length > 0 && (
+                        <span className="ml-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.5 text-[10px] font-semibold">
+                          {plan.mappingColonnes.champsIncertains.length} {t("columnMapping.lowConfidence")}
+                        </span>
+                      )}
+                    </span>
+                    {showMapping ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  {showMapping && (
+                    <div className="border-t overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="text-left p-2 font-medium">{t("columnMapping.header")}</th>
+                            <th className="text-left p-2 font-medium">{t("columnMapping.detectedType")}</th>
+                            <th className="text-left p-2 font-medium">{t("columnMapping.mappedTo")}</th>
+                            <th className="text-left p-2 font-medium">{t("columnMapping.confidence")}</th>
+                            <th className="text-left p-2 font-medium">{t("columnMapping.examples")}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {plan.mappingColonnes.colonnes.map((col) => {
+                            const confPct = Math.round(col.confianceMapping * 100);
+                            const confColor =
+                              confPct >= 70 ? "text-green-600" :
+                              confPct >= 40 ? "text-amber-600" :
+                              "text-muted-foreground";
+                            const typeLabel = t(`columnMapping.type${col.type.charAt(0).toUpperCase()}${col.type.slice(1)}`, undefined);
+                            const fieldLabel = col.champCible
+                              ? t(`columnMapping.field${col.champCible.charAt(0).toUpperCase()}${col.champCible.slice(1)}`, undefined)
+                              : t("columnMapping.unmapped");
+                            return (
+                              <tr key={col.index} className="hover:bg-muted/30">
+                                <td className="p-2 font-medium truncate max-w-[160px]">{col.header || `—`}</td>
+                                <td className="p-2">
+                                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono">
+                                    {typeLabel}
+                                  </span>
+                                </td>
+                                <td className="p-2">
+                                  {col.champCible ? (
+                                    <span className={cn(
+                                      "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                      col.confianceMapping >= 0.7
+                                        ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+                                        : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                                    )}>
+                                      {fieldLabel}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground text-[10px]">{t("columnMapping.unmapped")}</span>
+                                  )}
+                                </td>
+                                <td className={cn("p-2 font-mono", confColor)}>
+                                  {col.champCible ? `${confPct}%` : "—"}
+                                </td>
+                                <td className="p-2 text-muted-foreground truncate max-w-[200px]">
+                                  {col.exemples.slice(0, 2).join(", ")}
+                                  {col.avertissements && col.avertissements.length > 0 && (
+                                    <span className="block text-amber-600 dark:text-amber-400 text-[10px] mt-0.5">
+                                      ⚠ {col.avertissements[0]}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Dates au 1er janvier : validation explicite exigée. Elles
                   peuvent être exactes, mais c'est la date qu'on saisit quand
@@ -445,7 +569,7 @@ export function ImportElevesDialog({
           {/* ── Étape 3 : le résultat ── */}
           {result && (
             <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { n: result.created, l: "créés", c: "text-green-600" },
                   { n: result.updated, l: "mis à jour", c: "text-blue-600" },

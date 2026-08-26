@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 
 const SEUIL_DIFFICULTE = 10;
 
@@ -17,6 +19,10 @@ export default async function MaMatierePage() {
 
   const tenantId = session!.user.tenantId!;
   const claims = session!.user as SessionSiteClaims;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
+  const anneeClasseDirect = anneeCourante ? { annee: anneeCourante } : {};
+  const anneeEmploi = anneeCourante ? { annee: anneeCourante } : {};
 
   const enseignant = await prisma.enseignant.findFirst({
     where: {
@@ -53,6 +59,7 @@ export default async function MaMatierePage() {
       enseignantId: enseignant.id,
       tenantId,
       ...siteFilterForModel("emploiTemps", claims),
+      ...anneeEmploi,
     },
     select: { matiereId: true, classeId: true },
     distinct: ["matiereId", "classeId"],
@@ -95,18 +102,26 @@ export default async function MaMatierePage() {
       matiereId,
       tenantId,
       ...siteFilterForModel("emploiTemps", claims),
+      ...anneeEmploi,
     },
     select: { classeId: true },
     distinct: ["classeId"],
   });
   const classeIds = emploisMatiere.map((e) => e.classeId);
 
+  // Hiérarchie des classes avec scope enseignant + site + année intégrés.
+  // Restreint les classes de la matière au périmètre de l'enseignant.
+  const hierarchie = await getClassesHierarchie(tenantId, session!.user, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+  const scopedClasseIds = classeIds.filter((id) => hierarchieClasseIds.includes(id));
+
   const [classes, notes, chapitres, enseignantsEmplois] = await Promise.all([
     prisma.classe.findMany({
       where: {
-        id: { in: classeIds },
+        id: { in: scopedClasseIds },
         tenantId,
         ...siteFilterForModel("classe", claims),
+        ...anneeClasseDirect,
       },
       select: {
         id: true,
@@ -120,6 +135,7 @@ export default async function MaMatierePage() {
         matiereId,
         tenantId,
         ...siteFilterForModel("note", claims),
+        ...anneeClasse,
       },
       select: {
         id: true,
@@ -145,6 +161,7 @@ export default async function MaMatierePage() {
         matiereId,
         tenantId,
         ...siteFilterForModel("emploiTemps", claims),
+        ...anneeEmploi,
       },
       select: { enseignantId: true },
       distinct: ["enseignantId"],
@@ -166,7 +183,7 @@ export default async function MaMatierePage() {
     notesParEleve.set(n.eleveId, arrE);
   }
 
-  const moyennesParClasse = classeIds
+  const moyennesParClasse = scopedClasseIds
     .map((classeId) => {
       const cls = classesById.get(classeId);
       if (!cls) return null;

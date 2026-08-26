@@ -60,32 +60,44 @@ export interface DashboardWheres {
  */
 export function buildDashboardWheres(
   tenantId: string,
-  claims: DashboardScopeClaims
+  claims: DashboardScopeClaims,
+  anneeLibelle?: string | null
 ): DashboardWheres {
   const relationScoped = isRelationScopedRole(claims.role);
   const base = { tenantId };
+  // Filtre d'année scolaire : restreint chaque modèle à la cohorte active.
+  // `anneeLibelle` est le libellé (ex: "2025-2026") résolu par `anneeActive()`
+  // côté page — respecte la Time Machine. `null` = pas de filtre (comportement
+  // historique, toutes années confondues).
+  const filtreAnneeClasse = anneeLibelle ? { annee: anneeLibelle } : {};
+  const filtreAnneeViaClasse = anneeLibelle ? { classe: { annee: anneeLibelle } } : {};
 
   // `note` et `absence` n'ont pas de colonne `siteId` : ils se filtrent via la
   // relation `eleve`, sur laquelle porte aussi le lien personnel.
+  // On y ajoute le filtre `classe.annee` pour cantonner aux cohortes de l'année.
   const note = mergeFilters(
     base,
     siteFilterForModel("note", claims),
-    personalScopeFilter(claims, "eleve")
+    personalScopeFilter(claims, "eleve"),
+    filtreAnneeViaClasse
   );
   const absence = mergeFilters(
     base,
     siteFilterForModel("absence", claims),
-    personalScopeFilter(claims, "eleve")
+    personalScopeFilter(claims, "eleve"),
+    filtreAnneeViaClasse
   );
   // `eleve` est la cible elle-même : relation `null`.
+  // Le filtre année se fait via `classe.annee`.
   const eleve = mergeFilters(
     { ...base, deletedAt: null },
     siteFilterForModel("eleve", claims),
-    personalScopeFilter(claims, null)
+    personalScopeFilter(claims, null),
+    filtreAnneeViaClasse
   );
   // Pas de chemin vers l'élève → fail-closed pour les périmètres relationnels.
   const etablissementWide = relationScoped ? DENY_ALL : null;
-  const classe = mergeFilters(base, siteFilterForModel("classe", claims), etablissementWide);
+  const classe = mergeFilters(base, siteFilterForModel("classe", claims), etablissementWide, filtreAnneeClasse);
   const examen = mergeFilters(base, siteFilterForModel("examen", claims), etablissementWide);
 
   return {

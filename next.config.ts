@@ -52,21 +52,52 @@ const nextConfig: NextConfig = {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-          "style-src 'self' 'unsafe-inline'",
+          // `unsafe-eval` n'est requis QU'EN dev (HMR / react-refresh de
+          // Next.js). En production il ouvrirait une porte à l'exécution de
+          // code injecté : on ne le laisse jamais passer côté prod.
+          isProd
+            ? "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com"
+            : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+          "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
           "img-src 'self' data: https: blob:",
-          "font-src 'self' data:",
-          "connect-src 'self' https://*.netlify.app https://*.pages.dev https://*.vercel.app https://api.africastalking.com https://api.sandbox.africastalking.com https://api.resend.com https://graph.facebook.com https://api.telegram.org https://api.stripe.com http://localhost:* http://127.0.0.1:*",
-          "frame-ancestors 'none'",
+          "font-src 'self' data: https://cdn.fontshare.com",
+          // Origines externes réellement appelées par l'app. Les hôtes
+          // localhost ne sont autorisés qu'en dev ; les jokers d'anciennes
+          // plateformes (netlify/vercel/pages.dev) sont retirés — le site est
+          // auto-hébergé sur VPS.
+          [
+            "connect-src 'self'",
+            "https://api.africastalking.com",
+            "https://api.sandbox.africastalking.com",
+            "https://api.resend.com",
+            "https://graph.facebook.com",
+            "https://api.telegram.org",
+            "https://api.stripe.com",
+            ...(isProd ? [] : ["http://localhost:*", "http://127.0.0.1:*"]),
+          ].join(" "),
+          // frame-ancestors 'self' : le workspace charge les modules en
+          // iframes same-origin (?embedded=1). En dev, on autorise aussi
+          // localhost pour le HMR.
+          ...(isProd
+            ? ["frame-ancestors 'self'"]
+            : ["frame-ancestors 'self' http://localhost:* http://127.0.0.1:*"]),
+          // frame-src 'self' : les iframes du workspace sont same-origin.
+          // Turnstile rend son widget dans une iframe depuis challenges.cloudflare.com.
+          ...(isProd
+            ? ["frame-src 'self' https://challenges.cloudflare.com"]
+            : ["frame-src 'self' https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*"]),
+          "worker-src 'self' blob:",
+          "manifest-src 'self'",
           "base-uri 'self'",
           "form-action 'self'",
           "object-src 'none'",
-          ...(isProd ? ["upgrade-insecure-requests"] : []),
+          ...(isProd ? ["upgrade-insecure-requests", "block-all-mixed-content"] : []),
         ].join("; "),
       },
       {
         key: "Permissions-Policy",
-        value: "camera=(), microphone=(), geolocation=()",
+        value:
+          "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), interest-cohort=()",
       },
     ];
 

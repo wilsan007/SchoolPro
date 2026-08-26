@@ -8,6 +8,7 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Espace du conseiller / CPE.
@@ -26,6 +27,7 @@ export default async function ConseillerPage() {
   const tenantId = session!.user.tenantId!;
   const claims = session!.user as SessionSiteClaims;
   const maintenant = await getDemoNow();
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   // Recommandations obligatoires non résolues (le champ `statut` porte
   // l'enum StatutRecommandation ; "OBLIGATOIRE" en est une valeur. Il n'y a
@@ -45,6 +47,7 @@ export default async function ConseillerPage() {
         tenantId,
         ...siteFilterForModel("absence", claims),
         statut: "INJUSTIFIEE",
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       },
     }),
     prisma.incident.count({
@@ -52,6 +55,7 @@ export default async function ConseillerPage() {
         tenantId,
         ...siteFilterForModel("incident", claims),
         statut: "OUVERT",
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       },
     }),
   ]);
@@ -71,6 +75,7 @@ export default async function ConseillerPage() {
       statut: "INJUSTIFIEE",
       date: { gte: debutFenetre30j, lte: maintenant },
       ...siteFilterForModel("absence", claims),
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
     },
     _count: true,
     orderBy: { _count: { eleveId: "desc" } },
@@ -82,6 +87,7 @@ export default async function ConseillerPage() {
       id: { in: elevesARisque.map((e) => e.eleveId) },
       tenantId,
       ...siteFilterForModel("eleve", claims),
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
     },
     select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } },
   });

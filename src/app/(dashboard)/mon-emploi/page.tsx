@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { eleveScopeFilter, siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,6 +36,7 @@ export default async function MonEmploiPage({
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const role = session.user.role;
   const claims = session.user as SessionSiteClaims & { id?: string; userId?: string };
   const { enfant: demande } = await searchParams;
@@ -97,7 +99,7 @@ export default async function MonEmploiPage({
   // c'est une vue lecture.
   const [emplois, matieres, salles] = await Promise.all([
     prisma.emploiTemps.findMany({
-      where: { tenantId, classeId: choisi.classeId, ...siteFilterForModel("emploiTemps", claims) },
+      where: { tenantId, classeId: choisi.classeId, ...siteFilterForModel("emploiTemps", claims), ...(anneeCourante ? { annee: anneeCourante } : {}) },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },
         classe: { select: { nom: true } },

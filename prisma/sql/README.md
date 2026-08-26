@@ -239,7 +239,12 @@ similaires à :
 - **Transaction** : `00-run-all.sql` enveloppe tous les `\i` dans un
   `BEGIN TRANSACTION` / `COMMIT`. En cas d'erreur, tout est annulé.
 - **Hash bcrypt** : le mot de passe `Ambouli@2026!` est hashé en bcrypt
-  (cost 12) : `$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy`
+  (cost 12) : `$2a$12$1b7BChA.QF/6pf3jZkl6B.YUM5iMNKRG67GePvECwZN7VJe5I9FDC`.
+  `generate-sql.mjs` vérifie cette correspondance au démarrage et s'arrête si
+  elle est rompue : un hash recopié ou fabriqué à la main rendrait les 6 221
+  comptes inutilisables, sans autre symptôme que « Identifiants invalides ».
+  Contrôle manuel :
+  `node -e "console.log(require('bcryptjs').compareSync('Ambouli@2026!','<hash>'))"`
 - **Devise** : tous les montants sont en DJF (Francs Djiboutiens)
 - **Langue** : français (`fr`), timezone `Africa/Djibouti`
 - **Notation** : sur 20

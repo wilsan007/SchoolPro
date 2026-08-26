@@ -12,11 +12,12 @@ import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
 import { SiteTabs } from "@/components/sites/SiteTabs";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
-import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
-import type { Role } from "@prisma/client";
 import { siteFilterForModel, mergeFilters, type SessionSiteClaims } from "@/lib/site-scope";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { getSitesForUser } from "@/lib/actions/eleve";
 import { getSiteColorMap } from "@/lib/site-colors";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 const getNotesData = unstable_cache(
   async (
@@ -24,30 +25,26 @@ const getNotesData = unstable_cache(
     // Revendications de site réduites au strict nécessaire : elles entrent dans
     // la clé de cache, on n'y met donc rien d'identifiant (ni id, ni e-mail).
     claims: SessionSiteClaims,
+    hierarchieClasseIds: string[],
     classeId?: string,
-    scope?: { classeIds: string[]; matiereIds: string[]; isRestricted: boolean }
+    anneeCourante?: string | null
   ) => {
-    const classeWhere = { tenantId, ...siteFilterForModel("classe", claims), ...(scope?.isRestricted && scope.classeIds.length > 0 ? { id: { in: scope.classeIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
-    const matiereWhere = { tenantId, ...siteFilterForModel("matiere", claims), ...(scope?.isRestricted && scope.matiereIds.length > 0 ? { id: { in: scope.matiereIds } } : scope?.isRestricted ? { id: "__none__" } : {}) };
+    const matiereWhere = { tenantId, ...siteFilterForModel("matiere", claims) };
     // Le filtre de site s'applique dans tous les cas : auparavant il sautait dès
     // qu'une `classeId` était fournie dans l'URL, ce qui laissait lire les
     // statistiques de notes d'une classe d'un autre site.
+    // Le scope enseignant est déjà résolu via la hiérarchie : hierarchieClasseIds
+    // contient exactement les classes accessibles (toutes pour un admin, les
+    // classes affectées pour un enseignant).
     const noteWhere = mergeFilters(
-      { tenantId, ...(classeId ? { classeId } : {}) },
+      { tenantId, ...(classeId ? { classeId } : {}), ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
       siteFilterForModel("note", claims),
-      scope?.isRestricted && scope.classeIds.length > 0
-        ? { eleve: { classeId: { in: scope.classeIds } } }
-        : scope?.isRestricted
-          ? { id: "__none__" }
-          : {}
+      hierarchieClasseIds.length > 0
+        ? { eleve: { classeId: { in: hierarchieClasseIds } } }
+        : { id: "__none__" }
     );
 
-    const [classes, matieres, statsNotes] = await Promise.all([
-      prisma.classe.findMany({
-        where: classeWhere,
-        select: { id: true, nom: true, niveau: true, siteId: true, site: { select: { nom: true } } },
-        orderBy: { nom: "asc" },
-      }),
+    const [matieres, statsNotes] = await Promise.all([
       prisma.matiere.findMany({
         where: matiereWhere,
         select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
@@ -61,7 +58,7 @@ const getNotesData = unstable_cache(
       }),
     ]);
 
-    return { classes, matieres, statsNotes };
+    return { matieres, statsNotes };
   },
   ["notes-data"],
   { revalidate: 60, tags: ["notes-data"] }
@@ -112,23 +109,36 @@ export default async function NotesPage({
   const eleveFilter = siteFilterForModel("note", noteClaims);
   const evalFilter = siteFilterForModel("evaluation", noteClaims);
 
-  // Filtrer par classes/matières de l'enseignant si applicable
-  const scope = isTeacherRole(session.user.role as Role)
-    ? await getTeacherScope(tenantId, session.user.id, session.user.role as Role)
-    : undefined;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const maintenant = await getDemoNow();
 
-  // Récupérer les classes et matières (filtrées pour les enseignants)
-  const { classes, matieres, statsNotes } = await getNotesData(tenantId, noteClaims, classeId, scope);
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  // On utilise noteClaims (site actif depuis l'URL) pour le filtrage par site,
+  // et l'id de session.user pour la résolution du scope enseignant.
+  const hierarchie = await getClassesHierarchie(tenantId, { ...noteClaims, id: session.user.id }, { anneeCourante });
+  const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
+
+  // Classes aplaties depuis la hiérarchie (remplace l'ancien prisma.classe.findMany).
+  const classes = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => ({
+    id: cls.id,
+    nom: cls.nom,
+    niveau: cls.niveau,
+    siteId: cls.siteId,
+    site: { nom: cls.siteNom },
+  }))));
+
+  // Récupérer les matières et statistiques notes (filtrées par hiérarchie)
+  const { matieres, statsNotes } = await getNotesData(tenantId, noteClaims, hierarchieClasseIds, classeId, anneeCourante);
 
   // Si classe et matière sont sélectionnées, on récupère les évaluations correspondantes
   let evaluations: any[] = [];
   if (classeId && matiereId) {
-    // Vérifier que l'enseignant a accès à cette classe/matière
-    if (scope?.isRestricted && !scope.classeIds.includes(classeId)) {
+    // Vérifier que l'utilisateur a accès à cette classe (via la hiérarchie)
+    if (hierarchieClasseIds.length > 0 && !hierarchieClasseIds.includes(classeId)) {
       redirect("/notes");
     }
     evaluations = await prisma.evaluation.findMany({
-      where: { tenantId, ...evalFilter, classeId, matiereId },
+      where: { tenantId, ...evalFilter, classeId, matiereId, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}), date: { lte: maintenant } },
       select: { id: true, titre: true, type: true },
       orderBy: { date: "desc" },
     });
@@ -139,7 +149,7 @@ export default async function NotesPage({
   let grille: any[] = [];
   if (classeId && matiereId && evaluationId) {
     evaluation = await prisma.evaluation.findFirst({
-      where: { id: evaluationId, tenantId, ...evalFilter },
+      where: { id: evaluationId, tenantId, ...evalFilter, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
       include: {
         classe: {
           include: {
@@ -209,6 +219,7 @@ export default async function NotesPage({
         {/* Filtres de sélection en haut */}
         <SaisieNotesSelectors
           classes={classes.map((c) => ({ id: c.id, nom: c.nom }))}
+          hierarchie={hierarchie}
           matieres={matieres}
           evaluations={evaluations}
           selectedClasseId={classeId}
@@ -219,13 +230,13 @@ export default async function NotesPage({
         {/* Affichage conditionnel de la Grille de Saisie, du Wizard ou de la Vue d'ensemble */}
         {evaluation ? (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-bloom-header p-4 rounded-[18px] border border-[#0ea5e9]/15 halo-azure">
               <div>
-                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                  <PenLine className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <PenLine className="h-5 w-5 text-[#0ea5e9]" />
                   {t("enterForExam", { title: evaluation.titre })}
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {t("examForClass", {
                     classe: evaluation.classe.nom,
                     matiere: evaluation.matiere.nom.toUpperCase(),
@@ -233,7 +244,7 @@ export default async function NotesPage({
                 </p>
               </div>
               <Link href="/notes" className="w-full sm:w-auto">
-                <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
+                <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto rounded-xl border-border hover:border-primary/30 hover:bg-[#0ea5e9]/5">
                   <ArrowLeft className="h-4 w-4" />
                   {tCommon("back")}
                 </Button>
@@ -246,17 +257,17 @@ export default async function NotesPage({
           <>
             {/* Étape 1 : Si matière sélectionnée, mais pas de classe */}
             {matiereId && !classeId && (
-              <div className="bg-card p-4 sm:p-6 rounded-xl border shadow-sm space-y-4 sm:space-y-6">
-                <div className="border-b pb-4">
-                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t("enterForSubject", { matiere: selectedMatiere?.nom ?? "" })}</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("selectClassPrompt")}</p>
+              <div className="card-bloom p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <div className="border-b border-border/60 pb-4">
+                  <h2 className="text-lg font-bold text-foreground font-display">{t("enterForSubject", { matiere: selectedMatiere?.nom ?? "" })}</h2>
+                  <p className="text-sm text-muted-foreground mt-1">{t("selectClassPrompt")}</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {classes.map((c) => (
                     <Link key={c.id} href={`/notes?matiereId=${matiereId}&classeId=${c.id}`}>
-                      <div className="p-4 border rounded-xl hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all cursor-pointer flex flex-col justify-between h-28 shadow-sm">
-                        <span className="font-bold text-gray-800 dark:text-gray-100 text-base">{c.nom}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">{c.niveau ?? tCommon("defaultLevel")}</span>
+                      <div className="halo-hover p-4 rounded-[18px] border border-border bg-azure-mist cursor-pointer flex flex-col justify-between h-28 shadow-sm hover:border-[#0ea5e9]/40">
+                        <span className="font-bold text-foreground text-base">{c.nom}</span>
+                        <span className="text-xs text-[#9b6fe0] uppercase font-semibold">{c.niveau ?? tCommon("defaultLevel")}</span>
                       </div>
                     </Link>
                   ))}
@@ -273,47 +284,47 @@ export default async function NotesPage({
 
             {/* Étape 3 : Si classe + matière sélectionnés, mais pas d'évaluation */}
             {classeId && matiereId && !evaluationId && (
-              <div className="bg-card p-4 sm:p-6 rounded-xl border shadow-sm space-y-4 sm:space-y-6">
-                <div className="border-b pb-4">
-                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              <div className="card-bloom p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <div className="border-b border-border/60 pb-4">
+                  <h2 className="text-lg font-bold text-foreground font-display">
                     {t("enterForSubjectInClass", { matiere: selectedMatiere?.nom ?? "", classe: selectedClasse?.nom ?? "" })}
                   </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("selectExamPrompt")}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{t("selectExamPrompt")}</p>
                 </div>
-                
+
                 {evaluations.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {evaluations.map((ev) => (
                       <Link key={ev.id} href={`/notes?classeId=${classeId}&matiereId=${matiereId}&evaluationId=${ev.id}`}>
-                        <div className="p-4 border rounded-xl hover:border-green-500 hover:bg-green-50/30 dark:hover:bg-green-950/20 transition-all cursor-pointer flex flex-col justify-between h-28 shadow-sm">
+                        <div className="halo-hover p-4 rounded-[18px] border border-border bg-teal-tint cursor-pointer flex flex-col justify-between h-28 shadow-sm hover:border-[#14b8a6]/40">
                           <div>
-                            <span className="font-bold text-gray-800 dark:text-gray-100 text-base block">{ev.titre}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 block mt-1">{t("type")}: {ev.type}</span>
+                            <span className="font-bold text-foreground text-base block">{ev.titre}</span>
+                            <span className="text-xs text-muted-foreground block mt-1">{t("type")}: {ev.type}</span>
                           </div>
                           <div className="text-right">
-                            <span className="text-xs text-green-600 font-semibold uppercase">{t("select")}</span>
+                            <span className="text-xs text-[#14b8a6] font-semibold uppercase">{t("select")}</span>
                           </div>
                         </div>
                       </Link>
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900 p-6 rounded-xl text-center space-y-4">
-                    <p className="text-yellow-800 dark:text-yellow-400 font-medium">
+                  <div className="bg-[#9b6fe0]/5 border border-[#9b6fe0]/15 p-6 rounded-[18px] text-center space-y-4 halo-accent">
+                    <p className="text-[#7c3aed] font-medium">
                       {t("noExamPlanned")}
                     </p>
                     <Link href="/evaluations">
-                      <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+                      <Button className="bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] hover:from-[#0284c7] hover:to-[#0369a1] text-white gap-2 rounded-xl shadow-[0_4px_12px_hsl(198_65%_46%/0.2)] hover:-translate-y-0.5 transition-all duration-200">
                         <Plus className="h-4 w-4" />
                         {t("scheduleExamShort")}
                       </Button>
                     </Link>
                   </div>
                 )}
-                
-                <div className="flex justify-end pt-4 border-t">
+
+                <div className="flex justify-end pt-4 border-t border-border/60">
                   <Link href="/notes">
-                    <Button variant="outline">{tCommon("cancel")}</Button>
+                    <Button variant="outline" className="rounded-xl border-border hover:border-primary/30 hover:bg-[#0ea5e9]/5">{tCommon("cancel")}</Button>
                   </Link>
                 </div>
               </div>
@@ -322,33 +333,33 @@ export default async function NotesPage({
             {/* Vue d'ensemble par matière — visible quand pas de matière sélectionnée */}
             {!matiereId && (
               <>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 card-bloom p-4 sm:p-5">
                   <div className="flex items-center gap-4">
                     <div>
-                      <p className="text-xl sm:text-2xl font-bold">{matieres.length}</p>
+                      <p className="text-xl sm:text-2xl font-bold font-data text-[#0369a1]">{matieres.length}</p>
                       <p className="text-xs text-muted-foreground">{t("subjectsLabel")}</p>
                     </div>
-                    <div className="w-px h-8 bg-border" />
+                    <div className="w-px h-8 bg-border/60" />
                     <div>
-                      <p className="text-xl sm:text-2xl font-bold">{classes.length}</p>
+                      <p className="text-xl sm:text-2xl font-bold font-data text-[#7c3aed]">{classes.length}</p>
                       <p className="text-xs text-muted-foreground">{t("classesLabel")}</p>
                     </div>
-                    <div className="w-px h-8 bg-border" />
+                    <div className="w-px h-8 bg-border/60" />
                     <div>
-                      <p className="text-xl sm:text-2xl font-bold">
+                      <p className="text-xl sm:text-2xl font-bold font-data text-[#0d9488]">
                         {statsNotes.reduce((sum, s) => sum + s._count, 0)}
                       </p>
                       <p className="text-xs text-muted-foreground">{t("gradesEntered")}</p>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <Button asChild size="sm" variant="outline" className="gap-2 w-full sm:w-auto">
+                    <Button asChild size="sm" variant="outline" className="gap-2 w-full sm:w-auto rounded-xl border-border hover:border-[#9b6fe0]/30 hover:bg-[#9b6fe0]/5">
                       <Link href="/notes/bulletins">
                         <FileText className="h-4 w-4" />
                         {t("bulletinsBtn")}
                       </Link>
                     </Button>
-                    <Button asChild size="sm" className="gap-2 w-full sm:w-auto">
+                    <Button asChild size="sm" className="gap-2 w-full sm:w-auto bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] hover:from-[#0284c7] hover:to-[#0369a1] rounded-xl shadow-[0_4px_12px_hsl(198_65%_46%/0.2)] hover:-translate-y-0.5 transition-all duration-200">
                       <Link href="/evaluations">
                         <Plus className="h-4 w-4" />
                         {t("scheduleExamShort")}
@@ -361,6 +372,7 @@ export default async function NotesPage({
                 <NotesOverview
                   matieres={matieresWithStats}
                   classes={classOptions}
+                  hierarchie={hierarchie}
                   siteColors={siteColors}
                   selectedClasseId={classeId ?? ""}
                 />

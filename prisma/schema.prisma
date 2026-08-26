@@ -70,9 +70,9 @@ model Tenant {
   secondaryColor String?
 
   // Signature & cachet pour documents officiels (bulletins, attestations)
-  signatureUrl       String?
-  cachetUrl          String?
-  chefEtablissement  String?
+  signatureUrl      String?
+  cachetUrl         String?
+  chefEtablissement String?
 
   // Stripe
   stripeCustomerId     String? @unique
@@ -82,101 +82,112 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users          User[]
-  userTenants    UserTenant[]
-  userRoles      UserRole[]
-  annees         AnneesScolaires[]
-  classes        Classe[]
-  matieres       Matiere[]
-  eleves         Eleve[]
-  parents        Parent[]
-  enseignants    Enseignant[]
-  absences       Absence[]
-  notes          Note[]
-  examens        Examen[]
-  factures       Facture[]
-  evenements     Evenement[]
-  incidents      Incident[]
-  candidatures   Candidature[]
-  notifications  Notification[]
-  alumni         Alumni[]
-  inventaire     ItemInventaire[]
-  evaluations    Evaluation[]
-  disponibilites DisponibiliteEnseignant[]
-  salles         Salle[]
-  sites          Site[]
-  structures     Structure[]
-  reglesAppreciation ReglesAppreciation[]
-  dispenses          DispenseMatiere[]
-  absencesPersonnel  AbsencePersonnel[]
-  congesPersonnel    CongePersonnel[]
-  conversations      Conversation[]
-  tarifsNiveau       TarifNiveau[]
-  relances           Relance[]
-  exclusionsEleve    ExclusionEleve[]
-  progressionsEleves ProgressionEleve[]
+  users                 User[]
+  userTenants           UserTenant[]
+  userRoles             UserRole[]
+  userPermissions       UserPermission[]
+  annees                AnneesScolaires[]
+  classes               Classe[]
+  matieres              Matiere[]
+  eleves                Eleve[]
+  parents               Parent[]
+  enseignants           Enseignant[]
+  absences              Absence[]
+  notes                 Note[]
+  examens               Examen[]
+  factures              Facture[]
+  evenements            Evenement[]
+  incidents             Incident[]
+  candidatures          Candidature[]
+  inscriptionHistorique InscriptionHistorique[]
+  notifications         Notification[]
+  alumni                Alumni[]
+  inventaire            ItemInventaire[]
+  evaluations           Evaluation[]
+  disponibilites        DisponibiliteEnseignant[]
+  indisponibilites      IndisponibiliteEnseignant[]
+  salles                Salle[]
+  sites                 Site[]
+  structures            Structure[]
+  reglesAppreciation    ReglesAppreciation[]
+  dispenses             DispenseMatiere[]
+  absencesPersonnel     AbsencePersonnel[]
+  congesPersonnel       CongePersonnel[]
+  conversations         Conversation[]
+  tarifsNiveau          TarifNiveau[]
+  relances              Relance[]
+  exclusionsEleve       ExclusionEleve[]
+  progressionsEleves    ProgressionEleve[]
 
   // INFIRMERIE
   passagesInfirmerie PassageInfirmerie[]
   fichesSanitaires   FicheSanitaire[]
 
   // LEARNOS
-  learnosChapitres     Chapitre[]
-  learnosCompetences   Competence[]
-  learnosEvidences     LearningEvidence[]
-  learnosProfils       StudentLearningProfile[]
-  learnosInterventions StudentIntervention[]
-  learnosAiDecisions   AiDecisionLog[]
-  learnosEvents        LearnosEvent[]
-  learnosEvalCompetences EvaluationCompetence[]
-  learnosSeuils        SeuilsRecommandation[]
-  learnosRecommandations Recommandation[]
-  learnosPlans         PlanProgression[]
-  learnosPlanifications PlanificationChapitre[]
+  learnosChapitres                 Chapitre[]
+  learnosCompetences               Competence[]
+  learnosEvidences                 LearningEvidence[]
+  learnosProfils                   StudentLearningProfile[]
+  learnosInterventions             StudentIntervention[]
+  learnosAiDecisions               AiDecisionLog[]
+  learnosEvents                    LearnosEvent[]
+  learnosEvalCompetences           EvaluationCompetence[]
+  learnosSeuils                    SeuilsRecommandation[]
+  learnosRecommandations           Recommandation[]
+  learnosPlans                     PlanProgression[]
+  learnosPlanifications            PlanificationChapitre[]
   learnosPlanificationsCompetences PlanificationCompetence[]
-  learnosKpis          KpiSnapshot[]
-  learnosQuestions     Question[]
-  learnosAlertesParent AlerteParent[]
-  learnosEchangesParent EchangeParent[]
-  learnosPreferencesParent PreferencesParent[]
-  learnosFeuilles      FeuilleExercices[]
-  learnosPatterns      PatternPedagogique[]
-  learnosPredictions   PredictionDifficulte[]
-  learnosCalibrations  CalibrationSeuil[]
-  learnosJournal       JournalApprentissage[]
-  learnosPlansLecon    PlanLecon[]
-  learnosRubriques     RubriqueEvaluation[]
+  learnosKpis                      KpiSnapshot[]
+  learnosQuestions                 Question[]
+  learnosAlertesParent             AlerteParent[]
+  learnosEchangesParent            EchangeParent[]
+  learnosPreferencesParent         PreferencesParent[]
+  learnosFeuilles                  FeuilleExercices[]
+  learnosPatterns                  PatternPedagogique[]
+  learnosPredictions               PredictionDifficulte[]
+  learnosCalibrations              CalibrationSeuil[]
+  learnosJournal                   JournalApprentissage[]
+  learnosPlansLecon                PlanLecon[]
+  learnosRubriques                 RubriqueEvaluation[]
 
   // Modules activables
-  modulesActives    ModuleActivation[]
+  modulesActives ModuleActivation[]
 
   // Gouvernance
-  conseils          Conseil[]
-  resolutions       Résolution[]
+  conseils    Conseil[]
+  resolutions Résolution[]
 
   // Mentorat
-  mentorats         Mentorat[]
+  mentorats Mentorat[]
 
   // CAHIER DE TEXTES & REMPLACEMENTS & ENTRETIENS
-  devoirs             Devoir[]
-  remplacementsCours  RemplacementCours[]
+  devoirs              Devoir[]
+  remplacementsCours   RemplacementCours[]
   entretiensConseiller EntretienConseiller[]
+  seancesPedagogiques  SeancePedagogique[]
 
   // Self-service : demandes de rattachement parent↔élève
-  demandesLienParent  DemandeLienParent[]
+  demandesLienParent DemandeLienParent[]
 
   // BUDGET & DÉPENSES
-  budgets   Budget[]
-  depenses  Depense[]
+  budgets  Budget[]
+  depenses Depense[]
 
   // TÂCHES du personnel
   taches Tache[]
 
   // Synchronisation locale (sauvegarde automatique sur PC du principal)
-  syncConfig          SyncConfig?
+  syncConfig SyncConfig?
 
   // REMISES DE CAISSE
-  remisesCaisse       RemiseCaisse[]
+  remisesCaisse RemiseCaisse[]
+
+  // AFFECTATIONS ENSEIGNANTS
+  affectationsEnseignants AffectationEnseignant[]
+
+  // FOURNITURES SCOLAIRES
+  demandesFournitures DemandeFourniture[]
+  listesFournitures   ListeFournitureClasse[]
 
   @@map("tenants")
 }
@@ -191,30 +202,30 @@ model Tenant {
 /// Excel, garantissant que l'établissement conserve ses données même
 /// en cas de panne ou de départ de la plateforme.
 model SyncConfig {
-  id              String   @id @default(cuid())
-  tenantId        String   @unique
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   /// Nom convivial du serveur local (ex: "PC-Directeur-Mariam")
-  serverNick      String
+  serverNick String
 
   /// Intervalle de synchronisation en minutes (30 ou 60)
-  syncInterval    Int      @default(60)
+  syncInterval Int @default(60)
 
   /// Active ou désactive la synchronisation automatique
-  syncEnabled     Boolean  @default(true)
+  syncEnabled Boolean @default(true)
 
   /// Clé API unique pour authentifier l'agent local
-  apiKey          String   @unique
+  apiKey String @unique
 
   /// Dernière synchronisation réussie
-  lastSyncAt      DateTime?
+  lastSyncAt DateTime?
 
   /// Statut de la dernière sync: "SUCCESS" | "FAILED" | "PARTIAL"
-  lastSyncStatus  String?
+  lastSyncStatus String?
 
   /// Message d'erreur éventuel de la dernière sync
-  lastSyncError   String?
+  lastSyncError String?
 
   /// Inclure les bulletins dans l'export
   includeBulletins    Boolean @default(true)
@@ -233,8 +244,8 @@ model SyncConfig {
   /// Inclure les paramètres de l'établissement
   includeParametres   Boolean @default(true)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("sync_configs")
 }
@@ -247,19 +258,19 @@ model SyncConfig {
 /// Un tenant peut avoir plusieurs instances (CA, conseil de discipline,
 /// conseil pédagogique, etc.).
 model Conseil {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  nom       String // "Conseil d'administration", "Conseil de discipline"
-  type      String // "ADMINISTRATION" | "DISCIPLINE" | "PEDAGOGIQUE" | "AUTRE"
+  nom         String // "Conseil d'administration", "Conseil de discipline"
+  type        String // "ADMINISTRATION" | "DISCIPLINE" | "PEDAGOGIQUE" | "AUTRE"
   description String?
 
   /// Fréquence des réunions : "MENSUEL" | "TRIMESTRIEL" | "ANNUEL" | "PONCTUEL"
-  frequence  String @default("TRIMESTRIEL")
+  frequence String @default("TRIMESTRIEL")
 
-  membres   MembreConseil[]
-  reunions  Réunion[]
+  membres     MembreConseil[]
+  reunions    Réunion[]
   resolutions Résolution[]
 
   createdAt DateTime @default(now())
@@ -271,22 +282,22 @@ model Conseil {
 
 /// Membre d'un conseil de gouvernance.
 model MembreConseil {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   conseilId String
   conseil   Conseil @relation(fields: [conseilId], references: [id], onDelete: Cascade)
 
-  userId    String?
-  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   /// Rôle dans le conseil : "PRESIDENT" | "SECRETAIRE" | "MEMBRE" | "OBSERVATEUR"
-  role      String  @default("MEMBRE")
+  role String @default("MEMBRE")
 
   /// Nom affiché si pas d'utilisateur lié (membre externe)
   nomExterne String?
 
   /// Date de début et fin de mandat
-  debutMandat  DateTime?
-  finMandat    DateTime?
+  debutMandat DateTime?
+  finMandat   DateTime?
 
   createdAt DateTime @default(now())
 
@@ -297,19 +308,19 @@ model MembreConseil {
 
 /// Réunion d'un conseil.
 model Réunion {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   conseilId String
   conseil   Conseil @relation(fields: [conseilId], references: [id], onDelete: Cascade)
 
-  titre     String
-  date      DateTime
-  lieu      String?
+  titre String
+  date  DateTime
+  lieu  String?
 
   /// Ordre du jour (liste de points)
   ordreDuJour String?
 
   /// "PLANIFIEE" | "EN_COURS" | "TERMINEE" | "ANNULEE"
-  statut    String @default("PLANIFIEE")
+  statut String @default("PLANIFIEE")
 
   /// Compte-rendu (texte libre)
   compteRendu String?
@@ -327,20 +338,20 @@ model Réunion {
 
 /// Résolution adoptée par un conseil.
 model Résolution {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   tenantId  String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conseilId String?
   conseil   Conseil? @relation(fields: [conseilId], references: [id], onDelete: SetNull)
 
-  titre     String
+  titre       String
   description String?
 
   /// "ADOPTÉE" | "REJETÉE" | "EN_ATTENTE" | "RETIRÉE"
-  statut    String @default("EN_ATTENTE")
+  statut String @default("EN_ATTENTE")
 
   /// Date de vote
-  dateVote  DateTime?
+  dateVote DateTime?
 
   /// Résultats du vote (JSON : { pour, contre, abstentions })
   resultats Json?
@@ -349,7 +360,7 @@ model Résolution {
   dateEffet DateTime?
 
   /// Date de fin d'application (null = indéterminée)
-  dateFin   DateTime?
+  dateFin DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -366,33 +377,33 @@ model Résolution {
 /// Relation de mentorat entre un mentor (enseignant ou membre externe)
 /// et un mentoré (élève, enseignant junior, ou tout autre utilisateur).
 model Mentorat {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   /// Mentor — utilisateur qui accompagne
-  mentorId  String
-  mentor    User   @relation("MentoratMentor", fields: [mentorId], references: [id], onDelete: Cascade)
+  mentorId String
+  mentor   User   @relation("MentoratMentor", fields: [mentorId], references: [id], onDelete: Cascade)
 
   /// Mentoré — utilisateur accompagné
   mentoreId String
   mentore   User   @relation("MentoratMentore", fields: [mentoreId], references: [id], onDelete: Cascade)
 
   /// Type de mentorat : "ACADEMIQUE" | "PROFESSIONNEL" | "PERSONNEL"
-  type      String @default("ACADEMIQUE")
+  type String @default("ACADEMIQUE")
 
   /// "ACTIF" | "SUSPENDU" | "TERMINE" | "ANNULE"
-  statut    String @default("ACTIF")
+  statut String @default("ACTIF")
 
   /// Période de mentorat
-  dateDebut DateTime @default(now())
+  dateDebut DateTime  @default(now())
   dateFin   DateTime?
 
   /// Fréquence des rencontres : "HEBDOMADAIRE" | "BIHEBDOMADAIRE" | "MENSUEL" | "PONCTUEL"
   frequence String @default("MENSUEL")
 
   /// Notes générales sur la relation de mentorat
-  notes     String?
+  notes String?
 
   objectifs ObjectifMentorat[]
   seances   SeanceMentorat[]
@@ -409,7 +420,7 @@ model Mentorat {
 
 /// Objectif défini dans le cadre d'un mentorat.
 model ObjectifMentorat {
-  id         String @id @default(cuid())
+  id         String   @id @default(cuid())
   mentoratId String
   mentorat   Mentorat @relation(fields: [mentoratId], references: [id], onDelete: Cascade)
 
@@ -417,13 +428,13 @@ model ObjectifMentorat {
   description String?
 
   /// "EN_COURS" | "ATTEINT" | "NON_ATTEINT" | "ABANDONNE"
-  statut      String @default("EN_COURS")
+  statut String @default("EN_COURS")
 
   /// Priorité : 1 (haute) à 5 (basse)
-  priorite    Int @default(3)
+  priorite Int @default(3)
 
   /// Date cible d'atteinte
-  dateCible   DateTime?
+  dateCible DateTime?
 
   /// Progression : 0 à 100
   progression Int @default(0)
@@ -437,21 +448,21 @@ model ObjectifMentorat {
 
 /// Séance de mentorat — rencontre entre mentor et mentoré.
 model SeanceMentorat {
-  id         String @id @default(cuid())
+  id         String   @id @default(cuid())
   mentoratId String
   mentorat   Mentorat @relation(fields: [mentoratId], references: [id], onDelete: Cascade)
 
-  date       DateTime
-  duree      Int? // en minutes
+  date  DateTime
+  duree Int? // en minutes
 
   /// "PLANIFIEE" | "EFFECTUEE" | "ANNULEE" | "REPORTÉE"
-  statut     String @default("PLANIFIEE")
+  statut String @default("PLANIFIEE")
 
   /// Compte-rendu de la séance
   compteRendu String?
 
   /// Lieu ou lien visio
-  lieu        String?
+  lieu String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -466,8 +477,8 @@ model SeanceMentorat {
 /// activer ou désactiver selon son plan ou ses besoins.
 /// Exemples : LEARNOS, MESSAGERIE, RH, INVENTAIRE, ALUMNI, ORIENTATION…
 model Module {
-  id          String @id @default(cuid())
-  code        String @unique // "LEARNOS", "MESSAGERIE", "RH"…
+  id          String  @id @default(cuid())
+  code        String  @unique // "LEARNOS", "MESSAGERIE", "RH"…
   nom         String // nom affiché (clé de traduction : module.{code}.nom)
   description String?
 
@@ -498,23 +509,23 @@ model Module {
 /// Permet de suivre quand un module a été activé, par qui, et
 /// s'il est actuellement actif ou désactivé.
 model ModuleActivation {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  moduleId  String
-  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   /// ACTIF | DESACTIVE | ESSAI
-  statut    String @default("ACTIF")
+  statut String @default("ACTIF")
 
   /// Date d'activation
-  activeAt  DateTime @default(now())
+  activeAt DateTime @default(now())
 
   /// Date de désactivation (null si actif)
   desactiveAt DateTime?
 
   /// Utilisateur qui a activé/désactivé
-  activeParId   String?
+  activeParId    String?
   desactiveParId String?
 
   /// Date de fin d'essai (si statut = ESSAI)
@@ -538,30 +549,31 @@ model Site {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  nom      String // "Campus Central", "Annexe PK12"
-  code     String? // "SITE-01"
-  adresse  String?
-  ville    String?
+  nom       String // "Campus Central", "Annexe PK12"
+  code      String? // "SITE-01"
+  adresse   String?
+  ville     String?
   telephone String?
-  email    String?
-  actif    Boolean @default(true)
+  email     String?
+  actif     Boolean @default(true)
 
-  classes      Classe[]
-  salles       Salle[]
-  factures     Facture[]
-  users        User[]
-  eleves       Eleve[]
-  examens      Examen[]
-  evenements   Evenement[]
-  notifications Notification[]
-  candidatures Candidature[]
-  alumni       Alumni[]
-  inventaire   ItemInventaire[]
-  cours        Cours[]
-  matieres     Matiere[]
-  structures   Structure[]
-  disponibilitesEnseignant DisponibiliteEnseignant[]
-  conversations Conversation[] @relation("ConversationSite")
+  classes                    Classe[]
+  salles                     Salle[]
+  factures                   Facture[]
+  users                      User[]
+  eleves                     Eleve[]
+  examens                    Examen[]
+  evenements                 Evenement[]
+  notifications              Notification[]
+  candidatures               Candidature[]
+  alumni                     Alumni[]
+  inventaire                 ItemInventaire[]
+  cours                      Cours[]
+  matieres                   Matiere[]
+  structures                 Structure[]
+  disponibilitesEnseignant   DisponibiliteEnseignant[]
+  indisponibilitesEnseignant IndisponibiliteEnseignant[]
+  conversations              Conversation[]              @relation("ConversationSite")
 
   // Enseignants multi-sites
   enseignantSites EnseignantSite[]
@@ -573,33 +585,33 @@ model Site {
   tarifsNiveau TarifNiveau[]
 
   // LEARNOS
-  learnosChapitres     Chapitre[]
-  learnosCompetences   Competence[]
-  learnosEvidences     LearningEvidence[]
-  learnosProfils       StudentLearningProfile[]
-  learnosInterventions StudentIntervention[]
-  learnosAiDecisions   AiDecisionLog[]
-  learnosEvents        LearnosEvent[]
-  learnosEvalCompetences EvaluationCompetence[]
-  learnosSeuils        SeuilsRecommandation[]
-  learnosRecommandations Recommandation[]
-  learnosPlans         PlanProgression[]
-  learnosPlanifications PlanificationChapitre[]
+  learnosChapitres                 Chapitre[]
+  learnosCompetences               Competence[]
+  learnosEvidences                 LearningEvidence[]
+  learnosProfils                   StudentLearningProfile[]
+  learnosInterventions             StudentIntervention[]
+  learnosAiDecisions               AiDecisionLog[]
+  learnosEvents                    LearnosEvent[]
+  learnosEvalCompetences           EvaluationCompetence[]
+  learnosSeuils                    SeuilsRecommandation[]
+  learnosRecommandations           Recommandation[]
+  learnosPlans                     PlanProgression[]
+  learnosPlanifications            PlanificationChapitre[]
   learnosPlanificationsCompetences PlanificationCompetence[]
-  learnosKpis          KpiSnapshot[]
-  learnosQuestions     Question[]
-  learnosAlertesParent AlerteParent[]
-  learnosEchangesParent EchangeParent[]
+  learnosKpis                      KpiSnapshot[]
+  learnosQuestions                 Question[]
+  learnosAlertesParent             AlerteParent[]
+  learnosEchangesParent            EchangeParent[]
   // Pas de `PreferencesParent` ici : les préférences appartiennent à la
   // famille, pas au site. Un parent dont l'enfant change d'établissement
   // garde son consentement et sa langue.
-  learnosFeuilles      FeuilleExercices[]
-  learnosPatterns      PatternPedagogique[]
-  learnosPredictions   PredictionDifficulte[]
-  learnosCalibrations  CalibrationSeuil[]
-  learnosJournal       JournalApprentissage[]
-  learnosPlansLecon    PlanLecon[]
-  learnosRubriques     RubriqueEvaluation[]
+  learnosFeuilles                  FeuilleExercices[]
+  learnosPatterns                  PatternPedagogique[]
+  learnosPredictions               PredictionDifficulte[]
+  learnosCalibrations              CalibrationSeuil[]
+  learnosJournal                   JournalApprentissage[]
+  learnosPlansLecon                PlanLecon[]
+  learnosRubriques                 RubriqueEvaluation[]
 
   // Infirmerie & santé
   passagesInfirmerie PassageInfirmerie[]
@@ -609,16 +621,21 @@ model Site {
   devoirs              Devoir[]
   remplacementsCours   RemplacementCours[]
   entretiensConseiller EntretienConseiller[]
+  seancesPedagogiques  SeancePedagogique[]
 
   // BUDGET & DÉPENSES
-  budgets   Budget[]
-  depenses  Depense[]
+  budgets  Budget[]
+  depenses Depense[]
 
   // TÂCHES du personnel
   taches Tache[]
 
   // REMISES DE CAISSE
   remisesCaisse RemiseCaisse[]
+
+  // FOURNITURES SCOLAIRES
+  demandesFournitures DemandeFourniture[]
+  listesFournitures   ListeFournitureClasse[]
 
   // Soft-delete / purge planifiée (Option B — industry standard)
   deletedAt        DateTime?
@@ -639,16 +656,16 @@ model Site {
 // ============================================================
 
 model SiteDeletionLog {
-  id             String   @id @default(cuid())
-  tenantId       String
-  siteId         String
-  siteNom        String
-  action         String   // "SOFT_DELETE" | "RESTORE" | "PURGE"
-  reason         String?
-  performedBy    String
+  id              String   @id @default(cuid())
+  tenantId        String
+  siteId          String
+  siteNom         String
+  action          String // "SOFT_DELETE" | "RESTORE" | "PURGE"
+  reason          String?
+  performedBy     String
   performedByName String?
-  performedAt    DateTime @default(now())
-  metadata       Json?
+  performedAt     DateTime @default(now())
+  metadata        Json?
 
   @@index([tenantId])
   @@index([siteId])
@@ -657,15 +674,15 @@ model SiteDeletionLog {
 
 // Table de liaison User ↔ Site (accès multi-sites pour tout utilisateur)
 model UserSite {
-  id        String @id @default(cuid())
-  userId    String
-  siteId    String
-  role      Role?  // null = hérite du rôle global (User.role)
+  id     String @id @default(cuid())
+  userId String
+  siteId String
+  role   Role? // null = hérite du rôle global (User.role)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   updatedAt DateTime?
 
   @@unique([userId, siteId])
@@ -706,20 +723,104 @@ model AnneesScolaires {
   isCurrent Boolean  @default(false)
 
   // Clôture / archivage d'année
-  statut       String   @default("OUVERTE") // OUVERTE | CLOTUREE | ARCHIVEE
-  cloturedAt   DateTime?
-  archiveeAt   DateTime?
-  cloturePar   String?  // ID utilisateur qui a clôturé
-  archiveePar  String?  // ID utilisateur qui a archivé
+  statut      String    @default("OUVERTE") // OUVERTE | CLOTUREE | ARCHIVEE
+  cloturedAt  DateTime?
+  archiveeAt  DateTime?
+  cloturePar  String? // ID utilisateur qui a clôturé
+  archiveePar String? // ID utilisateur qui a archivé
 
-  periodes       Periode[]
-  evenements     EvenementCalendaire[]
-  learnosPlanifications PlanificationChapitre[]
+  periodes                  Periode[]
+  evenements                EvenementCalendaire[]
+  learnosPlanifications     PlanificationChapitre[]
   planificationsCompetences PlanificationCompetence[]
+  factures                  Facture[]
 
   @@index([tenantId])
   @@index([tenantId, statut])
   @@map("annees_scolaires")
+}
+
+// ============================================================
+// CAMPAGNE DE RÉINSCRIPTION
+// ============================================================
+
+/// Campagne annuelle orchestrant la transition d'une année à la suivante.
+///
+/// Le wizard 6 étapes (préparation → clôture → promotion → réinscriptions →
+/// frais → activation) suit et guide l'administrateur tout au long du processus.
+model CampagneReinscription {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  libelle     String // "Réinscription 2026-2027"
+  anneeSource String // "2025-2026"
+  anneeCible  String // "2026-2027"
+
+  /// BROUILLON | EN_COURS | TERMINEE | ANNULEE
+  statut      String   @default("BROUILLON")
+
+  /// Étape actuelle du wizard (1-6)
+  etapeActuelle Int    @default(1)
+
+  /// Pré-calculs stockés pour le dashboard
+  nbElevesTotal     Int @default(0)
+  nbReinscrits      Int @default(0)
+  nbNonReinscrits   Int @default(0)
+  nbDiplomes        Int @default(0)
+  revenusPrevus     Float @default(0)
+
+  dateDebut   DateTime @default(now())
+  dateFin     DateTime?
+  creeParId   String?
+
+  invitations InvitationReinscription[]
+
+  @@index([tenantId])
+  @@index([tenantId, statut])
+  @@map("campagne_reinscription")
+}
+
+/// Invitation de réinscription envoyée à un parent pour un élève.
+///
+/// Statuts : INVITE → CONFIRME | REFUSE | SANS_REPONSE
+/// Le parent confirme via le portail /parent/reinscription.
+model InvitationReinscription {
+  id              String   @id @default(cuid())
+  tenantId        String
+
+  campagneId      String
+  campagne        CampagneReinscription @relation(fields: [campagneId], references: [id], onDelete: Cascade)
+
+  eleveId         String
+  eleve           Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  /// INVITE | CONFIRME | REFUSE | SANS_REPONSE
+  statut          String   @default("INVITE")
+
+  dateInvitation  DateTime @default(now())
+  dateReponse     DateTime?
+
+  /// WHATSAPP | SMS | EMAIL | PORTAIL
+  canal           String   @default("WHATSAPP")
+  parentPhone     String?
+  parentEmail     String?
+
+  /// Nombre de relances envoyées
+  nbRelances      Int      @default(0)
+  derniereRelance DateTime?
+
+  /// Décision de promotion associée (promouvoir | redoubler | diplome)
+  decisionPromotion String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([campagneId])
+  @@index([eleveId])
+  @@index([tenantId, statut])
+  @@map("invitation_reinscription")
 }
 
 /// Événement du calendrier scolaire : vacances, examen, jour férié.
@@ -728,13 +829,13 @@ model AnneesScolaires {
 /// La planification annuelle s'en sert pour ne pas répartir de chapitres
 /// sur des semaines sans cours, et pour réserver les semaines d'examen.
 model EvenementCalendaire {
-  id      String @id @default(cuid())
+  id      String          @id @default(cuid())
   anneeId String
   annee   AnneesScolaires @relation(fields: [anneeId], references: [id], onDelete: Cascade)
 
   /// VACANCE_SCOLAIRE | EXAMEN | JOUR_FERIE | AUTRE
-  type     String
-  libelle  String // "Vacances de la Toussaint", "Examen blanc du 1er trimestre"
+  type      String
+  libelle   String // "Vacances de la Toussaint", "Examen blanc du 1er trimestre"
   dateDebut DateTime
   dateFin   DateTime
 
@@ -757,7 +858,7 @@ model EvenementCalendaire {
 /// les ministères via une interface dédiée. Les tenants ne peuvent que
 /// consulter et importer, pas modifier.
 model CalendrierOfficiel {
-  id      String @id @default(cuid())
+  id String @id @default(cuid())
 
   /// Code ISO pays (ex: "DJ", "SN"). Détermine quels tenants peuvent voir
   /// et importer cet événement.
@@ -769,8 +870,8 @@ model CalendrierOfficiel {
   anneeLibelle String
 
   /// VACANCE_SCOLAIRE | EXAMEN | JOUR_FERIE | AUTRE
-  type     String
-  libelle  String
+  type      String
+  libelle   String
   dateDebut DateTime
   dateFin   DateTime
 
@@ -798,13 +899,15 @@ model Periode {
   isCurrent Boolean  @default(false)
 
   // Clôture / prolongation de période
-  statut           String  @default("OUVERTE") // OUVERTE | CLOTUREE
+  statut           String    @default("OUVERTE") // OUVERTE | CLOTUREE
   cloturedAt       DateTime?
   dateLimiteSaisie DateTime? // prolongation exceptionnelle
 
-  notes       Note[]
-  bulletins   Bulletin[]
-  evaluations Evaluation[]
+  notes            Note[]
+  bulletins        Bulletin[]
+  evaluations      Evaluation[]
+  emploisTemps     EmploiTemps[]
+  indisponibilites IndisponibiliteEnseignant[]
 
   @@index([anneeId])
   @@map("periodes")
@@ -824,11 +927,11 @@ enum Role {
   COUNSELOR // Conseiller d'orientation / CPE
   NURSE // Infirmier(e)
   ACCOUNTANT // Gestionnaire financier (comptable)
-  CAISSIER   // Caissier — saisie des recettes, remise de caisse
+  CAISSIER // Caissier — saisie des recettes, remise de caisse
   SUPERVISOR // Surveillant / Vie scolaire
   SUBJECT_LEAD // Coordinateur de matière
   SITE_MANAGER // Responsable d'exploitation site (salles, équipement, personnel de service)
-  INSPECTOR    // Inspecteur MENFOP — lecture seule, pas de données nominatives inutiles
+  INSPECTOR // Inspecteur MENFOP — lecture seule, pas de données nominatives inutiles
   PARENT // Parent / Tuteur légal
   STUDENT // Élève
 }
@@ -861,10 +964,10 @@ model User {
   mustChangePassword Boolean @default(false)
 
   // 2FA / TOTP
-  twoFactorEnabled Boolean   @default(false)
-  totpSecret       String?   // secret TOTP chiffré (base32)
-  totpSecretIv     String?   // IV de chiffrement du secret
-  backupCodes      String[]  @default([]) // codes de secours hashés
+  twoFactorEnabled    Boolean   @default(false)
+  totpSecret          String? // secret TOTP chiffré (base32)
+  totpSecretIv        String? // IV de chiffrement du secret
+  backupCodes         String[]  @default([]) // codes de secours hashés
   twoFactorVerifiedAt DateTime? // dernière vérification 2FA réussie
 
   // Préférences
@@ -882,15 +985,17 @@ model User {
   // Relations métier
   enseignants Enseignant[]
   parents     Parent[]
-  eleve      Eleve?
+  eleve       Eleve?
 
   // Messagerie
-  messagesSent        Message[]                 @relation("MessageSender")
-  conversationsJoined ConversationParticipant[]
-  conversationsCreated Conversation[]           @relation("ConversationCreator")
+  messagesSent         Message[]                 @relation("MessageSender")
+  conversationsJoined  ConversationParticipant[]
+  conversationsCreated Conversation[]            @relation("ConversationCreator")
 
   // Vie scolaire
   incidentsRapportes Incident[] @relation("IncidentReporter")
+  incidentsResolus   Incident[] @relation("IncidentResolver")
+  incidentsClasses   Incident[] @relation("IncidentCloser")
 
   // Notifications envoyées
   notificationsEnvoyees Notification[] @relation("NotificationSender")
@@ -911,17 +1016,23 @@ model User {
   // Multi-rôle: tous les rôles possédés par utilisateur × tenant
   userRoles UserRole[]
 
+  // Permissions personnalisées (overrides granulaires)
+  userPermissions UserPermission[]
+
   // Multi-site: liste des sites accessibles
   userSites UserSite[]
 
   // Factures & paiements créés par cet utilisateur
-  facturesCrees    Facture[]  @relation("FactureCreePar")
+  facturesCrees        Facture[]  @relation("FactureCreePar")
   paiementsEnregistres Paiement[] @relation("PaiementEnregistrePar")
 
   // Relances envoyées et exclusions décidées/levées
-  relancesEnvoyees   Relance[]       @relation("RelanceEnvoyeePar")
+  relancesEnvoyees   Relance[]        @relation("RelanceEnvoyeePar")
   exclusionsDecidees ExclusionEleve[] @relation("ExclusionDecideePar")
   exclusionsLevees   ExclusionEleve[] @relation("ExclusionLeveePar")
+
+  // Réintégrations d'élèves exclus validées par cet utilisateur (vie scolaire)
+  sanctionsReintegrees Sanction[] @relation("SanctionReintegreePar")
 
   // Absences & congés du personnel saisis par cet utilisateur
   absencesPersonnelSaisies AbsencePersonnel[] @relation("AbsencePersonnelSaisiePar")
@@ -930,7 +1041,7 @@ model User {
 
   // LEARNOS : interventions dont cet utilisateur est responsable
   learnosInterventionsResponsable StudentIntervention[] @relation("InterventionResponsible")
-  learnosPlansResponsable        PlanProgression[]     @relation("PlanResponsable")
+  learnosPlansResponsable         PlanProgression[]     @relation("PlanResponsable")
 
   // Infirmerie : passages saisis par cet utilisateur (infirmier)
   passagesInfirmerieSaisis PassageInfirmerie[] @relation("PassageInfirmier")
@@ -960,6 +1071,14 @@ model User {
   remisesCaisseCaissier RemiseCaisse[] @relation("RemiseCaisseCaissier")
   remisesCaisseReceveur RemiseCaisse[] @relation("RemiseCaisseReceveur")
 
+  // Commentaires sur les séances pédagogiques (cahier journal)
+  seanceCommentaires SeanceCommentaire[] @relation("SeanceCommentaireAuteur")
+
+  // Dossiers d'inscription : création, validation, historique (secrétariat)
+  candidaturesCrees     Candidature[]           @relation("CandidatureCreePar")
+  candidaturesValidees  Candidature[]           @relation("CandidatureValidePar")
+  inscriptionHistorique InscriptionHistorique[] @relation("InscriptionHistoriqueAuteur")
+
   @@index([tenantId])
   @@index([siteId])
   @@map("users")
@@ -970,15 +1089,15 @@ model User {
 // ============================================================
 
 model UserTenant {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   userId    String
   tenantId  String
-  role      Role     // Rôle spécifique à ce tenant
-  isActive  Boolean  @default(true)
-  isDefault Boolean  @default(false) // Tenant par défaut à la connexion
+  role      Role // Rôle spécifique à ce tenant
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false) // Tenant par défaut à la connexion
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -995,14 +1114,14 @@ model UserTenant {
 // ============================================================
 
 model UserRole {
-  id        String   @id @default(cuid())
-  userId    String
-  tenantId  String
-  role      Role     // Un rôle possédé (parmi plusieurs possibles)
-  isActive  Boolean  @default(true) // Désactivé sans suppression (soft delete)
+  id       String  @id @default(cuid())
+  userId   String
+  tenantId String
+  role     Role // Un rôle possédé (parmi plusieurs possibles)
+  isActive Boolean @default(true) // Désactivé sans suppression (soft delete)
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1010,6 +1129,29 @@ model UserRole {
   @@unique([userId, tenantId, role]) // Un rôle par user par tenant, mais plusieurs lignes
   @@index([tenantId])
   @@map("user_roles")
+}
+
+// ============================================================
+// USER PERMISSION — Override granulaire par utilisateur
+// ============================================================
+
+model UserPermission {
+  id         String @id @default(cuid())
+  userId     String
+  tenantId   String
+  permission String // Format "module:action" (ex: "eleves:write")
+  mode       String @default("grant") // "grant" ou "deny"
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tenantId, permission])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("user_permissions")
 }
 
 model Account {
@@ -1071,18 +1213,18 @@ model Structure {
   siteId String? // null = structure partagée entre tous les sites
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  type     StructureType // MATERNELLE, PRIMAIRE, COLLEGE, LYCEE
-  nom      String   // "Maternelle", "Primaire", etc.
-  actif    Boolean  @default(true)
+  type  StructureType // MATERNELLE, PRIMAIRE, COLLEGE, LYCEE
+  nom   String // "Maternelle", "Primaire", etc.
+  actif Boolean       @default(true)
 
-  classes  Classe[]
+  classes Classe[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenantId, siteId, type])
   @@index([tenantId])
   @@index([siteId])
-  @@unique([tenantId, siteId, type])
   @@map("structures")
 }
 
@@ -1110,21 +1252,24 @@ model Classe {
   /// Une classe archivée disparaît des listes actives mais reste restaurable
   /// avec toutes ses données (notes, évaluations, emplois du temps).
   /// Pratique Google Classroom / PowerSchool : archive au lieu de suppression.
-  deletedAt DateTime?
-  deletedBy String?
+  deletedAt     DateTime?
+  deletedBy     String?
   deletedReason String?
 
-  eleves      Eleve[]
-  emploiTemps EmploiTemps[]
-  learnosPlanifications PlanificationChapitre[]
+  eleves                    Eleve[]
+  emploiTemps               EmploiTemps[]
+  learnosPlanifications     PlanificationChapitre[]
   planificationsCompetences PlanificationCompetence[]
-  notes       Note[]
-  evaluations Evaluation[]
-  conversations Conversation[] @relation("ConversationClasse")
-  devoirs      Devoir[]
-  remplacements RemplacementCours[]
-  historique  HistoriqueClasse[]
-  taches       Tache[]
+  notes                     Note[]
+  evaluations               Evaluation[]
+  conversations             Conversation[]            @relation("ConversationClasse")
+  devoirs                   Devoir[]
+  remplacements             RemplacementCours[]
+  historique                HistoriqueClasse[]
+  taches                    Tache[]
+  seancesPedagogiques       SeancePedagogique[]
+  affectations              AffectationEnseignant[]
+  listeFourniture           ListeFournitureClasse?
 
   @@index([tenantId])
   @@index([siteId])
@@ -1137,16 +1282,16 @@ model Classe {
 /// Inspiré de Pronote/EDT : conserve la trace des changements de classe
 /// en cours d'année pour préserver le contexte des notes et évaluations.
 model HistoriqueClasse {
-  id        String   @id @default(cuid())
-  tenantId  String
-  eleveId   String
-  eleve     Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
-  classeId  String?
-  classe    Classe?  @relation(fields: [classeId], references: [id], onDelete: SetNull)
+  id       String  @id @default(cuid())
+  tenantId String
+  eleveId  String
+  eleve    Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  classeId String?
+  classe   Classe? @relation(fields: [classeId], references: [id], onDelete: SetNull)
 
-  dateEntree DateTime @default(now())
+  dateEntree DateTime  @default(now())
   dateSortie DateTime?
-  motif      String?  // "Inscription", "Transfert", "Promotion", "Redoublement", "Depart"
+  motif      String? // "Inscription", "Transfert", "Promotion", "Redoublement", "Depart"
 
   createdAt DateTime @default(now())
 
@@ -1176,14 +1321,18 @@ model Matiere {
   evaluations      Evaluation[]
   dispenses        DispenseMatiere[]
 
-  learnosChapitres Chapitre[]
-  learnosEvidences LearningEvidence[]
-  learnosSeuils    SeuilsRecommandation[]
-  learnosPlans     PlanProgression[]
-  learnosFeuilles  FeuilleExercices[]
-  devoirs          Devoir[]
-  remplacements    RemplacementCours[]
-  taches           Tache[]
+  learnosChapitres    Chapitre[]
+  learnosEvidences    LearningEvidence[]
+  learnosSeuils       SeuilsRecommandation[]
+  learnosPlans        PlanProgression[]
+  learnosFeuilles     FeuilleExercices[]
+  devoirs             Devoir[]
+  remplacements       RemplacementCours[]
+  taches              Tache[]
+  seancesPedagogiques SeancePedagogique[]
+  affectations        AffectationEnseignant[]
+  demandesFournitures DemandeFourniture[]
+  itemsFournitures    ListeFournitureItem[]
 
   @@index([tenantId])
   @@index([siteId])
@@ -1201,6 +1350,8 @@ enum Sexe {
 
 enum StatutEleve {
   ACTIF
+  REINSCRIT // réinscrit pour l'année suivante
+  NON_REINSCRIT // a quitté (refus ou sans réponse après relances)
   TRANSFERE
   DIPLOME
   EXCLU
@@ -1252,7 +1403,7 @@ model Eleve {
   /// trace précisément quand un élève est arrivé et parti.
   dateInscription DateTime? // Date réelle d'inscription (vs anneeInscription = année scolaire)
   dateSortie      DateTime? // Date de départ/sortie de l'établissement
-  motifSortie     String?   // "Transfert", "Déménagement", "Exclusion", "Fin d'études", "Abandon"
+  motifSortie     String? // "Transfert", "Déménagement", "Exclusion", "Fin d'études", "Abandon"
 
   /// Clé d'identité normalisée « nom|prenom|AAAA-MM-JJ » (voir lib/eleve-identity).
   /// Recalculée à chaque écriture, remise à NULL lors de l'archivage pour
@@ -1264,26 +1415,26 @@ model Eleve {
   /// Lot d'import ayant créé cette fiche — permet d'annuler un import entier.
   importBatchId String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime? // Soft delete — null = actif, date = archivé/supprimé
 
-  parents   EleveParent[]
-  absences  Absence[]
-  notes     Note[]
-  bulletins Bulletin[]
-  factures  Facture[]
-  documents Document[]
-  incidents Incident[]
-  parcours  ParcoursScolaire[]
-  dispenses DispenseMatiere[]
-  exclusions ExclusionEleve[]
-  progressions ProgressionEleve[]
+  parents           EleveParent[]
+  absences          Absence[]
+  notes             Note[]
+  bulletins         Bulletin[]
+  factures          Facture[]
+  documents         Document[]
+  incidents         Incident[]
+  parcours          ParcoursScolaire[]
+  dispenses         DispenseMatiere[]
+  exclusions        ExclusionEleve[]
+  progressions      ProgressionEleve[]
   historiqueClasses HistoriqueClasse[]
 
-  learnosEvidences     LearningEvidence[]
-  learnosProfils       StudentLearningProfile[]
-  learnosInterventions StudentIntervention[]
+  learnosEvidences       LearningEvidence[]
+  learnosProfils         StudentLearningProfile[]
+  learnosInterventions   StudentIntervention[]
   learnosRecommandations Recommandation[]
   learnosPlans           PlanProgression[]
   learnosFeuilles        FeuilleExercices[]
@@ -1291,12 +1442,15 @@ model Eleve {
   learnosEchangesParent  EchangeParent[]
   learnosPredictions     PredictionDifficulte[]
 
-  passagesInfirmerie PassageInfirmerie[]
-  ficheSanitaire     FicheSanitaire?
+  passagesInfirmerie   PassageInfirmerie[]
+  ficheSanitaire       FicheSanitaire?
   entretiensConseiller EntretienConseiller[]
 
   // Self-service : demandes de rattachement déposées par des parents
   demandesLien DemandeLienParent[]
+
+  // Campagne de réinscription
+  invitationsReinscription InvitationReinscription[]
 
   @@unique([tenantId, matricule])
   /// Rend le doublon impossible, et non plus seulement détectable. Les fiches
@@ -1344,9 +1498,9 @@ model Parent {
 
   enfants EleveParent[]
 
-  learnosPreferences    PreferencesParent?
-  learnosAlertes        AlerteParent[]
-  learnosEchanges       EchangeParent[]
+  learnosPreferences PreferencesParent?
+  learnosAlertes     AlerteParent[]
+  learnosEchanges    EchangeParent[]
 
   // Self-service : demandes de rattachement d'enfant déposées par ce parent
   demandesLien DemandeLienParent[]
@@ -1387,20 +1541,63 @@ model Enseignant {
   typeContrat String? // CDI, CDD, Vacation
   dateEntree  DateTime?
 
-  classesPrincipales Classe[]                  @relation("ProfPrincipal")
-  emploiTemps        EmploiTemps[]
-  disponibilites     DisponibiliteEnseignant[]
-  ficheRH            FicheRH?
-  sites              EnseignantSite[]
-  absencesPersonnel  AbsencePersonnel[]
-  conges             CongePersonnel[]
-  devoirs            Devoir[]
-  remplacementsAbsent    RemplacementCours[] @relation("RemplacementAbsent")
-  remplacementsRemplacant RemplacementCours[] @relation("RemplacementRemplacant")
+  classesPrincipales      Classe[]                    @relation("ProfPrincipal")
+  emploiTemps             EmploiTemps[]
+  disponibilites          DisponibiliteEnseignant[]
+  indisponibilites        IndisponibiliteEnseignant[]
+  ficheRH                 FicheRH?
+  sites                   EnseignantSite[]
+  absencesPersonnel       AbsencePersonnel[]
+  conges                  CongePersonnel[]
+  devoirs                 Devoir[]
+  remplacementsAbsent     RemplacementCours[]         @relation("RemplacementAbsent")
+  remplacementsRemplacant RemplacementCours[]         @relation("RemplacementRemplacant")
+  seancesPedagogiques     SeancePedagogique[]
+  affectations            AffectationEnseignant[]
+  demandesFournitures     DemandeFourniture[]
 
   @@index([tenantId])
   @@index([userId])
   @@map("enseignants")
+}
+
+// ============================================================
+// AFFECTATIONS ENSEIGNANT → CLASSE → MATIÈRE
+// ============================================================
+
+/// Affectation pédagogique d'un enseignant à une classe pour une matière.
+/// Source de vérité pour le périmètre d'un enseignant (quelles classes et
+/// matières il peut voir/modifier). Indépendante de l'emploi du temps :
+/// un enseignant peut être affecté sans avoir de créneau horaire défini.
+///
+/// Règles métier (côté UI) :
+///  - Primaire : une seule classe, sauf pour les matières de langue
+///    (français, anglais) qui peuvent être affectées à plusieurs classes.
+///  - Collège/Lycée : plusieurs classes possibles.
+///  - Le site de l'enseignant est déduit des classes auxquelles il est
+///    affecté.
+model AffectationEnseignant {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enseignantId String
+  enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
+
+  classeId String
+  classe   Classe @relation(fields: [classeId], references: [id], onDelete: Cascade)
+
+  matiereId String
+  matiere   Matiere @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([enseignantId, classeId, matiereId])
+  @@index([tenantId])
+  @@index([enseignantId])
+  @@index([classeId])
+  @@index([matiereId])
+  @@map("affectations_enseignants")
 }
 
 // ============================================================
@@ -1428,6 +1625,13 @@ model EmploiTemps {
   enseignantId String?
   enseignant   Enseignant? @relation(fields: [enseignantId], references: [id])
 
+  /// Période (trimestre/semestre) ciblée par ce créneau. null = emploi du
+  /// temps commun à toute l'année. Quand periodeId est renseigné, le créneau
+  /// ne s'affiche que pour cette période — permet des EDT différents par
+  /// trimestre (ex: prof partiel disponible au T1 mais pas au T2).
+  periodeId String?
+  periode   Periode? @relation(fields: [periodeId], references: [id], onDelete: SetNull)
+
   jour       Jour
   heureDebut String // "08:00"
   heureFin   String // "09:00"
@@ -1447,7 +1651,7 @@ model DisponibiliteEnseignant {
   id           String     @id @default(cuid())
   tenantId     String
   tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  siteId       String?    // null = disponibilité sur tous les sites
+  siteId       String? // null = disponibilité sur tous les sites
   site         Site?      @relation(fields: [siteId], references: [id], onDelete: SetNull)
   enseignantId String
   enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
@@ -1461,10 +1665,62 @@ model DisponibiliteEnseignant {
   @@map("disponibilites_enseignants")
 }
 
+/// Indisponibilité d'un enseignant — créneau où il NE PEUT PAS enseigner
+/// dans cet établissement. Contrairement à DisponibiliteEnseignant (liste
+/// blanche opt-in), ce modèle enregistre explicitement les occupations
+/// externes (cours dans un autre établissement, formation, contrainte
+/// personnelle) avec leur source pour audit.
+///
+/// Le moteur d'emploi du temps vérifie les deux :
+///   - DisponibiliteEnseignant : le prof DOIT avoir une dispo couvrant le créneau
+///     (sauf si aucune dispo n'est enregistrée → libre par défaut)
+///   - IndisponibiliteEnseignant : le prof NE DOIT PAS avoir d'indispo
+///     chevauchant le créneau
+model IndisponibiliteEnseignant {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId       String? // null = indisponibilité sur tous les sites
+  site         Site?      @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  enseignantId String
+  enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
+
+  jour       Jour
+  heureDebut String // "08:00"
+  heureFin   String // "12:00"
+
+  /// Source de l'indisponibilité pour audit :
+  ///   "IMPORT_EXTERNE"  — importé depuis l'EDT d'un autre établissement
+  ///   "SAISIE_MANUELLE" — saisi par un admin/conseiller
+  ///   "CONGE"           — congé validé (lié à CongePersonnel)
+  ///   "FORMATION"       — en formation
+  source String @default("SAISIE_MANUELLE")
+
+  /// Nom de l'établissement externe ou libellé libre de la contrainte.
+  /// Ex: "École B", "Formation Pédagogique", "Rendez-vous médical".
+  sourceLibelle String?
+
+  /// Période concernée (null = toute l'année). Permet de modéliser un prof
+  /// partiel disponible au T1 mais occupé ailleurs au T2.
+  periodeId String?
+  periode   Periode? @relation(fields: [periodeId], references: [id], onDelete: SetNull)
+
+  /// Année scolaire (libellé, ex: "2025-2026") pour filtrer par année.
+  anneeLibelle String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([enseignantId])
+  @@index([periodeId])
+  @@map("indisponibilites_enseignants")
+}
+
 model Salle {
-  id       String  @id @default(cuid())
+  id       String @id @default(cuid())
   tenantId String
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   siteId String? // null = non rattaché à un site spécifique
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
@@ -1535,25 +1791,25 @@ model Absence {
 // ============================================================
 
 model PassageInfirmerie {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  siteId    String?
-  site      Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  eleveId   String
-  eleve      Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
-  date      DateTime
-  motif     String   // maux de tête, blessure, malaise…
-  soin      String?  // description du soin dispensé
-  suite     String   // "retour_en_cours", "renvoi_domicile", "hospitalisation"
-  retourCours Boolean @default(true)
-  dureeMin  Int?
+  date        DateTime
+  motif       String // maux de tête, blessure, malaise…
+  soin        String? // description du soin dispensé
+  suite       String // "retour_en_cours", "renvoi_domicile", "hospitalisation"
+  retourCours Boolean  @default(true)
+  dureeMin    Int?
   infirmierId String?
-  infirmier  User?   @relation("PassageInfirmier", fields: [infirmierId], references: [id], onDelete: SetNull)
-  notes     String?
+  infirmier   User?    @relation("PassageInfirmier", fields: [infirmierId], references: [id], onDelete: SetNull)
+  notes       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1565,23 +1821,23 @@ model PassageInfirmerie {
 }
 
 model FicheSanitaire {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  siteId    String?
-  site      Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  eleveId   String   @unique
-  eleve      Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId String @unique
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
-  allergies     String[] // liste d'allergies connues
-  traitements   Json?    // traitements en cours (médicament, posologie, durée)
-  contreIndicationsSport Boolean @default(false)
-  contactsUrgence Json?  // [{ nom, relation, telephone }]
-  protocoleUrgence String? // protocole spécifique (asthme, diabète, épilepsie)
-  vaccinations  Json?    // [{ vaccin, date, rappel }]
-  remarques     String?
+  allergies              String[] // liste d'allergies connues
+  traitements            Json? // traitements en cours (médicament, posologie, durée)
+  contreIndicationsSport Boolean  @default(false)
+  contactsUrgence        Json? // [{ nom, relation, telephone }]
+  protocoleUrgence       String? // protocole spécifique (asthme, diabète, épilepsie)
+  vaccinations           Json? // [{ vaccin, date, rappel }]
+  remarques              String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1626,8 +1882,8 @@ model Evaluation {
   description String?
   statut      String   @default("PLANIFIE") // PLANIFIE, TERMINE
 
-  notes Note[]
-  learnosEvidences LearningEvidence[]
+  notes              Note[]
+  learnosEvidences   LearningEvidence[]
   learnosCompetences EvaluationCompetence[]
 
   createdAt DateTime @default(now())
@@ -1637,6 +1893,7 @@ model Evaluation {
   @@index([classeId])
   @@index([matiereId])
   @@index([periodeId])
+  @@index([tenantId, date, statut])
   @@map("evaluations")
 }
 
@@ -1706,19 +1963,62 @@ model Bulletin {
   appreciation   String?
   decision       String? // "Passage", "Redoublement", "Félicitations"
 
-  isPublie    Boolean   @default(false)
-  publishedAt DateTime?
-  pdfUrl      String?
+  /// BROUILLON (généré, modifiable) | VERROUILLE (clôturé, seul admin peut modifier) | PUBLIE (publié aux parents, verrouillé)
+  statut          String    @default("BROUILLON")
+  isPublie        Boolean   @default(false)
+  publishedAt     DateTime?
+  verrouilleAt    DateTime?
+  verrouilleParId String?
+  pdfUrl          String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  matieres BulletinMatiere[]
+  matieres   BulletinMatiere[]
+  historique BulletinHistorique[]
 
   @@unique([eleveId, periodeId])
   @@index([tenantId])
   @@index([periodeId])
+  @@index([tenantId, isPublie])
+  @@index([tenantId, statut])
   @@map("bulletins")
+}
+
+/// Journal d'audit des modifications de bulletin.
+/// Chaque modification (même par le directeur) est enregistrée ici,
+/// avec l'ancienne et la nouvelle valeur du champ modifié.
+model BulletinHistorique {
+  id       String @id @default(cuid())
+  tenantId String
+
+  bulletinId String
+  bulletin   Bulletin @relation(fields: [bulletinId], references: [id], onDelete: Cascade)
+
+  /// ID de l'utilisateur qui a fait la modification
+  auteurId   String?
+  /// Nom affichable de l'utilisateur (dénormalisé pour l'audit)
+  auteurNom  String?
+  /// Rôle de l'utilisateur au moment de la modification
+  auteurRole String?
+
+  /// Champ modifié : "moyenneGenerale", "appreciation", "decision", "rang", "statut", "DELETE", etc.
+  champ          String
+  /// Valeur avant modification (sérialisée en JSON)
+  ancienneValeur String?
+  /// Valeur après modification (sérialisée en JSON)
+  nouvelleValeur String?
+
+  /// Action : "UPDATE", "DELETE", "PUBLIER", "VERROUILLER", "DEVERROUILLER", "GENERER"
+  action String
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([bulletinId])
+  @@index([auteurId])
+  @@index([createdAt])
+  @@map("bulletin_historique")
 }
 
 model BulletinMatiere {
@@ -1824,6 +2124,11 @@ model Facture {
   eleveId String
   eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
+  /// Année scolaire de rattachement. Nullable pour les factures créées
+  /// avant l'ajout du champ — backfillées par migration de données.
+  anneeId String?
+  annee   AnneesScolaires? @relation(fields: [anneeId], references: [id], onDelete: SetNull)
+
   numero   String
   libelle  String // "Scolarité 2025-2026", "Cantine Octobre"
   montant  Float
@@ -1831,9 +2136,9 @@ model Facture {
   statut   StatutFacture @default(EN_ATTENTE)
   echeance DateTime?
 
-  paiements Paiement[]
-  relances  Relance[]
-  echeances EcheancePaiement[]
+  paiements  Paiement[]
+  relances   Relance[]
+  echeances  EcheancePaiement[]
   echeancier Echeancier?
 
   createdById String? // User who created the invoice
@@ -1846,6 +2151,8 @@ model Facture {
   @@index([eleveId])
   @@index([tenantId, statut])
   @@index([siteId])
+  @@index([anneeId])
+  @@index([tenantId, anneeId])
   @@map("factures")
 }
 
@@ -1857,8 +2164,8 @@ model Facture {
 /// Permet de découper une facture en plusieurs échéances avec dates
 /// d'échéance et montants prédéfinis, plutôt qu'un seul champ `echeance`.
 model Echeancier {
-  id        String @id @default(cuid())
-  factureId String @unique
+  id        String  @id @default(cuid())
+  factureId String  @unique
   facture   Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
 
   /// Nombre total d'échéances prévues
@@ -1884,7 +2191,7 @@ model Echeancier {
 
 /// Une échéance individuelle d'un plan de paiement.
 model EcheancePaiement {
-  id           String @id @default(cuid())
+  id           String     @id @default(cuid())
   echeancierId String
   echeancier   Echeancier @relation(fields: [echeancierId], references: [id], onDelete: Cascade)
   factureId    String
@@ -1892,17 +2199,17 @@ model EcheancePaiement {
 
   numero       Int // 1, 2, 3...
   montant      Float
-  devise       String  @default("DJF")
+  devise       String   @default("DJF")
   dateEcheance DateTime
 
   /// EN_ATTENTE | PAYEE | EN_RETARD | ANNULEE
-  statut       String  @default("EN_ATTENTE")
+  statut String @default("EN_ATTENTE")
 
   /// Lien vers le paiement qui a réglé cette échéance (nullable, 1:1)
-  paiementId   String? @unique
-  paiement     Paiement? @relation(fields: [paiementId], references: [id], onDelete: SetNull)
+  paiementId String?   @unique
+  paiement   Paiement? @relation(fields: [paiementId], references: [id], onDelete: SetNull)
 
-  payeeLe      DateTime?
+  payeeLe DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1919,15 +2226,15 @@ model Paiement {
   factureId String
   facture   Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
 
-  montant   Float
-  devise    String   @default("DJF")
-  methode   String // "espèces", "waffi", "cac_pay", "dahab_plus", "saba_pay", "faida", "virement"
-  reference String?
-  date      DateTime @default(now())
+  montant    Float
+  devise     String   @default("DJF")
+  methode    String // "espèces", "waffi", "cac_pay", "dahab_plus", "saba_pay", "faida", "virement"
+  reference  String?
+  date       DateTime @default(now())
   /// Date de saisie — automatiquement le jour de la saisie.
   /// Doit être identique à la date figurant sur le reçu de paiement.
   dateSaisie DateTime @default(now())
-  recu      String? // URL reçu PDF
+  recu       String? // URL reçu PDF
 
   enregistreParId String? // User who recorded the payment
   enregistrePar   User?   @relation("PaiementEnregistrePar", fields: [enregistreParId], references: [id], onDelete: SetNull)
@@ -1950,16 +2257,16 @@ model TarifNiveau {
   siteId String?
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  niveau         String  // "Maternelle", "Primaire", "Collège", "Lycée"
-  annee          String  // "2025-2026"
-  mensualite     Float   // montant mensuel scolarité
-  fraisInscription Float // première inscription
+  niveau              String // "Maternelle", "Primaire", "Collège", "Lycée"
+  annee               String // "2025-2026"
+  mensualite          Float // montant mensuel scolarité
+  fraisInscription    Float // première inscription
   fraisRenouvellement Float // renouvellement annuel
-  fraisCantine   Float?  // par mois (optionnel)
-  fraisTransport Float?  // par mois (optionnel)
-  devise         String  @default("DJF")
-  nbMois         Int     @default(10) // nombre de mensualités par an
-  actif          Boolean @default(true)
+  fraisCantine        Float? // par mois (optionnel)
+  fraisTransport      Float? // par mois (optionnel)
+  devise              String  @default("DJF")
+  nbMois              Int     @default(10) // nombre de mensualités par an
+  actif               Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1975,16 +2282,16 @@ model TarifNiveau {
 // ============================================================
 
 model Relance {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   factureId String
   facture   Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
 
-  niveau    Int     // 1 = première relance, 2 = deuxième, 3 = troisième
-  canal     String  // "sms", "whatsapp", "email", "courrier"
-  message   String
+  niveau       Int // 1 = première relance, 2 = deuxième, 3 = troisième
+  canal        String // "sms", "whatsapp", "email", "courrier"
+  message      String
   envoyeeParId String?
   envoyeePar   User?   @relation("RelanceEnvoyeePar", fields: [envoyeeParId], references: [id], onDelete: SetNull)
 
@@ -2000,19 +2307,19 @@ model Relance {
 // ============================================================
 
 model ExclusionEleve {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  eleveId   String
-  eleve     Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
-  motif     String  // "NON_PAIEMENT", "NON_PAIEMENT_REPETE"
-  details   String?
-  dateDebut DateTime
-  dateFin   DateTime? // null = exclusion en cours
+  motif      String // "NON_PAIEMENT", "NON_PAIEMENT_REPETE"
+  details    String?
+  dateDebut  DateTime
+  dateFin    DateTime? // null = exclusion en cours
   leveeParId String?
-  leveePar   User?   @relation("ExclusionLeveePar", fields: [leveeParId], references: [id], onDelete: SetNull)
+  leveePar   User?     @relation("ExclusionLeveePar", fields: [leveeParId], references: [id], onDelete: SetNull)
   leveeLe    DateTime?
 
   decideeParId String?
@@ -2134,12 +2441,28 @@ model Incident {
 
   sanctions Sanction[]
 
-  notes     String? // notes internes
+  notes String? // notes internes
+
+  // --- Traçabilité de la résolution / classement ---
+  // Description concrète de la mesure prise pour résoudre l'incident.
+  // Obligatoire lors du passage à RESOLU (validé côté API + UI).
+  actionPrise     String?
+  // Qui a résolu l'incident et quand.
+  resoluParId     String?
+  resoluPar       User?     @relation("IncidentResolver", fields: [resoluParId], references: [id])
+  dateResolution  DateTime?
+  // Classement sans suite : qui, quand et pourquoi.
+  classeParId     String?
+  classePar       User?     @relation("IncidentCloser", fields: [classeParId], references: [id])
+  dateClassement  DateTime?
+  motifClassement String? // raison du classement sans suite (obligatoire si CLASSE)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([eleveId])
+  @@index([tenantId, statut, date])
   @@map("incidents")
 }
 
@@ -2154,9 +2477,30 @@ model Sanction {
   dateFin       DateTime?
   parentNotifie Boolean      @default(false)
 
+  // --- Cycle de vie des exclusions (EXCLUSION_COURS / EXCLUSION_TEMP) ---
+  // Une exclusion n'est pas qu'une décision : elle s'exécute, doit préserver la
+  // continuité pédagogique, et se termine par une réintégration tracée.
+
+  /// Date de retour réellement constatée. NULL tant que l'élève n'est pas réintégré.
+  /// Peut différer de dateFin (retour anticipé ou tardif).
+  dateRetourEffective DateTime?
+
+  /// Qui a validé la réintégration (CPE, principal). NULL = pas encore réintégré.
+  reintegreParId String?
+  reintegrePar   User?   @relation("SanctionReintegreePar", fields: [reintegreParId], references: [id], onDelete: SetNull)
+
+  /// Continuité pédagogique : travail donné à l'élève pendant l'exclusion.
+  /// Obligatoire en pratique pour toute exclusion temporaire.
+  travailDonne String?
+
+  /// Horodatage de l'accusé de réception du parent. NULL = pas encore accusé.
+  /// `parentNotifie` dit qu'on a envoyé ; ce champ dit que la famille a confirmé.
+  accuseReceptionParent DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([incidentId])
+  @@index([type, dateRetourEffective])
   @@map("sanctions")
 }
 
@@ -2358,9 +2702,9 @@ enum StatutAbsencePersonnel {
 }
 
 model AbsencePersonnel {
-  id           String @id @default(cuid())
-  tenantId     String
-  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   enseignantId String
   enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
@@ -2369,9 +2713,9 @@ model AbsencePersonnel {
   heureDebut String? // null = journée entière
   heureFin   String?
 
-  type        TypeAbsencePersonnel @default(ABSENCE)
-  statut      StatutAbsencePersonnel @default(EN_ATTENTE)
-  motif       String?
+  type         TypeAbsencePersonnel   @default(ABSENCE)
+  statut       StatutAbsencePersonnel @default(EN_ATTENTE)
+  motif        String?
   justificatif String? // URL document
   commentaire  String?
 
@@ -2407,27 +2751,27 @@ enum TypeConge {
 }
 
 model CongePersonnel {
-  id           String @id @default(cuid())
-  tenantId     String
-  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   enseignantId String
   enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
 
-  type      TypeConge @default(ANNUEL)
-  statut    StatutConge @default(DEMANDE)
+  type   TypeConge   @default(ANNUEL)
+  statut StatutConge @default(DEMANDE)
 
   dateDebut DateTime
   dateFin   DateTime
   nbJours   Float // calculé ou saisi
 
-  motif     String?
+  motif        String?
   justificatif String? // URL document
 
   demandeParId  String? // userId
-  demandePar    User?   @relation("CongeDemandePar", fields: [demandeParId], references: [id], onDelete: SetNull)
+  demandePar    User?     @relation("CongeDemandePar", fields: [demandeParId], references: [id], onDelete: SetNull)
   approuveParId String? // userId
-  approuvePar   User?   @relation("CongeApprouvePar", fields: [approuveParId], references: [id], onDelete: SetNull)
+  approuvePar   User?     @relation("CongeApprouvePar", fields: [approuveParId], references: [id], onDelete: SetNull)
   approuveAt    DateTime?
 
   commentaire String?
@@ -2452,6 +2796,39 @@ enum StatutCandidature {
   REFUSE // Candidature refusée
   INSCRIT // Passage en inscription confirmée
   ANNULE // Candidature annulée
+}
+
+// Statut du dossier d'inscription (constitution des pièces + validation).
+// Indépendant du workflow d'admission (StatutCandidature) : un dossier peut
+// être INCOMPLET même si la candidature est ADMIS, et devient VALIDE/CLOS
+// une fois toutes les pièces fournies et validées par la direction.
+enum StatutDossier {
+  INCOMPLET // Dossier manquant de pièces obligatoires
+  EN_COURS // Dossier en cours de constitution
+  COMPLETE // Toutes les pièces obligatoires fournies
+  VALIDE // Validé par la direction
+  CLOS // Dossier clôturé (élève inscrit ou refusé définitif)
+}
+
+// Types de documents requis pour une inscription complète.
+enum TypeDocumentInscription {
+  PHOTO // Photo de l'élève
+  ACTE_NAISSANCE // Acte / certificat de naissance
+  PIECE_PARENT // Pièce d'identité des parents
+  BULLETIN_SCOLAIRE // Bulletin / relevé de notes scolaire
+}
+
+// Événements tracés dans l'historique d'un dossier d'inscription.
+enum TypeEvenementInscription {
+  CREATION_DOSSIER // Dossier créé
+  AJOUT_DOCUMENT // Une pièce a été ajoutée
+  SUPPRESSION_DOCUMENT // Une pièce a été retirée
+  CHANGEMENT_STATUT // Le statut du dossier a changé
+  COMPLETION_DOSSIER // Dossier passé à COMPLETE
+  VALIDATION_DOSSIER // Dossier validé par la direction
+  CLOTURE_DOSSIER // Dossier clôturé
+  MODIFICATION_INFOS // Informations élève/parent modifiées
+  NOTE_AJOUTEE // Note interne ajoutée
 }
 
 model Candidature {
@@ -2489,16 +2866,62 @@ model Candidature {
   commentaire String? // notes internes admin
   motifRefus  String?
 
-  // Documents joints (URLs)
+  // Documents joints (URLs) — historique générique (candidature publique)
   documents Json? // [{ nom: "Bulletin", url: "..." }]
+
+  // ── Dossier d'inscription formel (côté secrétariat) ──────────────
+  // Pièces structurées requises : photo, acte de naissance, pièce parent,
+  // bulletin scolaire. Chaque entrée : { url, nom, taille, ajouteLe, ajouteParId }
+  documentsInscription Json?
+
+  // Statut du dossier d'inscription (constitution + validation)
+  dossierStatut StatutDossier @default(INCOMPLET)
+
+  // Traçabilité : qui a créé / validé / clôturé le dossier
+  creeParId   String?
+  creePar     User?     @relation("CandidatureCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
+  valideParId String?
+  validePar   User?     @relation("CandidatureValidePar", fields: [valideParId], references: [id], onDelete: SetNull)
+  valideLe    DateTime?
+  closLe      DateTime?
+
+  // Historique d'audit du dossier (création, ajouts, changements de statut…)
+  historique InscriptionHistorique[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, statut])
+  @@index([tenantId, dossierStatut])
   @@index([siteId])
   @@map("candidatures")
+}
+
+// ============================================================
+// HISTORIQUE D'INSCRIPTION (audit des dossiers du secrétariat)
+// ============================================================
+
+model InscriptionHistorique {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  candidatureId String
+  candidature   Candidature @relation(fields: [candidatureId], references: [id], onDelete: Cascade)
+
+  type        TypeEvenementInscription
+  description String
+  auteurId    String?
+  auteur      User?                    @relation("InscriptionHistoriqueAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  auteurNom   String? // snapshot du nom au moment de l'événement
+  donnees     Json? // détails (ex: { document: "ACTE_NAISSANCE", ancienStatut, nouveauStatut })
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([candidatureId])
+  @@map("inscription_historique")
 }
 
 // ============================================================
@@ -2622,37 +3045,37 @@ model ItemInventaire {
 // ============================================================
 
 enum ConversationType {
-  DIRECT              // 1-to-1 libre
-  CLASS_ANNOUNCEMENT  // Admin/enseignant → classe (lecture seule par défaut)
-  CLASS_DISCUSSION    // Enseignant ↔ classe (élèves/parents peuvent répondre)
-  ADMIN_BROADCAST     // Admin → tout le tenant/site
-  PARENT_TEACHER      // Parent ↔ enseignant (lié via élève)
-  PARENT_ADMIN        // Parent ↔ administration
-  STAFF_GROUP         // Groupe d'enseignants/personnel
-  FREE                // Groupe libre (exception)
+  DIRECT // 1-to-1 libre
+  CLASS_ANNOUNCEMENT // Admin/enseignant → classe (lecture seule par défaut)
+  CLASS_DISCUSSION // Enseignant ↔ classe (élèves/parents peuvent répondre)
+  ADMIN_BROADCAST // Admin → tout le tenant/site
+  PARENT_TEACHER // Parent ↔ enseignant (lié via élève)
+  PARENT_ADMIN // Parent ↔ administration
+  STAFF_GROUP // Groupe d'enseignants/personnel
+  FREE // Groupe libre (exception)
 }
 
 enum ParticipantRole {
-  ADMIN     // Modérateur: peut écrire, modérer, supprimer
-  MEMBER    // Participant actif: peut écrire
-  READONLY  // Lecture seule uniquement
+  ADMIN // Modérateur: peut écrire, modérer, supprimer
+  MEMBER // Participant actif: peut écrire
+  READONLY // Lecture seule uniquement
 }
 
 model Conversation {
-  id         String           @id @default(cuid())
-  tenantId   String
-  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  subject    String?
-  isGroup    Boolean          @default(false)
-  type       ConversationType @default(DIRECT)
-  classeId   String?          // lié à une classe (CLASS_ANNOUNCEMENT, CLASS_DISCUSSION)
-  classe     Classe?          @relation("ConversationClasse", fields: [classeId], references: [id], onDelete: SetNull)
-  siteId     String?          // filtrage multi-site
-  site       Site?            @relation("ConversationSite", fields: [siteId], references: [id], onDelete: SetNull)
-  createdBy  String           // userId du créateur
-  creator    User             @relation("ConversationCreator", fields: [createdBy], references: [id])
-  readOnly   Boolean          @default(false)  // annonce: seul l'admin/creator écrit
-  pinned     Boolean          @default(false)  // épinglé en haut de la liste
+  id        String           @id @default(cuid())
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subject   String?
+  isGroup   Boolean          @default(false)
+  type      ConversationType @default(DIRECT)
+  classeId  String? // lié à une classe (CLASS_ANNOUNCEMENT, CLASS_DISCUSSION)
+  classe    Classe?          @relation("ConversationClasse", fields: [classeId], references: [id], onDelete: SetNull)
+  siteId    String? // filtrage multi-site
+  site      Site?            @relation("ConversationSite", fields: [siteId], references: [id], onDelete: SetNull)
+  createdBy String // userId du créateur
+  creator   User             @relation("ConversationCreator", fields: [createdBy], references: [id])
+  readOnly  Boolean          @default(false) // annonce: seul l'admin/creator écrit
+  pinned    Boolean          @default(false) // épinglé en haut de la liste
 
   participants ConversationParticipant[]
   messages     Message[]
@@ -2672,8 +3095,8 @@ model ConversationParticipant {
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  role      ParticipantRole @default(MEMBER)  // ADMIN, MEMBER, READONLY
-  joinedAt  DateTime        @default(now())
+  role       ParticipantRole @default(MEMBER) // ADMIN, MEMBER, READONLY
+  joinedAt   DateTime        @default(now())
   lastReadAt DateTime?
 
   @@id([conversationId, userId])
@@ -2688,14 +3111,14 @@ model Message {
   senderId       String
   sender         User         @relation("MessageSender", fields: [senderId], references: [id])
 
-  content        String
-  readBy         String[] // array of userIds
-  replyToId      String?  // réponse à un message (thread)
-  replyTo        Message?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies        Message[] @relation("MessageReply")
+  content   String
+  readBy    String[] // array of userIds
+  replyToId String? // réponse à un message (thread)
+  replyTo   Message?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReply")
 
   attachmentUrl  String?
-  attachmentType String?  // image, file, pdf...
+  attachmentType String? // image, file, pdf...
 
   createdAt DateTime  @default(now())
   editedAt  DateTime?
@@ -2760,7 +3183,7 @@ enum TypeContenu {
 }
 
 model Cours {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   /// null = cours partagé entre tous les tenants du même pays (banque nationale).
   /// Renseigné = cours privé au tenant.
   tenantId String?
@@ -2862,18 +3285,18 @@ enum ContexteAppreciation {
 }
 
 model ReglesAppreciation {
-  id        String                @id @default(cuid())
-  tenantId  String
-  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  contexte  ContexteAppreciation
-  seuilMin  Float
-  seuilMax  Float
-  libelle   String
-  ordre     Int                   @default(0)
+  contexte ContexteAppreciation
+  seuilMin Float
+  seuilMax Float
+  libelle  String
+  ordre    Int                  @default(0)
 
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId, contexte])
   @@map("regles_appreciation")
@@ -2884,9 +3307,9 @@ model ReglesAppreciation {
 // ============================================================
 
 model DispenseMatiere {
-  id        String  @id @default(cuid())
-  tenantId  String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   eleveId   String
   eleve     Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
@@ -3101,9 +3524,10 @@ model Chapitre {
   niveau String // "Terminale", "CM2" — aligné sur Classe.niveau
   ordre  Int    @default(0)
 
-  competences Competence[]
+  competences    Competence[]
   planifications PlanificationChapitre[]
-  predictions   PredictionDifficulte[]
+  predictions    PredictionDifficulte[]
+  seances        SeancePedagogique[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3139,20 +3563,21 @@ model Competence {
   prerequis  Competence[] @relation("CompetencePrerequis")
   dependants Competence[] @relation("CompetencePrerequis")
 
-  evidences     LearningEvidence[]
-  profils       StudentLearningProfile[]
-  interventions StudentIntervention[]
-  evaluations   EvaluationCompetence[]
+  evidences       LearningEvidence[]
+  profils         StudentLearningProfile[]
+  interventions   StudentIntervention[]
+  evaluations     EvaluationCompetence[]
   recommandations Recommandation[]
   etapesPlan      EtapePlan[]
   questions       Question[]
   exercices       ExerciceAssigne[]
-  attestations    FeuilleExercices[] @relation("AttestationsCompetence")
+  attestations    FeuilleExercices[]        @relation("AttestationsCompetence")
   planifications  PlanificationCompetence[]
   patterns        PatternPedagogique[]
   predictions     PredictionDifficulte[]
   plansLecon      PlanLecon[]
   rubriques       RubriqueEvaluation[]
+  seances         SeanceCompetence[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3244,13 +3669,13 @@ model LearningEvidence {
   /// une preuve issue d'un contrôle de septembre paraîtrait aussi fraîche
   /// qu'une preuve de la semaine dernière dès lors qu'elle vient d'être
   /// calculée — et la pondération par récence deviendrait inopérante.
-  occurredAt DateTime @default(now())
+  occurredAt    DateTime @default(now())
   /// Signal normalisé 0..1 — PAS une note officielle.
   masterySignal Float
   /// Confiance dans CE signal, distincte de la maîtrise.
   confidence    Float
   /// Poids de la preuve, configurable par type.
-  weight        Float        @default(1)
+  weight        Float    @default(1)
 
   errorType       ErrorType?
   errorConfidence Float?
@@ -3321,9 +3746,9 @@ model StudentIntervention {
   competenceId String
   competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
 
-  reason            String   // explicabilité obligatoire
+  reason            String // explicabilité obligatoire
   evidenceRefs      String[] // ids des LearningEvidence qui fondent la recommandation
-  interventionType  String   // "remediation" | "retest" | "prerequisite_review"
+  interventionType  String // "remediation" | "retest" | "prerequisite_review"
   recommendedAction String
 
   responsibleUserId String?
@@ -3331,9 +3756,9 @@ model StudentIntervention {
 
   status InterventionStatus @default(PROPOSED)
 
-  startDate  DateTime?
-  reviewDate DateTime?
-  outcome    String?
+  startDate     DateTime?
+  reviewDate    DateTime?
+  outcome       String?
   masteryBefore Float?
   masteryAfter  Float?
 
@@ -3425,8 +3850,8 @@ model Recommandation {
   /// Rendu en clair, conservé comme SECOURS et pour l'audit : il fige ce qui a
   /// été dit au moment de la décision, même si les libellés changent ensuite.
   /// L'affichage, lui, recompose depuis `regleDeclenchee` + `motifParams`.
-  motif           String
-  actionProposee  String
+  motif          String
+  actionProposee String
 
   /// Règle déclenchée — sert de clé de traduction (learnos.regles.*).
   regleDeclenchee String
@@ -3436,12 +3861,12 @@ model Recommandation {
   /// une phrase française figée interdirait au bot parent de s'adresser à une
   /// famille en somali ou en arabe — et changer la langue de l'établissement
   /// ne retraduirait rien.
-  motifParams Json?
+  motifParams     Json?
 
   /// Prérequis non acquis qui expliquent le blocage.
-  prerequisManquants Json?
+  prerequisManquants  Json?
   /// Compétences en aval que celle-ci conditionne.
-  competencesBloquees Int @default(0)
+  competencesBloquees Int   @default(0)
 
   /// Décision humaine.
   decideParId String?
@@ -3460,6 +3885,7 @@ model Recommandation {
   @@index([siteId])
   @@index([competenceId])
   @@index([niveau, statut])
+  @@index([tenantId, statut, createdAt])
   @@map("learnos_recommandations")
 }
 
@@ -3493,8 +3919,8 @@ model PlanificationChapitre {
   classe   Classe? @relation(fields: [classeId], references: [id], onDelete: Cascade)
 
   /// Plan COURANT, ajustable à tout moment par l'enseignant.
-  semaineDebut Int
-  semaineFin   Int
+  semaineDebut  Int
+  semaineFin    Int
   heuresPrevues Int?
 
   /// Plan INITIAL, figé à la première sauvegarde et jamais modifié ensuite.
@@ -3506,12 +3932,14 @@ model PlanificationChapitre {
   semaineFinInitiale   Int?
 
   /// "PREVU" | "EN_COURS" | "TRAITE"
-  statut     String    @default("PREVU")
-  demarreLe  DateTime?
-  traiteLe   DateTime?
+  statut    String    @default("PREVU")
+  demarreLe DateTime?
+  traiteLe  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  seances SeancePedagogique[]
 
   @@unique([anneeId, chapitreId, classeId])
   @@index([tenantId])
@@ -3592,16 +4020,16 @@ model PlanProgression {
   /// Règle déclenchée : clé de traduction (learnos.regles.*).
   regleDeclenchee String
   /// Paramètres de la phrase, pour un rendu dans la langue du lecteur.
-  motifParams Json?
+  motifParams     Json?
 
   responsableUserId String?
-  responsable       User?   @relation("PlanResponsable", fields: [responsableUserId], references: [id], onDelete: SetNull)
+  responsable       User?     @relation("PlanResponsable", fields: [responsableUserId], references: [id], onDelete: SetNull)
   valideParId       String?
   valideLe          DateTime?
 
-  dateDebut  DateTime?
-  dateRevue  DateTime?
-  dateFin    DateTime?
+  dateDebut DateTime?
+  dateRevue DateTime?
+  dateFin   DateTime?
 
   /// Le parent a-t-il été informé du plan ? (bot parent, P11)
   parentInforme Boolean @default(false)
@@ -3620,6 +4048,7 @@ model PlanProgression {
   @@index([siteId])
   @@index([eleveId, statut])
   @@index([eleveId, matiereId, statut])
+  @@index([tenantId, statut, createdAt])
   @@map("learnos_plans_progression")
 }
 
@@ -3632,10 +4061,10 @@ model EtapePlan {
   competenceId String
   competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
 
-  ordre  Int
-  action String
+  ordre       Int
+  action      String
   /// "enseignant" | "parent" | "eleve" — qui porte cette étape.
-  responsable String @default("enseignant")
+  responsable String    @default("enseignant")
   echeance    DateTime?
 
   statut StatutEtape @default(A_FAIRE)
@@ -4234,24 +4663,24 @@ model PatternPedagogique {
   /// Périmètre du pattern : niveau (ex : "Terminale"), matière, compétence.
   /// `competenceId` est optionnel : un pattern peut porter sur une matière
   /// entière sans descendre à la compétence.
-  niveau        String
-  matiereId     String?
-  competenceId  String?
-  competence    Competence? @relation(fields: [competenceId], references: [id], onDelete: SetNull)
+  niveau       String
+  matiereId    String?
+  competenceId String?
+  competence   Competence? @relation(fields: [competenceId], references: [id], onDelete: SetNull)
 
   /// Statistiques observées sur la période analysée.
-  masteryMoyenne  Float
+  masteryMoyenne    Float
   confidenceMoyenne Float
   /// Nombre d'élèves concernés par cette moyenne.
-  effectif        Int
+  effectif          Int
   /// Écart-type des scores — mesure la dispersion.
-  ecartType       Float
+  ecartType         Float
   /// Taux d'échec (score < seuil critique) observé.
-  tauxEchec       Float
+  tauxEchec         Float
 
   /// Période couverte par le pattern.
-  periodeDebut  DateTime
-  periodeFin    DateTime
+  periodeDebut    DateTime
+  periodeFin      DateTime
   /// Nombre d'années scolaires incluses dans l'analyse.
   anneesCouvertes Int
 
@@ -4284,38 +4713,38 @@ model PredictionDifficulte {
   site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
   eleveId      String
-  eleve        Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleve        Eleve      @relation(fields: [eleveId], references: [id], onDelete: Cascade)
   competenceId String
   competence   Competence @relation(fields: [competenceId], references: [id], onDelete: Cascade)
 
   /// Chapitre concerné par la prédiction.
-  chapitreId   String?
-  chapitre     Chapitre? @relation(fields: [chapitreId], references: [id], onDelete: SetNull)
+  chapitreId String?
+  chapitre   Chapitre? @relation(fields: [chapitreId], references: [id], onDelete: SetNull)
 
   /// Année scolaire.
-  anneeId      String
+  anneeId String
 
   /// Prédiction : probabilité de réussite (0..1) estimée AVANT le chapitre.
-  probaReussite Float
+  probaReussite     Float
   /// Niveau de difficulté prédit : "FACILE" | "MODERE" | "DIFFICILE" | "CRITIQUE".
   difficultePredite String
 
   /// Données utilisées pour la prédiction (snapshot du profil à cet instant).
-  masteryAvant      Float?
-  confidenceAvant   Float?
+  masteryAvant       Float?
+  confidenceAvant    Float?
   prerequisManquants Int?
 
   /// Résultat réel, rempli après l'évaluation.
-  masteryApres      Float?
+  masteryApres       Float?
   /// `true` si la prédiction était correcte (à ±0.15 près).
   predictionCorrecte Boolean?
   /// Écart entre prédiction et réalité.
-  ecart             Float?
+  ecart              Float?
 
   /// Date d'émission de la prédiction.
-  emiseLe     DateTime @default(now())
+  emiseLe    DateTime  @default(now())
   /// Date de vérification (remplie quand le résultat réel est connu).
-  verifieeLe  DateTime?
+  verifieeLe DateTime?
 
   @@index([tenantId, anneeId])
   @@index([eleveId, competenceId])
@@ -4352,15 +4781,15 @@ model CalibrationSeuil {
   seuilCritique     Float
   seuilFragile      Float
   seuilConsolide    Float
- seuilAvance       Float
+  seuilAvance       Float
   confianceMinimale Float
 
   /// Qualité de la calibration : nombre de données utilisées.
-  echantillon Int
+  echantillon         Int
   /// `true` si la calibration a amélioré la précision des prédictions.
   ameliorationMesuree Boolean?
   /// Gain de précision par rapport aux seuils par défaut (en points de %).
-  gainPrecision Float?
+  gainPrecision       Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4394,7 +4823,7 @@ model JournalApprentissage {
   /// Nombre de données analysées.
   echantillon Int
   /// Périmètre concerné (niveau, matière, période).
-  perimetre String
+  perimetre   String
 
   createdAt DateTime @default(now())
 
@@ -4411,27 +4840,33 @@ model JournalApprentissage {
 /// L'élève et le parent consultent les devoirs à rendre ; l'enseignant crée
 /// et marque les devoirs comme faits en classe.
 model Devoir {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  siteId     String?
-  site       Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  classeId   String
-  classe     Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
+  classeId String
+  classe   Classe @relation(fields: [classeId], references: [id], onDelete: Cascade)
 
-  matiereId  String
-  matiere    Matiere  @relation(fields: [matiereId], references: [id])
+  matiereId String
+  matiere   Matiere @relation(fields: [matiereId], references: [id])
 
   enseignantId String?
   enseignant   Enseignant? @relation(fields: [enseignantId], references: [id], onDelete: SetNull)
 
   titre       String
   description String?
-  dateDonne   DateTime @default(now())
+  dateDonne   DateTime     @default(now())
   dateRendu   DateTime
   statut      StatutDevoir @default(A_FAIRE)
+  type        DevoirType   @default(AUTRE)
+
+  /// Lien optionnel vers la séance pédagogique pendant laquelle le devoir a
+  /// été donné. Rétro-compatible : NULL pour les devoirs créés avant le JPP.
+  seanceId String?
+  seance   SeancePedagogique? @relation(fields: [seanceId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4440,6 +4875,7 @@ model Devoir {
   @@index([classeId, dateRendu])
   @@index([matiereId])
   @@index([siteId])
+  @@index([tenantId, statut, dateRendu])
   @@map("devoirs")
 }
 
@@ -4450,6 +4886,171 @@ enum StatutDevoir {
   CORRIGE
 }
 
+enum DevoirType {
+  EXERCICE
+  LECTURE
+  REVISION
+  PROJET
+  AUTRE
+}
+
+// ============================================================
+// JOURNAL DE PROGRESSION PÉDAGOGIQUE (JPP)
+// ============================================================
+
+/// Statut d'une séance pédagogique.
+enum StatutSeance {
+  /// Planifiée dans l'emploi du temps, pas encore dispensée.
+  PLANIFIEE
+  /// Dispensée effectivement (cours donné).
+  EFFECTUEE
+  /// Annulée (absence enseignant, jour férié non prévu, etc.).
+  ANNULEE
+  /// Reportée à une autre date.
+  REPORTEE
+}
+
+/// Séance pédagogique réellement dispensée (ou planifiée puis close).
+///
+/// Le JPP remplace le cahier de textes passif : au lieu d'une simple liste de
+/// devoirs datés, chaque séance est un enregistrement qui relie ce qui était
+/// *planifié* (PlanificationChapitre), ce qui a été *réellement fait* (contenu,
+/// compétences abordées), et les *preuves d'apprentissage* produites
+/// (LearningEvidence, Devoir).
+///
+/// La timeline « métro » projette ces séances par matière : chaque ligne est
+/// une matière, chaque station est une séance, la couleur reflète le statut.
+model SeancePedagogique {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Classe concernée par la séance.
+  classeId String
+  classe   Classe @relation(fields: [classeId], references: [id], onDelete: Cascade)
+
+  /// Matière de la séance.
+  matiereId String
+  matiere   Matiere @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+
+  /// Enseignant qui a dispensé (ou doit dispenser) la séance.
+  enseignantId String?
+  enseignant   Enseignant? @relation(fields: [enseignantId], references: [id], onDelete: SetNull)
+
+  /// Chapitre du curriculum ciblé par cette séance (lien vers la planification).
+  chapitreId String?
+  chapitre   Chapitre? @relation(fields: [chapitreId], references: [id], onDelete: SetNull)
+
+  /// Planification de chapitre dont cette séance est l'exécution.
+  planificationId String?
+  planification   PlanificationChapitre? @relation(fields: [planificationId], references: [id], onDelete: SetNull)
+
+  /// Date et heure prévues de la séance.
+  date        DateTime
+  /// Durée prévue en minutes.
+  dureePrevue Int      @default(60)
+  /// Durée réelle en minutes (si différente de la prévision).
+  dureeReelle Int?
+
+  statut StatutSeance @default(PLANIFIEE)
+
+  /// Numéro de semaine dans l'année scolaire (1-36), pour la timeline métro.
+  semaine Int
+
+  /// Contenu effectivement traité pendant la séance (saisi par l'enseignant
+  /// après le cours). NULL tant que la séance n'est pas close.
+  contenu String?
+
+  /// Compétences abordées pendant cette séance (relation many-to-many).
+  competences SeanceCompetence[]
+
+  /// Devoirs rattachés à cette séance (donnés pendant ou à l'issue du cours).
+  devoirs Devoir[]
+
+  /// Fichiers attachés à la séance (JSON array: [{name, type, size, data}])
+  fichiers Json?
+
+  /// Contenu structuré de la séance — objectifs, activités, supports,
+  /// différenciation. JSON pour rester flexible sans multiplication de tables.
+  ///   objectifs     : string[] — "Comprendre les fractions"
+  ///   activites     : { nom, duree, type }[] — { "Cours magistral", 20, "magistral" }
+  ///   supports      : { type, lien, description }[] — { "video", "https://...", "..." }
+  ///   differentiation : { eleve?, groupe?, adaptation }[]
+  objectifs       Json?
+  activites       Json?
+  supports        Json?
+  differentiation Json?
+
+  /// Lien optionnel vers un plan de leçon validé (PlanLecon).
+  planLeconId String?
+  planLecon   PlanLecon? @relation(fields: [planLeconId], references: [id], onDelete: SetNull)
+
+  /// Commentaires sur la séance (CPE, direction, enseignants).
+  commentaires SeanceCommentaire[]
+
+  /// Auto-évaluation de l'enseignant : la séance était-elle en avance, à
+  /// l'heure ou en retard par rapport au planning ?
+  /// "EN_AVANCE" | "A_TEMPS" | "EN_RETARD" | "NON_EVALUEE"
+  rythme String @default("NON_EVALUEE")
+
+  /// Nombre d'élèves présents (saisi à la clôture, sinon NULL).
+  presents Int?
+
+  /// Nombre d'élèves absents.
+  absents Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([classeId, date])
+  @@index([matiereId])
+  @@index([semaine])
+  @@index([statut])
+  @@index([tenantId, statut, date])
+  @@map("seances_pedagogiques")
+}
+
+model SeanceCommentaire {
+  id        String            @id @default(cuid())
+  seanceId  String
+  seance    SeancePedagogique @relation(fields: [seanceId], references: [id], onDelete: Cascade)
+  auteurId  String?
+  auteur    User?             @relation("SeanceCommentaireAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  contenu   String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([seanceId])
+  @@map("seance_commentaires")
+}
+
+/// Compétence abordée lors d'une séance pédagogique (table de jonction).
+model SeanceCompetence {
+  id String @id @default(cuid())
+
+  seanceId     String
+  seance       SeancePedagogique @relation(fields: [seanceId], references: [id], onDelete: Cascade)
+  competenceId String
+  competence   Competence        @relation(fields: [competenceId], references: [id], onDelete: Cascade)
+
+  /// "ABORDEE" | "CONSOLIDEE" | "MAITRISEE" — évaluation rapide par
+  /// l'enseignant à l'issue de la séance.
+  niveau String @default("ABORDEE")
+
+  /// Une compétence n'est comptée qu'une fois par séance : sans cette
+  /// contrainte, rejouer une clôture dupliquerait les liens et fausserait le
+  /// décompte des compétences couvertes.
+  @@unique([seanceId, competenceId])
+  @@index([seanceId])
+  @@index([competenceId])
+  @@map("seances_competences")
+}
+
 // ============================================================
 // REMPLACEMENTS DE COURS
 // ============================================================
@@ -4458,24 +5059,24 @@ enum StatutDevoir {
 /// La direction décide des remplacements à partir des absences du personnel
 /// et des créneaux orphelins de l'emploi du temps.
 model RemplacementCours {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  siteId     String?
-  site       Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
   emploiTempsId String?
   emploiTemps   EmploiTemps? @relation(fields: [emploiTempsId], references: [id], onDelete: SetNull)
 
-  classeId   String
-  classe     Classe   @relation(fields: [classeId], references: [id])
+  classeId String
+  classe   Classe @relation(fields: [classeId], references: [id])
 
-  matiereId  String
-  matiere    Matiere  @relation(fields: [matiereId], references: [id])
+  matiereId String
+  matiere   Matiere @relation(fields: [matiereId], references: [id])
 
-  enseignantAbsentId   String?
-  enseignantAbsent     Enseignant? @relation("RemplacementAbsent", fields: [enseignantAbsentId], references: [id], onDelete: SetNull)
+  enseignantAbsentId String?
+  enseignantAbsent   Enseignant? @relation("RemplacementAbsent", fields: [enseignantAbsentId], references: [id], onDelete: SetNull)
 
   enseignantRemplacantId String?
   enseignantRemplacant   Enseignant? @relation("RemplacementRemplacant", fields: [enseignantRemplacantId], references: [id], onDelete: SetNull)
@@ -4485,13 +5086,13 @@ model RemplacementCours {
   heureFin   String
   salle      String?
 
-  statut     StatutRemplacement @default(PROPOSE)
+  statut StatutRemplacement @default(PROPOSE)
 
   motifAbsence String?
   notes        String?
 
   decideParId String?
-  decidePar    User?   @relation("RemplacementDecidePar", fields: [decideParId], references: [id], onDelete: SetNull)
+  decidePar   User?   @relation("RemplacementDecidePar", fields: [decideParId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4518,25 +5119,25 @@ enum StatutRemplacement {
 /// Entretien individuel entre un conseiller/CPE et un élève.
 /// Le suivi longitudinal est la liste chronologique des entretiens d'un élève.
 model EntretienConseiller {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  siteId     String?
-  site       Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  eleveId    String
-  eleve      Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
   conseillerId String?
   conseiller   User?   @relation("EntretienConseiller", fields: [conseillerId], references: [id], onDelete: SetNull)
 
-  date       DateTime @default(now())
-  motif      String   // "absences répétées", "difficultés familiales", "orientation"…
+  date        DateTime        @default(now())
+  motif       String // "absences répétées", "difficultés familiales", "orientation"…
   compteRendu String?
-  decisions  String?
-  suivi      String?
-  statut     StatutEntretien @default(PLANIFIE)
+  decisions   String?
+  suivi       String?
+  statut      StatutEntretien @default(PLANIFIE)
 
   prochainRendezVous DateTime?
 
@@ -4570,25 +5171,25 @@ enum StatutDemandeLien {
 }
 
 model DemandeLienParent {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  parentId  String  // Parent qui demande (a déjà un compte)
-  parent    Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  parentId String // Parent qui demande (a déjà un compte)
+  parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
 
-  eleveId   String  // Élève à rattacher
-  eleve     Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId String // Élève à rattacher
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
 
   // Données saisies par le parent pour prouver le lien
-  matriculeSaisi   String
+  matriculeSaisi      String
   dateNaissanceSaisie DateTime
 
-  statut    StatutDemandeLien @default(EN_ATTENTE)
+  statut StatutDemandeLien @default(EN_ATTENTE)
 
   // Traitement admin
-  traitePar String? // userId de l'admin
-  traiteLe  DateTime?
+  traitePar  String? // userId de l'admin
+  traiteLe   DateTime?
   motifRefus String?
 
   createdAt DateTime @default(now())
@@ -4638,37 +5239,40 @@ model PlanLecon {
   /// Niveau scolaire visé (ex: "CM2", "Terminale").
   niveauScolaire String
   /// Durée totale en minutes.
-  dureeTotale Int
+  dureeTotale    Int
 
   /// Titre du plan de leçon.
-  titre       String
+  titre           String
   /// Objectifs d'apprentissage (JSON array de strings).
-  objectifs   String
+  objectifs       String
   /// Étapes structurées (JSON array : { nom, duree, description, support? }).
-  etapes      String
+  etapes          String
   /// Matériel nécessaire (JSON array de strings).
-  materiel    String?
+  materiel        String?
   /// Méthode d'évaluation finale.
-  evaluation  String?
+  evaluation      String?
   /// Adaptation pour élèves en difficulté / en avancement.
   differentiation String?
 
   /// Workflow de validation.
-  statut    StatutPropositionIa @default(PROPOSE)
+  statut StatutPropositionIa @default(PROPOSE)
 
   /// Enseignant qui a proposé/ajusté.
-  proposeParId  String?
-  ajusteParId   String?
-  ajusteLe      DateTime?
+  proposeParId String?
+  ajusteParId  String?
+  ajusteLe     DateTime?
 
   /// Direction qui a validé/rejeté.
-  valideParId   String?
-  valideLe      DateTime?
-  motifRejet    String?
+  valideParId String?
+  valideLe    DateTime?
+  motifRejet  String?
 
   /// Modèle IA qui a généré (pour traçabilité).
-  modeleIa      String?
-  cachedIa      Boolean @default(false)
+  modeleIa String?
+  cachedIa Boolean @default(false)
+
+  /// Séances pédagogiques qui utilisent ce plan de leçon.
+  seances SeancePedagogique[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4697,25 +5301,25 @@ model RubriqueEvaluation {
   /// Niveau scolaire visé.
   niveauScolaire String
   /// Barème total (ex: 20).
-  totalPoints Int
+  totalPoints    Int
 
   /// Titre de la grille.
-  titre     String
+  titre    String
   /// Critères structurés (JSON : { nom, points, niveaux: { excellent, satisfaisant, fragile, insuffisant } }[]).
-  criteres  String
+  criteres String
 
   /// Workflow de validation.
-  statut    StatutPropositionIa @default(PROPOSE)
+  statut StatutPropositionIa @default(PROPOSE)
 
-  proposeParId  String?
-  ajusteParId   String?
-  ajusteLe      DateTime?
-  valideParId   String?
-  valideLe      DateTime?
-  motifRejet    String?
+  proposeParId String?
+  ajusteParId  String?
+  ajusteLe     DateTime?
+  valideParId  String?
+  valideLe     DateTime?
+  motifRejet   String?
 
-  modeleIa      String?
-  cachedIa      Boolean @default(false)
+  modeleIa String?
+  cachedIa Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4732,33 +5336,33 @@ model RubriqueEvaluation {
 // ============================================================
 
 enum CategorieBudget {
-  FONCTIONNEMENT   // eau, électricité, fournitures, entretien
-  PEDAGOGIE        // manuels, matériel didactique, logiciels
-  MAINTENANCE      // bâtiments, équipements, réparations
-  SALAIRES         // rémunérations enseignants & personnel
-  TRANSPORT        // bus scolaires, carburant
-  CANTINE          // fonctionnement de la cantine
-  EVENEMENTIEL     // sorties, cérémonies, examens
-  INVESTISSEMENT   // équipements lourds, travaux
+  FONCTIONNEMENT // eau, électricité, fournitures, entretien
+  PEDAGOGIE // manuels, matériel didactique, logiciels
+  MAINTENANCE // bâtiments, équipements, réparations
+  SALAIRES // rémunérations enseignants & personnel
+  TRANSPORT // bus scolaires, carburant
+  CANTINE // fonctionnement de la cantine
+  EVENEMENTIEL // sorties, cérémonies, examens
+  INVESTISSEMENT // équipements lourds, travaux
   AUTRE
 }
 
 model Budget {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   siteId String? // null = budget global (tous sites)
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  annee       String  // "2024-2025"
-  categorie   CategorieBudget
-  montantPrevu    Float  // budget alloué
-  montantDepense  Float  @default(0) // total dépensé (calculé)
-  devise          String @default("DJF")
+  annee          String // "2024-2025"
+  categorie      CategorieBudget
+  montantPrevu   Float // budget alloué
+  montantDepense Float           @default(0) // total dépensé (calculé)
+  devise         String          @default("DJF")
 
   /// "PROPOSE" | "VALIDE" | "CLOTURE" | "DEPASSE"
-  statut          String @default("VALIDE")
+  statut String @default("VALIDE")
 
   description String?
 
@@ -4774,9 +5378,9 @@ model Budget {
 }
 
 model Depense {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   siteId String? // null = dépense globale
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
@@ -4784,10 +5388,10 @@ model Depense {
   budgetId String? // null = dépense hors budget
   budget   Budget? @relation(fields: [budgetId], references: [id], onDelete: SetNull)
 
-  date        DateTime
-  montant     Float
-  devise      String @default("DJF")
-  categorie   CategorieBudget @default(AUTRE)
+  date      DateTime
+  montant   Float
+  devise    String          @default("DJF")
+  categorie CategorieBudget @default(AUTRE)
 
   libelle     String
   description String?
@@ -4848,9 +5452,9 @@ enum StatutRemiseCaisse {
 /// que lorsque le receveur confirme avoir reçu le même montant, à la
 /// même date, de la part du même caissier.
 model RemiseCaisse {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   siteId String? // null = remise globale (tous sites)
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
@@ -4861,9 +5465,9 @@ model RemiseCaisse {
   caissier   User   @relation("RemiseCaisseCaissier", fields: [caissierId], references: [id], onDelete: Cascade)
 
   /// Montant déclaré par le caissier
-  montantDeclare Float
+  montantDeclare   Float
   /// Date à laquelle le caissier déclare avoir remis la caisse
-  dateRemise     DateTime
+  dateRemise       DateTime
   /// Date de saisie de la déclaration (automatique — jour de la saisie)
   dateSaisieRemise DateTime @default(now())
 
@@ -4873,9 +5477,9 @@ model RemiseCaisse {
   receveur   User?   @relation("RemiseCaisseReceveur", fields: [receveurId], references: [id], onDelete: SetNull)
 
   /// Montant confirmé par le receveur (doit être identique à montantDeclare)
-  montantRecu Float?
+  montantRecu         Float?
   /// Date à laquelle le receveur confirme avoir reçu (automatique)
-  dateReception DateTime?
+  dateReception       DateTime?
   /// Date de saisie de la confirmation (automatique — jour de la saisie)
   dateSaisieReception DateTime?
 
@@ -4922,9 +5526,9 @@ enum StatutTache {
 }
 
 model Tache {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   siteId String?
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
@@ -4943,9 +5547,9 @@ model Tache {
   /// Type de tâche : "saisie_notes", "conseil_classe", "rendez_vous_parent",
   /// "preparation_cours", "correction_devoirs", "remise_bulletins",
   /// "reunion_pedagogique", "sortie_pedagogique", "inventaire", "autre"
-  type      String @default("autre")
-  priorite  PrioriteTache @default(NORMALE)
-  statut    StatutTache   @default(A_FAIRE)
+  type     String        @default("autre")
+  priorite PrioriteTache @default(NORMALE)
+  statut   StatutTache   @default(A_FAIRE)
 
   /// Lien optionnel avec une classe (ex: préparation cours pour une classe)
   classeId String?
@@ -4955,8 +5559,8 @@ model Tache {
   matiereId String?
   matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: SetNull)
 
-  echeance    DateTime?
-  dateFaite   DateTime?
+  echeance  DateTime?
+  dateFaite DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4966,4 +5570,136 @@ model Tache {
   @@index([assigneeAId])
   @@index([statut])
   @@map("taches")
+}
+
+// ============================================================
+// FOURNITURES & LIVRES SCOLAIRES
+// ============================================================
+
+/// Type de fourniture demandée par un enseignant.
+enum TypeFourniture {
+  LIVRE
+  CAHIER
+  INSTRUMENT
+  AUTRE
+}
+
+/// Statut d'une demande de fourniture faite par un enseignant.
+/// PROPOSEE → VALIDEE (secrétariat) ou REJETEE
+enum StatutDemandeFourniture {
+  PROPOSEE
+  VALIDEE
+  REJETEE
+}
+
+/// Statut d'une liste de fournitures publiée pour une classe.
+/// BROUILLON → PUBLIEE (secrétariat)
+enum StatutListeFourniture {
+  BROUILLON
+  PUBLIEE
+}
+
+/// Demande d'un enseignant pour des fournitures par niveau de classe.
+/// L'enseignant saisit une seule fois par niveau (ex: "6ème"),
+/// pas par classe individuelle — la propagation se fait au moment
+/// de la publication par le secrétariat.
+model DemandeFourniture {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Enseignant qui a fait la demande
+  enseignantId String
+  enseignant   Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
+
+  /// Niveau de classe (ex: "6ème", "Terminale") — pas de classeId
+  niveau String
+
+  /// Matière concernée (null = fourniture générale pour toutes les matières)
+  matiereId String?
+  matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: SetNull)
+
+  type        TypeFourniture
+  nom         String
+  description String?
+  quantite    Int            @default(1)
+  format      String? // "A4", "17x22", "Grand carreaux"
+  prixEstime  Float? // prix indicatif
+
+  statut                StatutDemandeFourniture @default(PROPOSEE)
+  valideeParId          String?
+  valideeLe             DateTime?
+  commentaireValidation String? // note du secrétariat
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([enseignantId])
+  @@index([niveau])
+  @@index([matiereId])
+  @@index([statut])
+  @@map("demandes_fournitures")
+}
+
+/// Liste de fournitures publiée pour une classe spécifique.
+/// Créée par le secrétariat en compilant les DemandesFourniture validées
+/// pour un niveau donné, puis propagée à toutes les classes de ce niveau.
+model ListeFournitureClasse {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  classeId String
+  classe   Classe @relation(fields: [classeId], references: [id], onDelete: Cascade)
+
+  /// Niveau source (ex: "6ème") — utilisé pour retrouver les demandes
+  niveau String
+
+  statut       StatutListeFourniture @default(BROUILLON)
+  publieeParId String?
+  publieeLe    DateTime?
+
+  items ListeFournitureItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classeId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([classeId])
+  @@index([niveau])
+  @@map("listes_fournitures_classes")
+}
+
+/// Item d'une liste de fournitures publiée.
+model ListeFournitureItem {
+  id      String                @id @default(cuid())
+  listeId String
+  liste   ListeFournitureClasse @relation(fields: [listeId], references: [id], onDelete: Cascade)
+
+  type        TypeFourniture
+  nom         String
+  description String?
+  quantite    Int            @default(1)
+  format      String?
+  prixEstime  Float?
+
+  matiereId String?
+  matiere   Matiere? @relation(fields: [matiereId], references: [id], onDelete: SetNull)
+
+  /// Lien vers la demande d'origine (traçabilité)
+  sourceDemandeId String?
+
+  @@index([listeId])
+  @@index([matiereId])
+  @@map("liste_fourniture_items")
 }

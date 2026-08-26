@@ -220,18 +220,22 @@ export function PlanificationView({
       toast.error(t("aucuneAnnee"));
       return;
     }
-    // Grouper les chapitres par matière.
-    const parMatiere = new Map<string, typeof chapitres>();
+    // Grouper les chapitres par matière × niveau : chaque niveau a sa propre
+    // frise. Sans cette séparation, les chapitres de 6ème et de Terminale
+    // seraient intercalés sur la même ligne temporelle — ce qui n'a aucun sens
+    // pédagogique.
+    const parMatiereNiveau = new Map<string, typeof chapitres>();
     for (const c of chapitres) {
-      const liste = parMatiere.get(c.matiereId) ?? [];
+      const key = `${c.matiereId}|${c.niveau}`;
+      const liste = parMatiereNiveau.get(key) ?? [];
       liste.push(c);
-      parMatiere.set(c.matiereId, liste);
+      parMatiereNiveau.set(key, liste);
     }
 
-    // Construire le brouillon complet pour toutes les matières.
+    // Construire le brouillon complet pour tous les groupes matière × niveau.
     const nouveauBrouillon: Brouillon = {};
     let totalChapitres = 0;
-    for (const [, liste] of parMatiere) {
+    for (const [, liste] of parMatiereNiveau) {
       const proposition = repartirEgalement(
         liste.map((c) => c.id),
         totalSemaines,

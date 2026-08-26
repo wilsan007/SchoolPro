@@ -7,6 +7,9 @@ import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { siteFilterForModel } from "@/lib/site-filter";
 import { isRelationScopedRole } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const NotifSchema = z.object({
   titre: z.string().min(1).max(200),
@@ -104,6 +107,15 @@ export async function POST(req: NextRequest) {
         });
       }
       break;
+  }
+
+  // Périmètre enseignant sur une cible CLASSE.
+  if (data.classeId && isTeacherRole(session.user.role as Role)) {
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+    const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
+    if (scope.isRestricted && !scope.classeIds.includes(data.classeId)) {
+      return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+    }
   }
 
   // Statut initial : EN_ENVOI si envoi immédiat (le dispatcher le finalisera).

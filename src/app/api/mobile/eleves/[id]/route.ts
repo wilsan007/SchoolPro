@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { siteFilterForModel, personalScopeFilter, mergeFilters } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export async function GET(
   req: NextRequest,
@@ -56,6 +57,9 @@ export async function GET(
   // Les quatre requêtes suivantes portent sur `id`, dont l'appartenance au tenant,
   // au périmètre de sites et — pour un parent — au foyer vient d'être vérifiée par
   // le `findFirst` ci-dessus, suivi d'un 404 : la portée est acquise en amont.
+  const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
+  const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
+  const anneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
   const [parents, notes, absences, incidents] = await Promise.all([
     // eslint-disable-next-line ecolpro/require-site-filter
     prisma.eleveParent.findMany({
@@ -70,7 +74,7 @@ export async function GET(
     }),
     // eslint-disable-next-line ecolpro/require-site-filter
     prisma.note.findMany({
-      where: { eleveId: id, tenantId: user.tenantId },
+      where: { eleveId: id, tenantId: user.tenantId, ...anneeClasse },
       select: {
         id: true,
         valeur: true,
@@ -85,14 +89,14 @@ export async function GET(
     }),
     // eslint-disable-next-line ecolpro/require-site-filter
     prisma.absence.findMany({
-      where: { eleveId: id, tenantId: user.tenantId },
+      where: { eleveId: id, tenantId: user.tenantId, ...anneeEleve },
       select: { id: true, date: true, isRetard: true, statut: true, motif: true },
       orderBy: { date: "desc" },
       take: 10,
     }),
     // eslint-disable-next-line ecolpro/require-site-filter
     prisma.incident.findMany({
-      where: { eleveId: id, tenantId: user.tenantId },
+      where: { eleveId: id, tenantId: user.tenantId, ...anneeEleve },
       select: { id: true, type: true, statut: true, gravite: true, description: true, date: true },
       orderBy: { date: "desc" },
       take: 5,

@@ -11,18 +11,21 @@ import { getSitesForUser } from "@/lib/actions/eleve";
 import { getSiteColorMap } from "@/lib/site-colors";
 import { guardPage } from "@/lib/guard-page";
 import { isTeacherRole } from "@/lib/teacher-classes";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getPeriodesForCloture } from "@/lib/actions/parametres";
+import { getClassesHierarchie, aplatirHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 import type { Role } from "@prisma/client";
 
 // Les fragments d'isolation sont construits ici, au plus près des requêtes :
 // passés en paramètres, ils n'étaient plus rattachables à leur origine, ni par
 // un relecteur ni par l'analyse statique.
-async function getEmploiData(tenantId: string, claims: SessionSiteClaims) {
-  const [classes, matieres, enseignants, emplois, salles, disponibilites] = await Promise.all([
-    prisma.classe.findMany({
-      where: { tenantId, ...siteFilterForModel("classe", claims) },
-      select: { id: true, nom: true, niveau: true },
-      orderBy: { nom: "asc" },
-    }),
+async function getEmploiData(
+  tenantId: string,
+  claims: SessionSiteClaims,
+  anneeCourante: string | null,
+  classes: { id: string; nom: string; niveau: string }[],
+) {
+  const [matieres, enseignants, emplois, salles, disponibilites, indisponibilites] = await Promise.all([
     prisma.matiere.findMany({
       where: { tenantId, ...siteFilterForModel("matiere", claims) },
       select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
@@ -34,7 +37,7 @@ async function getEmploiData(tenantId: string, claims: SessionSiteClaims) {
       orderBy: { user: { name: "asc" } },
     }),
     prisma.emploiTemps.findMany({
-      where: { tenantId, ...siteFilterForModel("emploiTemps", claims) },
+      where: { tenantId, ...siteFilterForModel("emploiTemps", claims), ...(anneeCourante ? { annee: anneeCourante } : {}) },
       include: {
         matiere: { select: { nom: true, code: true, couleur: true } },
         classe: { select: { nom: true } },
@@ -50,6 +53,10 @@ async function getEmploiData(tenantId: string, claims: SessionSiteClaims) {
     prisma.disponibiliteEnseignant.findMany({
       where: { tenantId, ...siteFilterForModel("disponibiliteEnseignant", claims) },
       select: { id: true, enseignantId: true, jour: true, heureDebut: true, heureFin: true },
+    }),
+    prisma.indisponibiliteEnseignant.findMany({
+      where: { tenantId, ...siteFilterForModel("indisponibiliteEnseignant", claims) },
+      select: { id: true, enseignantId: true, jour: true, heureDebut: true, heureFin: true, source: true, sourceLibelle: true },
     }),
   ]);
   // flou que le moteur de génération — teacherPoolFor). Sans la spécialité,
@@ -81,7 +88,7 @@ async function getEmploiData(tenantId: string, claims: SessionSiteClaims) {
     }
   }
 
-  return { classes, matieres, enseignants, emplois, matiereToEnseignants, salles, disponibilites };
+  return { matieres, enseignants, emplois, matiereToEnseignants, salles, disponibilites, indisponibilites };
 }
 
 export default async function EmploiDuTempsPage() {
@@ -91,15 +98,21 @@ export default async function EmploiDuTempsPage() {
   // que TypeScript sache que `session` n'est plus nullable en dessous.
   if (!session?.user?.tenantId) redirect("/login");
 
-  const [t, tCommon, sites, siteColors] = await Promise.all([
+  const [t, tCommon, sites, siteColors, periodes] = await Promise.all([
     getTranslations("emploi"),
     getTranslations("common"),
     getSitesForUser(),
     getSiteColorMap(session.user.tenantId),
+    getPeriodesForCloture(),
   ]);
 
-  const { classes, matieres, enseignants, emplois, matiereToEnseignants, salles, disponibilites } = await getEmploiData(
-    session.user.tenantId, session.user
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  // Hiérarchie des classes avec scope enseignant + année + site intégrés.
+  const hierarchie: ClassesHierarchie = await getClassesHierarchie(session.user.tenantId, session.user, { anneeCourante });
+  const classes = aplatirHierarchie(hierarchie);
+
+  const { matieres, enseignants, emplois, matiereToEnseignants, salles, disponibilites, indisponibilites } = await getEmploiData(
+    session.user.tenantId, session.user, anneeCourante, classes
   );
 
   // Un enseignant consulte son service, il n'édite pas la grille de
@@ -143,12 +156,15 @@ export default async function EmploiDuTempsPage() {
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <EmploiDuTempsView
           classes={mesClasses}
+          hierarchie={hierarchie}
           matieres={matieres}
           enseignants={enseignants}
           emplois={mesEmplois as unknown as React.ComponentProps<typeof EmploiDuTempsView>["emplois"]}
           matiereToEnseignants={matiereToEnseignants}
           salles={salles}
           disponibilites={disponibilites}
+          indisponibilites={indisponibilites}
+          periodes={periodes.map((p) => ({ id: p.id, nom: p.nom, numero: p.numero }))}
           tenantId={session.user.tenantId}
           readOnly={estEnseignant}
         />

@@ -8,6 +8,10 @@ import {
   siteIdForCreate,
   isRelationScopedRole,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const CreateDevoirSchema = z.object({
   classeId: z.string().min(1),
@@ -15,6 +19,7 @@ const CreateDevoirSchema = z.object({
   titre: z.string().min(1).max(200),
   description: z.string().optional(),
   dateRendu: z.coerce.date(),
+  type: z.enum(["EXERCICE", "LECTURE", "REVISION", "PROJET", "AUTRE"]).default("AUTRE"),
 });
 
 const PatchDevoirSchema = z.object({
@@ -41,11 +46,19 @@ export async function GET(req: NextRequest) {
 
   const claims = session.user as Parameters<typeof siteFilterForModel>[1];
 
+  // Filtrer par année scolaire courante via la relation classe.
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  // Date simulée par la Time Machine : ne pas retourner les devoirs dont
+  // la date de rendu est dans le futur (relativement à la date simulée).
+  const maintenant = await getDemoNow();
+
   const devoirs = await prisma.devoir.findMany({
     where: {
       tenantId: session.user.tenantId,
       ...siteFilterForModel("devoir", claims),
       ...(classeId && { classeId }),
+      ...(anneeCourante && { classe: { annee: anneeCourante } }),
+      dateRendu: { lte: maintenant },
     },
     include: {
       classe: { select: { nom: true } },
@@ -74,6 +87,23 @@ export async function POST(req: NextRequest) {
   }
   const data = parsed.data;
 
+  // Enseignant : restreindre la création à ses classes et matières.
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  if (isTeacherRole(session.user.role as Role)) {
+    const teacherScope = await getTeacherScope(
+      session.user.tenantId,
+      session.user.id as string,
+      session.user.role as Role,
+      anneeCourante
+    );
+    if (teacherScope.isRestricted && !teacherScope.classeIds.includes(data.classeId)) {
+      return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+    }
+    if (teacherScope.isRestricted && !teacherScope.matiereIds.includes(data.matiereId)) {
+      return NextResponse.json({ error: "Matière hors de votre périmètre" }, { status: 403 });
+    }
+  }
+
   const siteId = siteIdForCreate(session.user as { siteId?: string | null });
 
   // Résoudre l'enseignant connecté (nullable pour la direction).
@@ -100,6 +130,7 @@ export async function POST(req: NextRequest) {
       description: data.description ?? null,
       dateRendu: data.dateRendu,
       statut: "A_FAIRE",
+      type: data.type,
     },
     include: {
       classe: { select: { nom: true } },
@@ -143,6 +174,7 @@ export async function POST(req: NextRequest) {
         description: devoir.description,
         dateRendu: devoir.dateRendu.toISOString(),
         statut: devoir.statut,
+        type: devoir.type,
         classe: { nom: devoir.classe.nom },
         matiere: { nom: devoir.matiere.nom, couleur: devoir.matiere.couleur },
       },
@@ -174,6 +206,18 @@ export async function PATCH(req: NextRequest) {
   });
   if (!existing) {
     return NextResponse.json({ error: "Devoir introuvable" }, { status: 404 });
+  }
+
+  // Enseignant : s'assurer que le devoir appartient à l'une de ses classes.
+  if (isTeacherRole(session.user.role as Role)) {
+    const teacherScope = await getTeacherScope(
+      session.user.tenantId,
+      session.user.id as string,
+      session.user.role as Role
+    );
+    if (teacherScope.isRestricted && !teacherScope.classeIds.includes(existing.classeId)) {
+      return NextResponse.json({ error: "Devoir hors de votre périmètre" }, { status: 403 });
+    }
   }
 
   const updated = await prisma.devoir.update({
@@ -218,6 +262,7 @@ export async function PATCH(req: NextRequest) {
       description: updated.description,
       dateRendu: updated.dateRendu.toISOString(),
       statut: updated.statut,
+      type: updated.type,
       classe: { nom: updated.classe.nom },
       matiere: { nom: updated.matiere.nom, couleur: updated.matiere.couleur },
     },

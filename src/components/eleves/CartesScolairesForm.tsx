@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreditCard, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
   id: string;
@@ -16,7 +17,7 @@ interface Classe {
   eleves: { id: string; nom: string; prenom: string; matricule: string; dateNaissance: Date | null; photoUrl?: string | null }[];
 }
 
-export function CartesScolairesForm({ classes }: { classes: Classe[] }) {
+export function CartesScolairesForm({ classes, hierarchie }: { classes: Classe[]; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("eleves");
   const [classeId, setClasseId] = useState("");
   const [generating, setGenerating] = useState(false);

@@ -26,6 +26,7 @@ import {
   isSimilarIdentity,
   normalizeName,
 } from "@/lib/eleve-identity";
+import { infererColonnes, type MappingColonnes } from "@/lib/column-inference";
 
 // ------------------------------------------------------------
 // Lecture du fichier
@@ -102,6 +103,57 @@ export function buildColumnMapping(headers: string[]): Record<string, string> {
   };
 }
 
+/**
+ * Construit un mapping de colonnes en combinant l'inférence (header + data)
+ * avec la logique des blocs parent.
+ *
+ * L'inférence gère les champs principaux (nom, prenom, classe, dateNaissance,
+ * etc.) en analysant à la fois le titre et le contenu. Les blocs parent
+ * restent gérés par la logique de suffixe/préfixe car l'inférence ne distingue
+ * pas "telephone parent1" de "telephone parent2".
+ */
+export function buildColumnMappingInfere(
+  headers: string[],
+  rows: Record<string, string>[]
+): { mapping: Record<string, string>; inference: MappingColonnes } {
+  // 1. Inférence pour les champs principaux
+  const inference = infererColonnes(headers, rows, "eleves");
+
+  // 2. Mapping header-based pour les blocs parent (inchangé)
+  const headerMap = buildColumnMapping(headers);
+
+  // 3. Construire le mapping final : utiliser l'inférence pour les champs
+  //    principaux, garder le header-based pour les blocs parent.
+  const mapping: Record<string, string> = {};
+
+  // Champs principaux : utiliser l'index inféré pour retrouver le header
+  const champsPrincipaux = [
+    "nom", "prenom", "classe", "niveau", "sexe", "dateNaissance",
+    "lieuNaissance", "matricule", "nationalite", "regime",
+  ];
+
+  for (const champ of champsPrincipaux) {
+    const index = inference.champs[champ];
+    if (index !== undefined && headers[index]) {
+      mapping[champ] = headers[index];
+    } else {
+      // Fallback sur le header-based
+      mapping[champ] = headerMap[champ];
+    }
+  }
+
+  // Blocs parent : conserver la logique existante
+  const champsParent = [
+    "parent1Nom", "parent1Prenom", "parent1Tel", "parent1Tel2", "parent1Lien",
+    "parent2Nom", "parent2Prenom", "parent2Tel", "parent2Tel2", "parent2Lien",
+  ];
+  for (const champ of champsParent) {
+    mapping[champ] = headerMap[champ];
+  }
+
+  return { mapping, inference };
+}
+
 /** Empreinte du contenu — sert à reconnaître un fichier déjà importé. */
 export function fileHash(buffer: ArrayBuffer): string {
   return createHash("sha256").update(Buffer.from(buffer)).digest("hex");
@@ -112,6 +164,10 @@ export interface ParseResult {
   /** Lignes inexploitables : nom ou classe absents. */
   erreurs: { ligne: number; message: string }[];
   hash: string;
+  /** Mapping de colonnes inféré par analyse du header + des données. */
+  mappingColonnes?: MappingColonnes;
+  /** En-têtes du fichier source. */
+  headers?: string[];
 }
 
 export async function parseElevesWorkbook(buffer: ArrayBuffer): Promise<ParseResult> {
@@ -125,24 +181,38 @@ export async function parseElevesWorkbook(buffer: ArrayBuffer): Promise<ParseRes
   sheet.getRow(1).eachCell((cell, colNumber) => {
     headers[colNumber - 1] = String(cell.value ?? "").trim().toLowerCase();
   });
-  const colMap = buildColumnMapping(headers);
+
+  // Lire toutes les lignes brutes pour l'inférence
+  const rawRows: Record<string, string>[] = [];
+  for (let i = 2; i <= sheet.rowCount; i++) {
+    const row = sheet.getRow(i);
+    const obj: Record<string, string> = {};
+    let hasData = false;
+    headers.forEach((header, idx) => {
+      if (!header) return;
+      const cell = row.getCell(idx + 1);
+      const value = cell.value instanceof Date
+        ? cell.value.toISOString()
+        : String(cell.value ?? "").trim();
+      obj[header] = value;
+      if (value) hasData = true;
+    });
+    if (hasData) rawRows.push(obj);
+  }
+
+  // Inférence des colonnes : header + data sampling
+  const { mapping: colMap, inference } = buildColumnMappingInfere(headers, rawRows);
 
   const rows: ParsedRow[] = [];
   const erreurs: { ligne: number; message: string }[] = [];
 
-  for (let i = 2; i <= sheet.rowCount; i++) {
-    const row = sheet.getRow(i);
-    const raw: Record<string, unknown> = {};
-    row.eachCell((cell, colNumber) => {
-      const header = headers[colNumber - 1];
-      if (header) raw[header] = cell.value;
-    });
+  for (let i = 0; i < rawRows.length; i++) {
+    const raw = rawRows[i];
+    const ligneNum = i + 2; // +2 : 1-based + ligne d'en-tête
 
     const texte = (k: string) => {
       const v = raw[colMap[k]];
       if (v === null || v === undefined) return undefined;
-      // Une cellule de date Excel arrive en objet Date.
-      if (v instanceof Date) return v.toISOString();
       const s = String(v).trim();
       return s.length > 0 ? s : undefined;
     };
@@ -152,11 +222,11 @@ export async function parseElevesWorkbook(buffer: ArrayBuffer): Promise<ParseRes
     const classe = texte("classe");
 
     if (!nomRaw) {
-      erreurs.push({ ligne: i, message: "Nom manquant" });
+      erreurs.push({ ligne: ligneNum, message: "Nom manquant" });
       continue;
     }
     if (!classe) {
-      erreurs.push({ ligne: i, message: `Classe manquante pour ${nomRaw}` });
+      erreurs.push({ ligne: ligneNum, message: `Classe manquante pour ${nomRaw}` });
       continue;
     }
 
@@ -176,7 +246,7 @@ export async function parseElevesWorkbook(buffer: ArrayBuffer): Promise<ParseRes
     }
 
     rows.push({
-      ligne: i,
+      ligne: ligneNum,
       nom,
       prenom,
       classe,
@@ -192,7 +262,7 @@ export async function parseElevesWorkbook(buffer: ArrayBuffer): Promise<ParseRes
     });
   }
 
-  return { rows, erreurs, hash: fileHash(buffer) };
+  return { rows, erreurs, hash: fileHash(buffer), mappingColonnes: inference, headers };
 }
 
 /** Lit un bloc de colonnes parent et ne renvoie un objet que si au moins
@@ -297,6 +367,10 @@ export interface PlanImport {
   /** Import antérieur du même fichier, le cas échéant. */
   dejaImporte?: { date: string; par: string | null };
   classesInconnues: string[];
+  /** Mapping de colonnes inféré par analyse du header + des données. */
+  mappingColonnes?: MappingColonnes;
+  /** En-têtes du fichier source. */
+  headers?: string[];
 }
 
 /** Date exploitable, ou `null` si la cellule est absente ou illisible. */
@@ -335,7 +409,9 @@ export function analyzeImport(
   erreurs: { ligne: number; message: string }[],
   existants: FicheExistante[],
   classesConnues: Set<string>,
-  hash: string
+  hash: string,
+  mappingColonnes?: MappingColonnes,
+  headers?: string[]
 ): PlanImport {
   const parMatricule = new Map(existants.map((e) => [e.matricule, e]));
   const parIdentite = new Map<string, FicheExistante>();
@@ -501,6 +577,8 @@ export function analyzeImport(
       datesAConfirmer: lignes.filter((l) => l.dateApproximative && l.verdict !== "ERREUR").length,
     },
     classesInconnues,
+    mappingColonnes,
+    headers,
   };
 }
 

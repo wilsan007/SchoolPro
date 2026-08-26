@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,9 +29,9 @@ interface Absence {
 }
 
 const statutIcons = {
-  JUSTIFIEE: <CheckCircle className="h-4 w-4 text-green-500" />,
-  INJUSTIFIEE: <XCircle className="h-4 w-4 text-red-500" />,
-  EN_ATTENTE: <Clock className="h-4 w-4 text-yellow-500" />,
+  JUSTIFIEE: <CheckCircle className="h-4 w-4 text-[#14b8a6]" />,
+  INJUSTIFIEE: <XCircle className="h-4 w-4 text-[#dc2626]" />,
+  EN_ATTENTE: <Clock className="h-4 w-4 text-[#9b6fe0]" />,
 };
 
 const statutVariants = {
@@ -40,6 +39,12 @@ const statutVariants = {
   INJUSTIFIEE: "destructive",
   EN_ATTENTE: "warning",
 } as const;
+
+const statutBadgeColors: Record<string, string> = {
+  JUSTIFIEE: "bg-[#14b8a6]/10 text-[#0d9488] border-[#14b8a6]/20",
+  INJUSTIFIEE: "bg-[#dc2626]/10 text-[#dc2626] border-[#dc2626]/20",
+  EN_ATTENTE: "bg-[#9b6fe0]/10 text-[#7c3aed] border-[#9b6fe0]/20",
+};
 
 const motifLabels: Record<string, string> = {
   INJUSTIFIE: "Injustifié",
@@ -98,22 +103,23 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
   ] as const;
 
   function renderAbsenceRow(absence: Absence) {
+    const statutKey = absence.statut as keyof typeof statutIcons;
     return (
-      <div key={absence.id} className="flex items-center gap-3 sm:gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
-        <Avatar className="h-9 w-9 flex-shrink-0">
+      <div key={absence.id} className="flex items-center gap-3 sm:gap-4 px-4 py-3 hover:bg-[#0ea5e9]/[0.03] transition-all duration-200 border-b border-border/40">
+        <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/50">
           {absence.eleve.photoUrl && <AvatarImage src={absence.eleve.photoUrl} />}
-          <AvatarFallback className="bg-muted text-xs font-semibold">
+          <AvatarFallback className="bg-gradient-to-br from-[#0ea5e9]/20 to-[#9b6fe0]/20 text-xs font-semibold text-[#0369a1]">
             {getInitials(`${absence.eleve.prenom} ${absence.eleve.nom}`)}
           </AvatarFallback>
         </Avatar>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-medium text-sm truncate">
+            <p className="font-medium text-sm truncate text-foreground">
               {absence.eleve.prenom} {absence.eleve.nom}
             </p>
             {absence.isRetard && (
-              <Badge variant="warning" className="text-[10px] px-1.5 py-0">{t("late")}</Badge>
+              <span className="inline-flex items-center rounded-full bg-[#f59e0b]/10 text-[#d97706] px-2 py-0.5 text-[10px] font-medium border border-[#f59e0b]/20">{t("late")}</span>
             )}
           </div>
           <div className="flex items-center gap-3 mt-0.5">
@@ -122,8 +128,8 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
             </p>
             {absence.heureDebut && (
               <>
-                <span className="text-xs text-muted-foreground">·</span>
-                <p className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground/60">·</span>
+                <p className="text-xs text-muted-foreground font-data">
                   {absence.heureDebut} – {absence.heureFin ?? "?"}
                 </p>
               </>
@@ -132,22 +138,22 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          <p className="text-xs text-muted-foreground hidden sm:block">{formatDate(absence.date, "dd/MM/yyyy")}</p>
+          <p className="text-xs text-muted-foreground hidden sm:block font-data">{formatDate(absence.date, "dd/MM/yyyy")}</p>
           <div className="flex items-center gap-1.5">
-            {statutIcons[absence.statut as keyof typeof statutIcons]}
-            <Badge variant={statutVariants[absence.statut as keyof typeof statutVariants] ?? "secondary"} className="text-xs">
+            {statutIcons[statutKey]}
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${statutBadgeColors[absence.statut] ?? "bg-muted text-muted-foreground border-border"}`}>
               {absence.statut === "JUSTIFIEE" ? t("justified")
                 : absence.statut === "INJUSTIFIEE" ? t("unjustified")
                 : t("pending")}
-            </Badge>
+            </span>
           </div>
           <div className="flex gap-1">
             {absence.statut === "EN_ATTENTE" && (
               <>
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700 hover:bg-green-50">
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-[#14b8a6] hover:text-[#0d9488] hover:bg-[#14b8a6]/10 rounded-lg">
                   {t("justify")}
                 </Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-[#dc2626] hover:text-red-700 hover:bg-[#dc2626]/10 rounded-lg">
                   {t("refuse")}
                 </Button>
               </>
@@ -159,25 +165,27 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
   }
 
   return (
-    <Card>
+    <div className="card-bloom overflow-hidden">
       {/* Filtres */}
-      <div className="flex flex-col sm:flex-row gap-3 p-4 border-b">
+      <div className="flex flex-col sm:flex-row gap-3 p-4 border-b border-border/60 bg-bloom-header">
         <div className="relative flex-1 max-w-xs w-full sm:w-auto">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("searchStudent")}
-            className="pl-8 h-9"
+            className="pl-8 h-9 bg-input/50 border-border rounded-xl focus:ring-2 focus:ring-primary/30"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="flex gap-1 overflow-x-auto scrollbar-thin">
           {tabs.map((tab) => (
-            <Button
+            <button
               key={tab.key}
-              variant={filter === tab.key ? "default" : "outline"}
-              size="sm"
-              className="gap-1.5 h-9"
+              className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                filter === tab.key
+                  ? "bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] text-white shadow-[0_4px_12px_hsl(198_65%_46%/0.2)]"
+                  : "border border-border bg-card/50 text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-[#0ea5e9]/5"
+              }`}
               onClick={() => setFilter(tab.key)}
             >
               {tab.label}
@@ -188,7 +196,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
               }`}>
                 {tab.count}
               </span>
-            </Button>
+            </button>
           ))}
         </div>
       </div>
@@ -201,7 +209,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
       ) : (
         <>
           {/* Onglets groupes scolaires */}
-          <div className="flex items-center gap-1 px-4 pt-3 border-b">
+          <div className="flex items-center gap-1 px-4 pt-3 border-b border-border/60">
             {groupedAbsences.map(({ group, classesByNiveau }) => {
               const totalGroup = classesByNiveau.reduce(
                 (s, n) => s + n.classes.reduce((s2, c) => s2 + c.absences.length, 0), 0
@@ -214,9 +222,9 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
                     setActiveClass(null);
                   }}
                   className={cn(
-                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2",
+                    "px-4 py-2 text-sm font-medium rounded-t-xl transition-all duration-200 border-b-2",
                     activeGroup === group
-                      ? "border-primary text-primary bg-primary/5"
+                      ? "border-[#0ea5e9] text-[#0369a1] bg-[#0ea5e9]/5"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
                   )}
                 >
@@ -288,6 +296,6 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
           )}
         </>
       )}
-    </Card>
+    </div>
   );
 }

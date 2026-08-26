@@ -4,6 +4,10 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { enregistrerHistoriqueBulletin } from "@/lib/bulletin-historique";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 const Schema = z.object({
   classeId: z.string().min(1),
@@ -28,6 +32,14 @@ export async function POST(req: NextRequest) {
     const { classeId, periodeId } = parsed.data;
     const tenantId = session.user.tenantId;
 
+    if (isTeacherRole(session.user.role as Role)) {
+      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+      const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
+      if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
+        return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+      }
+    }
+
     // Récupérer tous les bulletins de la classe pour la période
     const eleves = await prisma.eleve.findMany({
       where: { classeId, tenantId, statut: "ACTIF", ...siteFilterForModel("eleve", session.user) },
@@ -44,9 +56,37 @@ export async function POST(req: NextRequest) {
       },
       data: {
         isPublie: true,
+        statut: "PUBLIE",
         publishedAt: new Date(),
+        verrouilleAt: new Date(),
+        verrouilleParId: session.user.id,
       },
     });
+
+    // Tracer la publication dans l'historique pour chaque bulletin publié
+    if (result.count > 0) {
+      const bulletinsPublies = await prisma.bulletin.findMany({
+        where: {
+          tenantId,
+          ...siteFilterForModel("bulletin", session.user),
+          periodeId,
+          eleveId: { in: eleveIds },
+          isPublie: true,
+        },
+        select: { id: true },
+      });
+      for (const b of bulletinsPublies) {
+        await enregistrerHistoriqueBulletin(
+          b.id,
+          tenantId,
+          { id: session.user.id, name: session.user.name, role: session.user.role },
+          "PUBLIER",
+          "statut",
+          JSON.stringify("BROUILLON"),
+          JSON.stringify("PUBLIE")
+        ).catch(() => {/* non-fatal */});
+      }
+    }
 
     if (result.count > 0) {
       try {

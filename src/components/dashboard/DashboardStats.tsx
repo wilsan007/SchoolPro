@@ -1,5 +1,5 @@
 import { Users, School, ClipboardList, GraduationCap, TrendingUp, TrendingDown } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { AccentCard, CardContent, type CardAccent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -9,19 +9,30 @@ const iconMap = {
   graduation: GraduationCap,
 };
 
-const colorMap = {
-  violet: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400",
-  blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-  orange: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
-  green: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+/**
+ * Couleurs par stat — chaque stat porte un accent de catégorie qui teinte
+ * la carte (bordure haute + fond teinté + halo vif au survol) et une
+ * pastille en dégradé saturé pour l'icône.
+ */
+const accentMap = {
+  azure: { card: "azure" as CardAccent, pastille: "pastille-azure", text: "text-vif-azure" },
+  violet: { card: "violet" as CardAccent, pastille: "pastille-violet", text: "text-vif-violet" },
+  teal: { card: "teal" as CardAccent, pastille: "pastille-teal", text: "text-vif-teal" },
+  amber: { card: "amber" as CardAccent, pastille: "pastille-amber", text: "text-vif-amber" },
+  rose: { card: "rose" as CardAccent, pastille: "pastille-rose", text: "text-vif-rose" },
+  emerald: { card: "emerald" as CardAccent, pastille: "pastille-emerald", text: "text-vif-emerald" },
+  sky: { card: "sky" as CardAccent, pastille: "pastille-sky", text: "text-vif-sky" },
+  indigo: { card: "indigo" as CardAccent, pastille: "pastille-indigo", text: "text-vif-indigo" },
 };
+
+type StatColor = keyof typeof accentMap;
 
 interface Stat {
   label: string;
   value: string;
   total?: number;
   icon: keyof typeof iconMap;
-  color: keyof typeof colorMap;
+  color: StatColor;
   change?: string;
   changePositive?: boolean;
 }
@@ -31,14 +42,17 @@ export function DashboardStats({ stats }: { stats: Stat[] }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {stats.map((stat) => {
         const Icon = iconMap[stat.icon];
+        const accent = accentMap[stat.color];
         return (
-          <Card key={stat.label} className="hover:shadow-md transition-shadow animate-fade-in">
+          <AccentCard key={stat.label} accent={accent.card} className="animate-fade-in overflow-hidden">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-start justify-between">
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
                   <div className="flex items-baseline gap-1">
-                    <p className="text-3xl font-bold tracking-tight">{stat.value}</p>
+                    <p className={cn("text-3xl font-bold tracking-tight font-data", accent.text)}>
+                      {stat.value}
+                    </p>
                     {stat.total && stat.total !== parseInt(stat.value) && (
                       <span className="text-sm text-muted-foreground">/ {stat.total}</span>
                     )}
@@ -46,8 +60,8 @@ export function DashboardStats({ stats }: { stats: Stat[] }) {
                   {stat.change && (
                     <div className={cn(
                       "flex items-center gap-1 text-xs font-medium",
-                      stat.changePositive === true ? "text-green-600 dark:text-green-400" :
-                      stat.changePositive === false ? "text-red-500 dark:text-red-400" :
+                      stat.changePositive === true ? "text-vif-emerald" :
+                      stat.changePositive === false ? "text-vif-rose" :
                       "text-muted-foreground"
                     )}>
                       {stat.changePositive === true && <TrendingUp className="h-3 w-3" />}
@@ -56,12 +70,12 @@ export function DashboardStats({ stats }: { stats: Stat[] }) {
                     </div>
                   )}
                 </div>
-                <div className={cn("p-3 rounded-xl", colorMap[stat.color])}>
+                <div className={cn("p-3 rounded-2xl text-white flex-shrink-0", accent.pastille)}>
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </AccentCard>
         );
       })}
     </div>

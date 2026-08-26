@@ -19,6 +19,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 /** Fenêtre d'observation des absences, en jours. */
 const FENETRE_ABSENCES_JOURS = 30;
@@ -93,6 +94,7 @@ export async function syntheseClasse(
 
   const ids = eleves.map((e) => e.id);
   const depuis = new Date(maintenant.getTime() - FENETRE_ABSENCES_JOURS * 86_400_000);
+  const anneeId = await anneeActiveId(tenantId);
 
   const [absences, bloquantes, incidents, impayes, parcours] = await Promise.all([
     prisma.absence.groupBy({
@@ -122,7 +124,9 @@ export async function syntheseClasse(
     prisma.facture.groupBy({
       by: ["eleveId"],
       where: {
-        tenantId, eleveId: { in: ids }, statut: "EN_RETARD", ...siteFilterForModel("facture", claims),
+        tenantId, eleveId: { in: ids }, statut: "EN_RETARD",
+        ...(anneeId ? { anneeId } : {}),
+        ...siteFilterForModel("facture", claims),
       },
       _count: { eleveId: true },
     }),

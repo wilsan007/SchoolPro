@@ -6,6 +6,7 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Espace de l'infirmerie — rôle NURSE.
@@ -26,6 +27,7 @@ export default async function InfirmeriePage() {
 
   const tenantId = session!.user.tenantId!;
   const claims: SessionSiteClaims = session!.user;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   // Bornes temporelles : aujourd'hui et les 7 derniers jours, selon la date
   // simulée par la machine à remonter le temps.
@@ -50,6 +52,7 @@ export default async function InfirmeriePage() {
         tenantId,
         ...siteFilterForModel("passageInfirmerie", claims),
         date: { gte: todayStart, lt: todayEnd },
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       },
     }),
     // 2. Passages cette semaine (7 jours glissants)
@@ -58,6 +61,7 @@ export default async function InfirmeriePage() {
         tenantId,
         ...siteFilterForModel("passageInfirmerie", claims),
         date: { gte: weekStart, lt: todayEnd },
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       },
     }),
     // 3. Fiches sanitaires complètes (pour le taux de couverture)
@@ -73,6 +77,7 @@ export default async function InfirmeriePage() {
         tenantId,
         ...siteFilterForModel("eleve", claims),
         statut: "ACTIF",
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
     }),
     // 4. Allergies connues : fiches dont le tableau d'allergies n'est pas vide.
@@ -89,6 +94,8 @@ export default async function InfirmeriePage() {
       where: {
         tenantId,
         ...siteFilterForModel("passageInfirmerie", claims),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+        date: { lte: now },
       },
       orderBy: { date: "desc" },
       take: 10,

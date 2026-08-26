@@ -8,6 +8,7 @@ import {
   eleveScopeFilter,
   mergeFilters,
 } from "@/lib/site-scope";
+import { anneeActiveId } from "@/lib/annee-scolaire";
 
 /**
  * Évolution d'un élève au fil de l'année scolaire.
@@ -67,17 +68,16 @@ export async function GET(
     return erreurJson("ELEVE_INTROUVABLE");
   }
 
-  // Résoudre l'année scolaire : celle demandée, sinon la courante, sinon la
-  // plus récente.
+  // Résoudre l'année scolaire : celle demandée, sinon l'active (Time Machine),
+  // sinon la plus récente.
   let annee = anneeId
     ? await prisma.anneesScolaires.findFirst({
         where: { id: anneeId, tenantId },
         select: { id: true, libelle: true, dateDebut: true, dateFin: true, isCurrent: true },
       })
     : await prisma.anneesScolaires.findFirst({
-        where: { tenantId, isCurrent: true },
+        where: { id: (await anneeActiveId(tenantId)) ?? "_none_", tenantId },
         select: { id: true, libelle: true, dateDebut: true, dateFin: true, isCurrent: true },
-        orderBy: { dateDebut: "desc" },
       });
 
   if (!annee) {

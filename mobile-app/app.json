@@ -18,7 +18,8 @@
       "bundleIdentifier": "app.ecolpro.mobile",
       "infoPlist": {
         "NSCameraUsageDescription": "EcolPro utilise la caméra pour les photos d'élèves et les QR codes.",
-        "NSFaceIDUsageDescription": "EcolPro utilise Face ID pour sécuriser votre connexion."
+        "NSFaceIDUsageDescription": "EcolPro utilise Face ID pour sécuriser votre connexion.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,7 +27,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4f46e5"
       },
-      "package": "app.ecolpro.mobile"
+      "package": "app.ecolpro.mobile",
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro",

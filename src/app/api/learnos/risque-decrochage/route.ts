@@ -28,5 +28,7 @@ export async function GET(req: NextRequest) {
     classeId,
   }, maintenant);
 
-  return NextResponse.json(synthese);
+  return NextResponse.json(synthese, {
+    headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" },
+  });
 }

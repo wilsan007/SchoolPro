@@ -8,8 +8,9 @@ import { Loader2, Calculator, CheckCircle, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
-export function BilanAnnuelManager({ classes, anneeId }: { classes: any[]; anneeId?: string }) {
+export function BilanAnnuelManager({ classes, hierarchie: _hierarchie, anneeId }: { classes: any[]; hierarchie?: ClassesHierarchie; anneeId?: string }) {
   const t = useTranslations("bulletins");
   const [selectedClasse, setSelectedClasse] = useState<string>(classes[0]?.id || "");
   const [loading, setLoading] = useState(false);

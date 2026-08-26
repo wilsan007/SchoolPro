@@ -5,6 +5,8 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 const CreateSchema = z.object({
   eleveId: z.string().min(1),
@@ -27,11 +29,16 @@ export async function GET(req: NextRequest) {
     const eleveId = searchParams.get("eleveId");
     const statut = searchParams.get("statut");
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+    const anneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
+    const maintenant = await getDemoNow();
 
     const incidents = await prisma.incident.findMany({
       where: { tenantId, ...siteFilterForModel("incident", session.user),
         ...(eleveId ? { eleveId } : {}),
         ...(statut ? { statut: statut as never } : {}),
+        ...anneeEleve,
+        date: { lte: maintenant },
       },
       include: {
         eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } } },

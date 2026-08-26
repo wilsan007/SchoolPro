@@ -5,6 +5,9 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -45,6 +48,14 @@ export async function PUT(req: NextRequest) {
   }
   const { anneeId, classeId, lignes } = parsed.data;
   const tenantId = session.user.tenantId;
+
+  if (classeId && isTeacherRole(session.user.role as Role)) {
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+    const scope = await getTeacherScope(tenantId, session.user.id, session.user.role as Role, anneeCourante);
+    if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
+      return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
+    }
+  }
 
   const annee = await prisma.anneesScolaires.findFirst({
     where: { id: anneeId, tenantId },

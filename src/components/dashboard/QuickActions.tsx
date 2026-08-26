@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AccentCard, CardContent, CardHeader, CardTitle, type CardAccent } from "@/components/ui/card";
 import { UserPlus, ClipboardCheck, PenLine, CalendarPlus } from "lucide-react";
 import { roleHasPermission } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 
 /**
  * Chaque raccourci porte la permission d'**écriture** qu'il déclenche, pas
@@ -18,28 +19,32 @@ const actions = [
     icon: UserPlus,
     href: "/eleves",
     permission: "eleves:write",
-    color: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400",
+    accent: "violet" as CardAccent,
+    pastille: "pastille-violet",
   },
   {
     labelKey: "absences.call",
     icon: ClipboardCheck,
     href: "/absences/appel",
     permission: "absences:write",
-    color: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+    accent: "amber" as CardAccent,
+    pastille: "pastille-amber",
   },
   {
     labelKey: "notes.enter",
     icon: PenLine,
     href: "/notes",
     permission: "notes:write",
-    color: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+    accent: "emerald" as CardAccent,
+    pastille: "pastille-emerald",
   },
   {
     labelKey: "examens.schedule",
     icon: CalendarPlus,
     href: "/evaluations",
     permission: "evaluations:write",
-    color: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400",
+    accent: "sky" as CardAccent,
+    pastille: "pastille-sky",
   },
 ];
 
@@ -51,7 +56,7 @@ export function QuickActions({ role }: { role: string }) {
   if (visibles.length === 0) return null;
 
   return (
-    <Card>
+    <AccentCard accent="azure">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-semibold">{t("dashboard.quickActions")}</CardTitle>
       </CardHeader>
@@ -61,9 +66,12 @@ export function QuickActions({ role }: { role: string }) {
             <Link
               key={action.href}
               href={action.href}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:border-primary hover:bg-accent transition-all duration-150 group text-center"
+              className={cn(
+                "flex flex-col items-center gap-2 p-4 rounded-2xl border border-border transition-all duration-200 group text-center",
+                "hover:-translate-y-0.5 hover:shadow-md hover:border-transparent"
+              )}
             >
-              <div className={`p-2.5 rounded-lg ${action.color} group-hover:scale-110 transition-transform`}>
+              <div className={cn("p-2.5 rounded-xl text-white group-hover:scale-110 transition-transform", action.pastille)}>
                 <action.icon className="h-4 w-4" />
               </div>
               <span className="text-xs font-medium text-foreground leading-tight">
@@ -73,6 +81,6 @@ export function QuickActions({ role }: { role: string }) {
           ))}
         </div>
       </CardContent>
-    </Card>
+    </AccentCard>
   );
 }

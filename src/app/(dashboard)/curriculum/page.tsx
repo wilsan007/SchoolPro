@@ -11,6 +11,8 @@ import {
   semaineScolaire,
 } from "@/lib/learnos/planification";
 import { getDemoNow } from "@/lib/demo-now";
+import { anneeActive } from "@/lib/annee-scolaire";
+import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 /**
  * Curriculum — référentiel de compétences et planification annuelle.
@@ -19,23 +21,22 @@ import { getDemoNow } from "@/lib/demo-now";
  * produit qu'une preuve de granularité « matière » ; sans planification, le
  * système constate les échecs au lieu de les anticiper.
  */
-async function getDonnees(tenantId: string, claims: SessionSiteClaims) {
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
-    select: { id: true, libelle: true, dateDebut: true, dateFin: true },
-  });
+async function getDonnees(tenantId: string, claims: SessionSiteClaims, user: SessionSiteClaims & { id?: string; role?: string }) {
+  // Respecte la Time Machine : anneeActive() retourne l'année contenant la
+  // date simulée, pas l'année isCurrent qui peut être vide pendant une démo.
+  const annee = await anneeActive(tenantId);
+  const anneeData = annee
+    ? { id: annee.id, libelle: annee.libelle, dateDebut: annee.dateDebut, dateFin: annee.dateFin }
+    : null;
 
-  const [matieres, classes, chapitres, planifications, evenementsCalendaires, planificationsCompetences] = await Promise.all([
+  // Hiérarchie des classes avec scope enseignant + site + année intégrés.
+  const hierarchie = await getClassesHierarchie(tenantId, user, { anneeCourante: anneeData?.libelle ?? null });
+  const classes = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => ({ id: cls.id, nom: cls.nom }))));
+
+  const [matieres, chapitres, planifications, evenementsCalendaires, planificationsCompetences] = await Promise.all([
     prisma.matiere.findMany({
       where: { tenantId, ...siteFilterForModel("matiere", claims) },
       select: { id: true, nom: true, code: true, couleur: true },
-      orderBy: { nom: "asc" },
-    }),
-    // Les classes servent à la distribution d'une feuille papier : une feuille
-    // scannée est donnée à une classe entière, pas à un élève isolé.
-    prisma.classe.findMany({
-      where: { tenantId, ...siteFilterForModel("classe", claims) },
-      select: { id: true, nom: true },
       orderBy: { nom: "asc" },
     }),
     prisma.chapitre.findMany({
@@ -57,11 +58,11 @@ async function getDonnees(tenantId: string, claims: SessionSiteClaims) {
       },
       orderBy: [{ niveau: "asc" }, { ordre: "asc" }],
     }),
-    annee
+    anneeData
       ? prisma.planificationChapitre.findMany({
           where: {
             tenantId,
-            anneeId: annee.id,
+            anneeId: anneeData.id,
             classeId: null,
             ...siteFilterForModel("planificationChapitre", claims),
           },
@@ -74,9 +75,9 @@ async function getDonnees(tenantId: string, claims: SessionSiteClaims) {
     // Événements calendaires (vacances, examens, jours fériés) définis par le
     // chef d'établissement. La planification les respecte en sautant les
     // semaines non enseignées.
-    annee
+    anneeData
       ? prisma.evenementCalendaire.findMany({
-          where: { anneeId: annee.id },
+          where: { anneeId: anneeData.id },
           select: { type: true, libelle: true, dateDebut: true, dateFin: true },
           orderBy: { dateDebut: "asc" },
         })
@@ -84,11 +85,11 @@ async function getDonnees(tenantId: string, claims: SessionSiteClaims) {
     // Planifications explicites des compétences à l'intérieur des chapitres.
     // Tant qu'une compétence n'a pas de ligne ici, elle hérite de la plage de
     // son chapitre.
-    annee
+    anneeData
       ? prisma.planificationCompetence.findMany({
           where: {
             tenantId,
-            anneeId: annee.id,
+            anneeId: anneeData.id,
             classeId: null,
             ...siteFilterForModel("planificationCompetence", claims),
           },
@@ -99,17 +100,19 @@ async function getDonnees(tenantId: string, claims: SessionSiteClaims) {
       : Promise.resolve([]),
   ]);
 
-  const alertes = annee ? await alertesAnticipees(tenantId, annee.id, claims) : [];
+  const maintenant = await getDemoNow();
+  const alertes = anneeData ? await alertesAnticipees(tenantId, anneeData.id, claims, maintenant) : [];
 
-  return { annee, matieres, classes, chapitres, planifications, alertes, evenementsCalendaires, planificationsCompetences };
+  return { annee: anneeData, matieres, classes, hierarchie, chapitres, planifications, alertes, evenementsCalendaires, planificationsCompetences };
 }
 
 export default async function CurriculumPage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.curriculum")]);
   await guardPage(session);
 
-  const { annee, matieres, classes, chapitres, planifications, alertes, evenementsCalendaires, planificationsCompetences } = await getDonnees(
+  const { annee, matieres, classes, hierarchie, chapitres, planifications, alertes, evenementsCalendaires, planificationsCompetences } = await getDonnees(
     session!.user.tenantId!,
+    session!.user,
     session!.user
   );
 
@@ -162,6 +165,7 @@ export default async function CurriculumPage() {
           }
           alertes={alertes}
           classes={classes}
+          hierarchie={hierarchie}
           evenementsCalendaires={evenementsCalendaires.map((e) => ({
             type: e.type as "VACANCE_SCOLAIRE" | "EXAMEN" | "JOUR_FERIE" | "AUTRE",
             libelle: e.libelle,

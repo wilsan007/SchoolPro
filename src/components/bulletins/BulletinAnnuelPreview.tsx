@@ -40,8 +40,15 @@ export function BulletinAnnuelPreview({ data }: Props) {
     >
       {/* Header Info */}
       <div className="flex flex-col mb-4">
-        <div className="text-center text-red-600 font-bold mb-2">
-          Email: ecoleprivee@gmail.com
+        {/* Coordonnées de l'établissement, lues sur le tenant (cf. BulletinPreview). */}
+        <div className="text-center font-bold mb-2">
+          {data.ecoleName}
+          {(data.ecoleEmail || data.ecoleTelephone) && (
+            <span className="font-normal">
+              {" — "}
+              {[data.ecoleEmail, data.ecoleTelephone].filter(Boolean).join(" · ")}
+            </span>
+          )}
         </div>
 
         <table className="w-full border-collapse border border-black text-center mb-1">

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DossierEnfant } from "@/components/learnos/DossierEnfant";
 import { EvolutionEleve } from "@/components/learnos/EvolutionEleve";
+import { CompetencesEleve } from "@/components/learnos/CompetencesEleve";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { dossierEleve, eleveDeLUtilisateur } from "@/lib/learnos/dossier-eleve";
@@ -74,6 +75,9 @@ export default async function EleveEspacePage() {
         </div>
 
         {dossier && <DossierEnfant dossier={dossier} perspective="eleve" />}
+
+        {/* Détail des compétences par matière (LEARNOS) */}
+        <CompetencesEleve eleveId={eleve.id} />
 
         {/* Évolution annuelle : prédictions vs réalité, trajectoire, bulletins */}
         <EvolutionEleve eleveId={eleve.id} />

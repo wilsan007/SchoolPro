@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { canAccessRoute } from "@/lib/permissions";
+import { checkApiRateLimit, getEdgeClientIP } from "@/lib/security/edge-rate-limit";
 
 /**
  * Routes joignables sans session, comparées par **préfixe**.
@@ -40,6 +41,23 @@ export default async function middleware(req: NextRequest) {
 
   // Segment complet exigé : `/loginfoo` ne doit pas hériter de `/login`.
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    // ─── Rate limiting sur les endpoints d'auth publics ──────────────────
+    // Les routes /api/auth/* sont publiques mais doivent être protégées
+    // contre le brute-force et l'énumération. On applique le rate limiting
+    // ici, avant de laisser passer la requête.
+    if (pathname.startsWith("/api/auth/")) {
+      const ip = getEdgeClientIP(req);
+      const blocked = checkApiRateLimit(pathname, req.method, ip);
+      if (blocked) {
+        return NextResponse.json(
+          { error: "Trop de requêtes. Réessayez dans un instant." },
+          {
+            status: blocked.status,
+            headers: { "Retry-After": String(blocked.retryAfter) },
+          },
+        );
+      }
+    }
     return NextResponse.next();
   }
 
@@ -47,7 +65,24 @@ export default async function middleware(req: NextRequest) {
   // `checkPermission`), qui sait en plus filtrer les données par périmètre.
   // Le middleware ne peut pas la remplacer : il ne voit pas la ressource.
   if (pathname.startsWith("/api/")) {
-    if (SELF_AUTH_API.some((r) => pathname.startsWith(r))) return NextResponse.next();
+    // ─── Rate limiting global sur toutes les routes API ──────────────────
+    // Les cron/webhooks portent leur propre auth (signature/HMAC) et
+    // proviennent du serveur lui-même : on les exempt.
+    if (SELF_AUTH_API.some((r) => pathname.startsWith(r) && r !== "/api/auth")) {
+      return NextResponse.next();
+    }
+
+    const ip = getEdgeClientIP(req);
+    const blocked = checkApiRateLimit(pathname, req.method, ip);
+    if (blocked) {
+      return NextResponse.json(
+        { error: "Trop de requêtes. Réessayez dans un instant." },
+        {
+          status: blocked.status,
+          headers: { "Retry-After": String(blocked.retryAfter) },
+        },
+      );
+    }
     return NextResponse.next();
   }
 
@@ -98,6 +133,11 @@ export default async function middleware(req: NextRequest) {
   // besoin pour retrouver la règle sans que chaque page la redéclare.
   const headers = new Headers(req.headers);
   headers.set("x-pathname", pathname);
+  // Mode embedded : les iframes du workspace chargent les routes avec ?embedded=1
+  // pour ne pas ré-afficher le chrome (sidebar, header, dock).
+  if (req.nextUrl.searchParams.get("embedded") === "1") {
+    headers.set("x-embedded", "1");
+  }
   return NextResponse.next({ request: { headers } });
 }
 

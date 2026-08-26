@@ -85,7 +85,7 @@ INSERT INTO users ("id", "tenantId", "email", "password", "name", "firstName", "
   'user-admin-amb',
   'tenant-ambouli',
   'admin@cite-ambouli.dj',
-  '$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+  '$2a$12$1b7BChA.QF/6pf3jZkl6B.YUM5iMNKRG67GePvECwZN7VJe5I9FDC',
   'Abdillahi Mahamoud',
   'Abdillahi',
   'Mahamoud',

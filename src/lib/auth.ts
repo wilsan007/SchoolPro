@@ -10,6 +10,7 @@ import { auditFire } from "@/lib/audit";
 import { normaliserEmail } from "@/lib/email";
 import { verifierCodeConnexion } from "@/lib/two-factor";
 import { activation2FARequise } from "@/lib/two-factor-policy";
+import { verifyTurnstileToken } from "@/lib/security/turnstile";
 
 const LoginSchema = z.object({
   // La saisie est normalisée avant toute recherche : un clavier mobile qui
@@ -20,6 +21,8 @@ const LoginSchema = z.object({
   // secours XXXX-XXXX. Absent au premier envoi du formulaire ; le client le
   // redemande après le code d'erreur `2fa_requis`.
   totp: z.string().trim().optional(),
+  // Jeton Cloudflare Turnstile (anti-bot). Absent en dev si pas de sitekey.
+  turnstileToken: z.string().optional(),
 });
 
 /**
@@ -167,12 +170,29 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Mot de passe", type: "password" },
         totp: { label: "Code de vérification", type: "text" },
+        turnstileToken: { label: "Turnstile", type: "text" },
       },
       async authorize(credentials) {
         const parsed = LoginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password, totp } = parsed.data;
+        const { email, password, totp, turnstileToken } = parsed.data;
+
+        // ─── Vérification Turnstile (anti-bot) ────────────────────────────
+        // Effectuée AVANT toute recherche en base : un bot est rejeté sans
+        // révéler si l'email existe. En dev (pas de TURNSTILE_SECRET), la
+        // vérification est contournée par le helper.
+        const turnstileResult = await verifyTurnstileToken(turnstileToken);
+        if (!turnstileResult.success) {
+          auditFire({
+            action: "auth:login",
+            verdict: "DENIED",
+            resource: "user",
+            reason: "Échec Turnstile",
+            metadata: { email, turnstileError: turnstileResult.error },
+          });
+          return null;
+        }
 
         // Recherche insensible à la casse : les comptes déjà enregistrés avec
         // une majuscule doivent rester joignables sans attendre une
