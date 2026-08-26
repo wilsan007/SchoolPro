@@ -52,6 +52,10 @@ import {
   CheckSquare,
   Activity,
   Brain,
+  RefreshCw,
+  IdCard,
+  Award,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -123,6 +127,10 @@ const navGroups: NavGroup[] = [
     groupAccent: "258 58% 58%",
     items: [
       { labelKey: "eleves", icon: Users, href: "/eleves", color: "text-accent" },
+      { labelKey: "transfertClasses", icon: RefreshCw, href: "/eleves/transfert", color: "text-accent" },
+      { labelKey: "cartesScolaires", icon: IdCard, href: "/eleves/cartes", color: "text-accent" },
+      { labelKey: "attestations", icon: Award, href: "/eleves/attestations", color: "text-accent" },
+      { labelKey: "comptesEleves", icon: UserCog, href: "/eleves/comptes", color: "text-accent" },
       { labelKey: "notes", icon: BookOpen, href: "/notes", color: "text-info" },
       { labelKey: "cahierJournal", icon: NotebookPen, href: "/cahier-journal", color: "text-accent" },
       { labelKey: "curriculum", icon: Target, href: "/curriculum", color: "text-accent" },
@@ -155,6 +163,7 @@ const navGroups: NavGroup[] = [
     groupAccent: "243 75% 59%",
     items: [
       { labelKey: "admissions", icon: UserPlus, href: "/admissions", color: "text-info" },
+      { labelKey: "reinscription", icon: RefreshCw, href: "/parametres/reinscription", color: "text-primary" },
       { labelKey: "facturation", icon: Receipt, href: "/facturation", color: "text-info" },
       { labelKey: "caisse", icon: Wallet, href: "/caisse", color: "text-info" },
       { labelKey: "rh", icon: Briefcase, href: "/rh", color: "text-primary" },

@@ -205,7 +205,7 @@ function CreateIncidentModal({
   );
 }
 
-function IncidentCard({ incident, onUpdate, onHisto, onWorkflow }: { incident: Incident; onUpdate: (i: Incident) => void; onHisto: (eleveId: string, nom: string) => void; onWorkflow: (inc: Incident) => void }) {
+function IncidentCard({ incident, onUpdate, onHisto, onWorkflow, canWrite = true }: { incident: Incident; onUpdate: (i: Incident) => void; onHisto: (eleveId: string, nom: string) => void; onWorkflow: (inc: Incident) => void; canWrite?: boolean }) {
   const t = useTranslations("vieScolaire");
   const [expanded, setExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -286,12 +286,12 @@ function IncidentCard({ incident, onUpdate, onHisto, onWorkflow }: { incident: I
           </div>
 
           <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto flex-wrap">
-            {incident.statut === "OUVERT" && (
+            {canWrite && incident.statut === "OUVERT" && (
               <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatut("EN_TRAITEMENT")} disabled={isPending}>
                 {t("process")}
               </Button>
             )}
-            {incident.statut === "EN_TRAITEMENT" && (
+            {canWrite && incident.statut === "EN_TRAITEMENT" && (
               <Button size="sm" variant="outline" className="text-xs text-green-700 border-green-200" onClick={() => updateStatut("RESOLU")} disabled={isPending}>
                 {t("resolve")}
               </Button>
@@ -305,7 +305,7 @@ function IncidentCard({ incident, onUpdate, onHisto, onWorkflow }: { incident: I
             >
               <History className="w-4 h-4" />
             </Button>
-            {(incident.statut === "OUVERT" || incident.statut === "EN_TRAITEMENT") && (
+            {canWrite && (incident.statut === "OUVERT" || incident.statut === "EN_TRAITEMENT") && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -359,6 +359,7 @@ export function VieScolaireView({
   classes,
   hierarchie: _hierarchie,
   currentUserId,
+  canWrite = true,
 }: {
   incidents: Incident[];
   eleves: Eleve[];
@@ -366,6 +367,7 @@ export function VieScolaireView({
   hierarchie?: ClassesHierarchie;
   currentUserId: string;
   tenantId: string;
+  canWrite?: boolean;
 }) {
   const t = useTranslations("vieScolaire");
   const [incidents, setIncidents] = useState<Incident[]>(initial);
@@ -449,13 +451,15 @@ export function VieScolaireView({
           <option value="ALL">{t("allClasses")}</option>
           {classes.map((c) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
         </select>
-        <Button
-          onClick={() => setShowCreate(true)}
-          className="gap-2 bg-red-600 hover:bg-red-700 text-white shrink-0 w-full sm:w-auto"
-        >
-          <Plus className="w-4 h-4" />
-          {t("report")}
-        </Button>
+        {canWrite && (
+          <Button
+            onClick={() => setShowCreate(true)}
+            className="gap-2 bg-red-600 hover:bg-red-700 text-white shrink-0 w-full sm:w-auto"
+          >
+            <Plus className="w-4 h-4" />
+            {t("report")}
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={() => setShowRetards(true)}
@@ -484,6 +488,7 @@ export function VieScolaireView({
               onUpdate={updateIncident}
               onHisto={(eleveId, nom) => setHistoEleve({ id: eleveId, nom })}
               onWorkflow={(inc) => setWorkflowIncident(inc)}
+              canWrite={canWrite}
             />
           ))}
         </div>

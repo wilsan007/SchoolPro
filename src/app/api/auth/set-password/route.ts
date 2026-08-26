@@ -5,10 +5,11 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { auditFire } from "@/lib/audit";
 import { erreurJson } from "@/lib/erreurs-api";
+import { validerMotDePasse } from "@/lib/password-validation";
 
 const BodySchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(8),
+  newPassword: z.string().min(1),
 });
 
 export async function POST(request: NextRequest) {
@@ -23,6 +24,15 @@ export async function POST(request: NextRequest) {
   }
 
   const { currentPassword, newPassword } = parsed.data;
+
+  // Vérifier la complexité du nouveau mot de passe
+  const erreursComplexite = validerMotDePasse(newPassword);
+  if (erreursComplexite) {
+    return NextResponse.json(
+      { success: false, error: "weak_password", codes: erreursComplexite },
+      { status: 400 }
+    );
+  }
 
   // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- own user record
   const user = await prisma.user.findUnique({
@@ -46,6 +56,15 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(
       { success: false, error: "wrong_current_password" },
+      { status: 400 }
+    );
+  }
+
+  // Vérifier que le nouveau mot de passe est différent de l'ancien
+  const sameAsOld = await bcrypt.compare(newPassword, user.password);
+  if (sameAsOld) {
+    return NextResponse.json(
+      { success: false, error: "same_as_old" },
       { status: 400 }
     );
   }

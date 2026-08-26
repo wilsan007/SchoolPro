@@ -21,7 +21,7 @@ export async function GET(
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-    const denied = checkPermission(session.user.role, "curriculum:read");
+    const denied = checkPermission(session.user.role, "cahier-journal:read");
     if (denied) return denied;
 
     const { seanceId } = await params;

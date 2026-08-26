@@ -509,6 +509,10 @@ export const SITE_PATHS: Record<string, SitePath> = {
   demandeFourniture: "column",
   listeFournitureClasse: "column",
   listeFournitureItem: "tenant",
+
+  // --- Campagne de réinscription (niveau tenant, pas de siteId) ---
+  campagneReinscription: "tenant",
+  invitationReinscription: { one: "eleve" },
 };
 
 /**

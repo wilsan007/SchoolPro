@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -13,19 +13,32 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { registerTenant, type RegisterFormData } from "@/lib/actions/register";
 import { useTranslations } from "next-intl";
+import { buildPasswordSchema, type PasswordMessages } from "@/lib/password-validation";
 
-const FormSchema = z.object({
-  schoolName: z.string().min(2, "Le nom de l'établissement est requis"),
-  schoolType: z.enum(["maternelle", "primaire", "college", "lycee", "mixte"]),
-  city: z.string().min(1, "La ville est requise"),
-  phone: z.string().min(1, "Le téléphone est requis"),
-  email: z.string().email("Email invalide"),
-  adminFirstName: z.string().min(1, "Le prénom est requis"),
-  adminLastName: z.string().min(1, "Le nom est requis"),
-  adminEmail: z.string().email("Email administrateur invalide"),
-  adminPassword: z.string().min(8, "Le mot de passe doit faire au moins 8 caractères"),
-  plan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]),
-});
+/// Le schéma est construit dans le composant car les messages dépendent de la
+/// locale. On garde une référence pour la validation hors-rendu.
+function buildFormSchema(t: (k: string) => string, tPwd: (k: string) => string) {
+  const pwdMessages: PasswordMessages = {
+    tooShort: tPwd("tooShort"),
+    missingUppercase: tPwd("missingUppercase"),
+    missingLowercase: tPwd("missingLowercase"),
+    missingNumber: tPwd("missingNumber"),
+    missingSpecial: tPwd("missingSpecial"),
+    dontMatch: tPwd("dontMatch"),
+  };
+  return z.object({
+    schoolName: z.string().min(2, t("errSchoolName")),
+    schoolType: z.enum(["maternelle", "primaire", "college", "lycee", "mixte"]),
+    city: z.string().min(1, t("errCity")),
+    phone: z.string().min(1, t("errPhone")),
+    email: z.string().email(t("errEmail")),
+    adminFirstName: z.string().min(1, t("errFirstName")),
+    adminLastName: z.string().min(1, t("errLastName")),
+    adminEmail: z.string().email(t("errAdminEmail")),
+    adminPassword: buildPasswordSchema(pwdMessages),
+    plan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]),
+  });
+}
 
 const schoolTypeKeys: Record<string, string> = {
   maternelle: "typeMaternelle",
@@ -44,9 +57,13 @@ const planKeys: Record<string, { labelKey: string; price: string; descKey: strin
 
 export function RegisterForm() {
   const t = useTranslations("register");
+  const tPwd = useTranslations("common.password");
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Construire le schéma avec les messages localisés
+  const FormSchema = useMemo(() => buildFormSchema(t, tPwd), [t, tPwd]);
   const [form, setForm] = useState<RegisterFormData>({
     schoolName: "",
     schoolType: "mixte",
@@ -279,6 +296,7 @@ export function RegisterForm() {
               className={inputClass("adminPassword")}
             />
             {errors.adminPassword && <p className="text-xs text-destructive">{errors.adminPassword}</p>}
+            <p className="text-xs text-muted-foreground">{tPwd("requirementsShort")}</p>
           </div>
 
           <div className="space-y-1.5">

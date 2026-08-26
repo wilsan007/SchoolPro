@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, CheckCircle2, Calendar } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckCircle2, Calendar, Lock, Unlock, Archive } from "lucide-react";
 import {
   createAnneeScolaire,
   activateAnneeScolaire,
@@ -21,6 +21,7 @@ interface AnneeScolaire {
   dateDebut: Date;
   dateFin: Date;
   isCurrent: boolean;
+  statut?: string; // OUVERTE | CLOTUREE | ARCHIVEE
 }
 
 interface AnneesScolairesTabProps {
@@ -81,6 +82,69 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
       try {
         await deleteAnneeScolaire(anneeId);
         toast.success(t("anneeDeleted"));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("genericError"));
+      }
+    });
+  }
+
+  async function handleCloturer(anneeId: string) {
+    if (!confirm(t("confirmCloturer"))) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/parametres/annees-scolaires/${anneeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "cloturer" }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.detail ?? err?.error ?? "Erreur");
+        }
+        toast.success(t("anneeCloturee"));
+        window.location.reload();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("genericError"));
+      }
+    });
+  }
+
+  async function handleReouvrir(anneeId: string) {
+    if (!confirm(t("confirmReouvrir"))) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/parametres/annees-scolaires/${anneeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reouvrir" }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.detail ?? err?.error ?? "Erreur");
+        }
+        toast.success(t("anneeReouverte"));
+        window.location.reload();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("genericError"));
+      }
+    });
+  }
+
+  async function handleArchiver(anneeId: string) {
+    if (!confirm(t("confirmArchiver"))) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/parametres/annees-scolaires/${anneeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "archiver" }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.detail ?? err?.error ?? "Erreur");
+        }
+        toast.success(t("anneeArchivee"));
+        window.location.reload();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : t("genericError"));
       }
@@ -188,9 +252,20 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
                     )}
                   </div>
 
-                  {/* Libellé + dates */}
+                  {/* Libellé + dates + statut */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{annee.libelle}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{annee.libelle}</span>
+                      {annee.statut && annee.statut !== "OUVERTE" && (
+                        <span className={cn(
+                          "text-xs px-1.5 py-0.5 rounded-full font-medium",
+                          annee.statut === "CLOTUREE" && "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+                          annee.statut === "ARCHIVEE" && "bg-muted text-muted-foreground"
+                        )}>
+                          {annee.statut === "CLOTUREE" ? t("closed") : t("archived")}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {fmtDate(annee.dateDebut)} → {fmtDate(annee.dateFin)}
                     </div>
@@ -199,7 +274,7 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
                   {/* Actions */}
                   {canManage && (
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {!annee.isCurrent && (
+                      {!annee.isCurrent && (!annee.statut || annee.statut === "OUVERTE") && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -210,7 +285,44 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
                           {t("activate")}
                         </Button>
                       )}
-                      {!annee.isCurrent && (
+                      {(!annee.statut || annee.statut === "OUVERTE") && !annee.isCurrent && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCloturer(annee.id)}
+                          disabled={isPending}
+                          title={t("close")}
+                          className="text-amber-600 hover:bg-amber-50"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {annee.statut === "CLOTUREE" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleReouvrir(annee.id)}
+                            disabled={isPending}
+                            title={t("reopen")}
+                          >
+                            <Unlock className="h-3.5 w-3.5" />
+                          </Button>
+                          {!annee.isCurrent && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleArchiver(annee.id)}
+                              disabled={isPending}
+                              title={t("archive")}
+                              className="text-muted-foreground hover:bg-muted/30"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {!annee.isCurrent && (!annee.statut || annee.statut === "OUVERTE") && (
                         <Button
                           size="sm"
                           variant="ghost"

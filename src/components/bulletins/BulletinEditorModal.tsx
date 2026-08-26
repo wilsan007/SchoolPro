@@ -17,9 +17,10 @@ interface BulletinEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  canWrite?: boolean;
 }
 
-export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: BulletinEditorModalProps) {
+export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess, canWrite = true }: BulletinEditorModalProps) {
   const t = useTranslations("bulletins");
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -45,6 +46,10 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
 
   const verrouille = bulletin.statut === "VERROUILLE" || bulletin.statut === "PUBLIE" || bulletin.verrouille;
   const publie = bulletin.statut === "PUBLIE" || bulletin.isPublie;
+  // Un bulletin verrouillé ou publié n'est plus éditable. Un utilisateur
+  // sans `bulletins:write` ne peut pas éditer non plus, même si le
+  // bulletin est ouvert.
+  const editable = canWrite && !verrouille;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,6 +117,7 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
                 placeholder={t("leaveEmptyAuto")}
                 value={formData.moyenneGenerale}
                 onChange={(e) => setFormData({ ...formData, moyenneGenerale: e.target.value })}
+                disabled={!editable}
               />
             </div>
             <div className="space-y-2">
@@ -121,6 +127,7 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
                 placeholder={t("rankPlaceholder")}
                 value={formData.rang}
                 onChange={(e) => setFormData({ ...formData, rang: e.target.value })}
+                disabled={!editable}
               />
             </div>
           </div>
@@ -130,6 +137,7 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
             <Select
               value={formData.decision}
               onValueChange={(val: string) => setFormData({ ...formData, decision: val === "NONE" ? "" : val })}
+              disabled={!editable}
             >
               <SelectTrigger>
                 <SelectValue placeholder={t("selectDecision")} />
@@ -153,6 +161,7 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
               rows={4}
               value={formData.appreciation}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, appreciation: e.target.value })}
+              disabled={!editable}
             />
           </div>
 
@@ -160,7 +169,7 @@ export function BulletinEditorModal({ bulletin, isOpen, onClose, onSuccess }: Bu
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               {t("cancel")}
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !editable}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t("save")}
             </Button>

@@ -10,8 +10,47 @@ import { Loader2, Lock, AlertTriangle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { changePassword } from "@/lib/actions/profil";
 
+/**
+ * Traduit un code d'erreur renvoyé par `changePassword` en message localisé.
+ *
+ * L'action serveur renvoie des codes stables (ex. `PASSWORD_TOO_SHORT`) pour
+ * rester indépendante de la locale — on les mappe ici sur les clés i18n.
+ */
+function traduireErreur(
+  message: string,
+  tPwd: (k: string) => string,
+  tProfil: (k: string) => string
+): string {
+  // L'action peut renvoyer plusieurs codes séparés par des virgules
+  // (ex. `PASSWORD_TOO_SHORT,PASSWORD_MISSING_UPPERCASE`). On traduit le
+  // premier code reconnu — c'est la règle la plus prioritaire.
+  const codes = message.split(",");
+  const map: Record<string, string> = {
+    PASSWORD_TOO_SHORT: tPwd("tooShort"),
+    PASSWORD_MISSING_UPPERCASE: tPwd("missingUppercase"),
+    PASSWORD_MISSING_LOWERCASE: tPwd("missingLowercase"),
+    PASSWORD_MISSING_NUMBER: tPwd("missingNumber"),
+    PASSWORD_MISSING_SPECIAL: tPwd("missingSpecial"),
+    PASSWORD_DONT_MATCH: tPwd("dontMatch"),
+    PASSWORD_SAME_AS_OLD: tPwd("sameAsOld"),
+    WRONG_CURRENT_PASSWORD: tPwd("wrongCurrent"),
+    PASSWORD_CURRENT_REQUIRED: tProfil("currentPassword") + " — requis",
+    PASSWORD_NEW_REQUIRED: tProfil("newPassword") + " — requis",
+    PASSWORD_CONFIRM_REQUIRED: tProfil("confirmPassword") + " — requis",
+    NON_AUTORISE: tProfil("passwordError"),
+    UTILISATEUR_INTROUVABLE: tProfil("passwordError"),
+  };
+  for (const code of codes) {
+    const trimmed = code.trim();
+    if (map[trimmed]) return map[trimmed];
+  }
+  // Repli : message brut (français serveur) si le code n'est pas reconnu.
+  return message;
+}
+
 export function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
   const t = useTranslations("profil");
+  const tPwd = useTranslations("common.password");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -30,7 +69,8 @@ export function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
       setConfirmPassword("");
       toast.success(t("passwordChanged"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("passwordError"));
+      const message = err instanceof Error ? err.message : t("passwordError");
+      toast.error(traduireErreur(message, tPwd, t));
     } finally {
       setLoading(false);
     }
@@ -85,7 +125,7 @@ export function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
               autoComplete="new-password"
               minLength={8}
             />
-            <p className="text-xs text-muted-foreground">{t("passwordMinLength")}</p>
+            <p className="text-xs text-muted-foreground">{tPwd("requirements")}</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">{t("confirmPassword")}</Label>

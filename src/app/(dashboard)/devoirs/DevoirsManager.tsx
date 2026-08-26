@@ -33,10 +33,12 @@ export function DevoirsManager({
   hierarchie,
   matieres,
   devoirs: initial,
+  canWrite = true,
 }: {
   hierarchie: ClassesHierarchie;
   matieres: MatiereOption[];
   devoirs: DevoirItem[];
+  canWrite?: boolean;
 }) {
   const t = useTranslations("devoirs");
   const [devoirs, setDevoirs] = useState<DevoirItem[]>(initial);
@@ -112,7 +114,8 @@ export function DevoirsManager({
 
   return (
     <div className="space-y-6">
-      {/* Formulaire de création */}
+      {/* Formulaire de création — réservé aux rôles avec notes:write */}
+      {canWrite && (
       <form
         onSubmit={creer}
         className="card-bloom p-6 space-y-4"
@@ -186,6 +189,7 @@ export function DevoirsManager({
           {t("creer")}
         </Button>
       </form>
+      )}
 
       {/* Liste des devoirs existants */}
       <div className="space-y-3">

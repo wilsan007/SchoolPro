@@ -32,7 +32,11 @@ export function BulletinsList({ classes, hierarchie: _hierarchie, periodes, user
   const [historyEntries, setHistoryEntries] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const isAdmin = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN";
+  const isAdmin = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL";
+  // `bulletins:write` = éditer ; `bulletins:delete` = supprimer.
+  // TEACHER n'a que `bulletins:read` — il consulte mais n'édite pas.
+  const canWrite = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL" || userRole === "CLASS_TEACHER";
+  const canDelete = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL";
 
   const loadBulletins = useCallback(async () => {
     if (!selectedClasse || !selectedPeriode) return;
@@ -226,25 +230,29 @@ export function BulletinsList({ classes, hierarchie: _hierarchie, periodes, user
                             <Button variant="ghost" size="icon" onClick={() => handlePrint(b.eleve.id, b.periodeId)} title={t("previewPrint")}>
                               <Printer className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditingBulletin(b)}
-                              title={verrouille && !isAdmin ? t("lockedEditTooltip") : t("edit")}
-                              disabled={verrouille && !isAdmin}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDelete(b.id)}
-                              title={verrouille && !isAdmin ? t("lockedDeleteTooltip") : t("delete")}
-                              disabled={verrouille && !isAdmin}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canWrite && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingBulletin(b)}
+                                title={verrouille && !isAdmin ? t("lockedEditTooltip") : t("edit")}
+                                disabled={verrouille && !isAdmin}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDelete(b.id)}
+                                title={verrouille && !isAdmin ? t("lockedDeleteTooltip") : t("delete")}
+                                disabled={verrouille && !isAdmin}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -270,6 +278,7 @@ export function BulletinsList({ classes, hierarchie: _hierarchie, periodes, user
         isOpen={!!editingBulletin}
         onClose={() => setEditingBulletin(null)}
         onSuccess={loadBulletins}
+        canWrite={canWrite}
       />
 
       {/* Modal historique */}

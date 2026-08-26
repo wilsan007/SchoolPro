@@ -30,7 +30,11 @@ export default async function ParametresPage() {
   // utilisateurs, classes, matières, périodes — pas le périmètre d'un enseignant.
   await guardPage(session);
 
-  const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN" || session.user.role === "PRINCIPAL";
+  // PRINCIPAL a `parametres:read` mais pas `parametres:write` dans la
+  // matrice : il consulte la configuration de l'établissement sans la
+  // modifier. `canManage` contrôle tous les boutons de création/édition/
+  // suppression (utilisateurs, classes, matières, périodes, sites…).
+  const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
 
   const [etablissement, users, parents, eleves, classes, matieres, regles, periodes, sites, annees] = await Promise.all([
     getEtablissementData(),

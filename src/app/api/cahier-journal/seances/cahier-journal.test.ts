@@ -78,7 +78,7 @@ describe("GET /api/cahier-journal/seances", () => {
     expect(res.status).toBe(401);
   });
 
-  it("refuse sans la permission curriculum:read", async () => {
+  it("refuse sans la permission cahier-journal:read", async () => {
     mockCheckPermission.mockReturnValue(
       new Response("Forbidden", { status: 403 })
     );
@@ -115,7 +115,7 @@ describe("GET /api/cahier-journal/seances", () => {
 });
 
 describe("POST /api/cahier-journal/seances", () => {
-  it("refuse sans la permission curriculum:write", async () => {
+  it("refuse sans la permission cahier-journal:write", async () => {
     mockCheckPermission.mockReturnValue(
       new Response("Forbidden", { status: 403 })
     );

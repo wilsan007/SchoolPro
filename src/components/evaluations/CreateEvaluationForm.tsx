@@ -18,9 +18,10 @@ interface Props {
   hierarchie?: ClassesHierarchie;
   matieres: { id: string; nom: string }[];
   periodes: { id: string; nom: string }[];
+  canWrite?: boolean;
 }
 
-export function CreateEvaluationForm({ classes, hierarchie: _hierarchie, matieres, periodes }: Props) {
+export function CreateEvaluationForm({ classes, hierarchie: _hierarchie, matieres, periodes, canWrite = true }: Props) {
   const t = useTranslations("evaluations");
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -62,6 +63,8 @@ export function CreateEvaluationForm({ classes, hierarchie: _hierarchie, matiere
       }
     });
   }
+
+  if (!canWrite) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -21,7 +21,7 @@ const EleveFormSchema = z.object({
   nationalite: z.string().optional(),
   sexe: z.enum(["M", "F"]),
   classeId: z.string().optional(),
-  statut: z.enum(["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
+  statut: z.enum(["ACTIF", "REINSCRIT", "NON_REINSCRIT", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
   groupeSanguin: z.string().optional(),
   allergies: z.string().optional(),
   besoinsSpeciaux: z.string().optional(),

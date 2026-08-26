@@ -120,6 +120,7 @@
     "eslint-config-next": "15.5.20",
     "eslint-plugin-ecolpro": "file:./eslint-rules",
     "jsdom": "^30.0.1",
+    "pg": "^8.23.0",
     "postcss": "^8",
     "prisma": "^6.0.0",
     "tsx": "^4.19.2",

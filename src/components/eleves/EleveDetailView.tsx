@@ -211,6 +211,10 @@ export function EleveDetailView({
   // Le comptable ne voit que la facturation et les absences dans le profil élève.
   // Les autres rôles voient tous les onglets.
   const isComptable = userRole === "ACCOUNTANT";
+  // `eleves:write` = TENANT_ADMIN, SUPER_ADMIN, PRINCIPAL, SECRETARY.
+  // TEACHER n'a que `eleves:read` — il consulte mais n'édite pas.
+  const canWrite = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL" || userRole === "SECRETARY";
+  const canDelete = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL";
   const visibleTabs = isComptable
     ? ["absences", "facturation"]
     : ["notes", "competences", "absences", "discipline", "facturation", "parcours", "dispenses", "evolution"];
@@ -272,27 +276,31 @@ export function EleveDetailView({
         </Button>
         {!isComptable && (
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={`/eleves/${eleve.id}/modifier`}>
-                <Edit className="h-4 w-4" />
-                {t("editProfile")}
-              </Link>
-            </Button>
+            {canWrite && (
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href={`/eleves/${eleve.id}/modifier`}>
+                  <Edit className="h-4 w-4" />
+                  {t("editProfile")}
+                </Link>
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm" className="gap-2">
               <Link href={`/dossier-progression/${eleve.id}`}>
                 <Brain className="h-4 w-4" />
                 {t("dossierProgression")}
               </Link>
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="gap-2"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="h-4 w-4" />
-              {t("deleteStudent")}
-            </Button>
+            {canDelete && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t("deleteStudent")}
+              </Button>
+            )}
           </div>
         )}
       </div>

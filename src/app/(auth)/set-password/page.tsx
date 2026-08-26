@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { buildPasswordSchema, type PasswordMessages } from "@/lib/password-validation";
 
 export default function SetPasswordPage() {
   const router = useRouter();
   const t = useTranslations("setPassword");
+  const tPwd = useTranslations("common.password");
   const [isPending, startTransition] = useTransition();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -19,12 +21,21 @@ export default function SetPasswordPage() {
   const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [errors, setErrors] = useState<{ current?: string; new?: string; confirm?: string }>({});
 
+  const pwdMessages: PasswordMessages = {
+    tooShort: tPwd("tooShort"),
+    missingUppercase: tPwd("missingUppercase"),
+    missingLowercase: tPwd("missingLowercase"),
+    missingNumber: tPwd("missingNumber"),
+    missingSpecial: tPwd("missingSpecial"),
+    dontMatch: tPwd("dontMatch"),
+  };
+
   const PasswordSchema = z.object({
     currentPassword: z.string().min(1, t("wrongCurrentPassword")),
-    newPassword: z.string().min(8, t("passwordTooShort")),
-    confirmPassword: z.string().min(8, t("passwordTooShort")),
+    newPassword: buildPasswordSchema(pwdMessages),
+    confirmPassword: z.string().min(1, tPwd("dontMatch")),
   }).refine((data) => data.newPassword === data.confirmPassword, {
-    message: t("passwordsDontMatch"),
+    message: tPwd("dontMatch"),
     path: ["confirmPassword"],
   });
 
@@ -57,6 +68,18 @@ export default function SetPasswordPage() {
           const data = await res.json().catch(() => null);
           if (data?.error === "wrong_current_password") {
             toast.error(t("wrongCurrentPassword"));
+          } else if (data?.error === "same_as_old") {
+            toast.error(tPwd("sameAsOld"));
+          } else if (data?.error === "weak_password" && Array.isArray(data.codes)) {
+            const map: Record<string, string> = {
+              PASSWORD_TOO_SHORT: tPwd("tooShort"),
+              PASSWORD_MISSING_UPPERCASE: tPwd("missingUppercase"),
+              PASSWORD_MISSING_LOWERCASE: tPwd("missingLowercase"),
+              PASSWORD_MISSING_NUMBER: tPwd("missingNumber"),
+              PASSWORD_MISSING_SPECIAL: tPwd("missingSpecial"),
+            };
+            const msg = data.codes.map((c: string) => map[c]).filter(Boolean).join(" · ");
+            toast.error(msg || tPwd("requirements"));
           } else {
             toast.error(t("error"));
           }
@@ -158,6 +181,8 @@ export default function SetPasswordPage() {
             </div>
             {errors.confirm && <p className="text-xs text-destructive">{errors.confirm}</p>}
           </div>
+
+          <p className="text-xs text-muted-foreground">{tPwd("requirements")}</p>
 
           <Button
             type="submit"

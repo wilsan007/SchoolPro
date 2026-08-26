@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { ElevesTable } from "@/components/eleves/ElevesTable";
@@ -260,13 +261,17 @@ export default async function ElevesPage({
           <ElevesStats stats={stats} />
           <div className="flex flex-col sm:flex-row gap-2">
             <ElevesActions q={q} classeId={classeId} statut={statut} />
-            <ImportElevesButton sites={sites} currentSiteId={currentSiteId} tenantHasSites={tenantHasSites} />
-            <Button asChild size="sm" className="gap-2 w-full sm:w-auto">
-              <Link href="/eleves/nouveau">
-                <Plus className="h-4 w-4" />
-                {t("register")}
-              </Link>
-            </Button>
+            {roleHasPermission(session.user.role as string, "eleves:write") && (
+              <>
+                <ImportElevesButton sites={sites} currentSiteId={currentSiteId} tenantHasSites={tenantHasSites} />
+                <Button asChild size="sm" className="gap-2 w-full sm:w-auto">
+                  <Link href="/eleves/nouveau">
+                    <Plus className="h-4 w-4" />
+                    {t("register")}
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 

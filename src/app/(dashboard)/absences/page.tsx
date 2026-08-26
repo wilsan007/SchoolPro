@@ -6,12 +6,13 @@ import { AbsencesStats } from "@/components/absences/AbsencesStats";
 import { AbsencesList } from "@/components/absences/AbsencesList";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ClipboardCheck, Plus } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { getDemoNow } from "@/lib/demo-now";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
@@ -113,23 +114,19 @@ export default async function AbsencesPage() {
             nonJustifiees={data.absencesNonJustifiees}
           />
           <div className="flex gap-2 w-full sm:w-auto">
-            <Button asChild size="sm" variant="outline" className="gap-2 rounded-xl border-border hover:border-[#9b6fe0]/30 hover:bg-[#9b6fe0]/5 transition-all duration-200">
-              <Link href="/absences/appel">
-                <ClipboardCheck className="h-4 w-4" />
-                {t("call")}
-              </Link>
-            </Button>
-            <Button asChild size="sm" className="gap-2 bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] hover:from-[#0284c7] hover:to-[#0369a1] rounded-xl shadow-[0_4px_12px_hsl(198_65%_46%/0.2)] hover:-translate-y-0.5 transition-all duration-200">
-              <Link href="/absences">
-                <Plus className="h-4 w-4" />
-                {t("addAbsence")}
-              </Link>
-            </Button>
+            {roleHasPermission(session.user.role as string, "absences:write") && (
+              <Button asChild size="sm" variant="outline" className="gap-2 rounded-xl border-border hover:border-[#9b6fe0]/30 hover:bg-[#9b6fe0]/5 transition-all duration-200">
+                <Link href="/absences/appel">
+                  <ClipboardCheck className="h-4 w-4" />
+                  {t("call")}
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Liste des absences */}
-        <AbsencesList absences={data.recentesAbsences} />
+        <AbsencesList absences={data.recentesAbsences} canWrite={roleHasPermission(session.user.role as string, "absences:write")} />
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import { getSitesForUser } from "@/lib/actions/eleve";
 import { getSiteColorMap } from "@/lib/site-colors";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { anneeActive, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 
@@ -164,6 +165,7 @@ export default async function ExamensPage({
           matieres={matieres}
           siteColors={siteColors}
           tenantId={session.user.tenantId}
+          canWrite={roleHasPermission(session.user.role as string, "examens:write")}
         />
       </div>
     </div>

@@ -3,10 +3,11 @@ import { z } from "zod";
 import { auditFire } from "@/lib/audit";
 import { verifierTokenReset, reinitialiserMotDePasse } from "@/lib/password-reset";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { validerMotDePasse } from "@/lib/password-validation";
 
 const BodySchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(8),
+  password: z.string().min(1),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,6 +32,15 @@ export async function POST(request: NextRequest) {
   }
 
   const { token, password } = parsed.data;
+
+  // Vérifier la complexité du mot de passe avant de consommer le token
+  const erreursComplexite = validerMotDePasse(password);
+  if (erreursComplexite) {
+    return NextResponse.json(
+      { success: false, error: "weak_password", codes: erreursComplexite },
+      { status: 400 }
+    );
+  }
 
   const verification = await verifierTokenReset(token);
   if (!verification.valid) {

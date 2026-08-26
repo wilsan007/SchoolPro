@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { VieScolaireView } from "@/components/vie-scolaire/VieScolaireView";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getClassesHierarchie, aplatirHierarchie } from "@/lib/classes-hierarchie";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
@@ -80,6 +81,7 @@ export default async function VieScolairePage() {
           hierarchie={hierarchie}
           currentUserId={session.user.id}
           tenantId={tenantId}
+          canWrite={roleHasPermission(session.user.role as string, "vie-scolaire:write")}
         />
       </div>
     </div>

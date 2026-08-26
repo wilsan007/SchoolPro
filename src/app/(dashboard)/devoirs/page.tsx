@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
@@ -91,6 +92,7 @@ export default async function DevoirsPage() {
             classe: { nom: d.classe.nom },
             matiere: { nom: d.matiere.nom, couleur: d.matiere.couleur },
           }))}
+          canWrite={roleHasPermission(session.user.role as string, "notes:write")}
         />
       </div>
     </div>

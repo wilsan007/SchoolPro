@@ -76,7 +76,12 @@ export function BulletinsManager({
   const isGenerated = generated.has(key);
   const isPublished = published.has(key);
   const isVerrouille = verrouille.has(key);
-  const isAdmin = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN";
+  const isAdmin = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL";
+  // `bulletins:write` = générer, verrouiller ; `bulletins:publish` = publier.
+  // TEACHER n'a que `bulletins:read` — il consulte mais n'agit pas.
+  // CLASS_TEACHER a `bulletins:publish` mais pas `bulletins:delete`.
+  const canWrite = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL" || userRole === "CLASS_TEACHER";
+  const canPublish = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL" || userRole === "CLASS_TEACHER";
 
   // Vérifier si des bulletins existent déjà en DB pour cette classe/période
   const checkExistingBulletins = useCallback(async (classeId: string, periodeId: string) => {
@@ -506,13 +511,15 @@ export function BulletinsManager({
                 {/* Boutons d'action */}
                 <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                   {!isGenerated ? (
-                    <Button onClick={genererBulletins} disabled={generating || isPending || (isVerrouille && !isAdmin)} className="gap-2">
-                      {generating ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" />{t("generating")}</>
-                      ) : (
-                        <><FileText className="h-4 w-4" />{t("generate")}</>
-                      )}
-                    </Button>
+                    canWrite && (
+                      <Button onClick={genererBulletins} disabled={generating || isPending || (isVerrouille && !isAdmin)} className="gap-2">
+                        {generating ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" />{t("generating")}</>
+                        ) : (
+                          <><FileText className="h-4 w-4" />{t("generate")}</>
+                        )}
+                      </Button>
+                    )
                   ) : (
                     <>
                       <Button
@@ -540,7 +547,7 @@ export function BulletinsManager({
                         <Download className="h-4 w-4" />
                         {t("downloadZip")}
                       </Button>
-                      {!isPublished && (
+                      {canPublish && !isPublished && (
                         <Button onClick={publierBulletins} disabled={isPending} className="gap-2">
                           {isPending ? (
                             <><Loader2 className="h-4 w-4 animate-spin" />{t("publishing")}</>
@@ -550,7 +557,7 @@ export function BulletinsManager({
                         </Button>
                       )}
                       {/* Verrouiller / Déverrouiller */}
-                      {isGenerated && !isPublished && (
+                      {canWrite && isGenerated && !isPublished && (
                         <Button
                           variant={isVerrouille ? "outline" : "secondary"}
                           onClick={verrouillerBulletins}

@@ -2,19 +2,20 @@
 
 import { useState, useTransition, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { buildPasswordWithConfirmSchema, type PasswordMessages } from "@/lib/password-validation";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const t = useTranslations("resetPassword");
+  const tPwd = useTranslations("common.password");
   const [isPending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -23,13 +24,16 @@ function ResetPasswordForm() {
   const [errors, setErrors] = useState<{ password?: string; confirm?: string }>({});
   const [success, setSuccess] = useState(false);
 
-  const PasswordSchema = z.object({
-    password: z.string().min(8, t("passwordTooShort")),
-    confirmPassword: z.string().min(8, t("passwordTooShort")),
-  }).refine((data) => data.password === data.confirmPassword, {
-    message: t("passwordsDontMatch"),
-    path: ["confirmPassword"],
-  });
+  const pwdMessages: PasswordMessages = {
+    tooShort: tPwd("tooShort"),
+    missingUppercase: tPwd("missingUppercase"),
+    missingLowercase: tPwd("missingLowercase"),
+    missingNumber: tPwd("missingNumber"),
+    missingSpecial: tPwd("missingSpecial"),
+    dontMatch: tPwd("dontMatch"),
+  };
+
+  const PasswordSchema = buildPasswordWithConfirmSchema(pwdMessages);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,6 +60,17 @@ function ResetPasswordForm() {
           const data = await res.json().catch(() => null);
           if (data?.error === "invalid_token") {
             toast.error(t("invalidToken"));
+          } else if (data?.error === "weak_password" && Array.isArray(data.codes)) {
+            // Traduire le premier code de complexité reconnu
+            const map: Record<string, string> = {
+              PASSWORD_TOO_SHORT: tPwd("tooShort"),
+              PASSWORD_MISSING_UPPERCASE: tPwd("missingUppercase"),
+              PASSWORD_MISSING_LOWERCASE: tPwd("missingLowercase"),
+              PASSWORD_MISSING_NUMBER: tPwd("missingNumber"),
+              PASSWORD_MISSING_SPECIAL: tPwd("missingSpecial"),
+            };
+            const msg = data.codes.map((c: string) => map[c]).filter(Boolean).join(" · ");
+            toast.error(msg || tPwd("requirements"));
           } else {
             toast.error(t("error"));
           }
@@ -163,7 +178,7 @@ function ResetPasswordForm() {
           {errors.confirm && <p className="text-xs text-destructive">{errors.confirm}</p>}
         </div>
 
-        <p className="text-xs text-muted-foreground">{t("passwordRules")}</p>
+        <p className="text-xs text-muted-foreground">{tPwd("requirements")}</p>
 
         <Button
           type="submit"

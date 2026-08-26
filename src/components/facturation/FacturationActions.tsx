@@ -145,25 +145,49 @@ export function FacturationActions({ currentYear = "2025-2026", userRole }: { cu
     loadExclusions();
   }, []);
 
+  // ── Gating par rôle ──────────────────────────────────────────────
+  // Les actions de gestion (génération, relances, exclusions) sont
+  // réservées à la direction (TENANT_ADMIN, SUPER_ADMIN, PRINCIPAL).
+  // Le caissier ne fait qu'encaisser (finance:write) ; le comptable
+  // a finance:* mais les exclusions restent direction-only côté API.
+  const isDirection =
+    userRole === "TENANT_ADMIN" ||
+    userRole === "SUPER_ADMIN" ||
+    userRole === "PRINCIPAL";
+  const canPay =
+    userRole === "TENANT_ADMIN" ||
+    userRole === "SUPER_ADMIN" ||
+    userRole === "PRINCIPAL" ||
+    userRole === "ACCOUNTANT" ||
+    userRole === "CAISSIER";
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
-        <Button size="sm" variant="default" className="gap-2" onClick={() => setShowGenModal(!showGenModal)}>
-          <Zap className="h-4 w-4" />
-          {t("generateMonthly")}
-        </Button>
-        <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowPayModal(!showPayModal)}>
-          <Banknote className="h-4 w-4" />
-          {t("payByInvoiceNumber")}
-        </Button>
-        <Button size="sm" variant="outline" className="gap-2" onClick={handleDetecterRetard} disabled={loadingRetard}>
-          {loadingRetard ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
-          {t("detectOverdue")}
-        </Button>
-        <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowExcluModal(!showExcluModal)}>
-          <Ban className="h-4 w-4" />
-          {t("exclusions")} ({exclusions.length})
-        </Button>
+        {isDirection && (
+          <Button size="sm" variant="default" className="gap-2" onClick={() => setShowGenModal(!showGenModal)}>
+            <Zap className="h-4 w-4" />
+            {t("generateMonthly")}
+          </Button>
+        )}
+        {canPay && (
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowPayModal(!showPayModal)}>
+            <Banknote className="h-4 w-4" />
+            {t("payByInvoiceNumber")}
+          </Button>
+        )}
+        {isDirection && (
+          <Button size="sm" variant="outline" className="gap-2" onClick={handleDetecterRetard} disabled={loadingRetard}>
+            {loadingRetard ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+            {t("detectOverdue")}
+          </Button>
+        )}
+        {isDirection && (
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowExcluModal(!showExcluModal)}>
+            <Ban className="h-4 w-4" />
+            {t("exclusions")} ({exclusions.length})
+          </Button>
+        )}
       </div>
 
       {/* Modal: Paiement par numéro */}

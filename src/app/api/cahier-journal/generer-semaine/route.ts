@@ -53,7 +53,7 @@ function heureEnMinutes(h: string): number {
  * créneau (classe + matière + date + heure de début) ne sont pas recréées.
  *
  * Étapes :
- *  1. Auth + permission curriculum:write
+ *  1. Auth + permission cahier-journal:write
  *  2. Validation du corps (semaine 1-36, annee optionnelle)
  *  3. Résolution de l'année scolaire (courante si non fournie)
  *  4. Calcul des dates de la semaine à partir du début d'année
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "curriculum:write");
+    const denied = checkPermission(session.user.role, "cahier-journal:write");
     if (denied) return denied;
 
     const tenantId = session.user.tenantId;

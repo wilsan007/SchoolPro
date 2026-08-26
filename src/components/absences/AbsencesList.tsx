@@ -54,7 +54,7 @@ const motifLabels: Record<string, string> = {
   AUTRE: "Autre",
 };
 
-export function AbsencesList({ absences }: { absences: Absence[] }) {
+export function AbsencesList({ absences, canWrite = false }: { absences: Absence[]; canWrite?: boolean }) {
   const t = useTranslations("absences");
   const tCommon = useTranslations("common");
   const [search, setSearch] = useState("");
@@ -148,7 +148,7 @@ export function AbsencesList({ absences }: { absences: Absence[] }) {
             </span>
           </div>
           <div className="flex gap-1">
-            {absence.statut === "EN_ATTENTE" && (
+            {canWrite && absence.statut === "EN_ATTENTE" && (
               <>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-[#14b8a6] hover:text-[#0d9488] hover:bg-[#14b8a6]/10 rounded-lg">
                   {t("justify")}

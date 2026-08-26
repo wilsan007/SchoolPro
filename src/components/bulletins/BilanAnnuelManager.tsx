@@ -71,7 +71,7 @@ export function BilanAnnuelManager({ classes, hierarchie: _hierarchie, anneeId }
         <Card>
           <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3">
             <CardTitle className="text-base font-semibold">{t("annualResults")}</CardTitle>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success(t("validateArchive"))}>
+            <Button variant="outline" size="sm" className="gap-2" disabled title={t("archiveComingSoon")}>
               <CheckCircle className="h-4 w-4 text-green-500" />
               {t("validateArchive")}
             </Button>

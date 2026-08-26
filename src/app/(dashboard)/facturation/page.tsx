@@ -56,7 +56,7 @@ export default async function FacturationPage({
             )}
           </div>
         )}
-        <FacturationActions currentYear={currentYear} />
+        <FacturationActions currentYear={currentYear} userRole={session!.user.role as string} />
 
         {/* Toggle entre vue tableau et vue mensuelle */}
         <div className="flex gap-2">

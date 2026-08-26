@@ -119,7 +119,7 @@ export default async function CurriculumPage() {
   const maintenant = await getDemoNow();
 
   const peutModifier = [
-    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER",
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER", "SUBJECT_LEAD",
   ].includes(session!.user.role as string);
 
   const parChapitre = new Map(planifications.map((p) => [p.chapitreId, p]));

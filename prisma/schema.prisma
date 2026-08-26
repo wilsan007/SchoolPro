@@ -87,6 +87,7 @@ model Tenant {
   userRoles             UserRole[]
   userPermissions       UserPermission[]
   annees                AnneesScolaires[]
+  campagnesReinscription CampagneReinscription[]
   classes               Classe[]
   matieres              Matiere[]
   eleves                Eleve[]

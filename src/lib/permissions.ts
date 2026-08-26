@@ -314,6 +314,9 @@ export const ROUTE_RULES: RouteRule[] = [
   // `finance:read` (la route `/facturation` lui est interdite) : cette route
   // dédiée vérifie le périmètre familial côté serveur (`eleveScopeFilter`).
   { pattern: /^\/parent\/factures\//, permission: "notes:read", roles: ["PARENT"] },
+  // Portail parent de réinscription — pas de session requise côté API
+  // (l'ID d'invitation sert de token), mais la page elle-même est ouverte aux PARENT.
+  { pattern: /^\/parent\/reinscription/, permission: "notes:read", roles: ["PARENT"] },
   { pattern: /^\/eleve$/, permission: "notes:read", roles: ["STUDENT"] },
   { pattern: /^\/entrainement/, permission: "entrainement:write", roles: ["STUDENT"] },
   // Emploi du temps en lecture pour les familles : l'éditeur `/emploi-du-temps`
@@ -385,6 +388,10 @@ export const ROUTE_RULES: RouteRule[] = [
   // action d'écriture, pas simple lecture de l'annuaire. Placé AVANT
   // `/eleves` pour ne pas être capturé par sa règle `eleves:read`.
   { pattern: /^\/eleves\/comptes/, permission: "eleves:write", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY",
+  ] },
+  // `/eleves/transfert` modifie l'affectation de classe en masse : écriture.
+  { pattern: /^\/eleves\/transfert/, permission: "eleves:write", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY",
   ] },
   { pattern: /^\/eleves/, permission: "eleves:read" },

@@ -573,6 +573,7 @@ export function ExamensManager({
   hierarchie: _hierarchie,
   matieres,
   siteColors,
+  canWrite = false,
 }: {
   examens: Examen[];
   classes: Classe[];
@@ -580,6 +581,7 @@ export function ExamensManager({
   matieres: Matiere[];
   siteColors: Record<string, SiteColor>;
   tenantId: string;
+  canWrite?: boolean;
 }) {
   const t = useTranslations("examens");
   const [examens, setExamens] = useState<Examen[]>(initial);
@@ -650,13 +652,15 @@ export function ExamensManager({
               {t("classReport")}
             </Link>
           </Button>
-          <Button
-            onClick={() => setShowCreate(true)}
-            className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-          >
-            <Plus className="w-4 h-4" />
-            {t("newExam")}
-          </Button>
+          {canWrite && (
+            <Button
+              onClick={() => setShowCreate(true)}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+            >
+              <Plus className="w-4 h-4" />
+              {t("newExam")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -675,10 +679,12 @@ export function ExamensManager({
             <Calendar className="w-12 h-12 text-gray-300 mb-4" />
             <p className="text-gray-500 dark:text-gray-400 font-medium">{t("noExams")}</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t("createFirstExam")}</p>
-            <Button className="mt-4 gap-2 bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowCreate(true)}>
-              <Plus className="w-4 h-4" />
-              {t("createExamBtn")}
-            </Button>
+            {canWrite && (
+              <Button className="mt-4 gap-2 bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowCreate(true)}>
+                <Plus className="w-4 h-4" />
+                {t("createExamBtn")}
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

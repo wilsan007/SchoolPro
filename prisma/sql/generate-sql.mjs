@@ -194,6 +194,36 @@ const COLLEGE_NIVEAUX = ['6eme','5eme','4eme','3eme'];
 const LYCEE_NIVEAUX = ['2nde','1ere','Terminale'];
 const ALL_NIVEAUX = [...COLLEGE_NIVEAUX, ...LYCEE_NIVEAUX];
 
+/// Enseignants par spécialité et par site, dimensionnés sur le volume horaire
+/// réellement à couvrir : 22 classes × 26 heures = 572 heures par semaine, par
+/// site et par année. L'effectif uniforme d'avant — 20 professeurs cyclant sur
+/// 14 matières — ne laissait qu'un titulaire de SVT et un d'EPS par site, à qui
+/// il aurait fallu confier 44 heures hebdomadaires sur les 30 que compte la
+/// semaine. Aucun emploi du temps sans conflit n'était possible.
+const ENSEIGNANTS_PAR_MATIERE = {
+  MATH: 5, FR: 5, ANG: 3, AR: 2, HG: 3, PC: 3, SVT: 2, EPS: 2,
+  TECH: 1, ART: 1, MUS: 1, ISL: 2, PHILO: 1, SES: 1,
+};
+
+/// Spécialité de chaque enseignant, dans l'ordre de sa numérotation :
+/// `ens-ambouli-1` à `-5` enseignent les mathématiques, `-6` à `-10` le
+/// français, et ainsi de suite.
+const SPECIALITE_PAR_RANG = Object.entries(ENSEIGNANTS_PAR_MATIERE)
+  .flatMap(([code, n]) => Array.from({ length: n }, () => code));
+
+const NB_ENSEIGNANTS_PAR_SITE = SPECIALITE_PAR_RANG.length;
+
+/// Enseignants de chaque matière, par site — le vivier dans lequel l'emploi du
+/// temps choisit le titulaire d'une classe.
+const ENSEIGNANTS_DU_SITE = Object.fromEntries(['ambouli', 'arhiba'].map(site => [
+  site,
+  SPECIALITE_PAR_RANG.reduce((acc, code, i) => {
+    if (!acc[code]) acc[code] = [];
+    acc[code].push(`ens-${site}-${i + 1}`);
+    return acc;
+  }, {}),
+]));
+
 const CLASS_SUFFIXES = {
   '6eme': ['A','B','C'], '5eme': ['A','B','C'], '4eme': ['A','B','C'], '3eme': ['A','B','C'],
   '2nde': ['A','B','C','D'], '1ere': ['S','ES','L'], 'Terminale': ['S','ES','L']
@@ -213,17 +243,23 @@ function generateClasses() {
   const classes = [];
   for (const site of ['ambouli','arhiba']) {
     for (const anneeYear of ['2024','2025']) {
+      // Salle attitrée : collège en 101→112, lycée en 201→210, dans l'ordre des
+      // niveaux. La numérotation ne dépend pas de l'année — une même classe
+      // occupe la même salle d'une année sur l'autre, et deux années
+      // différentes ne peuvent de toute façon pas se disputer une salle.
+      let numCollege = 100, numLycee = 200;
       for (const niveau of ALL_NIVEAUX) {
         for (const suffix of CLASS_SUFFIXES[niveau]) {
+          const salle = `Salle ${LYCEE_NIVEAUX.includes(niveau) ? ++numLycee : ++numCollege}`;
           const id = `cls-${site}-${anneeYear}-${niveau}-${suffix}`;
           const nom = `${CLASS_LABELS[niveau]} ${suffix}`;
           const annee = anneeYear === '2024' ? '2024-2025' : '2025-2026';
           const anneeId = anneeYear === '2024' ? 'annee-2024-amb' : 'annee-2025-amb';
           const siteId = `site-${site}`;
           const structId = structureFor(niveau, site);
-          const profIdx = (ALL_NIVEAUX.indexOf(niveau) * 3 + suffix.charCodeAt(0)) % 20 + 1;
+          const profIdx = (ALL_NIVEAUX.indexOf(niveau) * 3 + suffix.charCodeAt(0)) % NB_ENSEIGNANTS_PAR_SITE + 1;
           const profId = `ens-${site}-${profIdx}`;
-          classes.push({ id, tenantId:'tenant-ambouli', siteId, structureId:structId, anneeId, niveau, nom, effectifMax:40, profPrincipalId:profId, annee, createdAt:TS, updatedAt:TS });
+          classes.push({ id, tenantId:'tenant-ambouli', siteId, structureId:structId, anneeId, niveau, suffix, salle, nom, effectifMax:40, profPrincipalId:profId, annee, createdAt:TS, updatedAt:TS });
         }
       }
     }
@@ -587,10 +623,9 @@ function genFile04() {
   }
 
   // Teachers
-  const matieresList = ['MATH','FR','ANG','AR','HG','PC','SVT','EPS','TECH','ART','MUS','ISL','PHILO','SES'];
   for (const site of ['ambouli','arhiba']) {
     const siteId = `site-${site}`;
-    for (let i = 1; i <= 20; i++) {
+    for (let i = 1; i <= NB_ENSEIGNANTS_PAR_SITE; i++) {
       const id = `user-prof-${site}-${i}`;
       const fn = pick(i % 3 === 0 ? PRENOMS_F : PRENOMS_M);
       const ln = pick(NOMS);
@@ -599,7 +634,7 @@ function genFile04() {
       userSites.push([`us-${id}`,id,siteId,'TEACHER',TS,TS]);
 
       const ensId = `ens-${site}-${i}`;
-      const matiereCode = matieresList[(i-1) % matieresList.length];
+      const matiereCode = SPECIALITE_PAR_RANG[i - 1];
       enseignants.push([ensId,'tenant-ambouli',id,`ENS-${site.toUpperCase().slice(0,3)}-${String(i).padStart(3,'0')}`,matiereCode, pick(['CDI','CDD']), '2022-09-01 00:00:00']);
       ensSites.push([`es-${site}-${i}`,ensId,siteId,TS]);
 
@@ -787,127 +822,332 @@ function genFile05() {
 }
 
 // ── File 06: EDT, Evaluations, Notes, Bulletins ──────────────
+// ── Emploi du temps : un vrai placement sous contraintes ─────
+//
+// L'ancien générateur posait le jour et le créneau par arithmétique sur le
+// code de la matière — `jours[(s + matCode.charCodeAt(0)) % 5]` — et tirait la
+// salle au hasard entre 101 et 203. Le professeur était déduit du rang de la
+// matière, donc identique pour toutes les classes d'un site. Résultat : 1 654
+// créneaux plaçaient un enseignant devant deux classes à la même heure, 615
+// plaçaient une classe sur deux cours simultanés, et 522 mettaient deux
+// classes dans la même salle. Un emploi du temps qu'aucun établissement
+// n'aurait pu afficher.
+//
+// On place désormais chaque heure de cours en vérifiant les trois ressources —
+// la classe, l'enseignant, la salle — et en refusant de poser un cours là où
+// l'une d'elles est déjà prise.
+
+const JOURS = ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI'];
+const CRENEAUX = [['08:00','09:00'],['09:00','10:00'],['10:15','11:15'],['11:15','12:15'],['14:00','15:00'],['15:00','16:00']];
+
+/// Volume horaire hebdomadaire par matière. Les totaux (26 h au collège comme
+/// au lycée) tiennent dans les 30 créneaux de la semaine et laissent la marge
+/// sans laquelle aucun placement sous contraintes n'aboutit.
+const HEURES_HEBDO = {
+  college: { MATH:4, FR:4, ANG:3, AR:2, HG:2, PC:2, SVT:2, EPS:2, TECH:1, ART:1, MUS:1, ISL:2 },
+  lycee:   { MATH:4, FR:3, ANG:3, AR:2, HG:3, PC:3, SVT:2, EPS:2, PHILO:2, SES:2 },
+};
+
+/// Salles spécialisées, par matière. Le cours s'y tient si elle est libre ;
+/// sinon il se fait dans la salle de la classe — un cours de SVT n'est pas
+/// toujours un travail pratique. L'EPS fait exception : elle exige une
+/// installation sportive, et le créneau est abandonné si aucune n'est libre.
+const SALLES_SPECIALISEES = {
+  PC:   { salles: ['Labo Physique 1', 'Labo Physique 2'], obligatoire: false },
+  SVT:  { salles: ['Labo SVT'],                            obligatoire: false },
+  TECH: { salles: ['Salle Info'],                           obligatoire: false },
+  EPS:  { salles: ['Gymnase', 'Terrain de sport', 'Plateau sportif'], obligatoire: true },
+};
+
+/// Au-delà de douze classes sur la même matière au même moment, l'emploi du
+/// temps trahit une génération sans contrainte — l'audit le signale. On en
+/// fait une contrainte de placement plutôt qu'un constat après coup.
+const MAX_CLASSES_SIMULTANEES_PAR_MATIERE = 12;
+
+/**
+ * Construit l'emploi du temps des deux années, sans aucun conflit de classe,
+ * d'enseignant ni de salle.
+ *
+ * Renvoie `{ lignes, ensParClasseMatiere, nonPlaces }` : les créneaux prêts à
+ * insérer, l'enseignant titulaire de chaque couple (classe, matière) — dont
+ * les évaluations et les bulletins ont besoin pour être cohérents avec
+ * l'emploi du temps — et le nombre d'heures qu'il a fallu renoncer à placer.
+ */
+function construireEmploisDuTemps(classes) {
+  const rng = makeRng(70707);
+  const lignes = [];
+  const ensParClasseMatiere = new Map(); // `${classeId}|${matCode}` → ensId
+  let nonPlaces = 0;
+
+  for (const anneeYear of ['2024', '2025']) {
+    const annee = anneeYear === '2024' ? '2024-2025' : '2025-2026';
+    // Compté sur les DEUX sites : c'est ainsi que l'audit mesure la
+    // simultanéité d'une matière à l'échelle de l'établissement.
+    const nbParMatiereEtCreneau = new Map();
+
+    for (const site of ['ambouli', 'arhiba']) {
+      const clsSite = classes.filter(c => c.siteId === `site-${site}` && c.annee === annee);
+      const occupEns = new Set();
+      const occupSalle = new Set();
+      const occupClasse = new Set();
+      const chargeEns = new Map();
+
+      // ── Titularisation : une classe garde le même professeur toute l'année
+      // dans une matière donnée. Les classes sont réparties entre les
+      // professeurs de la spécialité, à charge égale.
+      const compteurTitulaire = new Map();
+      for (const cls of clsSite) {
+        const bareme = LYCEE_NIVEAUX.includes(cls.niveau) ? HEURES_HEBDO.lycee : HEURES_HEBDO.college;
+        for (const matCode of Object.keys(bareme)) {
+          const pool = ENSEIGNANTS_DU_SITE[site][matCode];
+          const rang = compteurTitulaire.get(matCode) || 0;
+          compteurTitulaire.set(matCode, rang + 1);
+          ensParClasseMatiere.set(`${cls.id}|${matCode}`, pool[rang % pool.length]);
+        }
+      }
+
+      // ── Les heures à placer, les plus contraintes d'abord : l'EPS exige une
+      // installation sportive, et une matière lourde a moins de créneaux
+      // possibles qu'une matière à une heure par semaine.
+      const aPlacer = [];
+      for (const cls of clsSite) {
+        const bareme = LYCEE_NIVEAUX.includes(cls.niveau) ? HEURES_HEBDO.lycee : HEURES_HEBDO.college;
+        for (const [matCode, heures] of Object.entries(bareme)) {
+          for (let h = 0; h < heures; h++) {
+            aPlacer.push({ cls, matCode, heures, rang: h });
+          }
+        }
+      }
+      aPlacer.sort((a, b) => {
+        const pa = a.matCode === 'EPS' ? 0 : 1, pb = b.matCode === 'EPS' ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        return b.heures - a.heures;
+      });
+
+      for (const tache of aPlacer) {
+        const { cls, matCode } = tache;
+        const ensId = ensParClasseMatiere.get(`${cls.id}|${matCode}`);
+        const spec = SALLES_SPECIALISEES[matCode];
+
+        // Candidats : tous les créneaux de la semaine, du moins chargé au plus
+        // chargé pour cette matière, avec un départ aléatoire pour ne pas
+        // toujours remplir le lundi matin en premier.
+        const candidats = [];
+        for (let j = 0; j < JOURS.length; j++) {
+          for (let c = 0; c < CRENEAUX.length; c++) candidats.push([j, c]);
+        }
+        for (let i = candidats.length - 1; i > 0; i--) {
+          const k = Math.floor(rng() * (i + 1));
+          [candidats[i], candidats[k]] = [candidats[k], candidats[i]];
+        }
+        candidats.sort((a, b) => {
+          const ka = `${JOURS[a[0]]}|${CRENEAUX[a[1]][0]}|${matCode}`;
+          const kb = `${JOURS[b[0]]}|${CRENEAUX[b[1]][0]}|${matCode}`;
+          return (nbParMatiereEtCreneau.get(ka) || 0) - (nbParMatiereEtCreneau.get(kb) || 0);
+        });
+
+        let pose = null;
+        // Première passe en évitant deux heures de la même matière le même
+        // jour ; seconde passe sans cette préférence, si la semaine est serrée.
+        for (const strict of [true, false]) {
+          for (const [j, c] of candidats) {
+            const jour = JOURS[j], [debut, fin] = CRENEAUX[c];
+            const creneau = `${jour}|${debut}`;
+            if (occupClasse.has(`${creneau}|${cls.id}`)) continue;
+            if (occupEns.has(`${creneau}|${ensId}`)) continue;
+            if (strict && occupClasse.has(`${jour}|${cls.id}|${matCode}`)) continue;
+
+            const kMat = `${creneau}|${matCode}`;
+            if ((nbParMatiereEtCreneau.get(kMat) || 0) >= MAX_CLASSES_SIMULTANEES_PAR_MATIERE) continue;
+
+            // Salle : la spécialisée si elle est libre, sinon celle de la
+            // classe — sauf pour l'EPS, où l'installation est obligatoire.
+            let salle = null;
+            if (spec) {
+              salle = spec.salles.find(s => !occupSalle.has(`${creneau}|${site}|${s}`)) || null;
+            }
+            if (!salle) {
+              if (spec && spec.obligatoire) continue;
+              salle = cls.salle; // salle attitrée : jamais disputée
+            }
+
+            pose = { jour, debut, fin, salle, creneau };
+            break;
+          }
+          if (pose) break;
+        }
+
+        if (!pose) { nonPlaces++; continue; }
+
+        occupClasse.add(`${pose.creneau}|${cls.id}`);
+        occupClasse.add(`${pose.jour}|${cls.id}|${matCode}`);
+        occupEns.add(`${pose.creneau}|${ensId}`);
+        occupSalle.add(`${pose.creneau}|${site}|${pose.salle}`);
+        chargeEns.set(ensId, (chargeEns.get(ensId) || 0) + 1);
+        const kMat = `${pose.creneau}|${matCode}`;
+        nbParMatiereEtCreneau.set(kMat, (nbParMatiereEtCreneau.get(kMat) || 0) + 1);
+
+        lignes.push([
+          `edt-${cls.id}-${matCode}-${tache.rang}`, 'tenant-ambouli', cls.id, `mat-${matCode}`,
+          ensId, pose.jour, pose.debut, pose.fin, pose.salle, annee,
+        ]);
+      }
+    }
+  }
+
+  return { lignes, ensParClasseMatiere, nonPlaces };
+}
+
 function genFile06() {
   let sql = `-- 06-edt-evaluations-notes-bulletins.sql\n-- Cité Scolaire Ambouli — EDT, Évaluations, Notes, Bulletins\n\n`;
   sql += `-- Nettoyage\nDELETE FROM "bulletin_matieres" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "bulletins" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "notes" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "evaluations" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "sessions_examen" WHERE "examId" IN (SELECT id FROM "examens" WHERE "tenantId"='tenant-ambouli');\nDELETE FROM "examens" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "emplois_temps" WHERE "tenantId"='tenant-ambouli';\n\n`;
 
   const classes = generateClasses();
-  const edt = [];
-  const evaluations = [];
-  const notes = [];
-  const bulletins = [];
-  const bulletinMatieres = [];
 
-  let edtIdx = 0, evalIdx = 0, noteIdx = 0, bullIdx = 0, bmIdx = 0;
-  const jours = ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI'];
-  const creneaux = [['08:00','09:00'],['09:00','10:00'],['10:15','11:15'],['11:15','12:15'],['14:00','15:00'],['15:00','16:00']];
+  // ── EDT : placement sous contraintes (zéro conflit) ────────
+  const { lignes: edtRows, ensParClasseMatiere, nonPlaces } = construireEmploisDuTemps(classes);
+  if (nonPlaces > 0) {
+    console.warn(`  [EDT] ${nonPlaces} créneaux non placés (capacité saturée)`);
+  }
+
+  // ── Nom complet de chaque enseignant ────────────────────────
+  // Reconstruit avec la même logique déterministe que genFile04 : la graine
+  // globale `seed` n'est pas touchée, on utilise `pick()` en isolation.
+  const ensNomComplet = new Map();
+  const savedSeed = seed;
+  for (const site of ['ambouli', 'arhiba']) {
+    for (let i = 1; i <= NB_ENSEIGNANTS_PAR_SITE; i++) {
+      seed = 42 + i * 7 + (site === 'arhiba' ? 1000 : 0);
+      const fn = pick(i % 3 === 0 ? PRENOMS_F : PRENOMS_M);
+      const ln = pick(NOMS);
+      ensNomComplet.set(`ens-${site}-${i}`, `${fn} ${ln}`);
+    }
+  }
+  seed = savedSeed;
+
   const evalTypes = ['CONTROLE','DEVOIR','EXAMEN'];
   const matieresByNiveau = {
     collège: ['MATH','FR','ANG','AR','HG','PC','SVT','EPS','TECH','ART','MUS','ISL'],
     lycée: ['MATH','FR','ANG','AR','HG','PC','SVT','EPS','PHILO','SES']
   };
 
-  // Build student->class map for notes
-  // We need to know which students are in which class
-  // Use shared eleve list for consistent IDs
+  // Élèves par classe
   const classStudents = {};
   for (const e of ALL_ELEVES) {
     if (!classStudents[e.classeId]) classStudents[e.classeId] = [];
     classStudents[e.classeId].push(e.eleveId);
   }
 
+  const evaluations = [];
+  const notes = [];
+
+  // ── Phase 1 : évaluations et notes ─────────────────────────
+  // On collecte les notes par (classe, matière, période) pour calculer les
+  // agrégats des bulletins dans la phase 2.
+  // Clé `${classeId}|${matCode}|${periodeId}` → [note1, note2, …]
+  const notesByCMP = new Map();
+  // Clé `${classeId}|${eleveId}|${matCode}|${periodeId}` → noteValue
+  const noteByECMP = new Map();
+
   for (const cls of classes) {
-    const site = cls.siteId === 'site-ambouli' ? 'AMB' : 'ARH';
+    const siteName = cls.siteId === 'site-ambouli' ? 'ambouli' : 'arhiba';
     const isLycee = LYCEE_NIVEAUX.includes(cls.niveau);
     const matiereCodes = isLycee ? matieresByNiveau['lycée'] : matieresByNiveau['collège'];
     const anneeYear = cls.annee === '2024-2025' ? '2024' : '2025';
     const periods = anneeYear === '2024'
       ? ['per-y2024-t1-amb','per-y2024-t2-amb','per-y2024-t3-amb']
-      : ['per-y2025-t1-amb','per-y2025-t2-amb','per-y2025-t3-amb']; // 2025-2026 clôturée (3 trimestres)
+      : ['per-y2025-t1-amb','per-y2025-t2-amb','per-y2025-t3-amb'];
 
-    // EDT: 2-3 slots per matiere per week
-    for (const matCode of matiereCodes.slice(0, 8)) { // top 8 subjects
-      const matId = `mat-${matCode}`;
-      const ensIdx = (matiereCodes.indexOf(matCode) % 20) + 1;
-      const ensId = `ens-${site === 'AMB' ? 'ambouli' : 'arhiba'}-${ensIdx}`;
-      const nbSlots = randInt(2, 3);
-      for (let s = 0; s < nbSlots; s++) {
-        edtIdx++;
-        const jour = jours[(s + matCode.charCodeAt(0)) % jours.length];
-        const cr = creneaux[(s + matCode.length) % creneaux.length];
-        edt.push([`edt-${cls.id}-${matCode}-${s}`,'tenant-ambouli',cls.id,matId,ensId,jour,cr[0],cr[1],`Salle ${randInt(101,203)}`,cls.annee]);
-      }
-    }
-
-    // Evaluations: 1 per matiere per periode — ALL subjects (système djiboutien: toutes notées sur 20)
     const studs = classStudents[cls.id] || [];
+
     for (const periodeId of periods) {
       for (const matCode of matiereCodes) {
         const matId = `mat-${matCode}`;
-        const ensIdx = (matiereCodes.indexOf(matCode) % 20) + 1;
-        const ensId = `ens-${site === 'AMB' ? 'ambouli' : 'arhiba'}-${ensIdx}`;
-        const nbEvals = 1;
-        for (let e = 0; e < nbEvals; e++) {
-          evalIdx++;
-          const evalId = `eval-${cls.id}-${matCode}-${periodeId}-${e}`;
-          const evalType = pick(evalTypes);
-          const evalDate = anneeYear === '2024'
-            ? `2024-${randInt(10,12)}-${randInt(1,28)} 12:00:00`
-            : `2025-${randInt(10,12)}-${randInt(1,28)} 12:00:00`;
-          evaluations.push([evalId,'tenant-ambouli',`${matCode} ${periodeId}`,evalType,cls.id,matId,periodeId,evalDate,60,randInt(1,3),null,'TERMINE',TS,TS]);
+        const ensId = ensParClasseMatiere.get(`${cls.id}|${matCode}`) || `ens-${siteName}-1`;
+        const evalId = `eval-${cls.id}-${matCode}-${periodeId}-0`;
+        const evalType = pick(evalTypes);
+        const periodIdx = periods.indexOf(periodeId);
+        const evalMonth = anneeYear === '2024'
+          ? 10 + periodIdx : 10 + periodIdx;
+        const evalDate = `${anneeYear === '2024' ? 2024 : 2025}-${String(Math.min(evalMonth, 12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')} 12:00:00`;
 
-          // Notes for each student
-          for (const eleveId of studs) {
-            noteIdx++;
-            // Determine student profile from parcours
-            const profileHash = (eleveId.charCodeAt(eleveId.length-1) + eleveId.charCodeAt(eleveId.length-2)) % 100;
-            let baseNote;
-            if (profileHash < 15) baseNote = 14 + rand() * 4;
-            else if (profileHash < 40) baseNote = 12 + rand() * 2;
-            else if (profileHash < 75) baseNote = 10 + rand() * 2;
-            else if (profileHash < 90) baseNote = 8 + rand() * 2;
-            else baseNote = 4 + rand() * 4;
+        evaluations.push([evalId,'tenant-ambouli',`${matCode} ${periodeId}`,evalType,cls.id,matId,periodeId,evalDate,60,randInt(1,3),null,'TERMINE',TS,TS]);
 
-            // Add variation by period (progression/decline)
-            const periodIdx = periods.indexOf(periodeId);
-            if (profileHash < 8) { // progressing students
-              baseNote += periodIdx * 1.5;
-            } else if (profileHash >= 8 && profileHash < 16) { // declining students
-              baseNote -= periodIdx * 1.5;
-            }
-            baseNote = Math.max(2, Math.min(20, Math.round(baseNote * 100) / 100));
+        const cmpKey = `${cls.id}|${matCode}|${periodeId}`;
+        const notesForCMP = [];
 
-            let appreciation = 'Travail correct';
-            if (baseNote >= 14) appreciation = 'Très bon travail';
-            else if (baseNote >= 12) appreciation = 'Bon travail';
-            else if (baseNote >= 10) appreciation = 'Travail correct';
-            else if (baseNote >= 8) appreciation = 'Travail insuffisant';
-            else appreciation = 'Travail très insuffisant';
+        for (const eleveId of studs) {
+          const profileHash = (eleveId.charCodeAt(eleveId.length-1) + eleveId.charCodeAt(eleveId.length-2)) % 100;
+          let baseNote;
+          if (profileHash < 15) baseNote = 14 + rand() * 4;
+          else if (profileHash < 40) baseNote = 12 + rand() * 2;
+          else if (profileHash < 75) baseNote = 10 + rand() * 2;
+          else if (profileHash < 90) baseNote = 8 + rand() * 2;
+          else baseNote = 4 + rand() * 4;
 
-            notes.push([`note-${evalId}-${eleveId}`,'tenant-ambouli',eleveId,cls.id,matId,periodeId,evalType,`${matCode} ${periodeId}`,baseNote,20,randInt(1,3),evalDate,appreciation,null,null,TRUE,evalId,TS,TS]);
-          }
+          if (profileHash < 8) baseNote += periodIdx * 1.5;
+          else if (profileHash >= 8 && profileHash < 16) baseNote -= periodIdx * 1.5;
+          baseNote = Math.max(2, Math.min(20, Math.round(baseNote * 100) / 100));
+
+          let appreciation = 'Travail correct';
+          if (baseNote >= 14) appreciation = 'Très bon travail';
+          else if (baseNote >= 12) appreciation = 'Bon travail';
+          else if (baseNote >= 10) appreciation = 'Travail correct';
+          else if (baseNote >= 8) appreciation = 'Travail insuffisant';
+          else appreciation = 'Travail très insuffisant';
+
+          notes.push([`note-${evalId}-${eleveId}`,'tenant-ambouli',eleveId,cls.id,matId,periodeId,evalType,`${matCode} ${periodeId}`,baseNote,20,randInt(1,3),evalDate,appreciation,null,null,TRUE,evalId,TS,TS]);
+          notesForCMP.push(baseNote);
+          noteByECMP.set(`${cls.id}|${eleveId}|${matCode}|${periodeId}`, baseNote);
         }
+        notesByCMP.set(cmpKey, notesForCMP);
+      }
+    }
+  }
+
+  // ── Phase 2 : bulletins avec agrégats calculés ─────────────
+  const bulletins = [];
+  const bulletinMatieres = [];
+
+  for (const cls of classes) {
+    const siteName = cls.siteId === 'site-ambouli' ? 'ambouli' : 'arhiba';
+    const isLycee = LYCEE_NIVEAUX.includes(cls.niveau);
+    const matiereCodes = isLycee ? matieresByNiveau['lycée'] : matieresByNiveau['collège'];
+    const anneeYear = cls.annee === '2024-2025' ? '2024' : '2025';
+    const periods = anneeYear === '2024'
+      ? ['per-y2024-t1-amb','per-y2024-t2-amb','per-y2024-t3-amb']
+      : ['per-y2025-t1-amb','per-y2025-t2-amb','per-y2025-t3-amb'];
+
+    const studs = classStudents[cls.id] || [];
+    if (studs.length === 0) continue;
+
+    for (const periodeId of periods) {
+      // ── Moyenne générale de chaque élève sur cette période ──
+      const moyenneParEleve = new Map();
+      for (const eleveId of studs) {
+        let somme = 0, count = 0;
+        for (const matCode of matiereCodes) {
+          const n = noteByECMP.get(`${cls.id}|${eleveId}|${matCode}|${periodeId}`);
+          if (n !== undefined) { somme += n; count++; }
+        }
+        moyenneParEleve.set(eleveId, count > 0 ? Math.round(somme / count * 100) / 100 : 10);
       }
 
-      // Bulletin per student per period
+      // ── Agrégats de classe ──────────────────────────────────
+      const moyennes = [...moyenneParEleve.values()].sort((a, b) => b - a);
+      const moyenneClasse = Math.round(moyennes.reduce((a, b) => a + b, 0) / moyennes.length * 100) / 100;
+      const moyennePremier = moyennes[0];
+
+      // Rang (1 = meilleur)
+      const rangs = new Map();
+      const sorted = [...moyenneParEleve.entries()].sort((a, b) => b[1] - a[1]);
+      sorted.forEach(([id], idx) => rangs.set(id, idx + 1));
+
       for (const eleveId of studs) {
-        bullIdx++;
-        const profileHash = (eleveId.charCodeAt(eleveId.length-1) + eleveId.charCodeAt(eleveId.length-2)) % 100;
-        let moyenne;
-        if (profileHash < 15) moyenne = 14 + rand() * 4;
-        else if (profileHash < 40) moyenne = 12 + rand() * 2;
-        else if (profileHash < 75) moyenne = 10 + rand() * 2;
-        else if (profileHash < 90) moyenne = 8 + rand() * 2;
-        else moyenne = 4 + rand() * 4;
-        moyenne = Math.round(moyenne * 100) / 100;
+        const moyenne = moyenneParEleve.get(eleveId);
+        const rang = rangs.get(eleveId);
 
         const decision = moyenne >= 10 ? 'Passage' : (cls.niveau === 'Terminale' ? 'Ajourné' : 'Redoublement');
-        let mention = null;
-        if (moyenne >= 16) mention = 'Félicitations';
-        else if (moyenne >= 14) mention = 'Encouragements';
-        else if (moyenne >= 12) mention = 'Tableau d\'honneur';
-        else if (moyenne >= 10) mention = 'Passable';
-
         let appGen = 'Trimestre satisfaisant';
         if (moyenne >= 14) appGen = 'Excellent trimestre';
         else if (moyenne >= 12) appGen = 'Bon trimestre';
@@ -915,20 +1155,42 @@ function genFile06() {
         else appGen = 'Trimestre insuffisant';
 
         const bullId = `bull-${eleveId}-${periodeId}`;
-        bulletins.push([bullId,'tenant-ambouli',eleveId,periodeId,moyenne,null,null,randInt(0,10),randInt(1,studs.length),studs.length,appGen,decision,TRUE,TS,null,TS,TS]);
+        bulletins.push([bullId,'tenant-ambouli',eleveId,periodeId,moyenne,moyenneClasse,moyennePremier,randInt(0,10),rang,studs.length,appGen,decision,TRUE,TS,null,TS,TS]);
 
-        // Bulletin matieres (4 subjects to limit volume)
-        for (const matCode of matiereCodes.slice(0, 4)) {
-          bmIdx++;
+        // ── Bulletin matières : TOUTES les matières ───────────
+        for (const matCode of matiereCodes) {
           const matId = `mat-${matCode}`;
-          const matMoy = Math.max(2, Math.min(20, Math.round((moyenne + (rand() * 4 - 2)) * 100) / 100));
-          bulletinMatieres.push([`bm-${bullId}-${matCode}`,'tenant-ambouli',bullId,matId,null,randInt(1,5),matMoy,randInt(1,studs.length),null,null,null]);
+          const cmpKey = `${cls.id}|${matCode}|${periodeId}`;
+          const allNotes = notesByCMP.get(cmpKey) || [];
+          const matMoy = noteByECMP.get(`${cls.id}|${eleveId}|${matCode}|${periodeId}`) || 10;
+
+          // Agrégats par matière dans la classe
+          const moyMax = allNotes.length > 0 ? Math.max(...allNotes) : matMoy;
+          const moyMin = allNotes.length > 0 ? Math.min(...allNotes) : matMoy;
+
+          // Rang dans la matière
+          const sortedMat = [...allNotes].sort((a, b) => b - a);
+          const matRang = sortedMat.indexOf(matMoy) + 1 || Math.ceil(sortedMat.length / 2);
+
+          // Enseignant titulaire
+          const ensId = ensParClasseMatiere.get(`${cls.id}|${matCode}`) || `ens-${siteName}-1`;
+          const nomProf = ensNomComplet.get(ensId) || 'Enseignant';
+
+          // Appréciation matière
+          let appMat = 'Travail correct';
+          if (matMoy >= 14) appMat = 'Très bon travail';
+          else if (matMoy >= 12) appMat = 'Bon travail';
+          else if (matMoy >= 10) appMat = 'Travail correct';
+          else if (matMoy >= 8) appMat = 'Travail insuffisant';
+          else appMat = 'Travail très insuffisant';
+
+          bulletinMatieres.push([`bm-${bullId}-${matCode}`,'tenant-ambouli',bullId,matId,nomProf,randInt(1,5),matMoy,matRang,moyMax,moyMin,appMat]);
         }
       }
     }
   }
 
-  sql += batchInsert('emplois_temps', ['id','tenantId','classeId','matiereId','enseignantId','jour','heureDebut','heureFin','salle','annee'], edt) + '\n\n';
+  sql += batchInsert('emplois_temps', ['id','tenantId','classeId','matiereId','enseignantId','jour','heureDebut','heureFin','salle','annee'], edtRows) + '\n\n';
   sql += batchInsert('evaluations', ['id','tenantId','titre','type','classeId','matiereId','periodeId','date','duree','coefficient','description','statut','createdAt','updatedAt'], evaluations) + '\n\n';
   sql += batchInsert('notes', ['id','tenantId','eleveId','classeId','matiereId','periodeId','type','intitule','valeur','noteMax','coefficient','date','appreciation','commentaire','saisieParId','isPubliee','evaluationId','createdAt','updatedAt'], notes) + '\n\n';
   sql += batchInsert('bulletins', ['id','tenantId','eleveId','periodeId','moyenneGenerale','moyenneClasse','moyennePremier','heuresAbsence','rang','effectifClasse','appreciation','decision','isPublie','publishedAt','pdfUrl','createdAt','updatedAt'], bulletins) + '\n\n';
@@ -1355,7 +1617,7 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
   // Absences personnel (20% of teachers, 1-5 each)
   let apIdx = 0, cgIdx = 0, dpIdx = 0, rmIdx = 0, dvIdx = 0;
   for (const site of ['ambouli','arhiba']) {
-    for (let i = 1; i <= 20; i++) {
+    for (let i = 1; i <= NB_ENSEIGNANTS_PAR_SITE; i++) {
       const ensId = `ens-${site}-${i}`;
       // Disponibilités
       for (const jour of ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI']) {
@@ -1435,7 +1697,7 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
       // dateRendu is in the past: statut can be RENDU or CORRIGE (or EN_COURS)
       statut = weightedPick([['CORRIGE',7],['RENDU',2],['EN_COURS',1]]);
     }
-    devoirs.push([`dv-${i+1}`,'tenant-ambouli',`site-${site}`,cls,`mat-${matCode}`,`ens-${site}-${randInt(1,20)}`,`Devoir ${matCode} ${i+1}`,`Exercices sur le chapitre ${i%5+1}`,dateDonne,dateRendu,statut,TS,TS]);
+    devoirs.push([`dv-${i+1}`,'tenant-ambouli',`site-${site}`,cls,`mat-${matCode}`,`ens-${site}-${randInt(1,NB_ENSEIGNANTS_PAR_SITE)}`,`Devoir ${matCode} ${i+1}`,`Exercices sur le chapitre ${i%5+1}`,dateDonne,dateRendu,statut,TS,TS]);
   }
 
   // Notifications (20)
@@ -1712,7 +1974,7 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
     alIdx++;
     const action = pick(auditActions);
     const verdict = rand() < 0.85 ? 'ALLOWED' : 'DENIED';
-    const userId = `user-prof-ambouli-${randInt(1,20)}`;
+    const userId = `user-prof-ambouli-${randInt(1,NB_ENSEIGNANTS_PAR_SITE)}`;
     auditLogs.push([`audit-${alIdx}`,'tenant-ambouli',userId,action,verdict,'eleve',PERSONNES_PAR_SITE.ambouli[0].eleveId,rand() < 0.3 ? 'Accès hors horaires' : null,null,'192.168.1.' + randInt(1,254),'Mozilla/5.0','2025-10-15 10:30:00']);
   }
 
@@ -2110,7 +2372,7 @@ function genFile11() {
         "'{}'::text[]",
         interventionType,
         `Séance de ${interventionType === 'remediation' ? 'soutien individualisée' : interventionType === 'retest' ? 'réévaluation' : 'revue des prérequis'}`,
-        `user-prof-ambouli-${randInt(1,20)}`,
+        `user-prof-ambouli-${randInt(1,NB_ENSEIGNANTS_PAR_SITE)}`,
         ivStatus, ivStartDate, ivReviewDate, ivOutcome,
         baseMastery, ivMasteryAfter,
         TRUE, ivApprovedBy, ivApprovedAt,
@@ -2121,7 +2383,7 @@ function genFile11() {
       const planId = `plan-${plIdx}`;
       const planDelta = 0.12 + rand() * 0.18;
       const masteryApres = Math.min(1, Math.round((baseMastery + planDelta) * 100) / 100);
-      const responsableUserId = `user-prof-ambouli-${randInt(1,20)}`;
+      const responsableUserId = `user-prof-ambouli-${randInt(1,NB_ENSEIGNANTS_PAR_SITE)}`;
       const planRoll = profileHash % 20;
       let planStatut, planValidePar, planValideLe, planDateFin, planMasteryApres, planResultat, planParentInforme;
       if (planRoll < 11) {
@@ -2321,7 +2583,7 @@ function genFile12() {
       const isIa = rand() < 0.60;
       const origine = isIa ? 'ia' : 'humain';
       const isReviewed = isIa && rand() < 0.40;
-      const relueParId = isReviewed ? `user-prof-ambouli-${randInt(1,20)}` : null;
+      const relueParId = isReviewed ? `user-prof-ambouli-${randInt(1,NB_ENSEIGNANTS_PAR_SITE)}` : null;
       const relueLe = isReviewed ? `2025-${String(randInt(9,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')} 00:00:00` : null;
       questions.push([`q-${qIdx}`,'tenant-ambouli',null,cpId,palier,`Question ${q+1} pour ${cpId}`,`Corrigé: réponse attendue`,1,origine,TRUE,TS,TS,pick(['CHOIX_UNIQUE','SAISIE_COURTE','SAISIE_LIBRE','APPARIEMENT']),`'{"propositions":["A","B","C","D"],"bonne":"A"}'::jsonb`,relueLe,relueParId]);
     }

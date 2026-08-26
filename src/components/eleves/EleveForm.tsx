@@ -34,7 +34,7 @@ interface EleveFormData {
   nationalite?: string;
   sexe: "M" | "F";
   classeId?: string;
-  statut?: "ACTIF" | "TRANSFERE" | "DIPLOME" | "EXCLU" | "ABANDONNE";
+  statut?: "ACTIF" | "REINSCRIT" | "NON_REINSCRIT" | "TRANSFERE" | "DIPLOME" | "EXCLU" | "ABANDONNE";
   groupeSanguin?: string;
   allergies?: string;
   besoinsSpeciaux?: string;
@@ -85,7 +85,7 @@ const FormSchema = z.object({
   dateNaissance: z.string().min(1, "La date de naissance est requise"),
   sexe: z.enum(["M", "F"]),
   classeId: z.string().optional(),
-  statut: z.enum(["ACTIF", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
+  statut: z.enum(["ACTIF", "REINSCRIT", "NON_REINSCRIT", "TRANSFERE", "DIPLOME", "EXCLU", "ABANDONNE"]).optional(),
   regime: z.enum(["interne", "demi-pensionnaire", "externe"]).optional(),
   parentEmail: z.string().email().optional().or(z.literal("")),
 });

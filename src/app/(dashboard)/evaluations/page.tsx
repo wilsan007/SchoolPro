@@ -6,12 +6,13 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateEvaluationForm } from "@/components/evaluations/CreateEvaluationForm";
 import Link from "next/link";
-import { Eye, Edit, Star, PenLine } from "lucide-react";
+import { PenLine } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getClassesHierarchie, aplatirHierarchie } from "@/lib/classes-hierarchie";
+import { roleHasPermission } from "@/lib/permissions";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 
@@ -106,7 +107,7 @@ export default async function EvaluationsPage({
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">{t("title")}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{t("subtitle")}</p>
         </div>
-        <CreateEvaluationForm classes={classes} hierarchie={hierarchie} matieres={matieres} periodes={periodes} />
+        <CreateEvaluationForm classes={classes} hierarchie={hierarchie} matieres={matieres} periodes={periodes} canWrite={roleHasPermission(session.user.role as string, "evaluations:write")} />
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border overflow-hidden">
@@ -172,12 +173,6 @@ export default async function EvaluationsPage({
                           {t("enterGrades")}
                         </Button>
                       </Link>
-                      <Button variant="outline" size="icon" className="h-8 w-8 text-yellow-600 border-yellow-200 hover:bg-yellow-50 hidden sm:inline-flex">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50 hidden sm:inline-flex">
-                        <Star className="h-4 w-4" />
-                      </Button>
                     </div>
                   </td>
                 </tr>

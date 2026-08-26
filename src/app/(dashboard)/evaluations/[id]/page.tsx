@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
 import { CompetencesEvaluation } from "@/components/evaluations/CompetencesEvaluation";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export default async function SaisieNotesPage({
@@ -42,9 +43,10 @@ export default async function SaisieNotesPage({
     redirect("/evaluations");
   }
 
-  const peutModifier = ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"].includes(
-    session.user.role as string
-  );
+  // `evaluations:write` couvre tous les rôles autorisés à saisir des notes :
+  // SUPER_ADMIN, TENANT_ADMIN, PRINCIPAL, CLASS_TEACHER, TEACHER, SUBJECT_LEAD.
+  // La liste hardcoded précédente oubliait SUBJECT_LEAD.
+  const peutModifier = roleHasPermission(session.user.role as string, "evaluations:write");
 
   const grille = evaluation.classe.eleves.map(eleve => {
     const existingNote = evaluation.notes.find(n => n.eleveId === eleve.id);
@@ -76,7 +78,7 @@ export default async function SaisieNotesPage({
               Retour à l&apos;examen
             </Button>
           </Link>
-          <Button className="bg-green-600 hover:bg-green-700 text-white gap-2 shadow-sm border-none w-full sm:w-auto">
+          <Button className="bg-green-600 hover:bg-green-700 text-white gap-2 shadow-sm border-none w-full sm:w-auto" disabled title="Export Excel à venir">
             <FileSpreadsheet className="h-4 w-4" />
             Excel
           </Button>

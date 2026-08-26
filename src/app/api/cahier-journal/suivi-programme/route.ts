@@ -23,9 +23,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  // Permission : curriculum:read (détenu par la direction, l'inspection et
-  // les enseignants). Le tableau de suivi est une vue agrégée du curriculum.
-  const denied = checkPermission(session.user.role, "curriculum:read");
+  // Permission : cahier-journal:read (détenu par la direction, l'inspection et
+  // les enseignants). Le tableau de suivi est une vue agrégée du cahier-journal.
+  const denied = checkPermission(session.user.role, "cahier-journal:read");
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;

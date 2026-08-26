@@ -251,6 +251,45 @@ const CATALOGUE = {
   // — Facturation —
   FACTURE_INTROUVABLE: { statut: 404, fr: "Facture introuvable" },
   ECHEANCIER_INTROUVABLE: { statut: 404, fr: "Échéancier introuvable" },
+
+  // — Réinscription —
+  INVITATION_INTROUVABLE: { statut: 404, fr: "Invitation introuvable" },
+  DEJA_REPONDU: { statut: 409, fr: "Vous avez déjà répondu à cette invitation" },
+  CAMPAGNE_FERMEE: { statut: 403, fr: "La campagne de réinscription est fermée" },
+
+  // — Mot de passe : complexité requise —
+  PASSWORD_TOO_SHORT: {
+    statut: 400,
+    fr: "Le mot de passe doit faire au moins 8 caractères",
+  },
+  PASSWORD_MISSING_UPPERCASE: {
+    statut: 400,
+    fr: "Le mot de passe doit contenir au moins une lettre majuscule",
+  },
+  PASSWORD_MISSING_LOWERCASE: {
+    statut: 400,
+    fr: "Le mot de passe doit contenir au moins une lettre minuscule",
+  },
+  PASSWORD_MISSING_NUMBER: {
+    statut: 400,
+    fr: "Le mot de passe doit contenir au moins un chiffre",
+  },
+  PASSWORD_MISSING_SPECIAL: {
+    statut: 400,
+    fr: "Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&*…)",
+  },
+  PASSWORD_DONT_MATCH: {
+    statut: 400,
+    fr: "Les mots de passe ne correspondent pas",
+  },
+  PASSWORD_SAME_AS_OLD: {
+    statut: 400,
+    fr: "Le nouveau mot de passe doit être différent de l'ancien",
+  },
+  WRONG_CURRENT_PASSWORD: {
+    statut: 400,
+    fr: "Le mot de passe actuel est incorrect",
+  },
 } as const satisfies Record<string, Definition>;
 
 export type CodeErreur = keyof typeof CATALOGUE;
