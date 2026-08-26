@@ -132,6 +132,41 @@ function schoolDayDate(hour = '00', minute = '00') {
   return `${mo.y}-${String(mo.m).padStart(2,'0')}-${String(day).padStart(2,'0')} ${hour}:${minute}:00`;
 }
 
+// ── Dates bornées à UNE année scolaire ───────────────────────
+// `SCHOOL_MONTHS` ne couvre que 2025-2026 et 2026-2027 : tout ce qui s'y
+// datait tombait donc dans l'année N, y compris les faits rattachés à une
+// inscription de 2024-2025. Tant que les deux années avaient des populations
+// disjointes cela passait inaperçu ; maintenant qu'un élève traverse les deux,
+// une absence de 2026 sur son année de 6ème contredirait son propre parcours.
+
+/// Mois de l'année scolaire ouverte par `anneeYear` : septembre → juin.
+function moisAnnee(anneeYear) {
+  const a = parseInt(anneeYear, 10);
+  return [
+    { y: a, m: 9 }, { y: a, m: 10 }, { y: a, m: 11 }, { y: a, m: 12 },
+    { y: a + 1, m: 1 }, { y: a + 1, m: 2 }, { y: a + 1, m: 3 },
+    { y: a + 1, m: 4 }, { y: a + 1, m: 5 }, { y: a + 1, m: 6 },
+  ];
+}
+
+/// `schoolDate`, mais dans l'année scolaire de l'inscription.
+function dateAnnee(anneeYear, hour = '00', minute = '00') {
+  const mo = pick(moisAnnee(anneeYear));
+  const day = randInt(1, 28);
+  return `${mo.y}-${String(mo.m).padStart(2,'0')}-${String(day).padStart(2,'0')} ${hour}:${minute}:00`;
+}
+
+/// `schoolDayDate` (dimanche → jeudi, semaine djiboutienne), même bornage.
+function jourEcoleAnnee(anneeYear, hour = '00', minute = '00') {
+  const mo = pick(moisAnnee(anneeYear));
+  let day = randInt(1, 28);
+  const dow = new Date(mo.y, mo.m - 1, day).getDay();
+  if (dow === 5) day = day > 1 ? day - 1 : day + 2;
+  else if (dow === 6) day = day > 2 ? day - 2 : day + 1;
+  day = Math.max(1, Math.min(28, day));
+  return `${mo.y}-${String(mo.m).padStart(2,'0')}-${String(day).padStart(2,'0')} ${hour}:${minute}:00`;
+}
+
 // Weighted pick: given array of [value, weight] pairs, pick one
 function weightedPick(options) {
   const total = options.reduce((s, o) => s + o[1], 0);
@@ -196,26 +231,314 @@ function generateClasses() {
   return classes;
 }
 
-// ── Shared eleve list (ensures consistent IDs across all genFiles) ──
-function generateElevesList() {
-  const list = [];
-  const counters = { ambouli: { '2024': 0, '2025': 0 }, arhiba: { '2024': 0, '2025': 0 } };
+// ── Flux de cohorte : des élèves qui traversent les années ───
+//
+// Le seed couvre deux années scolaires. Jusqu'ici l'identifiant portait
+// l'année (`ele-ambouli-2025-0042`) : les 1 232 élèves de 2024-2025 et les
+// 1 232 de 2025-2026 formaient deux populations disjointes, et aucun élève
+// ne traversait les deux ans. Les six analyses longitudinales de LEARNOS —
+// efficacité du redoublement, motifs de transfert, diplomation par cohorte —
+// n'avaient donc aucune longitude à lire.
+//
+// L'identité est désormais celle d'une PERSONNE (`ele-ambouli-0042`, sans
+// année), et l'on construit le flux réel d'une rentrée à l'autre :
+//
+//   fin 2024-2025 →  moyenne ≥ 10 : passage au niveau suivant
+//                 →  moyenne < 10 : redoublement au même niveau
+//                 →  ~3 % de départs (transfert, déménagement, abandon)
+//                 →  Terminale reçue : diplômée, part vers les Alumni
+//   rentrée 2025  →  ce flux, complété par des entrants extérieurs aux deux
+//                    seuls niveaux qui recrutent : la 6ème et la 2nde
+//
+// Les effectifs 2025-2026 ne sont donc plus figés à 28 : ils découlent du
+// flux. La 1ère se remplit (quatre classes de 2nde alimentent trois classes
+// de 1ère), la 2nde recrute au-dehors. C'est exactement ce que la prédiction
+// de remplissage des classes (I11) doit savoir lire.
+
+const NIVEAU_SUIVANT = {
+  '6eme': '5eme', '5eme': '4eme', '4eme': '3eme', '3eme': '2nde',
+  '2nde': '1ere', '1ere': 'Terminale', 'Terminale': null,
+};
+
+/// Les deux seuls niveaux qui recrutent hors de l'établissement : entrée au
+/// collège et entrée au lycée. Partout ailleurs l'effectif est celui que le
+/// flux amène — on ne fabrique personne pour arrondir.
+const NIVEAUX_RECRUTEMENT = new Set(['6eme', '2nde']);
+
+/// Effectif visé par classe sur un niveau de recrutement.
+const EFFECTIF_CIBLE = 28;
+
+/// Part des élèves qui quittent l'établissement en fin d'année, toutes
+/// causes confondues.
+const TAUX_DEPART = 0.03;
+
+/// Générateur pseudo-aléatoire indépendant : la structure de la cohorte doit
+/// rester stable même si l'ordre des tirages change ailleurs dans le fichier.
+function makeRng(graine) {
+  let s = graine;
+  return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+}
+
+/**
+ * Moyenne annuelle à partir d'un « profil » dans [0, 1[ — 0 = tête de classe,
+ * 1 = grande difficulté. Reproduit la distribution du seed d'origine :
+ * 15 % d'excellents, 25 % de bons, 35 % de moyens, 15 % de faibles et 10 % de
+ * très faibles, soit 75 % de passage.
+ */
+function moyennePourProfil(profil, r) {
+  let m;
+  if (profil < 0.15) m = 14 + r * 4;
+  else if (profil < 0.40) m = 12 + r * 2;
+  else if (profil < 0.75) m = 10 + r * 2;
+  else if (profil < 0.90) m = 8 + r * 2;
+  else m = 4 + r * 4;
+  return Math.round(m * 100) / 100;
+}
+
+/**
+ * Construit la population des deux années scolaires.
+ *
+ * Renvoie `{ personnes, inscriptions }` : une personne par élève réel (une
+ * seule ligne `eleves`, un seul parent, un seul matricule), et une inscription
+ * par couple élève × année (une ligne `parcours_scolaires`, une ligne
+ * `historique_classes`, une facture, un jeu de notes et de bulletins).
+ */
+function buildCohortes() {
+  const rng = makeRng(20252026);
+  const pickRng = (arr) => arr[Math.floor(rng() * arr.length)];
+
+  const classesParNiveau = new Map(); // `${site}|${anneeYear}|${niveau}` → classes
   for (const cls of generateClasses()) {
     const site = cls.siteId === 'site-ambouli' ? 'ambouli' : 'arhiba';
     const anneeYear = cls.annee === '2024-2025' ? '2024' : '2025';
-    const count = 28; // Fixed count for consistency
-    for (let i = 0; i < count; i++) {
-      counters[site][anneeYear]++;
-      const num = String(counters[site][anneeYear]).padStart(4, '0');
-      const eleveId = `ele-${site}-${anneeYear}-${num}`;
-      const parentId = `parent-${site}-${anneeYear}-${num}`;
-      list.push({ eleveId, parentId, site: cls.siteId, siteName: site, annee: cls.annee, anneeYear, niveau: cls.niveau, classeId: cls.id, isLycee: LYCEE_NIVEAUX.includes(cls.niveau) });
+    const cle = `${site}|${anneeYear}|${cls.niveau}`;
+    if (!classesParNiveau.has(cle)) classesParNiveau.set(cle, []);
+    classesParNiveau.get(cle).push(cls);
+  }
+
+  const personnes = [];
+  const inscriptions = [];
+
+  for (const siteName of ['ambouli', 'arhiba']) {
+    const personnesSite = [];
+    let compteur = 0;
+
+    function nouvellePersonne(anneeEntree) {
+      compteur++;
+      const num = String(compteur).padStart(4, '0');
+      const p = {
+        eleveId: `ele-${siteName}-${num}`,
+        parentId: `parent-${siteName}-${num}`,
+        num,
+        siteName,
+        siteId: `site-${siteName}`,
+        anneeEntree,
+        /// Trait durable de l'élève : le même profil le suit d'une année sur
+        /// l'autre, sans quoi comparer sa moyenne N et N+1 n'aurait pas de sens.
+        profil: rng(),
+        inscriptions: [],
+        sortie: null,
+      };
+      personnes.push(p);
+      personnesSite.push(p);
+      return p;
+    }
+
+    function inscrire(p, cls, anneeYear, origine) {
+      // Refaire l'année aide, mais inégalement : certains redoublants
+      // repassent nettement la barre, beaucoup restent au même point. C'est
+      // cette dispersion — et non un rattrapage automatique — que l'analyse
+      // d'efficacité du redoublement (A11) doit avoir à lire.
+      const bonus = origine === 'REDOUBLANT' ? rng() * 0.26 : 0;
+      const profilAnnee = Math.min(0.999, Math.max(0, p.profil - bonus + (rng() - 0.5) * 0.06));
+      const insc = {
+        eleveId: p.eleveId,
+        parentId: p.parentId,
+        site: cls.siteId,
+        siteName,
+        annee: cls.annee,
+        anneeYear,
+        niveau: cls.niveau,
+        classeId: cls.id,
+        classeNom: cls.nom,
+        isLycee: LYCEE_NIVEAUX.includes(cls.niveau),
+        origine, // NOUVEAU | PROMU | REDOUBLANT
+        moyenne: moyennePourProfil(profilAnnee, rng()),
+        decision: null,
+        rang: 0,
+        effectif: 0,
+      };
+      p.inscriptions.push(insc);
+      inscriptions.push(insc);
+      return insc;
+    }
+
+    // ── Rentrée 2024 : la promotion d'entrée, toutes classes à 28 ──
+    for (const niveau of ALL_NIVEAUX) {
+      for (const cls of classesParNiveau.get(`${siteName}|2024|${niveau}`) || []) {
+        for (let i = 0; i < EFFECTIF_CIBLE; i++) {
+          inscrire(nouvellePersonne('2024'), cls, '2024', 'NOUVEAU');
+        }
+      }
+    }
+
+    // ── Fin 2024-2025 : passage, redoublement, diplôme ou départ ──
+    const attendus = {}; // niveau de la rentrée 2025 → personnes
+    for (const niveau of ALL_NIVEAUX) attendus[niveau] = [];
+
+    for (const p of personnesSite) {
+      const insc = p.inscriptions[0];
+      const recu = insc.moyenne >= 10;
+
+      if (insc.niveau === 'Terminale' && recu) {
+        insc.decision = 'Diplômé';
+        p.sortie = { anneeYear: '2024', statut: 'DIPLOME', motif: "Fin d'études", date: '2025-07-05 00:00:00' };
+        continue;
+      }
+
+      insc.decision = recu ? 'Passage' : 'Redoublement';
+
+      if (rng() < TAUX_DEPART) {
+        const motif = pickRng(['Transfert', 'Déménagement', 'Abandon']);
+        p.sortie = {
+          anneeYear: '2024',
+          statut: motif === 'Abandon' ? 'ABANDONNE' : 'TRANSFERE',
+          motif,
+          date: '2025-07-05 00:00:00',
+        };
+        continue;
+      }
+
+      attendus[recu ? NIVEAU_SUIVANT[insc.niveau] : insc.niveau].push(p);
+    }
+
+    // ── Rentrée 2025 : le flux, complété au besoin sur 6ème et 2nde ──
+    for (const niveau of ALL_NIVEAUX) {
+      const classes = classesParNiveau.get(`${siteName}|2025|${niveau}`) || [];
+      if (classes.length === 0) continue;
+
+      const effectif = attendus[niveau].slice();
+      if (NIVEAUX_RECRUTEMENT.has(niveau)) {
+        const cible = classes.length * EFFECTIF_CIBLE;
+        while (effectif.length < cible) effectif.push(nouvellePersonne('2025'));
+      }
+
+      effectif.forEach((p, i) => {
+        const origine = p.anneeEntree === '2025'
+          ? 'NOUVEAU'
+          : (p.inscriptions[0].decision === 'Passage' ? 'PROMU' : 'REDOUBLANT');
+        inscrire(p, classes[i % classes.length], '2025', origine);
+      });
+    }
+
+    // ── Fin 2025-2026 : l'année est clôturée à la date de démo ──
+    for (const p of personnesSite) {
+      const insc = p.inscriptions[p.inscriptions.length - 1];
+      if (insc.anneeYear !== '2025') continue;
+      const recu = insc.moyenne >= 10;
+      if (insc.niveau === 'Terminale' && recu) {
+        insc.decision = 'Diplômé';
+        p.sortie = { anneeYear: '2025', statut: 'DIPLOME', motif: "Fin d'études", date: '2026-07-04 00:00:00' };
+      } else {
+        insc.decision = recu ? 'Passage' : 'Redoublement';
+      }
     }
   }
-  return list;
+
+  // Rang et effectif réels, par classe. Ils étaient jusqu'ici tirés au sort
+  // (`randInt(1, count)`) et contredisaient donc la moyenne affichée à côté.
+  const parClasse = new Map();
+  for (const insc of inscriptions) {
+    if (!parClasse.has(insc.classeId)) parClasse.set(insc.classeId, []);
+    parClasse.get(insc.classeId).push(insc);
+  }
+  for (const liste of parClasse.values()) {
+    liste.slice().sort((a, b) => b.moyenne - a.moyenne).forEach((insc, i) => {
+      insc.rang = i + 1;
+      insc.effectif = liste.length;
+    });
+  }
+
+  return { personnes, inscriptions };
 }
 
-const ALL_ELEVES = generateElevesList();
+/// Une personne = une fiche élève. Une inscription = un couple élève × année.
+/// `ALL_ELEVES` garde son nom : les générateurs en aval raisonnent bien par
+/// inscription (une facture par an, un jeu de notes par an, une absence
+/// rattachée à l'année où elle a eu lieu).
+const { personnes: ALL_PERSONNES, inscriptions: ALL_ELEVES } = buildCohortes();
+
+// Sous-ensembles prêts à l'emploi. Plusieurs générateurs en aval fabriquaient
+// jusqu'ici des identifiants d'élève à la main (`ele-ambouli-2024-0042`) : ils
+// visaient juste tant que la numérotation portait l'année, et tomberaient dans
+// le vide maintenant qu'elle ne la porte plus. On tire donc dans les fiches
+// réellement écrites.
+const PERSONNES_PAR_SITE = {
+  ambouli: ALL_PERSONNES.filter(p => p.siteName === 'ambouli'),
+  arhiba: ALL_PERSONNES.filter(p => p.siteName === 'arhiba'),
+};
+const INSCRITS_2025_PAR_SITE = {
+  ambouli: ALL_ELEVES.filter(e => e.siteName === 'ambouli' && e.anneeYear === '2025'),
+  arhiba: ALL_ELEVES.filter(e => e.siteName === 'arhiba' && e.anneeYear === '2025'),
+};
+const INSCRITS_6EME_AMBOULI = ALL_ELEVES.filter(e => e.siteName === 'ambouli' && e.niveau === '6eme');
+
+/**
+ * Garde structurelle sur le flux de cohorte.
+ *
+ * La liaison des années est invisible à l'œil nu dans 300 fichiers SQL : elle
+ * peut se défaire sans que rien n'échoue, et les analyses longitudinales
+ * repartiraient alors silencieusement à vide. Sur le modèle de la garde du
+ * hash bcrypt en tête de fichier, on refuse donc de générer un seed dont la
+ * cohorte ne tient pas debout.
+ */
+function verifierCohortes() {
+  const ordre = ALL_NIVEAUX;
+  let deuxAns = 0;
+
+  for (const p of ALL_PERSONNES) {
+    if (p.inscriptions.length < 1 || p.inscriptions.length > 2) {
+      throw new Error(`${p.eleveId} : ${p.inscriptions.length} inscriptions (attendu 1 ou 2).`);
+    }
+    if (p.inscriptions.length === 1) continue;
+
+    const [a, b] = p.inscriptions;
+    if (a.anneeYear !== '2024' || b.anneeYear !== '2025') {
+      throw new Error(`${p.eleveId} : années ${a.anneeYear} puis ${b.anneeYear} (attendu 2024 puis 2025).`);
+    }
+    const attendu = a.decision === 'Passage' ? ordre[ordre.indexOf(a.niveau) + 1] : a.niveau;
+    if (b.niveau !== attendu) {
+      throw new Error(`${p.eleveId} : ${a.niveau} « ${a.decision} » → ${b.niveau} (attendu ${attendu}).`);
+    }
+    // Sortir à la fin de la seconde année est normal (un redoublant de
+    // Terminale finit par être reçu) ; sortir à la fin de la première et
+    // reparaître à la rentrée suivante ne l'est pas.
+    if (p.sortie && p.sortie.anneeYear === '2024') {
+      throw new Error(`${p.eleveId} : sorti en ${a.annee} mais réinscrit en ${b.annee}.`);
+    }
+    deuxAns++;
+  }
+
+  // Un élève qui traverse les deux ans est la seule chose que les analyses
+  // longitudinales aient à lire. S'ils deviennent rares, la démonstration
+  // n'existe plus, même si tout le reste du seed se charge sans erreur.
+  const part = deuxAns / ALL_PERSONNES.length;
+  if (part < 0.5) {
+    throw new Error(
+      `Seuls ${deuxAns}/${ALL_PERSONNES.length} élèves (${Math.round(part * 100)} %) traversent ` +
+      `les deux années : la liaison des cohortes est rompue.`
+    );
+  }
+
+  const diplomes = ALL_PERSONNES.filter(p => p.sortie && p.sortie.statut === 'DIPLOME').length;
+  const sortis = ALL_PERSONNES.filter(p => p.sortie && p.sortie.statut !== 'DIPLOME').length;
+  console.log(
+    `  [cohortes] ${ALL_PERSONNES.length} élèves, ${ALL_ELEVES.length} inscriptions — ` +
+    `${deuxAns} traversent les deux ans (${Math.round(part * 100)} %), ` +
+    `${diplomes} diplômés, ${sortis} sortis en cours de route.`
+  );
+}
+verifierCohortes();
 
 // ── File 04: Users, Staff, Enseignants ───────────────────────
 function genFile04() {
@@ -322,7 +645,12 @@ function genFile05() {
   const classes = generateClasses();
   sql += batchInsert('classes', ['id','tenantId','siteId','structureId','niveau','nom','effectifMax','profPrincipalId','annee'], classes.map(c => [c.id,c.tenantId,c.siteId,c.structureId,c.niveau,c.nom,c.effectifMax,c.profPrincipalId,c.annee])) + '\n\n';
 
-  // Generate students for each class
+  // ── Une fiche élève par PERSONNE, un parcours par ANNÉE ──
+  //
+  // L'élève est écrit une seule fois, avec la classe de sa dernière
+  // inscription ; ses deux années apparaissent dans `parcours_scolaires` et
+  // `historique_classes`. C'est cette paire de lignes qui rend les analyses
+  // longitudinales possibles.
   const eleves = [];
   const parents = [];
   const parentUsers = [];
@@ -334,109 +662,101 @@ function genFile05() {
   const alumni = [];
   const prefs = [];
 
-  let eleveCounter = { ambouli: { '2024': 0, '2025': 0 }, arhiba: { '2024': 0, '2025': 0 } };
-  let parentCounter = { ambouli: { '2024': 0, '2025': 0 }, arhiba: { '2024': 0, '2025': 0 } };
+  /// Fin de l'année scolaire ouverte par `anneeYear` (juillet suivant).
+  const finAnnee = (anneeYear) => `${parseInt(anneeYear, 10) + 1}-07-05 00:00:00`;
 
-  for (const cls of classes) {
-    const site = cls.siteId === 'site-ambouli' ? 'ambouli' : 'arhiba';
-    const anneeYear = cls.annee === '2024-2025' ? '2024' : '2025';
-    const isTerminale = cls.niveau === 'Terminale';
-    const isLastYear = anneeYear === '2024';
-
-    // Fixed count of 28 students per class (must match ALL_ELEVES)
-    const count = 28;
-    for (let i = 0; i < count; i++) {
-      eleveCounter[site][anneeYear]++;
-      const num = String(eleveCounter[site][anneeYear]).padStart(4, '0');
-      const eleveId = `ele-${site}-${anneeYear}-${num}`;
-      const sexe = rand() < 0.5 ? 'M' : 'F';
-      const fn = sexe === 'M' ? pick(PRENOMS_M) : pick(PRENOMS_F);
-      const ln = pick(NOMS);
-      const age = AGE_BY_NIVEAU[cls.niveau];
-      const birthYear = (anneeYear === '2024' ? 2024 : 2025) - age;
-      const birthDate = `${birthYear}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')} 00:00:00`;
-      const matricule = `${site.toUpperCase().slice(0,3)}-${anneeYear}-${num}`;
-      const regime = rand() < 0.6 ? 'EXTERNE' : 'DEMI_PENSIONNAIRE';
-      const gs = pick(GROUPE_SANGUIN);
-      const contactNom = pick(PRENOMS_M) + ' ' + ln;
-      const contactPhone = `+253 77 ${randInt(10,99)} ${randInt(10,99)} ${randInt(10,99)}`;
-
-      eleves.push([eleveId,'tenant-ambouli',cls.siteId,matricule,ln,fn,birthDate,'Djibouti','DJ',sexe,null,'ACTIF',cls.id,null,null,gs,null,null,null,null,contactNom,contactPhone,cls.annee,null,'2024-09-15 00:00:00',null,null,null,TS,TS,null]);
-
-      // Parent
-      parentCounter[site][anneeYear]++;
-      const pnum = String(parentCounter[site][anneeYear]).padStart(4, '0');
-      const parentId = `parent-${site}-${anneeYear}-${pnum}`;
-      const pUserId = `user-parent-${site}-${anneeYear}-${pnum}`;
-      const pFn = pick(PRENOMS_M);
-      const pLn = ln; // same family name
-      const pEmail = `parent.${site}-${anneeYear}-${pnum}@cite-ambouli.dj`;
-      const pPhone = `+253 77 ${randInt(10,99)} ${randInt(10,99)} ${randInt(10,99)}`;
-      const relation = pick(['PERE','MERE','TUTEUR']);
-
-      parentUsers.push([pUserId,'tenant-ambouli',cls.siteId,pEmail,HASH,`${pFn} ${pLn}`,pFn,pLn,'PARENT',TRUE,pPhone,'fr','fr',TRUE,null,TS,TS]);
-      // UserTenant and UserRole for each parent user
-      parentUserTenants.push([`ut-${pUserId}`,pUserId,'tenant-ambouli','PARENT',TRUE,TRUE,TS,TS]);
-      parentUserRoles.push([`ur-${pUserId}`,pUserId,'tenant-ambouli','PARENT',TRUE,TS,TS]);
-      parents.push([parentId,'tenant-ambouli',pUserId,pLn,pFn,pEmail,pPhone,null,pick(PROFESSIONS),null,null,TS,TS]);
-      eleveParents.push([eleveId,parentId,relation,TRUE]);
-
-      // Parcours scolaire with varied profiles
-      const profile = rand();
-      let moyenne;
-      if (profile < 0.15) moyenne = 14 + rand() * 4; // excellent 15-18
-      else if (profile < 0.40) moyenne = 12 + rand() * 2; // good 12-14
-      else if (profile < 0.75) moyenne = 10 + rand() * 2; // average 10-12
-      else if (profile < 0.90) moyenne = 8 + rand() * 2;  // weak 8-10
-      else moyenne = 4 + rand() * 4; // very weak 4-8
-      moyenne = Math.round(moyenne * 100) / 100;
-
-      const decision = moyenne >= 10 ? 'Passage' : 'Redoublement';
-      let mention = null;
-      if (moyenne >= 16) mention = 'Très bien';
-      else if (moyenne >= 14) mention = 'Bien';
-      else if (moyenne >= 12) mention = 'Assez bien';
-      else if (moyenne >= 10) mention = 'Passable';
-
-      let appreciation = 'Travail satisfaisant';
-      if (moyenne >= 14) appreciation = 'Excellent trimestre, continuez ainsi';
-      else if (moyenne >= 12) appreciation = 'Bon trimestre, poursuivez vos efforts';
-      else if (moyenne >= 10) appreciation = 'Travail correct, des progrès sont possibles';
-      else if (moyenne >= 8) appreciation = 'Travail insuffisant, un soutien est nécessaire';
-      else appreciation = 'Travail très insuffisant, rencontre conseiller';
-
-      let recommandation = null;
-      if (cls.niveau === 'Terminale' || cls.niveau === 'Terminale S' || cls.niveau === 'Terminale L') {
-        if (moyenne >= 16) recommandation = 'EXCELLENTE_VOIE';
-        else if (moyenne >= 14) recommandation = 'FILIERE_SCIENTIFIQUE';
-        else if (moyenne >= 10) recommandation = pick(['FILIERE_LITTERAIRE','FILIERE_TECHNIQUE']);
-        else recommandation = 'REDOUBLEMENT';
-      } else {
-        if (moyenne >= 16) recommandation = 'EXCELLENTE_VOIE';
-        else if (moyenne < 8) recommandation = 'SOUTIEN_RENFORCE';
-        else if (moyenne < 10) recommandation = 'REDOUBLEMENT';
-      }
-
-      parcours.push([`par-${eleveId}`,'tenant-ambouli',eleveId,cls.annee,cls.nom,cls.niveau,moyenne,randInt(1,count),count,decision,mention,recommandation,appreciation,TS]);
-
-      // Historique
-      historique.push([`hist-${eleveId}`,'tenant-ambouli',eleveId,cls.id,'2024-09-15 00:00:00',null,'Inscription',TS]);
-
-      // Alumni for Terminale students who passed (year 2024 only)
-      if (isTerminale && isLastYear && moyenne >= 10) {
-        const alId = `alum-${eleveId}`;
-        const alStatut = pick(['ETUDES_SUPERIEURES','EN_EMPLOI','RECHERCHE_EMPLOI']);
-        const etab = alStatut === 'ETUDES_SUPERIEURES' ? pick(['Université de Djibouti','ENSI','EST','IUT']) : (alStatut === 'EN_EMPLOI' ? pick(['Banque de Djibouti','Ministère','Port de Djibouti']) : null);
-        alumni.push([alId,'tenant-ambouli',cls.siteId,eleveId,ln,fn,pEmail,pPhone,null,sexe,birthDate,cls.annee,cls.nom,mention,`DIP-${anneeYear}-${num}`,alStatut,etab,null,'Djibouti','DJ',null,TRUE,null,TS,TS]);
-      }
-
-      // Preferences parent (for ALL parents)
-      prefs.push([`pref-${parentId}`,'tenant-ambouli',parentId,'fr',TRUE,'INFO',3,TS,TS]);
-    }
+  function mentionPour(moyenne) {
+    if (moyenne >= 16) return 'Très bien';
+    if (moyenne >= 14) return 'Bien';
+    if (moyenne >= 12) return 'Assez bien';
+    if (moyenne >= 10) return 'Passable';
+    return null;
   }
 
-  // Also generate year 2 new students (6eme and 2nde)
-  // Already covered by the class loop above (2025 classes)
+  function appreciationPour(moyenne) {
+    if (moyenne >= 14) return 'Excellent trimestre, continuez ainsi';
+    if (moyenne >= 12) return 'Bon trimestre, poursuivez vos efforts';
+    if (moyenne >= 10) return 'Travail correct, des progrès sont possibles';
+    if (moyenne >= 8) return 'Travail insuffisant, un soutien est nécessaire';
+    return 'Travail très insuffisant, rencontre conseiller';
+  }
+
+  function recommandationPour(niveau, moyenne) {
+    if (niveau === 'Terminale') {
+      if (moyenne >= 16) return 'EXCELLENTE_VOIE';
+      if (moyenne >= 14) return 'FILIERE_SCIENTIFIQUE';
+      if (moyenne >= 10) return pick(['FILIERE_LITTERAIRE', 'FILIERE_TECHNIQUE']);
+      return 'REDOUBLEMENT';
+    }
+    if (moyenne >= 16) return 'EXCELLENTE_VOIE';
+    if (moyenne < 8) return 'SOUTIEN_RENFORCE';
+    if (moyenne < 10) return 'REDOUBLEMENT';
+    return null;
+  }
+
+  for (const p of ALL_PERSONNES) {
+    const premiere = p.inscriptions[0];
+    const derniere = p.inscriptions[p.inscriptions.length - 1];
+    const site = p.siteName;
+
+    const sexe = rand() < 0.5 ? 'M' : 'F';
+    const fn = sexe === 'M' ? pick(PRENOMS_M) : pick(PRENOMS_F);
+    const ln = pick(NOMS);
+    // L'âge se lit au niveau d'ENTRÉE : un redoublant a donc bien un an de
+    // plus que ses camarades l'année suivante, sans traitement particulier.
+    const birthYear = parseInt(p.anneeEntree, 10) - AGE_BY_NIVEAU[premiere.niveau];
+    const birthDate = `${birthYear}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')} 00:00:00`;
+    // Le matricule porte l'année d'entrée — il ne bouge plus ensuite.
+    const matricule = `${site.toUpperCase().slice(0,3)}-${p.anneeEntree}-${p.num}`;
+    const gs = pick(GROUPE_SANGUIN);
+    const contactNom = pick(PRENOMS_M) + ' ' + ln;
+    const contactPhone = `+253 77 ${randInt(10,99)} ${randInt(10,99)} ${randInt(10,99)}`;
+
+    const statut = p.sortie ? p.sortie.statut : 'ACTIF';
+    const dateSortie = p.sortie ? p.sortie.date : null;
+    const motifSortie = p.sortie ? p.sortie.motif : null;
+
+    eleves.push([p.eleveId,'tenant-ambouli',p.siteId,matricule,ln,fn,birthDate,'Djibouti','DJ',sexe,null,statut,derniere.classeId,null,null,gs,null,null,null,null,contactNom,contactPhone,premiere.annee,null,`${p.anneeEntree}-09-15 00:00:00`,dateSortie,motifSortie,null,TS,TS,null]);
+
+    // ── Parent : un seul par élève, créé à son entrée ──
+    const pUserId = `user-parent-${site}-${p.num}`;
+    const pFn = pick(PRENOMS_M);
+    const pLn = ln; // même nom de famille
+    const pEmail = `parent.${site}-${p.num}@cite-ambouli.dj`;
+    const pPhone = `+253 77 ${randInt(10,99)} ${randInt(10,99)} ${randInt(10,99)}`;
+    const relation = pick(['PERE','MERE','TUTEUR']);
+
+    parentUsers.push([pUserId,'tenant-ambouli',p.siteId,pEmail,HASH,`${pFn} ${pLn}`,pFn,pLn,'PARENT',TRUE,pPhone,'fr','fr',TRUE,null,TS,TS]);
+    parentUserTenants.push([`ut-${pUserId}`,pUserId,'tenant-ambouli','PARENT',TRUE,TRUE,TS,TS]);
+    parentUserRoles.push([`ur-${pUserId}`,pUserId,'tenant-ambouli','PARENT',TRUE,TS,TS]);
+    parents.push([p.parentId,'tenant-ambouli',pUserId,pLn,pFn,pEmail,pPhone,null,pick(PROFESSIONS),null,null,TS,TS]);
+    eleveParents.push([p.eleveId,p.parentId,relation,TRUE]);
+    prefs.push([`pref-${p.parentId}`,'tenant-ambouli',p.parentId,'fr',TRUE,'INFO',3,TS,TS]);
+
+    // ── Une ligne de parcours et d'historique par année suivie ──
+    p.inscriptions.forEach((insc, i) => {
+      const suivante = p.inscriptions[i + 1];
+
+      parcours.push([`par-${p.eleveId}-${insc.anneeYear}`,'tenant-ambouli',p.eleveId,insc.annee,insc.classeNom,insc.niveau,insc.moyenne,insc.rang,insc.effectif,insc.decision,mentionPour(insc.moyenne),recommandationPour(insc.niveau, insc.moyenne),appreciationPour(insc.moyenne),TS]);
+
+      // Le motif dit d'où vient l'élève : c'est lui que lit l'analyse des
+      // motifs de transfert (A12), et la sortie ferme la période.
+      const motif = insc.origine === 'NOUVEAU'
+        ? 'Inscription'
+        : (insc.origine === 'REDOUBLANT' ? 'Redoublement' : 'Promotion');
+      const sortieHist = suivante ? finAnnee(insc.anneeYear) : (p.sortie ? p.sortie.date : null);
+      historique.push([`hist-${p.eleveId}-${insc.anneeYear}`,'tenant-ambouli',p.eleveId,insc.classeId,`${insc.anneeYear}-09-15 00:00:00`,sortieHist,motif,TS]);
+    });
+
+    // ── Alumni : les Terminales reçues, des deux promotions ──
+    if (p.sortie && p.sortie.statut === 'DIPLOME') {
+      const alStatut = pick(['ETUDES_SUPERIEURES','EN_EMPLOI','RECHERCHE_EMPLOI']);
+      const etab = alStatut === 'ETUDES_SUPERIEURES'
+        ? pick(['Université de Djibouti','ENSI','EST','IUT'])
+        : (alStatut === 'EN_EMPLOI' ? pick(['Banque de Djibouti','Ministère','Port de Djibouti']) : null);
+      alumni.push([`alum-${p.eleveId}`,'tenant-ambouli',derniere.site,p.eleveId,ln,fn,pEmail,pPhone,null,sexe,birthDate,derniere.annee,derniere.classeNom,mentionPour(derniere.moyenne),`DIP-${derniere.anneeYear}-${p.num}`,alStatut,etab,null,'Djibouti','DJ',null,TRUE,null,TS,TS]);
+    }
+  }
 
   sql += batchInsert('users', ['id','tenantId','siteId','email','password','name','firstName','lastName','role','isActive','phone','langue','locale','mustChangePassword','lastLoginAt','createdAt','updatedAt'], parentUsers) + '\n\n';
   sql += batchInsert('user_tenants', ['id','userId','tenantId','role','isActive','isDefault','createdAt','updatedAt'], parentUserTenants) + '\n\n';
@@ -656,18 +976,21 @@ function genFile07() {
   let ec = { ambouli: { '2024': 0, '2025': 0 }, arhiba: { '2024': 0, '2025': 0 } };
   let factIdx = 0, echIdx = 0, paiIdx = 0, relIdx = 0;
   const methodes = ['ESPECES','CAC_PAY','DAHAB_PLUS','SABA_PAY'];
+  // Une facture par INSCRIPTION : un élève présent les deux ans est facturé
+  // deux fois, et l'identifiant porte donc l'année pour ne pas se télescoper.
   const elevesList = ALL_ELEVES.map(e => ({
     eleveId: e.eleveId,
     parentId: e.parentId,
     site: e.site,
     annee: e.annee,
+    anneeYear: e.anneeYear,
     isLycee: e.isLycee,
     montant: e.isLycee ? 212000 : 160000,
   }));
 
   for (const e of elevesList) {
     factIdx++;
-    const factId = `fact-${e.eleveId}`;
+    const factId = `fact-${e.eleveId}-${e.anneeYear}`;
     const profileRoll = rand();
     let statut;
     if (profileRoll < 0.70) statut = 'PAYEE';
@@ -708,7 +1031,7 @@ function genFile07() {
     // Cantine (40% of students)
     if (rand() < 0.4) {
       factIdx++;
-      const cantId = `fact-cantine-${e.eleveId}`;
+      const cantId = `fact-cantine-${e.eleveId}-${e.anneeYear}`;
       const cantMontant = 60000;
       const cantStatut = statut === 'PAYEE' ? 'PAYEE' : 'EN_ATTENTE';
       factures.push([cantId,'tenant-ambouli',e.site,e.eleveId,`F-C-${factIdx}`,`Cantine ${e.annee}`,cantMontant,'DJF',cantStatut,`${e.annee.slice(0,4)}-10-15 00:00:00`,'user-accountant-ambouli',TS,TS]);
@@ -732,7 +1055,7 @@ function genFile07() {
   const exclEleves = elevesList.filter(e => e.annee === '2024-2025').slice(0, 6);
   for (let i = 0; i < exclEleves.length; i++) {
     const e = exclEleves[i];
-    exclusions.push([`excl-${e.eleveId}`,'tenant-ambouli',e.eleveId,'NON_PAIEMENT_REPETE','Factures impayées malgré relances','2025-03-01 00:00:00',null,null,null,'user-principal-coll-amb',TS]);
+    exclusions.push([`excl-${e.eleveId}-${e.anneeYear}`,'tenant-ambouli',e.eleveId,'NON_PAIEMENT_REPETE','Factures impayées malgré relances','2025-03-01 00:00:00',null,null,null,'user-principal-coll-amb',TS]);
   }
 
   sql += batchInsert('factures', ['id','tenantId','siteId','eleveId','numero','libelle','montant','devise','statut','echeance','createdById','createdAt','updatedAt'], factures) + '\n\n';
@@ -750,8 +1073,9 @@ function genFile08() {
   let sql = `-- 08-vie-scolaire-sante.sql\n-- Cité Scolaire Ambouli — Vie scolaire & Santé\n\n`;
   sql += `-- Nettoyage\nDELETE FROM "dispenses_matiere" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "documents" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "entretiens_conseiller" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "sanctions" WHERE "incidentId" IN (SELECT id FROM "incidents" WHERE "tenantId"='tenant-ambouli');\nDELETE FROM "incidents" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "passages_infirmerie" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "fiches_sanitaires" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "absences" WHERE "tenantId"='tenant-ambouli';\n\n`;
 
-  // Use shared eleve list for consistent IDs
-  const allEleves = ALL_ELEVES.map(e => ({ id: e.eleveId, siteId: e.site, site: e.siteName, classeId: e.classeId }));
+  // Absences, incidents, passages : un jeu par INSCRIPTION, rattaché à
+  // l'année où les faits ont eu lieu.
+  const allEleves = ALL_ELEVES.map(e => ({ id: e.eleveId, siteId: e.site, site: e.siteName, classeId: e.classeId, anneeYear: e.anneeYear }));
 
   const fichesSan = [];
   const absences = [];
@@ -762,8 +1086,9 @@ function genFile08() {
   const dispenses = [];
   const documents = [];
 
-  // Fiches sanitaires (all students)
-  for (const e of allEleves) {
+  // Fiches sanitaires : une par ÉLÈVE, pas une par année — la relation est
+  // 1‑1 côté schéma (`FicheSanitaire?`).
+  for (const e of ALL_PERSONNES.map(p => ({ id: p.eleveId, siteId: p.siteId }))) {
     const allerg = pick(['{Aucune}','{Pollen}','{Arachide}','{Poussiere}','{Aucune}']);
     const traitements = rand() < 0.2 ? `'{"medicament":"Sirop","dose":"5ml","frequence":"3x/jour"}'::jsonb` : null;
     const contacts = `'{"nom":"Parent","relation":"Pere","telephone":"+25377123456"}'::jsonb`;
@@ -827,9 +1152,11 @@ function genFile08() {
 
       // Date d'absence selon le profil
       let dateAbs;
+      const anneeDebut = parseInt(e.anneeYear, 10);
+      const anneeFin = anneeDebut + 1;
       if (isDecrochage) {
-        // Concentrer les absences en T3 (avril-mai-juin)
-        const decrochMonth = pick([{y:2026,m:4},{y:2026,m:5},{y:2026,m:6},{y:2026,m:3},{y:2026,m:2}]);
+        // Concentrer les absences en T3 (février → juin de l'année suivie)
+        const decrochMonth = pick([{y:anneeFin,m:4},{y:anneeFin,m:5},{y:anneeFin,m:6},{y:anneeFin,m:3},{y:anneeFin,m:2}]);
         const day = randInt(1, 28);
         const d = new Date(decrochMonth.y, decrochMonth.m - 1, day);
         let dow = d.getDay();
@@ -838,13 +1165,13 @@ function genFile08() {
         dateAbs = `${decrochMonth.y}-${String(decrochMonth.m).padStart(2,'0')}-${String(Math.max(1,Math.min(28,day))).padStart(2,'0')} 08:00:00`;
       } else if (isAbandon && abandonMonth) {
         // Absences concentrées avant l'abandon (septembre à abandonMonth)
-        const months = [{y:2025,m:9},{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3},{y:2026,m:4}];
+        const months = [{y:anneeDebut,m:9},{y:anneeDebut,m:10},{y:anneeDebut,m:11},{y:anneeDebut,m:12},{y:anneeFin,m:1},{y:anneeFin,m:2},{y:anneeFin,m:3},{y:anneeFin,m:4}];
         const validMonths = months.filter(mo => mo.m <= abandonMonth);
         const mo = pick(validMonths);
         const day = randInt(1, 28);
         dateAbs = `${mo.y}-${String(mo.m).padStart(2,'0')}-${String(day).padStart(2,'0')} 08:00:00`;
       } else {
-        dateAbs = schoolDayDate('08');
+        dateAbs = jourEcoleAnnee(e.anneeYear, '08');
       }
 
       // Statut: JUSTIFIEE pour les bons élèves, INJUSTIFIEE pour les faibles
@@ -871,7 +1198,7 @@ function genFile08() {
     const motif = pick(['Maux de tête','Blessure','Malaise','Fièvre','Allergie']);
     const soin = pick(['Repos 15min','Pansement','Paracétamol','Observation']);
     const suite = pick(['retour_en_cours','retour_en_cours','renvoi_domicile']);
-    passages.push([`pas-${pasIdx}`,'tenant-ambouli',e.siteId,e.id,schoolDate('10'),motif,soin,suite,suite === 'retour_en_cours',randInt(15,60),e.site === 'ambouli' ? 'user-nurse-ambouli' : 'user-nurse-arhiba',null,TS,TS]);
+    passages.push([`pas-${pasIdx}`,'tenant-ambouli',e.siteId,e.id,dateAnnee(e.anneeYear, '10'),motif,soin,suite,suite === 'retour_en_cours',randInt(15,60),e.site === 'ambouli' ? 'user-nurse-ambouli' : 'user-nurse-arhiba',null,TS,TS]);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -898,7 +1225,7 @@ function genFile08() {
       incIdx++;
       const type = pick(incidentTypes);
       const gravite = ph >= 75 ? randInt(2, 3) : randInt(1, 2);
-      const dateInc = schoolDate('12');
+      const dateInc = dateAnnee(e.anneeYear, '12');
       const statut = isPast(dateInc)
         ? weightedPick([['RESOLU',5],['CLASSE',3],['EN_TRAITEMENT',1],['OUVERT',1]])
         : weightedPick([['OUVERT',6],['EN_TRAITEMENT',4]]);
@@ -920,7 +1247,7 @@ function genFile08() {
   for (const e of allEleves.filter(() => rand() < 0.05)) {
     entIdx++;
     const motif = pick(['Difficultés scolaires','Problèmes de comportement','Absences répétées','Orientation']);
-    entretiens.push([`ent-${entIdx}`,'tenant-ambouli',e.id,e.site === 'ambouli' ? 'user-counselor-ambouli' : 'user-counselor-arhiba',schoolDate('14'),motif,`Compte-rendu: ${motif}. Élève vu en entretien individuel.`,`'{"action":"Suivi hebdomadaire"}'::jsonb`,'REALISE',TS,TS]);
+    entretiens.push([`ent-${entIdx}`,'tenant-ambouli',e.id,e.site === 'ambouli' ? 'user-counselor-ambouli' : 'user-counselor-arhiba',dateAnnee(e.anneeYear, '14'),motif,`Compte-rendu: ${motif}. Élève vu en entretien individuel.`,`'{"action":"Suivi hebdomadaire"}'::jsonb`,'REALISE',TS,TS]);
   }
 
   // Dispenses (6, EPS)
@@ -1192,7 +1519,7 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
   // Progressions élèves (50)
   for (let i = 0; i < 50; i++) {
     const site = i < 25 ? 'ambouli' : 'arhiba';
-    const eleveId = `ele-${site}-2025-${String(randInt(1,200)).padStart(4,'0')}`;
+    const eleveId = pick(INSCRITS_2025_PAR_SITE[site]).eleveId;
     progressions.push([`prog-${i+1}`,'tenant-ambouli',`cours-${(i%20)+1}`,`Eleve ${i+1}`,eleveId,`{}`,randInt(0,100),rand() < 0.3 ? randInt(10,20) : null,rand() < 0.3,rand() < 0.3 ? `2025-0${randInt(1,6)}-15 00:00:00` : null,TS,TS]);
   }
 
@@ -1364,8 +1691,10 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
   let dlIdx = 0;
   for (let i = 0; i < 20; i++) {
     dlIdx++;
-    const eleveId = `ele-ambouli-2024-${String(randInt(1, 100)).padStart(4,'0')}`;
-    const parentId = `parent-ambouli-2024-${String(randInt(1, 100)).padStart(4,'0')}`;
+    // Parent et élève sont volontairement tirés séparément : une demande de
+    // rattachement porte justement sur un lien qui n'est pas encore établi.
+    const eleveId = pick(PERSONNES_PAR_SITE.ambouli).eleveId;
+    const parentId = pick(PERSONNES_PAR_SITE.ambouli).parentId;
     const statut = i < 12 ? 'EN_ATTENTE' : (i < 17 ? 'VALIDE' : 'REFUSE');
     const traitePar = statut === 'EN_ATTENTE' ? null : 'user-admin-amb';
     const traiteLe = statut === 'EN_ATTENTE' ? null : '2025-10-15 00:00:00';
@@ -1381,7 +1710,7 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
     const action = pick(auditActions);
     const verdict = rand() < 0.85 ? 'ALLOWED' : 'DENIED';
     const userId = `user-prof-ambouli-${randInt(1,20)}`;
-    auditLogs.push([`audit-${alIdx}`,'tenant-ambouli',userId,action,verdict,'eleve','ele-ambouli-2024-0001',rand() < 0.3 ? 'Accès hors horaires' : null,null,'192.168.1.' + randInt(1,254),'Mozilla/5.0','2025-10-15 10:30:00']);
+    auditLogs.push([`audit-${alIdx}`,'tenant-ambouli',userId,action,verdict,'eleve',PERSONNES_PAR_SITE.ambouli[0].eleveId,rand() < 0.3 ? 'Accès hors horaires' : null,null,'192.168.1.' + randInt(1,254),'Mozilla/5.0','2025-10-15 10:30:00']);
   }
 
   // ── Règles d'appréciation (4 contextes × 5 seuils = 20 règles) ──
@@ -1561,21 +1890,20 @@ function genFile11() {
 
   const evidences = [], profils = [], recommandations = [], interventions = [], plans = [], etapes = [], evalComps = [];
 
-  // Use students from ALL_ELEVES — BOTH cohorts (2024 + 2025) for temporal chain
-  // 2024 cohort → evidences 2024-2025 (année N-1)
-  // 2025 cohort → evidences 2025-2026 (année N)
-  // Map eleveId → { classeId, niveau, anneeYear } for level-appropriate competences
-  const eleveMap = new Map();
-  const eleveIds2024 = []; // année N-1
-  const eleveIds2025 = []; // année N
-  for (const e of ALL_ELEVES) {
-    if (e.siteName === 'ambouli') {
-      eleveMap.set(e.eleveId, { classeId: e.classeId, niveau: e.niveau, anneeYear: e.anneeYear });
-      if (e.anneeYear === '2024') eleveIds2024.push(e.eleveId);
-      if (e.anneeYear === '2025') eleveIds2025.push(e.eleveId);
-    }
-  }
-  const eleveIds = [...eleveIds2024, ...eleveIds2025];
+  // On parcourt les INSCRIPTIONS, pas les élèves. Un élève présent les deux
+  // ans doit produire une chaîne de preuves par année, au niveau qui était le
+  // sien cette année-là : indexer par `eleveId` seul ferait écraser son année
+  // de 6ème par celle de 5ème, et daterait ses preuves de collège sur la
+  // mauvaise année. C'est la chaîne temporelle N-1 → N qui en dépend.
+  const inscriptionsAmbouli = ALL_ELEVES.filter(e => e.siteName === 'ambouli');
+  const parcoursLearnos = [
+    ...inscriptionsAmbouli.filter(e => e.anneeYear === '2024'), // année N-1
+    ...inscriptionsAmbouli.filter(e => e.anneeYear === '2025'), // année N
+  ];
+
+  /// Année et niveau de chaque preuve — relus par la compilation plus bas,
+  /// qui ne peut plus les redemander à l'élève seul.
+  const evidenceMeta = new Map();
 
   // Multi-subject competence chains per niveau
   // Each subject has a 6-competence chain: 1-1 → 1-2 → 1-3 → 2-1 → 2-2 → 2-3
@@ -1610,7 +1938,8 @@ function genFile11() {
 
   let evIdx = 0, prIdx = 0, rcIdx = 0, ivIdx = 0, plIdx = 0, etIdx = 0, ecIdx = 0;
 
-  for (const eleveId of eleveIds) {
+  for (const insc of parcoursLearnos) {
+    const eleveId = insc.eleveId;
     // ── 1. Deterministic student profile (uniform hash) ──
     const profileHash = (parseInt(eleveId.slice(-4)) * 37) % 100;
     let profileType, masteryBase;
@@ -1620,8 +1949,8 @@ function genFile11() {
     else if (profileHash < 75) { profileType = 'average'; masteryBase = 0.42 + rand() * 0.18; }
     else if (profileHash < 90) { profileType = 'weak'; masteryBase = 0.22 + rand() * 0.16; }
     else { profileType = 'veryWeak'; masteryBase = 0.08 + rand() * 0.12; }
-    const niveau = eleveMap.get(eleveId)?.niveau || '6eme';
-    const anneeYear = eleveMap.get(eleveId)?.anneeYear || '2024';
+    const niveau = insc.niveau;
+    const anneeYear = insc.anneeYear;
     const evidenceDates = evidenceDatesByYear[anneeYear] || evidenceDatesByYear['2024'];
 
     // ── 2. Evidences + Profiles per competence (multi-subject) ──
@@ -1679,7 +2008,7 @@ function genFile11() {
         score = Math.round(score * 100) / 100;
         scores.push(score);
 
-        const clsId = eleveMap.get(eleveId)?.classeId || 'cls-ambouli-2024-6eme-A';
+        const clsId = insc.classeId;
         const evalId = `eval-${clsId}-${sujet}-per-y${anneeYear}-${evidenceDates[e].periode}-amb-0`;
         const isError = profileType === 'weak' || profileType === 'veryWeak';
         const errorType = isError ? pick(['CONCEPTUAL_ERROR','PROCEDURAL_ERROR','CALCULATION_ERROR']) : null;
@@ -1690,6 +2019,7 @@ function genFile11() {
           Math.round(score * 20 * 100) / 100, 20, score, 0.8, 1,
           errorType, errorConf, null,
           evidenceDates[e].date, evidenceDates[e].date]);
+        evidenceMeta.set(`ev-${evIdx}`, { anneeYear, niveau });
       }
 
       // Generate StudentLearningProfile from evidence scores (logically derived)
@@ -1839,7 +2169,7 @@ function genFile11() {
   // ── 4. Additional PROPOSE plans for current year (not yet started) ──
   for (let i = 0; i < 10; i++) {
     plIdx++;
-    const eleveId = `ele-ambouli-2024-${String(randInt(76,100)).padStart(4,'0')}`;
+    const eleveId = pick(INSCRITS_6EME_AMBOULI).eleveId;
     const cpId = `comp-MATH-6eme-1-${randInt(1,3)}`;
     plans.push([`plan-${plIdx}`,'tenant-ambouli',null,eleveId,'remediation','automatique','PROPOSE',
       `Plan de remédiation proposé pour ${cpId}`,
@@ -1908,7 +2238,7 @@ function genFile11() {
     // (19,8 / 19,95 / 0,85 / 0,95). Cf. l'ordre des colonnes du batchInsert
     // de `learnos_learning_evidences` plus bas.
     const score = ev[13];
-    const meta = eleveMap.get(eleveId);
+    const meta = evidenceMeta.get(ev[0]);
     if (!meta) continue;
     const yr = meta.anneeYear;
     const nv = meta.niveau;
@@ -1932,15 +2262,15 @@ function genFile11() {
 
   // ── Assertions de distribution ──
   const profileCounts = { excellent: 0, good: 0, average: 0, weak: 0, veryWeak: 0 };
-  for (const eleveId of eleveIds) {
-    const ph = (parseInt(eleveId.slice(-4)) * 37) % 100;
+  for (const insc of parcoursLearnos) {
+    const ph = (parseInt(insc.eleveId.slice(-4)) * 37) % 100;
     if (ph < 15) profileCounts.excellent++;
     else if (ph < 40) profileCounts.good++;
     else if (ph < 75) profileCounts.average++;
     else if (ph < 90) profileCounts.weak++;
     else profileCounts.veryWeak++;
   }
-  const total = eleveIds.length;
+  const total = parcoursLearnos.length;
   console.log(`  [genFile11] Distribution: excellent=${profileCounts.excellent} (${Math.round(profileCounts.excellent/total*100)}%), good=${profileCounts.good} (${Math.round(profileCounts.good/total*100)}%), average=${profileCounts.average} (${Math.round(profileCounts.average/total*100)}%), weak=${profileCounts.weak} (${Math.round(profileCounts.weak/total*100)}%), veryWeak=${profileCounts.veryWeak} (${Math.round(profileCounts.veryWeak/total*100)}%)`);
 
   // Compter les profils dans la bande fragile 0.35-0.70 (pour alertes OubliVacances)
@@ -1986,10 +2316,7 @@ function genFile12() {
   }
 
   // Feuilles + exercices pour 50 élèves
-  const eleveIds = [];
-  for (let i = 1; i <= 50; i++) {
-    eleveIds.push(`ele-ambouli-2024-${String(i).padStart(4,'0')}`);
-  }
+  const eleveIds = PERSONNES_PAR_SITE.ambouli.slice(0, 50).map(p => p.eleveId);
 
   let fIdx = 0, exIdx = 0, rIdx = 0;
   // Etape IDs collected from genFile11 (shared via module-level variable)
@@ -2320,8 +2647,9 @@ function genFile13() {
   for (let i = 0; i < 30; i++) {
     alIdx++;
     const site = i < 15 ? 'site-ambouli' : 'site-arhiba';
-    const eleveId = `ele-ambouli-2024-${String((i%50)+1).padStart(4,'0')}`;
-    const parentId = `parent-ambouli-2024-${String((i%50)+1).padStart(4,'0')}`;
+    const cible = PERSONNES_PAR_SITE.ambouli[i % 50];
+    const eleveId = cible.eleveId;
+    const parentId = cible.parentId;
     const alertDate = schoolDate('00');
     const statut = isPast(alertDate)
       ? weightedPick([['ENVOYEE',8],['ECHOUEE',1],['EN_ATTENTE',1]])
@@ -2333,8 +2661,9 @@ function genFile13() {
   for (let i = 0; i < 15; i++) {
     ecIdx++;
     const site = i < 8 ? 'site-ambouli' : 'site-arhiba';
-    const parentId = `parent-ambouli-2024-${String((i%50)+1).padStart(4,'0')}`;
-    const eleveId = `ele-ambouli-2024-${String((i%50)+1).padStart(4,'0')}`;
+    const cible = PERSONNES_PAR_SITE.ambouli[i % 50];
+    const parentId = cible.parentId;
+    const eleveId = cible.eleveId;
     echanges.push([`ech-${ecIdx}`,'tenant-ambouli',site,parentId,eleveId,'whatsapp',`Comment va mon enfant en mathématiques ?`,pick(['progression','difficultes','aider','assiduite','solde','inconnue']),`Votre enfant progresse bien en mathématiques, moyenne actuelle: 12/20.`,null,TS]);
   }
 
