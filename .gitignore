@@ -84,3 +84,6 @@ next-env.d.ts
 .tmp-*
 *.docx
 *.pdf
+
+# Fichier seed trop volumineux pour GitHub (>100MB)
+prisma/sql/_archive/SEED-COMPLET.sql
