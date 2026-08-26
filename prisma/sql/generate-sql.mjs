@@ -737,7 +737,10 @@ function genFile05() {
     p.inscriptions.forEach((insc, i) => {
       const suivante = p.inscriptions[i + 1];
 
-      parcours.push([`par-${p.eleveId}-${insc.anneeYear}`,'tenant-ambouli',p.eleveId,insc.annee,insc.classeNom,insc.niveau,insc.moyenne,insc.rang,insc.effectif,insc.decision,mentionPour(insc.moyenne),recommandationPour(insc.niveau, insc.moyenne),appreciationPour(insc.moyenne),TS]);
+      // Un bilan d'année est arrêté à la clôture de cette année-là. Le stamp
+      // global (septembre 2024) datait les deux bilans du même jour, dont
+      // celui de 2025-2026 — visiblement faux dès qu'on l'affiche.
+      parcours.push([`par-${p.eleveId}-${insc.anneeYear}`,'tenant-ambouli',p.eleveId,insc.annee,insc.classeNom,insc.niveau,insc.moyenne,insc.rang,insc.effectif,insc.decision,mentionPour(insc.moyenne),recommandationPour(insc.niveau, insc.moyenne),appreciationPour(insc.moyenne),finAnnee(insc.anneeYear)]);
 
       // Le motif dit d'où vient l'élève : c'est lui que lit l'analyse des
       // motifs de transfert (A12), et la sortie ferme la période.
@@ -745,7 +748,7 @@ function genFile05() {
         ? 'Inscription'
         : (insc.origine === 'REDOUBLANT' ? 'Redoublement' : 'Promotion');
       const sortieHist = suivante ? finAnnee(insc.anneeYear) : (p.sortie ? p.sortie.date : null);
-      historique.push([`hist-${p.eleveId}-${insc.anneeYear}`,'tenant-ambouli',p.eleveId,insc.classeId,`${insc.anneeYear}-09-15 00:00:00`,sortieHist,motif,TS]);
+      historique.push([`hist-${p.eleveId}-${insc.anneeYear}`,'tenant-ambouli',p.eleveId,insc.classeId,`${insc.anneeYear}-09-15 00:00:00`,sortieHist,motif,`${insc.anneeYear}-09-15 00:00:00`]);
     });
 
     // ── Alumni : les Terminales reçues, des deux promotions ──
@@ -1888,7 +1891,16 @@ function genFile11() {
   let sql = `-- 11-learnos-apprentissage.sql\n-- Cité Scolaire Ambouli — LEARNOS Apprentissage (Evidences, Profils, Recommandations, Interventions, Plans)\n\n`;
   sql += `-- Nettoyage\nDELETE FROM "learnos_etapes_plan" WHERE "planId" IN (SELECT id FROM "learnos_plans_progression" WHERE "tenantId"='tenant-ambouli');\nDELETE FROM "learnos_plans_progression" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "learnos_student_interventions" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "learnos_recommandations" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "learnos_student_learning_profiles" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "learnos_learning_evidences" WHERE "tenantId"='tenant-ambouli';\nDELETE FROM "learnos_evaluation_competences" WHERE "tenantId"='tenant-ambouli';\n\n`;
 
-  const evidences = [], profils = [], recommandations = [], interventions = [], plans = [], etapes = [], evalComps = [];
+  const evidences = [], interventions = [], plans = [], etapes = [], evalComps = [];
+
+  // Un profil d'apprentissage et une recommandation portent sur un couple
+  // (élève, compétence) — le schéma l'impose (`@@unique([eleveId, competenceId])`),
+  // et c'est bien un état COURANT, pas un instantané annuel. Un redoublant
+  // refait le même niveau, donc la même chaîne de compétences : les émettre
+  // par inscription produisait deux lignes pour le même couple. On les indexe
+  // donc, et l'année la plus récente — parcourue en dernier — l'emporte.
+  const profils = new Map();
+  const recommandations = new Map();
 
   // On parcourt les INSCRIPTIONS, pas les élèves. Un élève présent les deux
   // ans doit produire une chaîne de preuves par année, au niveau qui était le
@@ -2034,7 +2046,7 @@ function genFile11() {
       else if (avgScore >= 0.35) status = 'DEVELOPING';
       else status = 'EMERGING';
 
-      profils.push([`prof-${prIdx}`,'tenant-ambouli',null,eleveId,cpId,
+      profils.set(`${eleveId}|${cpId}`, [`prof-${prIdx}`,'tenant-ambouli',null,eleveId,cpId,
         avgScore, 0.8, status, scores.length, evidenceDates[evidenceDates.length-1].date, trend,
         null, null, null, TS, TS]);
     } // end for each competence in chain
@@ -2057,7 +2069,7 @@ function genFile11() {
       else if (recRoll < 8) { recStatut = 'PROPOSEE'; recDecidePar = null; recDecideeLe = null; recResolueLe = null; }
       else if (recRoll < 9) { recStatut = 'ACCEPTEE'; recDecidePar = 'user-admin-amb'; recDecideeLe = '2025-02-01 00:00:00'; recResolueLe = '2025-04-15 00:00:00'; }
       else { recStatut = 'ECARTEE'; recDecidePar = 'user-admin-amb'; recDecideeLe = '2025-02-01 00:00:00'; recResolueLe = null; }
-      recommandations.push([`rec-${rcIdx}`,'tenant-ambouli',null,eleveId,cpId,
+      recommandations.set(`${eleveId}|${cpId}`, [`rec-${rcIdx}`,'tenant-ambouli',null,eleveId,cpId,
         recNiveau, recStatut,
         `Compétence ${cpId} nécessite un soutien`,
         'seuil_critique', 'Séance de remédiation',
@@ -2213,8 +2225,8 @@ function genFile11() {
   }
 
   sql += batchInsert('learnos_learning_evidences', ['id','tenantId','siteId','eleveId','competenceId','matiereId','sourceType','sourceId','noteId','evaluationId','evidenceType','rawScore','maxScore','masterySignal','confidence','weight','errorType','errorConfidence','metadata','createdAt','occurredAt'], evidences) + '\n\n';
-  sql += batchInsert('learnos_student_learning_profiles', ['id','tenantId','siteId','eleveId','competenceId','masteryScore','confidenceScore','masteryStatus','evidenceCount','lastEvidenceAt','trend','errorPatterns','prerequisiteStatus','recommendedAction','computedAt','updatedAt'], profils) + '\n\n';
-  sql += batchInsert('learnos_recommandations', ['id','tenantId','siteId','eleveId','competenceId','niveau','statut','motif','regleDeclenchee','actionProposee','prerequisManquants','competencesBloquees','decideParId','decideeLe','resolueLe','createdAt','updatedAt','motifParams'], recommandations) + '\n\n';
+  sql += batchInsert('learnos_student_learning_profiles', ['id','tenantId','siteId','eleveId','competenceId','masteryScore','confidenceScore','masteryStatus','evidenceCount','lastEvidenceAt','trend','errorPatterns','prerequisiteStatus','recommendedAction','computedAt','updatedAt'], [...profils.values()]) + '\n\n';
+  sql += batchInsert('learnos_recommandations', ['id','tenantId','siteId','eleveId','competenceId','niveau','statut','motif','regleDeclenchee','actionProposee','prerequisManquants','competencesBloquees','decideParId','decideeLe','resolueLe','createdAt','updatedAt','motifParams'], [...recommandations.values()]) + '\n\n';
   sql += batchInsert('learnos_student_interventions', ['id','tenantId','siteId','eleveId','competenceId','reason','evidenceRefs','interventionType','recommendedAction','responsibleUserId','status','startDate','reviewDate','outcome','masteryBefore','masteryAfter','createdByAi','approvedBy','approvedAt','createdAt','updatedAt'], interventions) + '\n\n';
   sql += batchInsert('learnos_plans_progression', ['id','tenantId','siteId','eleveId','type','origine','statut','motif','regleDeclenchee','responsableUserId','valideParId','valideLe','dateDebut','dateRevue','dateFin','parentInforme','masteryAvant','masteryApres','resultat','createdAt','updatedAt','matiereId','motifParams'], plans) + '\n\n';
   sql += batchInsert('learnos_etapes_plan', ['id','planId','competenceId','ordre','action','responsable','echeance','statut','evaluationJalonId','evidenceValidanteId','valideeLe','createdAt','updatedAt'], etapes) + '\n\n';
@@ -2274,7 +2286,7 @@ function genFile11() {
   console.log(`  [genFile11] Distribution: excellent=${profileCounts.excellent} (${Math.round(profileCounts.excellent/total*100)}%), good=${profileCounts.good} (${Math.round(profileCounts.good/total*100)}%), average=${profileCounts.average} (${Math.round(profileCounts.average/total*100)}%), weak=${profileCounts.weak} (${Math.round(profileCounts.weak/total*100)}%), veryWeak=${profileCounts.veryWeak} (${Math.round(profileCounts.veryWeak/total*100)}%)`);
 
   // Compter les profils dans la bande fragile 0.35-0.70 (pour alertes OubliVacances)
-  const fragileCount = profils.filter(p => p[5] >= 0.35 && p[5] <= 0.70).length;
+  const fragileCount = [...profils.values()].filter(p => p[5] >= 0.35 && p[5] <= 0.70).length;
   console.log(`  [genFile11] Profils bande fragile (0.35-0.70): ${fragileCount} (cible >= 60)`);
   if (fragileCount < 60) {
     console.warn(`  [genFile11] ATTENTION: seulement ${fragileCount} profils dans la bande fragile (cible >= 60)`);
@@ -2532,7 +2544,11 @@ function genFile13() {
       const compN = evidenceCompilation['2025']?.[niveau]?.[matCode];
       const masteryApres = compN ? compN.avgMastery : Math.max(0.05, Math.min(1, Math.round((proba + (rand() * 0.20 - 0.10)) * 100) / 100));
 
-      const ecart = Math.abs(proba - masteryApres);
+      // L'écart est arrondi au centième avant d'être jugé, puisque c'est cette
+      // valeur arrondie qui est écrite : la juger sur la valeur pleine laissait
+      // passer des lignes où `ecart = 0.15` est marqué correct alors que la
+      // règle est `< 0.15`. La ligne se contredisait elle-même.
+      const ecart = Math.round(Math.abs(proba - masteryApres) * 100) / 100;
       const predictionCorrecte = ecart < 0.15;
       const diff = proba >= 0.7 ? 'FACILE' : (proba >= 0.5 ? 'MODERE' : (proba >= 0.3 ? 'DIFFICILE' : 'CRITIQUE'));
       const prerequisManquants = masteryAvant < 0.35 ? randInt(2, 4) : (masteryAvant < 0.55 ? randInt(1, 2) : (masteryAvant < 0.75 ? randInt(0, 1) : 0));
@@ -2544,7 +2560,7 @@ function genFile13() {
 
       predictions.push([`pred-${pdIdx}`,'tenant-ambouli',null,eleveId,cpId,chapitreId,'annee-2025-amb',
         proba, diff, masteryAvant, 0.7, prerequisManquants, masteryApres,
-        predictionCorrecte, Math.round(ecart * 100) / 100,
+        predictionCorrecte, ecart,
         '2025-09-01 00:00:00', verifieeLe]);
     }
   }

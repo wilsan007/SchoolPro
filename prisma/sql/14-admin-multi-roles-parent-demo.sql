@@ -6,14 +6,28 @@
 -- 2. Être parent de plusieurs enfants aux profils pédagogiques variés
 -- 3. Démontrer toutes les comparaisons possibles (inter-sites, inter-années)
 --
--- Enfants du parent admin (profils variés):
---   - ele-ambouli-2024-0038 : Élève FORT (moyenne ~18/20) — en avance
---   - ele-ambouli-2024-0001 : Élève FAIBLE (moyenne ~6/20) — en difficulté qui a progressé
---   - ele-ambouli-2024-0011 : Élève TRÈS FAIBLE (moyenne ~5/20) — n'a pas progressé
---   - ele-ambouli-2025-0060 : Élève FORT année 2 (moyenne ~17.5/20) — comparaison inter-année
---   - ele-ambouli-2025-0001 : Élève MOYEN année 2 — évolution différente
---   - ele-arhiba-2024-0001  : Élève site ARHIBA — comparaison inter-sites
---   - ele-ambouli-2024-0001 : EXCLU pour non-paiement (exclusion active)
+-- Enfants du parent admin. Chacun a un parcours RÉEL sur les deux années
+-- scolaires du seed — la comparaison inter-années se lit désormais dans la
+-- trajectoire d'un même enfant, et non plus en juxtaposant deux élèves
+-- différents comme le faisait la version précédente de ce fichier.
+--
+--   - ele-ambouli-0009  Fadumo Aden    6ème A 17,13 → 5ème C 17,23
+--                       Fort et régulier — en avance
+--   - ele-ambouli-0001  Deqa Farah     6ème A  8,54 « Redoublement »
+--                                    → 6ème A 11,91 « Passage »
+--                       A redoublé et s'en est sorti ; exclue par ailleurs
+--                       pour impayés (exclusion active plus bas)
+--   - ele-ambouli-0058  Aden Abdi      6ème C  4,31 « Redoublement »
+--                                    → 6ème B  8,24 « Redoublement »
+--                       A redoublé sans y arriver — redouble une seconde fois
+--   - ele-ambouli-0073  Mariam Abdi    6ème C 16,19 → 5ème C 16,37
+--                       Second profil fort, pour comparer deux réussites
+--   - ele-ambouli-0002  Hawa Abdillahi 6ème A 11,70 → 5ème A 11,25
+--                       Moyenne stable — ni décrochage ni progrès
+--   - ele-arhiba-0011   Asma Barkat    6ème A 13,72 → 5ème C 12,06
+--                       Site ARHIBA — comparaison inter-sites
+--   - ele-ambouli-0449  Rachid Said    1ère S 11,85 → Terminale S 10,58
+--                       « Diplômé » — le parcours complet jusqu'à la sortie
 
 -- ─── Nettoyage ───────────────────────────────────────────────
 DELETE FROM "eleve_parents" WHERE "parentId" = 'parent-admin-amb';
@@ -53,30 +67,23 @@ INSERT INTO "parents" ("id", "tenantId", "userId", "nom", "prenom", "email", "ph
 ON CONFLICT ("id") DO NOTHING;
 
 -- ─── 4. EleveParent: link admin parent to multiple children ──
--- Profils variés pour démonstration:
---   Enfant 1: FORT (moyenne ~18) — en avance
---   Enfant 2: FAIBLE qui a PROGRESSÉ (moyenne ~6 en 2024, mieux en 2025)
---   Enfant 3: TRÈS FAIBLE qui n'a PAS progressé (moyenne ~5)
---   Enfant 4: FORT année 2 (comparaison inter-année)
---   Enfant 5: MOYEN année 2 (évolution différente)
---   Enfant 6: Site ARHIBA (comparaison inter-sites)
---   Enfant 7: EXCLU pour non-paiement
+-- Sept trajectoires distinctes, toutes réelles (cf. l'en-tête du fichier).
 
 INSERT INTO "eleve_parents" ("eleveId", "parentId", "lien", "isGardien") VALUES
-  ('ele-ambouli-2024-0038', 'parent-admin-amb', 'PERE', TRUE),   -- FORT: moyenne ~18
-  ('ele-ambouli-2024-0001', 'parent-admin-amb', 'PERE', TRUE),   -- FAIBLE + EXCLU: moyenne ~6
-  ('ele-ambouli-2024-0011', 'parent-admin-amb', 'PERE', TRUE),   -- TRÈS FAIBLE: moyenne ~5
-  ('ele-ambouli-2025-0060', 'parent-admin-amb', 'PERE', TRUE),   -- FORT année 2
-  ('ele-ambouli-2025-0001', 'parent-admin-amb', 'PERE', TRUE),   -- MOYEN année 2
-  ('ele-arhiba-2024-0001',  'parent-admin-amb', 'TUTEUR', TRUE), -- Site ARHIBA
-  ('ele-ambouli-2025-0011', 'parent-admin-amb', 'PERE', TRUE)    -- Élève moyen année 2 (évolution différente)
+  ('ele-ambouli-0009', 'parent-admin-amb', 'PERE', TRUE),   -- Fort et régulier
+  ('ele-ambouli-0001', 'parent-admin-amb', 'PERE', TRUE),   -- A redoublé et progressé ; exclue pour impayés
+  ('ele-ambouli-0058', 'parent-admin-amb', 'PERE', TRUE),   -- A redoublé sans y arriver
+  ('ele-ambouli-0073', 'parent-admin-amb', 'PERE', TRUE),   -- Second profil fort
+  ('ele-ambouli-0002', 'parent-admin-amb', 'PERE', TRUE),   -- Moyenne stable
+  ('ele-arhiba-0011',  'parent-admin-amb', 'TUTEUR', TRUE), -- Site ARHIBA
+  ('ele-ambouli-0449', 'parent-admin-amb', 'PERE', TRUE)    -- 1ère → Terminale, diplômé
 ON CONFLICT ("eleveId", "parentId") DO NOTHING;
 
--- ─── 5. Exclusion active pour ele-ambouli-2024-0001 ──────────
+-- ─── 5. Exclusion active pour Deqa Farah (ele-ambouli-0001) ─
 -- Cet élève est déjà exclu dans les données 07, mais on s'assure qu'il a une exclusion ACTIVE
 -- pour démontrer le portail parent avec un enfant exclu
 INSERT INTO "exclusions_eleve" ("id", "tenantId", "eleveId", "motif", "details", "dateDebut", "dateFin", "leveeParId", "leveeLe", "decideeParId", "createdAt") VALUES
-  ('excl-admin-demo-1', 'tenant-ambouli', 'ele-ambouli-2024-0001', 'NON_PAIEMENT_REPETE', 'Factures impayées malgré relances - démo parent admin', '2025-03-01 00:00:00', NULL, NULL, NULL, 'user-admin-amb', '2025-03-01 00:00:00')
+  ('excl-admin-demo-1', 'tenant-ambouli', 'ele-ambouli-0001', 'NON_PAIEMENT_REPETE', 'Factures impayées malgré relances - démo parent admin', '2025-03-01 00:00:00', NULL, NULL, NULL, 'user-admin-amb', '2025-03-01 00:00:00')
 ON CONFLICT ("id") DO NOTHING;
 
 -- ─── 6. Préférences parent LEARNOS pour le parent admin ──────
@@ -86,18 +93,18 @@ ON CONFLICT ("parentId") DO NOTHING;
 
 -- ─── 7. Alertes parent pour démontrer le bot parent ──────────
 INSERT INTO "learnos_alertes_parent" ("id", "tenantId", "siteId", "eleveId", "parentId", "niveau", "cle", "params", "canal", "statut", "motifSuppression", "envoyeeLe", "erreur", "empreinte", "createdAt", "updatedAt") VALUES
-  ('alp-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0001', 'parent-admin-amb', 'URGENT', 'learnos.alertes.difficulte', '{"competence":"comp-MATH-6eme-1-1"}'::jsonb, 'whatsapp', 'ENVOYEE', NULL, '2025-01-15 00:00:00', NULL, 'empreinte-admin-1', '2025-01-15 00:00:00', '2025-01-15 00:00:00'),
-  ('alp-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0038', 'parent-admin-amb', 'INFO', 'learnos.alertes.progression', '{"competence":"comp-MATH-6eme-1-1"}'::jsonb, 'whatsapp', 'ENVOYEE', NULL, '2025-02-01 00:00:00', NULL, 'empreinte-admin-2', '2025-02-01 00:00:00', '2025-02-01 00:00:00'),
-  ('alp-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0011', 'parent-admin-amb', 'ATTENTION', 'learnos.alertes.difficulte', '{"competence":"comp-FR-6eme-1-1"}'::jsonb, 'sms', 'ENVOYEE', NULL, '2025-02-15 00:00:00', NULL, 'empreinte-admin-3', '2025-02-15 00:00:00', '2025-02-15 00:00:00'),
-  ('alp-admin-4', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-2024-0001', 'parent-admin-amb', 'INFO', 'learnos.alertes.assiduite', '{"competence":"comp-ANG-6eme-1-1"}'::jsonb, 'email', 'ENVOYEE', NULL, '2025-03-01 00:00:00', NULL, 'empreinte-admin-4', '2025-03-01 00:00:00', '2025-03-01 00:00:00')
+  ('alp-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0001', 'parent-admin-amb', 'URGENT', 'learnos.alertes.difficulte', '{"competence":"comp-MATH-6eme-1-1"}'::jsonb, 'whatsapp', 'ENVOYEE', NULL, '2025-01-15 00:00:00', NULL, 'empreinte-admin-1', '2025-01-15 00:00:00', '2025-01-15 00:00:00'),
+  ('alp-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0009', 'parent-admin-amb', 'INFO', 'learnos.alertes.progression', '{"competence":"comp-MATH-6eme-1-1"}'::jsonb, 'whatsapp', 'ENVOYEE', NULL, '2025-02-01 00:00:00', NULL, 'empreinte-admin-2', '2025-02-01 00:00:00', '2025-02-01 00:00:00'),
+  ('alp-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0058', 'parent-admin-amb', 'ATTENTION', 'learnos.alertes.difficulte', '{"competence":"comp-FR-6eme-1-1"}'::jsonb, 'sms', 'ENVOYEE', NULL, '2025-02-15 00:00:00', NULL, 'empreinte-admin-3', '2025-02-15 00:00:00', '2025-02-15 00:00:00'),
+  ('alp-admin-4', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-0011', 'parent-admin-amb', 'INFO', 'learnos.alertes.assiduite', '{"competence":"comp-ANG-6eme-1-1"}'::jsonb, 'email', 'ENVOYEE', NULL, '2025-03-01 00:00:00', NULL, 'empreinte-admin-4', '2025-03-01 00:00:00', '2025-03-01 00:00:00')
 ON CONFLICT ("empreinte") DO NOTHING;
 
 -- ─── 8. Échanges parent pour démontrer le bot parent ─────────
 INSERT INTO "learnos_echanges_parent" ("id", "tenantId", "siteId", "parentId", "eleveId", "canal", "question", "intention", "reponse", "modele", "createdAt") VALUES
-  ('ech-admin-1', 'tenant-ambouli', 'site-ambouli', 'parent-admin-amb', 'ele-ambouli-2024-0001', 'whatsapp', 'Comment va mon enfant en mathématiques ?', 'difficultes', 'Votre enfant rencontre des difficultés en mathématiques (moyenne: 5.9/20). Un plan de remédiation a été mis en place.', null, '2025-01-20 00:00:00'),
-  ('ech-admin-2', 'tenant-ambouli', 'site-ambouli', 'parent-admin-amb', 'ele-ambouli-2024-0038', 'whatsapp', 'Comment va mon enfant en mathématiques ?', 'progression', 'Votre enfant excelle en mathématiques (moyenne: 18.3/20). Continuez à l''encourager !', null, '2025-02-05 00:00:00'),
-  ('ech-admin-3', 'tenant-ambouli', 'site-ambouli', 'parent-admin-amb', 'ele-ambouli-2024-0011', 'whatsapp', 'Pourquoi mon enfant a-t-il des difficultés ?', 'difficultes', 'Votre enfant a des difficultés persistantes. Une rencontre avec le conseiller d''orientation est recommandée.', null, '2025-02-20 00:00:00'),
-  ('ech-admin-4', 'tenant-ambouli', 'site-arhiba', 'parent-admin-amb', 'ele-arhiba-2024-0001', 'whatsapp', 'Comment va mon enfant ?', 'progression', 'Votre enfant progresse bien sur le site Arhiba. Moyenne générale correcte.', null, '2025-03-05 00:00:00')
+  ('ech-admin-1', 'tenant-ambouli', 'site-ambouli', 'parent-admin-amb', 'ele-ambouli-0001', 'whatsapp', 'Comment va mon enfant en mathématiques ?', 'difficultes', 'Votre enfant rencontre des difficultés en mathématiques (moyenne: 5.9/20). Un plan de remédiation a été mis en place.', null, '2025-01-20 00:00:00'),
+  ('ech-admin-2', 'tenant-ambouli', 'site-ambouli', 'parent-admin-amb', 'ele-ambouli-0009', 'whatsapp', 'Comment va mon enfant en mathématiques ?', 'progression', 'Votre enfant excelle en mathématiques (moyenne: 18.3/20). Continuez à l''encourager !', null, '2025-02-05 00:00:00'),
+  ('ech-admin-3', 'tenant-ambouli', 'site-ambouli', 'parent-admin-amb', 'ele-ambouli-0058', 'whatsapp', 'Pourquoi mon enfant a-t-il des difficultés ?', 'difficultes', 'Votre enfant a des difficultés persistantes. Une rencontre avec le conseiller d''orientation est recommandée.', null, '2025-02-20 00:00:00'),
+  ('ech-admin-4', 'tenant-ambouli', 'site-arhiba', 'parent-admin-amb', 'ele-arhiba-0011', 'whatsapp', 'Comment va mon enfant ?', 'progression', 'Votre enfant progresse bien sur le site Arhiba. Moyenne générale correcte.', null, '2025-03-05 00:00:00')
 ON CONFLICT ("id") DO NOTHING;
 
 -- ─── 9. LEARNOS: profils et prédictions pour les enfants admin ─
@@ -106,20 +113,20 @@ ON CONFLICT ("id") DO NOTHING;
 -- Profils d'apprentissage pour les enfants admin (différents niveaux de maîtrise)
 INSERT INTO "learnos_student_learning_profiles" ("id", "tenantId", "siteId", "eleveId", "competenceId", "masteryScore", "confidenceScore", "masteryStatus", "evidenceCount", "lastEvidenceAt", "trend", "errorPatterns", "prerequisiteStatus", "recommendedAction", "computedAt", "updatedAt") VALUES
   -- Enfant FORT: maîtrise élevée
-  ('slp-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0038', 'comp-MATH-6eme-1-1', 0.92, 0.95, 'MASTERED', 8, '2024-12-15 00:00:00', 'hausse', NULL, NULL, NULL, '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
-  ('slp-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0038', 'comp-FR-6eme-1-1', 0.88, 0.90, 'PROFICIENT', 6, '2024-12-15 00:00:00', 'stable', NULL, NULL, NULL, '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
+  ('slp-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0009', 'comp-MATH-6eme-1-1', 0.92, 0.95, 'MASTERED', 8, '2024-12-15 00:00:00', 'hausse', NULL, NULL, NULL, '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
+  ('slp-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0009', 'comp-FR-6eme-1-1', 0.88, 0.90, 'PROFICIENT', 6, '2024-12-15 00:00:00', 'stable', NULL, NULL, NULL, '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
   -- Enfant FAIBLE qui progresse
-  ('slp-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0001', 'comp-MATH-6eme-1-1', 0.28, 0.70, 'EMERGING', 5, '2024-12-15 00:00:00', 'hausse', '{"type":"CALCULATION_ERROR"}'::jsonb, NULL, 'remediation', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
-  ('slp-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0001', 'comp-FR-6eme-1-1', 0.32, 0.65, 'EMERGING', 4, '2024-12-15 00:00:00', 'hausse', '{"type":"CONCEPTUAL_ERROR"}'::jsonb, NULL, 'remediation', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
+  ('slp-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0001', 'comp-MATH-6eme-1-1', 0.28, 0.70, 'EMERGING', 5, '2024-12-15 00:00:00', 'hausse', '{"type":"CALCULATION_ERROR"}'::jsonb, NULL, 'remediation', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
+  ('slp-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0001', 'comp-FR-6eme-1-1', 0.32, 0.65, 'EMERGING', 4, '2024-12-15 00:00:00', 'hausse', '{"type":"CONCEPTUAL_ERROR"}'::jsonb, NULL, 'remediation', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
   -- Enfant TRÈS FAIBLE qui ne progresse pas
-  ('slp-admin-5', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0011', 'comp-MATH-6eme-1-1', 0.15, 0.60, 'EMERGING', 5, '2024-12-15 00:00:00', 'baisse', '{"type":"PROCEDURAL_ERROR"}'::jsonb, '{"status":"BLOQUE"}'::jsonb, 'plan_critique', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
-  ('slp-admin-6', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0011', 'comp-FR-6eme-1-1', 0.18, 0.55, 'EMERGING', 4, '2024-12-15 00:00:00', 'baisse', '{"type":"CONCEPTUAL_ERROR"}'::jsonb, '{"status":"BLOQUE"}'::jsonb, 'plan_critique', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
+  ('slp-admin-5', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0058', 'comp-MATH-6eme-1-1', 0.15, 0.60, 'EMERGING', 5, '2024-12-15 00:00:00', 'baisse', '{"type":"PROCEDURAL_ERROR"}'::jsonb, '{"status":"BLOQUE"}'::jsonb, 'plan_critique', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
+  ('slp-admin-6', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0058', 'comp-FR-6eme-1-1', 0.18, 0.55, 'EMERGING', 4, '2024-12-15 00:00:00', 'baisse', '{"type":"CONCEPTUAL_ERROR"}'::jsonb, '{"status":"BLOQUE"}'::jsonb, 'plan_critique', '2024-12-15 00:00:00', '2024-12-15 00:00:00'),
   -- Enfant FORT année 2
-  ('slp-admin-7', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2025-0060', 'comp-MATH-6eme-1-1', 0.90, 0.92, 'MASTERED', 6, '2025-06-15 00:00:00', 'stable', NULL, NULL, NULL, '2025-06-15 00:00:00', '2025-06-15 00:00:00'),
+  ('slp-admin-7', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0073', 'comp-MATH-6eme-1-1', 0.90, 0.92, 'MASTERED', 6, '2025-06-15 00:00:00', 'stable', NULL, NULL, NULL, '2025-06-15 00:00:00', '2025-06-15 00:00:00'),
   -- Enfant MOYEN année 2
-  ('slp-admin-8', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2025-0001', 'comp-MATH-6eme-1-1', 0.55, 0.75, 'DEVELOPING', 5, '2025-06-15 00:00:00', 'hausse', NULL, NULL, 'consolidation', '2025-06-15 00:00:00', '2025-06-15 00:00:00'),
+  ('slp-admin-8', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0002', 'comp-MATH-6eme-1-1', 0.55, 0.75, 'DEVELOPING', 5, '2025-06-15 00:00:00', 'hausse', NULL, NULL, 'consolidation', '2025-06-15 00:00:00', '2025-06-15 00:00:00'),
   -- Enfant site ARHIBA
-  ('slp-admin-9', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-2024-0001', 'comp-MATH-6eme-1-1', 0.62, 0.78, 'PROFICIENT', 5, '2024-12-15 00:00:00', 'stable', NULL, NULL, NULL, '2024-12-15 00:00:00', '2024-12-15 00:00:00')
+  ('slp-admin-9', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-0011', 'comp-MATH-6eme-1-1', 0.62, 0.78, 'PROFICIENT', 5, '2024-12-15 00:00:00', 'stable', NULL, NULL, NULL, '2024-12-15 00:00:00', '2024-12-15 00:00:00')
 ON CONFLICT ("eleveId", "competenceId") DO UPDATE SET
   "masteryScore" = EXCLUDED."masteryScore",
   "confidenceScore" = EXCLUDED."confidenceScore",
@@ -136,29 +143,29 @@ ON CONFLICT ("eleveId", "competenceId") DO UPDATE SET
 -- Prédictions pour comparer l'évolution
 INSERT INTO "learnos_predictions" ("id", "tenantId", "siteId", "eleveId", "competenceId", "chapitreId", "anneeId", "probaReussite", "difficultePredite", "masteryAvant", "confidenceAvant", "prerequisManquants", "masteryApres", "predictionCorrecte", "ecart", "emiseLe", "verifieeLe") VALUES
   -- Enfant FORT: prédiction facile, vérifiée correcte
-  ('pred-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0038', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.92, 'FACILE', 0.88, 0.90, 0, 0.92, TRUE, 0.04, '2024-09-01 00:00:00', '2025-01-15 00:00:00'),
+  ('pred-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0009', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.92, 'FACILE', 0.88, 0.90, 0, 0.92, TRUE, 0.04, '2024-09-01 00:00:00', '2025-01-15 00:00:00'),
   -- Enfant FAIBLE: prédiction critique, amélioration inattendue
-  ('pred-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0001', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.25, 'CRITIQUE', 0.20, 0.65, 2, 0.28, FALSE, 0.03, '2024-09-01 00:00:00', '2025-01-15 00:00:00'),
+  ('pred-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0001', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.25, 'CRITIQUE', 0.20, 0.65, 2, 0.28, FALSE, 0.03, '2024-09-01 00:00:00', '2025-01-15 00:00:00'),
   -- Enfant TRÈS FAIBLE: prédiction critique, confirmée
-  ('pred-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0011', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.12, 'CRITIQUE', 0.15, 0.60, 3, 0.15, TRUE, 0.03, '2024-09-01 00:00:00', '2025-01-15 00:00:00'),
+  ('pred-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0058', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.12, 'CRITIQUE', 0.15, 0.60, 3, 0.15, TRUE, 0.03, '2024-09-01 00:00:00', '2025-01-15 00:00:00'),
   -- Enfant FORT année 2: prédiction facile
-  ('pred-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2025-0060', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2025-amb', 0.90, 'FACILE', 0.85, 0.88, 0, 0.90, TRUE, 0.05, '2025-09-01 00:00:00', '2025-12-15 00:00:00'),
+  ('pred-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0073', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2025-amb', 0.90, 'FACILE', 0.85, 0.88, 0, 0.90, TRUE, 0.05, '2025-09-01 00:00:00', '2025-12-15 00:00:00'),
   -- Enfant MOYEN année 2: prédiction modérée
-  ('pred-admin-5', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2025-0001', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2025-amb', 0.55, 'MODERE', 0.50, 0.72, 1, 0.55, TRUE, 0.05, '2025-09-01 00:00:00', '2025-12-15 00:00:00'),
+  ('pred-admin-5', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0002', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2025-amb', 0.55, 'MODERE', 0.50, 0.72, 1, 0.55, TRUE, 0.05, '2025-09-01 00:00:00', '2025-12-15 00:00:00'),
   -- Enfant ARHIBA: prédiction modérée
-  ('pred-admin-6', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-2024-0001', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.60, 'MODERE', 0.55, 0.75, 1, 0.62, TRUE, 0.02, '2024-09-01 00:00:00', '2025-01-15 00:00:00')
+  ('pred-admin-6', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-0011', 'comp-MATH-6eme-1-1', 'chap-MATH-6eme-1', 'annee-2024-amb', 0.60, 'MODERE', 0.55, 0.75, 1, 0.62, TRUE, 0.02, '2024-09-01 00:00:00', '2025-01-15 00:00:00')
 ON CONFLICT ("id") DO NOTHING;
 
 -- Recommandations pour les enfants admin
 INSERT INTO "learnos_recommandations" ("id", "tenantId", "siteId", "eleveId", "competenceId", "niveau", "statut", "motif", "regleDeclenchee", "actionProposee", "prerequisManquants", "competencesBloquees", "decideParId", "decideeLe", "resolueLe", "createdAt", "updatedAt", "motifParams") VALUES
   -- Enfant FAIBLE: recommandation critique (résolue = a progressé)
-  ('rec-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0001', 'comp-MATH-6eme-1-1', 'CRITIQUE', 'ACCEPTEE', 'Maîtrise insuffisante', 'seuil_critique', 'Séance de remédiation + exercices adaptés', NULL, 2, 'user-admin-amb', '2024-10-15 00:00:00', '2025-01-15 00:00:00', '2024-10-15 00:00:00', '2025-01-15 00:00:00', NULL),
+  ('rec-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0001', 'comp-MATH-6eme-1-1', 'CRITIQUE', 'ACCEPTEE', 'Maîtrise insuffisante', 'seuil_critique', 'Séance de remédiation + exercices adaptés', NULL, 2, 'user-admin-amb', '2024-10-15 00:00:00', '2025-01-15 00:00:00', '2024-10-15 00:00:00', '2025-01-15 00:00:00', NULL),
   -- Enfant TRÈS FAIBLE: recommandation critique (non résolue)
-  ('rec-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0011', 'comp-MATH-6eme-1-1', 'CRITIQUE', 'OBLIGATOIRE', 'Maîtrise très insuffisante', 'seuil_critique', 'Plan de remédiation urgent + soutien individuel', NULL, 3, 'user-admin-amb', '2024-10-15 00:00:00', NULL, '2024-10-15 00:00:00', '2024-10-15 00:00:00', NULL),
+  ('rec-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0058', 'comp-MATH-6eme-1-1', 'CRITIQUE', 'OBLIGATOIRE', 'Maîtrise très insuffisante', 'seuil_critique', 'Plan de remédiation urgent + soutien individuel', NULL, 3, 'user-admin-amb', '2024-10-15 00:00:00', NULL, '2024-10-15 00:00:00', '2024-10-15 00:00:00', NULL),
   -- Enfant FORT: recommandation avancé
-  ('rec-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0038', 'comp-MATH-6eme-1-1', 'AVANCE', 'PROPOSEE', 'Élève en avance', 'seuil_avance', 'Exercices d''approfondissement + projet personnel', NULL, 0, NULL, NULL, NULL, '2025-01-15 00:00:00', '2025-01-15 00:00:00', NULL),
+  ('rec-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0009', 'comp-MATH-6eme-1-1', 'AVANCE', 'PROPOSEE', 'Élève en avance', 'seuil_avance', 'Exercices d''approfondissement + projet personnel', NULL, 0, NULL, NULL, NULL, '2025-01-15 00:00:00', '2025-01-15 00:00:00', NULL),
   -- Enfant MOYEN année 2: recommandation consolidation
-  ('rec-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2025-0001', 'comp-MATH-6eme-1-1', 'FRAGILE', 'RECOMMANDEE', 'Maîtrise fragile', 'seuil_fragile', 'Exercices de consolidation', NULL, 1, NULL, NULL, NULL, '2025-10-15 00:00:00', '2025-10-15 00:00:00', NULL)
+  ('rec-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0002', 'comp-MATH-6eme-1-1', 'FRAGILE', 'RECOMMANDEE', 'Maîtrise fragile', 'seuil_fragile', 'Exercices de consolidation', NULL, 1, NULL, NULL, NULL, '2025-10-15 00:00:00', '2025-10-15 00:00:00', NULL)
 ON CONFLICT ("eleveId", "competenceId") DO UPDATE SET
   "niveau" = EXCLUDED."niveau",
   "statut" = EXCLUDED."statut",
@@ -171,19 +178,19 @@ ON CONFLICT ("eleveId", "competenceId") DO UPDATE SET
 -- Exercices d'entraînement pour les enfants admin (année 1 vs année 2)
 INSERT INTO "learnos_feuilles_exercices" ("id", "tenantId", "siteId", "eleveId", "matiereId", "type", "statut", "etapePlanId", "valideParId", "valideeLe", "assigneeLe", "termineeLe", "createdAt", "updatedAt", "competenceAttesteeId") VALUES
   -- Enfant FORT: exercices avancés
-  ('feuille-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0038', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2024-10-15 00:00:00', '2024-10-20 00:00:00', '2024-10-15 00:00:00', '2024-10-20 00:00:00', 'comp-MATH-6eme-1-1'),
-  ('feuille-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0038', 'mat-MATH', 'approfondissement', 'TERMINEE', NULL, NULL, NULL, '2024-11-15 00:00:00', '2024-11-20 00:00:00', '2024-11-15 00:00:00', '2024-11-20 00:00:00', 'comp-MATH-6eme-1-1'),
+  ('feuille-admin-1', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0009', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2024-10-15 00:00:00', '2024-10-20 00:00:00', '2024-10-15 00:00:00', '2024-10-20 00:00:00', 'comp-MATH-6eme-1-1'),
+  ('feuille-admin-2', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0009', 'mat-MATH', 'approfondissement', 'TERMINEE', NULL, NULL, NULL, '2024-11-15 00:00:00', '2024-11-20 00:00:00', '2024-11-15 00:00:00', '2024-11-20 00:00:00', 'comp-MATH-6eme-1-1'),
   -- Enfant FAIBLE: exercices de soutien (progression visible)
-  ('feuille-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0001', 'mat-MATH', 'soutien', 'TERMINEE', NULL, NULL, NULL, '2024-10-15 00:00:00', '2024-10-25 00:00:00', '2024-10-15 00:00:00', '2024-10-25 00:00:00', 'comp-MATH-6eme-1-1'),
-  ('feuille-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0001', 'mat-MATH', 'soutien', 'TERMINEE', NULL, NULL, NULL, '2024-11-15 00:00:00', '2024-11-22 00:00:00', '2024-11-15 00:00:00', '2024-11-22 00:00:00', 'comp-MATH-6eme-1-1'),
+  ('feuille-admin-3', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0001', 'mat-MATH', 'soutien', 'TERMINEE', NULL, NULL, NULL, '2024-10-15 00:00:00', '2024-10-25 00:00:00', '2024-10-15 00:00:00', '2024-10-25 00:00:00', 'comp-MATH-6eme-1-1'),
+  ('feuille-admin-4', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0001', 'mat-MATH', 'soutien', 'TERMINEE', NULL, NULL, NULL, '2024-11-15 00:00:00', '2024-11-22 00:00:00', '2024-11-15 00:00:00', '2024-11-22 00:00:00', 'comp-MATH-6eme-1-1'),
   -- Enfant TRÈS FAIBLE: exercices de soutien (pas de progression)
-  ('feuille-admin-5', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2024-0011', 'mat-MATH', 'soutien', 'EN_COURS', NULL, NULL, NULL, '2024-10-15 00:00:00', NULL, '2024-10-15 00:00:00', '2024-10-15 00:00:00', 'comp-MATH-6eme-1-1'),
+  ('feuille-admin-5', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0058', 'mat-MATH', 'soutien', 'EN_COURS', NULL, NULL, NULL, '2024-10-15 00:00:00', NULL, '2024-10-15 00:00:00', '2024-10-15 00:00:00', 'comp-MATH-6eme-1-1'),
   -- Enfant FORT année 2
-  ('feuille-admin-6', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2025-0060', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2025-10-15 00:00:00', '2025-10-20 00:00:00', '2025-10-15 00:00:00', '2025-10-20 00:00:00', 'comp-MATH-6eme-1-1'),
+  ('feuille-admin-6', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0073', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2025-10-15 00:00:00', '2025-10-20 00:00:00', '2025-10-15 00:00:00', '2025-10-20 00:00:00', 'comp-MATH-6eme-1-1'),
   -- Enfant MOYEN année 2
-  ('feuille-admin-7', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-2025-0001', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2025-10-15 00:00:00', '2025-10-25 00:00:00', '2025-10-15 00:00:00', '2025-10-25 00:00:00', 'comp-MATH-6eme-1-1'),
+  ('feuille-admin-7', 'tenant-ambouli', 'site-ambouli', 'ele-ambouli-0002', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2025-10-15 00:00:00', '2025-10-25 00:00:00', '2025-10-15 00:00:00', '2025-10-25 00:00:00', 'comp-MATH-6eme-1-1'),
   -- Enfant ARHIBA
-  ('feuille-admin-8', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-2024-0001', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2024-10-15 00:00:00', '2024-10-22 00:00:00', '2024-10-15 00:00:00', '2024-10-22 00:00:00', 'comp-MATH-6eme-1-1')
+  ('feuille-admin-8', 'tenant-ambouli', 'site-arhiba', 'ele-arhiba-0011', 'mat-MATH', 'entrainement', 'TERMINEE', NULL, NULL, NULL, '2024-10-15 00:00:00', '2024-10-22 00:00:00', '2024-10-15 00:00:00', '2024-10-22 00:00:00', 'comp-MATH-6eme-1-1')
 ON CONFLICT ("id") DO NOTHING;
 
 -- Exercices assignés + réponses pour comparer les scores
@@ -253,6 +260,7 @@ ON CONFLICT ("id") DO NOTHING;
 -- ─── FIN ─────────────────────────────────────────────────────
 -- Le tenant-admin peut maintenant:
 -- 1. Basculer entre TOUS les rôles via le dropdown (14 rôles)
--- 2. Accéder au portail parent avec 7 enfants aux profils variés
--- 3. Comparer les prédictions et exercices entre sites et entre années
+-- 2. Accéder au portail parent avec 7 enfants aux parcours réels sur deux ans
+-- 3. Comparer les prédictions et exercices entre sites, et suivre un même
+--    enfant d'une année sur l'autre
 -- 4. Voir l'évolution des élèves (progression, stagnation, exclusion)
