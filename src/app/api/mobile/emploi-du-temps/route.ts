@@ -14,6 +14,12 @@ export async function GET(req: NextRequest) {
   // `EmploiTemps` n'a pas de colonne `siteId` : filtrage via la classe.
   const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
 
+  // Support du filtre par trimestre (periodeId) — si fourni, on retourne
+  // les créneaux spécifiques à cette période + les créneaux annuels
+  // (periodeId null). Sinon, tous les créneaux de l'année.
+  const { searchParams } = new URL(req.url);
+  const periodeId = searchParams.get("periodeId");
+
   // PARENT / STUDENT : restreindre aux seules classes de l'utilisateur / de ses enfants.
   let classeIds: string[] | null = null;
   if (isRelationScopedRole(user.role)) {
@@ -37,6 +43,10 @@ export async function GET(req: NextRequest) {
       ...siteFilterForRelation(user, "classe"),
       ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...(classeIds ? { classeId: { in: classeIds } } : {}),
+      // Filtre période : spécifique à cette période OU annuel (periodeId null)
+      ...(periodeId
+        ? { OR: [{ periodeId }, { periodeId: null }] }
+        : {}),
     },
     select: {
       id: true,

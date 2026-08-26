@@ -11,21 +11,27 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Eye, EyeOff, School } from "lucide-react-native";
+import { Eye, EyeOff, School, ShieldCheck } from "lucide-react-native";
 import { useAuthStore } from "@/lib/auth-store";
+import { TwoFactorRequiredError, TwoFactorInvalidError } from "@/lib/api";
+import { useI18n } from "@/lib/useI18n";
 import { cn } from "@/lib/utils";
 
 export default function LoginScreen() {
   const signIn = useAuthStore((s) => s.signIn);
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // 2FA : si le serveur répond 2fa_requis, on bascule en mode saisie de code
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [totp, setTotp] = useState("");
 
   async function handleLogin() {
     if (!email || !password) {
-      setError("Veuillez remplir tous les champs");
+      setError(t("login.fillFields"));
       return;
     }
 
@@ -33,10 +39,20 @@ export default function LoginScreen() {
     setError("");
 
     try {
-      await signIn(email, password);
+      // On envoie le totp seulement si on est en mode 2FA
+      await signIn(email, password, undefined, twoFactorRequired ? totp : undefined);
       router.replace("/(tabs)/dashboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur de connexion");
+      if (e instanceof TwoFactorRequiredError) {
+        setTwoFactorRequired(true);
+        setError("");
+        setTotp("");
+      } else if (e instanceof TwoFactorInvalidError) {
+        setError(t("login.2faInvalid"));
+        setTotp("");
+      } else {
+        setError(e instanceof Error ? e.message : t("login.error"));
+      }
     } finally {
       setLoading(false);
     }
@@ -66,13 +82,13 @@ export default function LoginScreen() {
           {/* Form */}
           <View className="w-full max-w-sm" style={{ gap: 16 }}>
             <Text className="text-xl font-bold text-gray-900 mb-2">
-              Connexion
+              {t("login.title")}
             </Text>
 
             {/* Email */}
             <View style={{ gap: 6 }}>
               <Text className="text-sm font-medium text-gray-700">
-                Adresse email
+                {t("login.email")}
               </Text>
               <TextInput
                 value={email}
@@ -91,7 +107,7 @@ export default function LoginScreen() {
             {/* Password */}
             <View style={{ gap: 6 }}>
               <Text className="text-sm font-medium text-gray-700">
-                Mot de passe
+                {t("login.password")}
               </Text>
               <View className="relative">
                 <TextInput
@@ -120,6 +136,30 @@ export default function LoginScreen() {
               <Text className="text-sm text-red-500">{error}</Text>
             )}
 
+            {/* 2FA : champ code de vérification */}
+            {twoFactorRequired && (
+              <View style={{ gap: 6 }}>
+                <View className="flex-row items-center gap-2">
+                  <ShieldCheck size={16} color="#4f46e5" />
+                  <Text className="text-sm font-medium text-gray-700">
+                    Code de vérification (2FA)
+                  </Text>
+                </View>
+                <Text className="text-xs text-gray-500">
+                  Saisissez le code à 6 chiffres de votre application
+                  d'authentification, ou un code de secours (format XXXX-XXXX).
+                </Text>
+                <TextInput
+                  value={totp}
+                  onChangeText={setTotp}
+                  placeholder="123456"
+                  keyboardType="default"
+                  autoCapitalize="characters"
+                  className="h-12 px-4 rounded-xl border border-gray-200 text-base text-center font-mono text-lg tracking-widest"
+                />
+              </View>
+            )}
+
             {/* Submit */}
             <Pressable
               onPress={handleLogin}
@@ -133,38 +173,40 @@ export default function LoginScreen() {
                 <ActivityIndicator color="white" />
               ) : (
                 <Text className="text-white font-semibold text-base">
-                  Se connecter
+                  {twoFactorRequired ? "Vérifier" : "Se connecter"}
                 </Text>
               )}
             </Pressable>
 
-            {/* Demo accounts */}
+            {/* Demo accounts — masqués en mode 2FA */}
+            {!twoFactorRequired && (
             <View className="mt-6 p-4 rounded-xl bg-gray-50 border border-gray-100">
               <Text className="text-xs font-semibold text-gray-700 mb-2">
                 Comptes de démonstration
               </Text>
               <Pressable
                 onPress={() => {
-                  setEmail("admin@lycee-demo.ecolpro.app");
+                  setEmail("admin@qa-learnos.test");
                   setPassword("Demo@2026!");
                 }}
                 className="mb-2"
               >
                 <Text className="text-xs text-primary font-medium">
-                  Admin: admin@lycee-demo.ecolpro.app / Demo@2026!
+                  Admin: admin@qa-learnos.test / Demo@2026!
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => {
-                  setEmail("enseignant@lycee-demo.ecolpro.app");
+                  setEmail("prof@qa-learnos.test");
                   setPassword("Demo@2026!");
                 }}
               >
                 <Text className="text-xs text-primary font-medium">
-                  Enseignant: enseignant@lycee-demo.ecolpro.app / Demo@2026!
+                  Enseignant: prof@qa-learnos.test / Demo@2026!
                 </Text>
               </Pressable>
             </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

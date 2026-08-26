@@ -6,12 +6,21 @@ import { z } from "zod";
 import { normaliserEmail } from "@/lib/email";
 import { mobileSecret } from "@/lib/mobile-auth";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { verifierCodeConnexion } from "@/lib/two-factor";
 
 const MobileLoginSchema = z.object({
   email: z.string().email().transform(normaliserEmail),
   password: z.string().min(1),
   tenantSlug: z.string().optional(),
+  // Code de double authentification : TOTP à 6 chiffres, ou code de
+  // secours XXXX-XXXX. Absent au premier envoi ; le client le redemande
+  // après le code d'erreur `2fa_requis`.
+  totp: z.string().trim().optional(),
 });
+
+/** Codes d'erreur 2FA — identiques au chemin web (src/lib/auth.ts). */
+const ERREUR_2FA_REQUIS = "2fa_requis";
+const ERREUR_2FA_INVALIDE = "2fa_invalide";
 
 async function signToken(payload: Record<string, unknown>): Promise<string> {
   // Même secret que la vérification (src/lib/mobile-auth.ts) : en production,
@@ -45,7 +54,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, password, tenantSlug } = parsed.data;
+    const { email, password, tenantSlug, totp } = parsed.data;
 
     // Recherche insensible à la casse, comme sur le chemin web : un compte
     // enregistré avec une majuscule doit rester joignable. `findUnique`
@@ -62,6 +71,7 @@ export async function POST(req: Request) {
         tenantId: true,
         avatarUrl: true,
         isActive: true,
+        twoFactorEnabled: true,
         tenant: {
           select: { id: true, name: true, slug: true, currentYear: true, notationMax: true },
         },
@@ -75,6 +85,26 @@ export async function POST(req: Request) {
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
+    }
+
+    // ─── Double authentification ────────────────────────────────────
+    // Contrôlée ICI, avant toute émission de jeton — identique au chemin
+    // web (src/lib/auth.ts). Sans code valide, aucun jeton n'est créé.
+    if (user.twoFactorEnabled) {
+      if (!totp) {
+        // Le mot de passe est bon : on demande le second facteur.
+        return NextResponse.json(
+          { error: ERREUR_2FA_REQUIS, code: ERREUR_2FA_REQUIS },
+          { status: 401 },
+        );
+      }
+      const codeValide = await verifierCodeConnexion(user.id, totp);
+      if (!codeValide) {
+        return NextResponse.json(
+          { error: ERREUR_2FA_INVALIDE, code: ERREUR_2FA_INVALIDE },
+          { status: 401 },
+        );
+      }
     }
 
     const tenant = user.tenant;

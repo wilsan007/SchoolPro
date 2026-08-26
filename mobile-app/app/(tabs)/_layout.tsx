@@ -7,9 +7,11 @@ import {
   Grid3x3,
 } from "lucide-react-native";
 import { useAuthStore } from "@/lib/auth-store";
+import { useI18n } from "@/lib/useI18n";
 
 export default function TabLayout() {
   const isSignedIn = useAuthStore((s) => s.isSignedIn);
+  const { t } = useI18n();
 
   if (!isSignedIn) {
     return <Redirect href="/login" />;
@@ -37,35 +39,35 @@ export default function TabLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "Accueil",
+          title: t("tab.dashboard"),
           tabBarIcon: ({ color }) => <LayoutDashboard size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="eleves"
         options={{
-          title: "Élèves",
+          title: t("tab.eleves"),
           tabBarIcon: ({ color }) => <Users size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="absences"
         options={{
-          title: "Absences",
+          title: t("tab.absences"),
           tabBarIcon: ({ color }) => <ClipboardList size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="notes"
         options={{
-          title: "Notes",
+          title: t("tab.notes"),
           tabBarIcon: ({ color }) => <BookOpen size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="plus"
         options={{
-          title: "Plus",
+          title: t("tab.plus"),
           tabBarIcon: ({ color }) => <Grid3x3 size={22} color={color} />,
         }}
       />
@@ -77,6 +79,9 @@ export default function TabLayout() {
       <Tabs.Screen name="vie-scolaire" options={{ href: null }} />
       <Tabs.Screen name="messages" options={{ href: null }} />
       <Tabs.Screen name="analytics" options={{ href: null }} />
+      <Tabs.Screen name="cahier-journal" options={{ href: null }} />
+      <Tabs.Screen name="recommandations" options={{ href: null }} />
+      <Tabs.Screen name="reinscription" options={{ href: null }} />
     </Tabs>
   );
 }

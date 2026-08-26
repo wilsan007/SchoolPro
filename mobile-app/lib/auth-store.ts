@@ -14,7 +14,7 @@ interface AuthState {
   user: AuthUser | null;
   tenant: TenantInfo | null;
   initialize: () => Promise<void>;
-  signIn: (email: string, password: string, tenantSlug?: string) => Promise<void>;
+  signIn: (email: string, password: string, tenantSlug?: string, totp?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -40,8 +40,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  signIn: async (email, password, tenantSlug) => {
-    const data = await apiLogin(email, password, tenantSlug);
+  signIn: async (email, password, tenantSlug, totp) => {
+    const data = await apiLogin(email, password, tenantSlug, totp);
     set({
       isSignedIn: true,
       user: data.user,

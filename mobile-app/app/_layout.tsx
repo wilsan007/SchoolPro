@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as SplashScreen from "expo-splash-screen";
 import { useAuthStore } from "@/lib/auth-store";
+import { initLocale } from "@/lib/i18n";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,7 +25,8 @@ export default function RootLayout() {
   const isLoading = useAuthStore((s) => s.isLoading);
 
   useEffect(() => {
-    initialize().finally(() => {
+    // Initialiser la locale et l'auth en parallèle
+    Promise.all([initLocale(), initialize()]).finally(() => {
       SplashScreen.hideAsync();
     });
   }, [initialize]);

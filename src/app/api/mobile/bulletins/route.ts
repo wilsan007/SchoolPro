@@ -44,6 +44,9 @@ export async function GET(req: NextRequest) {
       decision: true,
       isPublie: true,
       pdfUrl: true,
+      // Verrouillage (BROUILLON/VERROUILLE/PUBLIE)
+      statut: true,
+      verrouilleAt: true,
       eleve: {
         select: {
           id: true,

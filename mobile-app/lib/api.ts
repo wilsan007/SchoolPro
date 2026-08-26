@@ -5,7 +5,7 @@ const API_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (Platform.OS === "web"
     ? "http://localhost:3000"
-    : "https://ecol-pro-ace391.netlify.app");
+    : "https://schoolpro-wilsan007s-projects.vercel.app");
 
 const TOKEN_KEY = "ecolpro_token";
 const USER_KEY = "ecolpro_user";
@@ -92,6 +92,26 @@ interface FetchOptions extends RequestInit {
   auth?: boolean;
 }
 
+/** Erreur 2FA — levée quand le serveur demande le second facteur. */
+export class TwoFactorRequiredError extends Error {
+  code: string;
+  constructor() {
+    super("2fa_requis");
+    this.code = "2fa_requis";
+    this.name = "TwoFactorRequiredError";
+  }
+}
+
+/** Erreur 2FA — levée quand le code TOTP fourni est invalide. */
+export class TwoFactorInvalidError extends Error {
+  code: string;
+  constructor() {
+    super("2fa_invalide");
+    this.code = "2fa_invalide";
+    this.name = "TwoFactorInvalidError";
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: FetchOptions = {}
@@ -117,6 +137,10 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    // Codes 2FA spécifiques — le client doit pouvoir les distinguer d'une
+    // erreur d'identifiants pour afficher le champ de saisie du code.
+    if (body.code === "2fa_requis") throw new TwoFactorRequiredError();
+    if (body.code === "2fa_invalide") throw new TwoFactorInvalidError();
     throw new Error(body.error ?? `Erreur ${res.status}`);
   }
 
@@ -126,7 +150,8 @@ export async function apiFetch<T>(
 export async function login(
   email: string,
   password: string,
-  tenantSlug?: string
+  tenantSlug?: string,
+  totp?: string
 ): Promise<{ token: string; user: AuthUser; tenant: TenantInfo | null }> {
   const data = await apiFetch<{
     token: string;
@@ -135,7 +160,7 @@ export async function login(
   }>("/api/auth/mobile", {
     auth: false,
     method: "POST",
-    body: JSON.stringify({ email, password, tenantSlug }),
+    body: JSON.stringify({ email, password, tenantSlug, totp }),
   });
 
   await setToken(data.token);

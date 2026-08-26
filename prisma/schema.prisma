@@ -5563,6 +5563,18 @@ model Tache {
   echeance  DateTime?
   dateFaite DateTime?
 
+  /// Source auto-générée : type de la source (ex: "evaluation_sans_notes",
+  /// "seance_a_valider", "devoir_a_corriger", "bulletin_a_publier",
+  /// "incident_a_traiter", "absence_a_justifier", "facture_en_retard",
+  /// "reinscription_en_attente", "evaluation_a_venir").
+  /// NULL pour les tâches créées manuellement.
+  sourceType String?
+
+  /// ID de l'enregistrement source (ex: ID de l'évaluation, du bulletin…).
+  /// Permet l'idempotence : le moteur ne recrée pas une tâche pour un
+  /// enregistrement qui en a déjà une non terminée.
+  sourceId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -5570,6 +5582,7 @@ model Tache {
   @@index([siteId])
   @@index([assigneeAId])
   @@index([statut])
+  @@index([sourceType, sourceId])
   @@map("taches")
 }
 
