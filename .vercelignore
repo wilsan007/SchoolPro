@@ -1,9 +1,24 @@
-# Artefacts locaux d'outillage — contiennent des sockets/DB qui cassent l'upload CLI
-.codegraph/
-.gstack/
-.wrangler/
-.open-next/
-.next/
-coverage/
-ios/
-android/
+# Fichiers SQL de seed (382MB) — pas nécessaires au build Vercel
+prisma/sql/
+
+# Archives
+prisma/sql/_archive/
+
+# Tests
+src/**/*.test.ts
+src/**/*.test.tsx
+src/**/*.spec.ts
+vitest.config.ts
+vitest.setup.ts
+
+# Mobile app (build séparé)
+mobile-app/
+
+# Docs
+*.md
+!DESIGN.md
+!AGENTS.md
+!CLAUDE.md
+
+# Scripts locaux
+prisma/sql/generate-sql.mjs
