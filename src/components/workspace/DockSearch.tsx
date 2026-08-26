@@ -122,12 +122,13 @@ const allSearchItems: { groupKey: string; groupLabelKey: string; groupAccent: st
 
 interface DockSearchProps {
   roleKey: string;
+  open: boolean;
+  onClose: () => void;
 }
 
-export function DockSearch({ roleKey }: DockSearchProps) {
+export function DockSearch({ roleKey, open, onClose }: DockSearchProps) {
   const t = useTranslations("nav");
   const { openWindow } = useWindowManager();
-  const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -162,29 +163,26 @@ export function DockSearch({ roleKey }: DockSearchProps) {
     });
   }, [accessibleItems, query, t]);
 
-  // Raccourci clavier global Cmd+K / Ctrl+K
+  // Focus l'input et reset quand on ouvre
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setIsOpen((prev) => !prev);
-      }
-      if (e.key === "Escape") {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Focus l'input quand on ouvre
-  useEffect(() => {
-    if (isOpen) {
+    if (open) {
       setQuery("");
       setSelectedIndex(0);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [isOpen]);
+  }, [open]);
+
+  // Écouter Escape quand ouvert
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
 
   // Navigation au clavier dans la liste
   const handleKeyDown = useCallback(
@@ -200,11 +198,11 @@ export function DockSearch({ roleKey }: DockSearchProps) {
         const item = filteredItems[selectedIndex];
         if (item) {
           openWindow(item.href, t(item.labelKey), item.icon, `hsl(${item.groupAccent})`);
-          setIsOpen(false);
+          onClose();
         }
       }
     },
-    [filteredItems, selectedIndex, openWindow, t]
+    [filteredItems, selectedIndex, openWindow, t, onClose]
   );
 
   // Scroll vers l'item sélectionné
@@ -218,17 +216,17 @@ export function DockSearch({ roleKey }: DockSearchProps) {
 
   function handleItemClick(item: SearchItem) {
     openWindow(item.href, t(item.labelKey), item.icon, `hsl(${item.groupAccent})`);
-    setIsOpen(false);
+    onClose();
   }
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
   return (
     <>
       {/* Overlay */}
       <div
         className="fixed inset-0 z-[100] bg-navy/20 backdrop-blur-sm animate-fade-in"
-        onClick={() => setIsOpen(false)}
+        onClick={onClose}
       />
 
       {/* Palette de commandes */}

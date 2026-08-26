@@ -234,5 +234,5 @@ function DockSearchTrigger({ open, onOpenChange, roleKey }: { open: boolean; onO
   }, [onOpenChange]);
 
   if (!open) return null;
-  return <DockSearch roleKey={roleKey} />;
+  return <DockSearch roleKey={roleKey} open={open} onClose={() => onOpenChange(false)} />;
 }
