@@ -376,6 +376,17 @@ export const SCHEMA_IMPORT: Record<string, { champ: string; requis: boolean }[]>
     { champ: "telephone", requis: false },
     { champ: "matieres", requis: false },
     { champ: "classe", requis: false }, // classes assignées
+    { champ: "typeContrat", requis: false },
+    { champ: "matricule", requis: false },
+  ],
+  "personnel-admin": [
+    { champ: "nom", requis: true },
+    { champ: "prenom", requis: true },
+    { champ: "email", requis: false },
+    { champ: "telephone", requis: false },
+    { champ: "role", requis: true },
+    { champ: "site", requis: false },
+    { champ: "matricule", requis: false },
   ],
   classes: [
     { champ: "nom", requis: true },

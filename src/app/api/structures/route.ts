@@ -10,6 +10,7 @@ const STRUCTURE_TYPES: StructureType[] = ["MATERNELLE", "PRIMAIRE", "COLLEGE", "
 
 const CreateSchema = z.object({
   types: z.array(z.enum(["MATERNELLE", "PRIMAIRE", "COLLEGE", "LYCEE"])).min(1),
+  siteId: z.string().nullable().optional(), // null = structure partagée entre tous les sites
 });
 
 export async function GET() {
@@ -22,9 +23,10 @@ export async function GET() {
     const structures = await prisma.structure.findMany({
       where: { tenantId: session.user.tenantId, ...siteFilterForModel("structure", session.user) },
       include: {
+        site: { select: { id: true, nom: true } },
         _count: { select: { classes: true } },
       },
-      orderBy: [{ type: "asc" }],
+      orderBy: [{ siteId: "asc" }, { type: "asc" }],
     });
 
     return NextResponse.json(structures);
@@ -46,13 +48,30 @@ export async function POST(req: NextRequest) {
     }
 
     const json = await req.json();
-    const { types } = CreateSchema.parse(json);
+    const { types, siteId = null } = CreateSchema.parse(json);
 
     const tenantId = session.user.tenantId;
 
-    // Récupérer les structures déjà existantes pour ne pas les recréer
+    // Si siteId est fourni, vérifier qu'il appartient bien au tenant
+    if (siteId) {
+      const site = await prisma.site.findFirst({
+        where: { id: siteId, tenantId },
+        select: { id: true },
+      });
+      if (!site) {
+        return erreurJson("SITE_INTROUVABLE");
+      }
+    }
+
+    // Récupérer les structures déjà existantes pour ce site (ou partagées si siteId=null)
+    // pour ne pas les recréer — déduplication par (tenant, site, type)
+    // eslint-disable-next-line ecolpro/require-site-filter -- siteId est filtré explicitement
     const existing = await prisma.structure.findMany({
-      where: { tenantId, ...siteFilterForModel("structure", session.user) },
+      where: {
+        tenantId,
+        siteId: siteId ?? null,
+        type: { in: types },
+      },
       select: { type: true },
     });
     const existingTypes = new Set(existing.map((s) => s.type));
@@ -61,6 +80,7 @@ export async function POST(req: NextRequest) {
       .filter((type) => !existingTypes.has(type))
       .map((type) => ({
         tenantId,
+        siteId: siteId ?? null,
         type,
         nom: typeLabel(type),
         actif: true,
@@ -72,8 +92,11 @@ export async function POST(req: NextRequest) {
 
     const all = await prisma.structure.findMany({
       where: { tenantId, ...siteFilterForModel("structure", session.user) },
-      include: { _count: { select: { classes: true } } },
-      orderBy: [{ type: "asc" }],
+      include: {
+        site: { select: { id: true, nom: true } },
+        _count: { select: { classes: true } },
+      },
+      orderBy: [{ siteId: "asc" }, { type: "asc" }],
     });
 
     return NextResponse.json(all, { status: 201 });

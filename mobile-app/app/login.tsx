@@ -142,17 +142,16 @@ export default function LoginScreen() {
                 <View className="flex-row items-center gap-2">
                   <ShieldCheck size={16} color="#4f46e5" />
                   <Text className="text-sm font-medium text-gray-700">
-                    Code de vérification (2FA)
+                    {t("login.2faTitle")}
                   </Text>
                 </View>
                 <Text className="text-xs text-gray-500">
-                  Saisissez le code à 6 chiffres de votre application
-                  d'authentification, ou un code de secours (format XXXX-XXXX).
+                  {t("login.2faHint")}
                 </Text>
                 <TextInput
                   value={totp}
                   onChangeText={setTotp}
-                  placeholder="123456"
+                  placeholder={t("login.2faPlaceholder")}
                   keyboardType="default"
                   autoCapitalize="characters"
                   className="h-12 px-4 rounded-xl border border-gray-200 text-base text-center font-mono text-lg tracking-widest"
@@ -173,7 +172,7 @@ export default function LoginScreen() {
                 <ActivityIndicator color="white" />
               ) : (
                 <Text className="text-white font-semibold text-base">
-                  {twoFactorRequired ? "Vérifier" : "Se connecter"}
+                  {twoFactorRequired ? t("login.2faVerify") : t("login.submit")}
                 </Text>
               )}
             </Pressable>
@@ -182,7 +181,7 @@ export default function LoginScreen() {
             {!twoFactorRequired && (
             <View className="mt-6 p-4 rounded-xl bg-gray-50 border border-gray-100">
               <Text className="text-xs font-semibold text-gray-700 mb-2">
-                Comptes de démonstration
+                {t("login.demoAccounts")}
               </Text>
               <Pressable
                 onPress={() => {

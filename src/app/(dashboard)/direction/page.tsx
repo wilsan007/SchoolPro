@@ -16,6 +16,8 @@ import { alertesAnticipees } from "@/lib/learnos/planification";
 import { siteFilterForModel, isTenantWideRole, type SessionSiteClaims } from "@/lib/site-scope";
 import { getActivityFeedAllPeriodes, type ActivityItem, type Periode } from "@/lib/activity-feed";
 import { getTeacherDelays, type ThemeRetard } from "@/lib/teacher-delays";
+import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
+import { synchroniserTachesAuto } from "@/lib/tache-engine";
 import { Card, CardContent, CardHeader, CardTitle, AccentCard } from "@/components/ui/card";
 import { FileText, AlertTriangle, ShieldAlert, UserX } from "lucide-react";
 import { unstable_cache } from "next/cache";
@@ -311,6 +313,52 @@ export default async function DirectionPage() {
     mois: serialiser(feedCache.mois.map((i) => ({ ...i, date: new Date(i.date) }))),
   };
 
+  // ── Tâches auto-générées pour la direction ──
+  // Auto-sync silencieux : régénère les tâches depuis l'état du système.
+  try {
+    await synchroniserTachesAuto(tenantId, claims);
+  } catch (e) {
+    console.error("[Direction page] Auto-sync tâches échoué:", e);
+  }
+
+  // La direction voit toutes les tâches du personnel (pas seulement les siennes).
+  const tachesDirection = await prisma.tache.findMany({
+    where: {
+      tenantId,
+      statut: { in: ["A_FAIRE", "EN_COURS"] },
+      ...siteFilterForModel("tache", claims),
+    },
+    include: {
+      assigneeA: { select: { id: true, name: true, email: true } },
+      creePar: { select: { id: true, name: true } },
+      classe: { select: { id: true, nom: true } },
+      matiere: { select: { id: true, nom: true } },
+    },
+    orderBy: [
+      { echeance: "asc" },
+      { priorite: "desc" },
+      { createdAt: "desc" },
+    ],
+    take: 200,
+  });
+
+  const tachesDirectionSerialisees: TacheData[] = tachesDirection.map((t) => ({
+    id: t.id,
+    titre: t.titre,
+    description: t.description,
+    type: t.type,
+    priorite: t.priorite,
+    statut: t.statut,
+    echeance: t.echeance?.toISOString() ?? null,
+    dateFaite: t.dateFaite?.toISOString() ?? null,
+    sourceType: t.sourceType,
+    sourceId: t.sourceId,
+    assigneeA: t.assigneeA,
+    creePar: t.creePar,
+    classe: t.classe,
+    matiere: t.matiere,
+  }));
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
@@ -465,6 +513,19 @@ export default async function DirectionPage() {
           <h2 className="text-lg sm:text-xl font-semibold">{t("retardsExecution")}</h2>
           <DelaysByTheme themes={retards as ThemeRetardData[]} />
         </section>
+
+        {/* ── Tâches du personnel (timeline par bucket temporel) ── */}
+        {tachesDirectionSerialisees.length > 0 && (
+          <section className="space-y-3">
+            <TaskTimeline
+              taches={tachesDirectionSerialisees}
+              maintenant={maintenant.toISOString()}
+              showSync
+              compact
+              title="Tâches du personnel"
+            />
+          </section>
+        )}
 
         {/* ── Comparateur inter-sites ─────────────────────────────── */}
         {peutComparerSites && (

@@ -12,6 +12,8 @@ import { PreferencesParentForm } from "@/components/learnos/PreferencesParentFor
 import { JustifierAbsenceForm } from "@/components/learnos/JustifierAbsenceForm";
 import { ParentPortalTabs } from "@/components/parent/ParentPortalTabs";
 import { ParentEdtView } from "@/components/parent/ParentEdtView";
+import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
+import { synchroniserTachesAuto } from "@/lib/tache-engine";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { dossierEleve, enfantsDuParent } from "@/lib/learnos/dossier-eleve";
@@ -279,9 +281,58 @@ export default async function ParentPage({
       .reduce((sum, f) => sum + f.montant, 0),
   };
 
+  // --- Tâches auto-générées pour le parent (factures en retard, réinscription…) ---
+  try {
+    await synchroniserTachesAuto(tenantId, session!.user);
+  } catch (e) {
+    console.error("[Parent page] Auto-sync tâches échoué:", e);
+  }
+
+  const mesTachesParent = await prisma.tache.findMany({
+    where: {
+      tenantId,
+      assigneeAId: session!.user.id,
+      statut: { in: ["A_FAIRE", "EN_COURS"] },
+    },
+    include: {
+      assigneeA: { select: { id: true, name: true, email: true } },
+      creePar: { select: { id: true, name: true } },
+      classe: { select: { id: true, nom: true } },
+      matiere: { select: { id: true, nom: true } },
+    },
+    orderBy: [{ echeance: "asc" }, { priorite: "desc" }],
+    take: 50,
+  });
+
+  const tachesParentSerialisees: TacheData[] = mesTachesParent.map((t) => ({
+    id: t.id,
+    titre: t.titre,
+    description: t.description,
+    type: t.type,
+    priorite: t.priorite,
+    statut: t.statut,
+    echeance: t.echeance?.toISOString() ?? null,
+    dateFaite: t.dateFaite?.toISOString() ?? null,
+    sourceType: t.sourceType,
+    sourceId: t.sourceId,
+    assigneeA: t.assigneeA,
+    creePar: t.creePar,
+    classe: t.classe,
+    matiere: t.matiere,
+  }));
+
   // --- Contenu des onglets (pré-calculé pour la nouvelle API `panels`) ---
   const overviewPanel = (
     <div className="space-y-4">
+      {/* Mes actions à faire */}
+      {tachesParentSerialisees.length > 0 && (
+        <TaskTimeline
+          taches={tachesParentSerialisees}
+          maintenant={maintenant.toISOString()}
+          compact
+          title="Mes actions à faire"
+        />
+      )}
       {/* Cartes statistiques rapides */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard

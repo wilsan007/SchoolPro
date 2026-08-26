@@ -54,6 +54,7 @@ const CATALOGUE = {
   RECOMMANDATION_INTROUVABLE: { statut: 404, fr: "Recommandation introuvable" },
   SEANCE_INTROUVABLE: { statut: 404, fr: "Séance introuvable" },
   CLASSE_INTROUVABLE: { statut: 404, fr: "Classe introuvable" },
+  SITE_INTROUVABLE: { statut: 404, fr: "Site introuvable" },
   PERIODE_INTROUVABLE: { statut: 404, fr: "Période introuvable" },
   PLANIFICATION_INTROUVABLE: { statut: 404, fr: "Planification introuvable" },
   ANNEE_INTROUVABLE: { statut: 404, fr: "Année scolaire introuvable" },

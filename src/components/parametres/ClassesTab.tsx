@@ -371,7 +371,7 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
 
   return (
     <div className="space-y-4">
-      <StructureManager canManage={canManage} />
+      <StructureManager canManage={canManage} sites={sites} />
 
       {canManage && (
         <div className="flex justify-end gap-2 flex-wrap">

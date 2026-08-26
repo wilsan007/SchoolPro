@@ -9,6 +9,8 @@ import {
 } from "@/lib/learnos/alertes-parent";
 import { envoyerRelancesAutomatiques } from "@/lib/relances-auto";
 import { detecterDevoirsEnRetard } from "@/lib/learnos/devoirs-retard-check";
+import { synchroniserTachesAuto } from "@/lib/tache-engine";
+import { rappelerEcheancesTaches } from "@/lib/tache-rappels";
 
 /**
  * Cron unique — répartiteur des tâches planifiées.
@@ -102,6 +104,35 @@ const TACHES: Tache[] = [
     nom: "devoirs-retard-check",
     heures: [9],
     executer: () => detecterDevoirsEnRetard(),
+  },
+  {
+    // 7 h UTC = 10 h à Djibouti. Synchronisation des tâches auto-générées :
+    // scanne l'état du système (évaluations sans notes, séances non validées,
+    // bulletins non publiés, factures en retard, invitations de réinscription)
+    // et crée/ferme les tâches correspondantes pour chaque tenant.
+    nom: "taches-auto-sync",
+    heures: [7],
+    executer: async () => {
+      // Tâche système : balaie tous les tenants.
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+      const tenants = await prisma.tenant.findMany({ select: { id: true } });
+      let totalCreated = 0;
+      let totalClosed = 0;
+      for (const t of tenants) {
+        const result = await synchroniserTachesAuto(t.id);
+        totalCreated += result.created;
+        totalClosed += result.closed;
+      }
+      return { tenants: tenants.length, created: totalCreated, closed: totalClosed };
+    },
+  },
+  {
+    // 6 h UTC = 9 h à Djibouti. Rappels d'échéance : envoie une notification
+    // aux assignataires dont la tâche arrive à échéance dans 1 ou 3 jours.
+    // Idempotent : une notification par palier par tâche.
+    nom: "taches-rappels",
+    heures: [6],
+    executer: () => rappelerEcheancesTaches(),
   },
 ];
 

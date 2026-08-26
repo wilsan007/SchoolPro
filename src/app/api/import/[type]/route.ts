@@ -9,11 +9,13 @@ import {
   analyserMatieres,
   analyserParents,
   analyserEdtExternes,
+  analyserPersonnelAdmin,
   type TypeImport,
 } from "@/lib/import-unifie";
+import { validerEntetes, type TypeModele } from "@/lib/import-modeles";
 
 /**
- * POST /api/import/[type]/analyze
+ * POST /api/import/[type]
  * Analyse un fichier d'import et retourne le plan.
  * Body: multipart/form-data avec file=...
  */
@@ -32,6 +34,7 @@ export async function POST(
     "matieres",
     "parents",
     "edt-externes",
+    "personnel-admin",
   ];
   if (!typesValides.includes(type as TypeImport)) {
     return erreurJson("DONNEES_INVALIDES", undefined, {
@@ -51,6 +54,21 @@ export async function POST(
   try {
     const { headers, rows } = await lireFichier(buffer, file.type);
 
+    // Validation des entêtes contre le modèle attendu
+    const validation = validerEntetes(headers, type as TypeModele);
+    if (!validation.valide) {
+      return Response.json(
+        {
+          error: "ENTETES_NON_CONFORMES",
+          message: validation.message,
+          entetesManquantes: validation.manquantes,
+          entetesRecues: headers,
+          conseil: `Téléchargez le modèle d'import pour le type "${type}" et remplissez-le avec vos données.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const tenantId = session.user.tenantId;
     let plan;
 
@@ -69,6 +87,9 @@ export async function POST(
         break;
       case "edt-externes":
         plan = await analyserEdtExternes(rows, tenantId, headers);
+        break;
+      case "personnel-admin":
+        plan = await analyserPersonnelAdmin(rows, tenantId, headers);
         break;
       case "eleves":
         // L'import élèves existant a sa propre route /api/import/eleves

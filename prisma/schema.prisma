@@ -1224,6 +1224,8 @@ model Structure {
   updatedAt DateTime @updatedAt
 
   @@unique([tenantId, siteId, type])
+  // Note : un index unique partiel (WHERE "siteId" IS NULL) est créé via migration SQL
+  // pour garantir 1 seule structure partagée par type par tenant (PostgreSQL traite NULL comme distinct)
   @@index([tenantId])
   @@index([siteId])
   @@map("structures")

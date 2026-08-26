@@ -19,6 +19,7 @@ import {
 } from "lucide-react-native";
 import { useAuthStore } from "@/lib/auth-store";
 import { apiFetch } from "@/lib/api";
+import { useI18n } from "@/lib/useI18n";
 import { cn, formatDate, getInitials } from "@/lib/utils";
 import { useState, useCallback } from "react";
 
@@ -87,6 +88,7 @@ export default function DashboardScreen() {
   const tenant = useAuthStore((s) => s.tenant);
   const signOut = useAuthStore((s) => s.signOut);
   const router = useRouter();
+  const { t } = useI18n();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data, isLoading, refetch } = useQuery<DashboardData>({
@@ -108,7 +110,7 @@ export default function DashboardScreen() {
           <View>
             <Text className="text-xs text-gray-500">{tenant?.name ?? "Mon École"}</Text>
             <Text className="text-xl font-bold text-gray-900">
-              Bonjour, {user?.name?.split(" ")[0] ?? "Admin"} 👋
+              {t("dashboard.hello")}, {user?.name?.split(" ")[0] ?? "Admin"} 👋
             </Text>
           </View>
           <View className="flex-row items-center gap-3">
@@ -136,14 +138,14 @@ export default function DashboardScreen() {
         <View className="flex-row gap-3 mb-5">
           <StatCard
             icon={Users}
-            label="Élèves actifs"
+            label={t("dashboard.activeStudents")}
             value={data?.stats.totalEleves ?? "—"}
             color="bg-violet-500"
             onPress={() => router.push("/(tabs)/eleves")}
           />
           <StatCard
             icon={ClipboardList}
-            label="Absences aujourd'hui"
+            label={t("dashboard.absencesToday")}
             value={data?.stats.totalAbsencesToday ?? "—"}
             color="bg-orange-500"
             onPress={() => router.push("/(tabs)/absences")}
@@ -152,14 +154,14 @@ export default function DashboardScreen() {
         <View className="flex-row gap-3 mb-6">
           <StatCard
             icon={BookOpen}
-            label="Notes saisies"
+            label={t("dashboard.notesEntered")}
             value={data?.stats.totalNotes ?? "—"}
             color="bg-green-500"
             onPress={() => router.push("/(tabs)/notes")}
           />
           <StatCard
             icon={GraduationCap}
-            label="Classes"
+            label={t("dashboard.classes")}
             value={data?.stats.totalClasses ?? "—"}
             color="bg-blue-500"
           />
@@ -169,10 +171,10 @@ export default function DashboardScreen() {
         <View className="mb-6">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-base font-bold text-gray-900">
-              Absences récentes
+              {t("dashboard.recentAbsences")}
             </Text>
             <Pressable onPress={() => router.push("/(tabs)/absences")}>
-              <Text className="text-sm text-primary">Voir tout</Text>
+              <Text className="text-sm text-primary">{t("dashboard.seeAll")}</Text>
             </Pressable>
           </View>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -195,7 +197,7 @@ export default function DashboardScreen() {
                       {a.eleve.prenom} {a.eleve.nom}
                     </Text>
                     <Text className="text-xs text-gray-500">
-                      {formatDate(a.date)} · {a.isRetard ? "Retard" : "Absent"}
+                      {formatDate(a.date)} · {a.isRetard ? t("absence.late") : t("absence.absent")}
                     </Text>
                   </View>
                   <View
@@ -225,7 +227,7 @@ export default function DashboardScreen() {
               ))
             ) : (
               <View className="px-4 py-8 items-center">
-                <Text className="text-sm text-gray-400">Aucune absence récente</Text>
+                <Text className="text-sm text-gray-400">{t("dashboard.noAbsences")}</Text>
               </View>
             )}
           </View>
@@ -234,7 +236,7 @@ export default function DashboardScreen() {
         {/* Notes récentes */}
         <View className="mb-6">
           <Text className="text-base font-bold text-gray-900 mb-3">
-            Dernières notes
+            {t("dashboard.recentNotes")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {data?.notesRecentes?.length ? (
@@ -266,7 +268,7 @@ export default function DashboardScreen() {
               ))
             ) : (
               <View className="px-4 py-8 items-center">
-                <Text className="text-sm text-gray-400">Aucune note récente</Text>
+                <Text className="text-sm text-gray-400">{t("dashboard.noNotes")}</Text>
               </View>
             )}
           </View>
@@ -275,7 +277,7 @@ export default function DashboardScreen() {
         {/* Prochains examens */}
         <View className="mb-8">
           <Text className="text-base font-bold text-gray-900 mb-3">
-            Prochains examens
+            {t("dashboard.upcomingExams")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {data?.prochainsExamens?.length ? (
@@ -302,7 +304,7 @@ export default function DashboardScreen() {
               ))
             ) : (
               <View className="px-4 py-8 items-center">
-                <Text className="text-sm text-gray-400">Aucun examen planifié</Text>
+                <Text className="text-sm text-gray-400">{t("dashboard.noExams")}</Text>
               </View>
             )}
           </View>
@@ -310,7 +312,7 @@ export default function DashboardScreen() {
         {/* Accès rapide */}
         <View className="mb-8">
           <Text className="text-base font-bold text-gray-900 mb-3">
-            Accès rapide
+            {t("dashboard.quickAccess")}
           </Text>
           <View className="flex-row flex-wrap gap-3">
             <Pressable
@@ -319,7 +321,7 @@ export default function DashboardScreen() {
               style={{ width: "31%" }}
             >
               <Calendar size={22} color="#4f46e5" />
-              <Text className="text-xs font-medium text-gray-700 mt-2">Emploi du temps</Text>
+              <Text className="text-xs font-medium text-gray-700 mt-2">{t("dashboard.timetable")}</Text>
             </Pressable>
             <Pressable
               onPress={() => router.push("/(tabs)/vie-scolaire")}
@@ -327,7 +329,7 @@ export default function DashboardScreen() {
               style={{ width: "31%" }}
             >
               <Shield size={22} color="#ef4444" />
-              <Text className="text-xs font-medium text-gray-700 mt-2">Vie scolaire</Text>
+              <Text className="text-xs font-medium text-gray-700 mt-2">{t("dashboard.vieScolaire")}</Text>
             </Pressable>
             <Pressable
               onPress={() => router.push("/(tabs)/messages")}
@@ -335,7 +337,7 @@ export default function DashboardScreen() {
               style={{ width: "31%" }}
             >
               <MessageCircle size={22} color="#0ea5e9" />
-              <Text className="text-xs font-medium text-gray-700 mt-2">Messages</Text>
+              <Text className="text-xs font-medium text-gray-700 mt-2">{t("dashboard.messages")}</Text>
             </Pressable>
             <Pressable
               onPress={() => router.push("/(tabs)/analytics")}
@@ -343,7 +345,7 @@ export default function DashboardScreen() {
               style={{ width: "31%" }}
             >
               <BarChart3 size={22} color="#22c55e" />
-              <Text className="text-xs font-medium text-gray-700 mt-2">Analytics</Text>
+              <Text className="text-xs font-medium text-gray-700 mt-2">{t("dashboard.analytics")}</Text>
             </Pressable>
           </View>
         </View>

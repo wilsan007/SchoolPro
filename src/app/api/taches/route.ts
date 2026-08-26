@@ -6,6 +6,9 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { checkPermission } from "@/lib/rbac";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { synchroniserTachesAuto } from "@/lib/tache-engine";
+import { bucketPour, BUCKET_ORDER, type BucketTache } from "@/lib/tache-buckets";
+import { getDemoNow } from "@/lib/demo-now";
 import type { Role } from "@prisma/client";
 
 const TacheSchema = z.object({
@@ -19,6 +22,8 @@ const TacheSchema = z.object({
   matiereId: z.string().optional().nullable(),
   echeance: z.string().datetime().optional().nullable(),
   siteId: z.string().optional().nullable(),
+  sourceType: z.string().optional().nullable(),
+  sourceId: z.string().optional().nullable(),
 });
 
 export async function GET(request: NextRequest) {
@@ -34,6 +39,9 @@ export async function GET(request: NextRequest) {
   const statut = searchParams.get("statut");
   const echeance = searchParams.get("echeance");
   const requestedSiteId = searchParams.get("siteId");
+  const bucket = searchParams.get("bucket");
+  const sync = searchParams.get("sync");
+  const mine = searchParams.get("mine"); // "1" = mes tâches uniquement
 
   const sessionSiteId =
     (session.user as { siteId?: string | null }).siteId ?? null;
@@ -43,13 +51,24 @@ export async function GET(request: NextRequest) {
 
   const claims = { ...session.user, siteId: activeSiteId };
 
+  // Auto-sync : régénère les tâches depuis l'état du système avant lecture.
+  // Lancé explicitement via ?sync=1 ou par défaut (lazy sync silencieux).
+  if (sync === "1") {
+    try {
+      await synchroniserTachesAuto(session.user.tenantId, claims);
+    } catch (e) {
+      console.error("[Taches GET] Auto-sync échoué:", e);
+    }
+  }
+
   const siteFilter = siteFilterForModel("tache", claims);
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
 
-  // Par défaut, un utilisateur voit ses propres tâches (assignées ou créées)
-  // sauf s'il filtre explicitement par assigneeAId.
-  const filterAssignee = assigneeAId ?? undefined;
+  // Par défaut (mine=1 ou pas d'assigneeAId), un utilisateur voit ses propres tâches.
+  // Les admins/direction peuvent voir toutes les tâches avec mine=0.
+  const voirMesTaches = mine !== "0" && !assigneeAId;
+  const filterAssignee = assigneeAId ?? (voirMesTaches ? session.user.id : undefined);
 
   const taches = await prisma.tache.findMany({
     where: {
@@ -67,19 +86,39 @@ export async function GET(request: NextRequest) {
       ...anneeClasse,
     },
     include: {
-      assigneeA: { select: { name: true, email: true } },
-      creePar: { select: { name: true } },
-      classe: { select: { nom: true } },
-      matiere: { select: { nom: true } },
+      assigneeA: { select: { id: true, name: true, email: true } },
+      creePar: { select: { id: true, name: true } },
+      classe: { select: { id: true, nom: true } },
+      matiere: { select: { id: true, nom: true } },
     },
     orderBy: [
       { statut: "asc" },
       { echeance: "asc" },
+      { priorite: "desc" },
       { createdAt: "desc" },
     ],
+    take: 300,
   });
 
-  return NextResponse.json({ taches });
+  // Filtrage par bucket temporel si demandé.
+  let tachesFiltrees = taches;
+  if (bucket && BUCKET_ORDER.includes(bucket as BucketTache)) {
+    const maintenant = await getDemoNow();
+    tachesFiltrees = taches.filter(
+      (t) => bucketPour(t.echeance, t.statut, maintenant) === bucket
+    );
+  }
+
+  // Sérialiser avec sourceType/sourceId.
+  const serialized = tachesFiltrees.map((t) => ({
+    ...t,
+    echeance: t.echeance?.toISOString() ?? null,
+    dateFaite: t.dateFaite?.toISOString() ?? null,
+    sourceType: t.sourceType,
+    sourceId: t.sourceId,
+  }));
+
+  return NextResponse.json({ taches: serialized });
 }
 
 export async function POST(request: NextRequest) {
@@ -147,6 +186,8 @@ export async function POST(request: NextRequest) {
         classeId: data.classeId ?? null,
         matiereId: data.matiereId ?? null,
         echeance: data.echeance ? new Date(data.echeance) : null,
+        sourceType: data.sourceType ?? null,
+        sourceId: data.sourceId ?? null,
       },
       include: {
         assigneeA: { select: { name: true, email: true } },
@@ -160,6 +201,7 @@ export async function POST(request: NextRequest) {
       const echeanceStr = tache.echeance
         ? new Date(tache.echeance).toLocaleDateString("fr-FR")
         : "sans échéance";
+      // eslint-disable-next-line ecolpro/require-site-filter -- notification interne, bornée par tenantId
       await prisma.notification.create({
         data: {
           tenantId: session.user.tenantId,

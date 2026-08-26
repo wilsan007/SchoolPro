@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useWindowManager } from "./WindowManager";
 import { WindowFrame } from "./WindowFrame";
 import { Dock } from "./Dock";
+import { DockSearch } from "./DockSearch";
 import { LAYOUT_GEOMETRY, type LayoutMode } from "./types";
 import { getRouteMeta } from "@/lib/nav-metadata";
 import { accueilPourRole } from "@/lib/accueil-par-role";
-import { Monitor, Columns2, Rows2, Grid2x2, School } from "lucide-react";
+import { Monitor, Columns2, Rows2, Grid2x2, School, Search, Command } from "lucide-react";
 import type { Role } from "@prisma/client";
 import type { AvailableTenant } from "@/auth.config";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
@@ -63,18 +64,13 @@ export function Workspace({
     openWindow,
   } = useWindowManager();
 
+  const [searchOpen, setSearchOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const geometry = LAYOUT_GEOMETRY[layout];
   const pathname = usePathname();
   const initialOpenRef = useRef(false);
 
   // Ouvrir la fenêtre initiale basée sur la route courante.
-  //
-  // `/dashboard` est un simple aiguillage pour les rôles qui ont un accueil
-  // dédié : la page redirige immédiatement. Ouvrir une fenêtre dessus ferait
-  // charger une iframe qui suit la redirection — et `redirect()` perd la query
-  // string, donc l'iframe reviendrait sans `?embedded=1`. On ouvre directement
-  // la destination réelle.
   useEffect(() => {
     if (initialOpenRef.current) return;
     initialOpenRef.current = true;
@@ -89,17 +85,15 @@ export function Workspace({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-secondary/40">
-      {/* Halos décoratifs colorés en arrière-plan — Azure Bloom */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-primary/[0.04] blur-[120px] pointer-events-none" aria-hidden />
-      <div className="absolute top-1/3 right-1/4 w-80 h-80 rounded-full bg-accent/[0.04] blur-[100px] pointer-events-none" aria-hidden />
-      <div className="absolute bottom-1/4 left-1/3 w-72 h-72 rounded-full bg-info/[0.03] blur-[100px] pointer-events-none" aria-hidden />
+      {/* Halo décoratif unique — Azure Bloom (réduit pour GPU) */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-primary/[0.04] blur-[80px] pointer-events-none" aria-hidden />
 
       {/* Barre d'outils top — glassmorphisme Azure Bloom, bordure gris bleuté */}
-      <div className="relative flex items-center justify-between px-4 py-2.5 border-b border-border/70 bg-card/50 backdrop-blur-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.02)] print:hidden gap-3">
+      <div className="relative flex items-center justify-between px-4 py-2.5 border-b border-border/70 bg-card/60 backdrop-blur-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.02)] print:hidden gap-3">
         {/* Logo + switchers */}
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-[0_4px_16px_hsl(198_65%_46%/0.25),0_0_20px_hsl(258_58%_58%/0.12)]">
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-[0_4px_16px_hsl(198_65%_46%/0.2)]">
               <School className="w-5 h-5 text-white" />
             </div>
             <span className="text-base font-display font-bold tracking-wide text-navy hidden sm:inline">SchoolPro</span>
@@ -108,28 +102,45 @@ export function Workspace({
           <SiteSwitcher currentSiteId={currentSiteId} sites={sites} isAdmin={isSiteAdmin} />
         </div>
 
-        {/* Layout switcher — centré, avec couleurs par mode */}
-        <div className="flex items-center gap-1 flex-shrink-0 p-1 rounded-2xl bg-secondary/40 border border-border/30">
-          {LAYOUT_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const isActive = layout === opt.mode;
-            return (
-              <button
-                key={opt.mode}
-                onClick={() => setLayout(opt.mode)}
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-gradient-to-r from-primary to-info text-white shadow-[0_2px_8px_hsl(198_65%_46%/0.2)]"
-                    : "text-muted-foreground hover:text-navy hover:bg-secondary/60"
-                )}
-                title={opt.label}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden lg:inline">{opt.label}</span>
-              </button>
-            );
-          })}
+        {/* Barre de recherche + Layout switcher */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Bouton recherche Cmd+K */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/50 border border-border/40 text-sm text-muted-foreground hover:text-navy hover:bg-secondary/70 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            title="Rechercher un module (Cmd+K)"
+          >
+            <Search className="w-4 h-4" />
+            <span className="text-xs">Rechercher...</span>
+            <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-card text-[10px] font-mono text-muted-foreground border border-border">
+              <Command className="w-3 h-3" />
+              <span>K</span>
+            </kbd>
+          </button>
+
+          {/* Layout switcher */}
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-secondary/40 border border-border/30">
+            {LAYOUT_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const isActive = layout === opt.mode;
+              return (
+                <button
+                  key={opt.mode}
+                  onClick={() => setLayout(opt.mode)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200",
+                    isActive
+                      ? "bg-gradient-to-r from-primary to-info text-white shadow-[0_2px_8px_hsl(198_65%_46%/0.2)]"
+                      : "text-muted-foreground hover:text-navy hover:bg-secondary/60"
+                  )}
+                  title={opt.label}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden lg:inline">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Role switcher + langue + Time Machine + profil */}
@@ -143,7 +154,7 @@ export function Workspace({
             href="/profil"
             className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-secondary/60 transition-colors"
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shadow-[0_2px_8px_hsl(198_65%_46%/0.15)]">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shadow-[0_2px_8px_hsl(198_65%_46%/0.1)]">
               {userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
             </div>
             <span className="text-sm font-medium text-navy hidden md:inline">{userName.split(" ")[0]}</span>
@@ -177,6 +188,9 @@ export function Workspace({
 
       {/* Dock en bas d'écran — barre divisée catégories | pages */}
       <Dock roleKey={roleKey} />
+
+      {/* Recherche de modules Cmd+K */}
+      <DockSearchTrigger open={searchOpen} onOpenChange={setSearchOpen} roleKey={roleKey} />
     </div>
   );
 }
@@ -185,8 +199,7 @@ function EmptyWorkspace() {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
       {/* Halo coloré derrière l'icône */}
-      <div className="absolute w-48 h-48 rounded-full bg-primary/[0.06] blur-[60px]" aria-hidden />
-      <div className="absolute w-32 h-32 rounded-full bg-accent/[0.05] blur-[50px] translate-x-12 translate-y-8" aria-hidden />
+      <div className="absolute w-48 h-48 rounded-full bg-primary/[0.05] blur-[50px]" aria-hidden />
 
       <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-tr from-primary/15 via-info/10 to-accent/10 flex items-center justify-center mb-4 shadow-[0_8px_32px_hsl(198_65%_46%/0.08),0_0_24px_hsl(258_58%_58%/0.06)] border border-primary/10">
         <Monitor className="w-12 h-12 text-primary/50" />
@@ -201,4 +214,25 @@ function EmptyWorkspace() {
       </p>
     </div>
   );
+}
+
+/**
+ * Trigger pour DockSearch — gère l'état ouvert/fermé et le raccourci clavier.
+ * Séparé pour éviter de re-render tout le Workspace à chaque frappe dans la recherche.
+ */
+function DockSearchTrigger({ open, onOpenChange, roleKey }: { open: boolean; onOpenChange: (v: boolean) => void; roleKey: string }) {
+  // Raccourci clavier global Cmd+K / Ctrl+K
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        onOpenChange(true);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onOpenChange]);
+
+  if (!open) return null;
+  return <DockSearch roleKey={roleKey} />;
 }

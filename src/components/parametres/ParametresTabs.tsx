@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import {
   Settings, Users, GraduationCap, BookOpen, UserCog, Settings2, Calendar, CalendarDays, Stamp, Building2,
   School, UsersRound, BookOpenCheck, ChevronDown, DollarSign, CopyCheck, HardDrive, ShieldCheck,
-  DoorOpen, ClipboardList, CalendarClock,
+  DoorOpen, ClipboardList, CalendarClock, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EtablissementTab } from "./EtablissementTab";
@@ -26,6 +26,7 @@ import { UserPermissionsTab } from "./UserPermissionsTab";
 import { SallesTab } from "./SallesTab";
 import { EnseignantsAffectationTab } from "./EnseignantsAffectationTab";
 import { DisponibilitesTab } from "./DisponibilitesTab";
+import { ImportModelesTab } from "./ImportModelesTab";
 
 import type { AvailableTenant } from "@/auth.config";
 
@@ -44,6 +45,7 @@ type Tab =
   | "periodes"
   | "signature"
   | "sites"
+  | "import"
   | "tarifs"
   | "doublons"
   | "sync"
@@ -66,6 +68,7 @@ const tabGroups: TabGroup[] = [
       { id: "annees", labelKey: "anneesScolaires", icon: Calendar },
       { id: "calendrier", labelKey: "calendrierScolaire", icon: CalendarDays },
       { id: "sites", labelKey: "sites", icon: Building2 },
+      { id: "import", labelKey: "importModeles", icon: Upload },
       { id: "signature", labelKey: "signature", icon: Stamp },
       { id: "sync", labelKey: "syncBackup", icon: HardDrive },
     ],
@@ -239,6 +242,7 @@ export function ParametresTabs({
           />
         )}
         {activeTab === "sites" && <SitesTab sites={sites} canManage={canManage} />}
+        {activeTab === "import" && <ImportModelesTab canManage={canManage} />}
         {activeTab === "sync" && <SyncTab canManage={canManage} />}
         {activeTab === "tarifs" && <TarifsTab />}
         {activeTab === "doublons" && <DoublonsTab />}

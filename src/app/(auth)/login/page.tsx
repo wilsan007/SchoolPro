@@ -89,7 +89,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-[28px] border border-white/40 bg-card/70 backdrop-blur-2xl shadow-[0_20px_60px_rgba(14,165,233,0.12),0_8px_24px_rgba(155,111,224,0.08)] px-8 py-10 sm:px-10 sm:py-12">
+    <div className="w-full max-w-md rounded-2xl border border-white/40 bg-card/70 backdrop-blur-2xl shadow-[0_20px_60px_rgba(14,165,233,0.12),0_8px_24px_rgba(155,111,224,0.08)] px-8 py-10 sm:px-10 sm:py-12">
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight text-foreground">{t("title")}</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">
@@ -145,7 +145,8 @@ function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors rounded-lg p-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -217,12 +218,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-background">
       {/* Panneau gauche — gradient turquoise → violet (caché sur mobile) */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary via-[hsl(200,55%,42%)] to-accent">
-        {/* Halos décoratifs */}
+        {/* Halo décoratif */}
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] rounded-full bg-accent/30 blur-3xl" />
         <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 text-white">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-[0_4px_16px_rgba(0,140,200,0.3),0_0_20px_rgba(140,90,220,0.15)]">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-[0_4px_16px_rgba(0,140,200,0.25)]">
               <School className="w-7 h-7 text-white" />
             </div>
             <span className="text-2xl font-display font-bold tracking-wide">SchoolPro</span>

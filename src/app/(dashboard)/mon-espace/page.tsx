@@ -13,6 +13,8 @@ import { getTeacherCounts } from "@/lib/action-counts";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { getActivityFeed, type ActivityItem } from "@/lib/activity-feed";
+import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
+import { synchroniserTachesAuto } from "@/lib/tache-engine";
 import prisma from "@/lib/prisma";
 import type { Jour, Role } from "@prisma/client";
 
@@ -82,6 +84,54 @@ export default async function MonEspacePage() {
     semaine: serialiser(feedSemaine),
     mois: serialiser(feedMois),
   };
+
+  // --------------------------------------------------------------
+  // 0. Tâches auto-générées (timeline par bucket temporel)
+  // --------------------------------------------------------------
+  // Auto-sync silencieux : régénère les tâches depuis l'état du système.
+  try {
+    await synchroniserTachesAuto(tenantId, claims);
+  } catch (e) {
+    console.error("[Mon espace] Auto-sync tâches échoué:", e);
+  }
+
+  const mesTaches = await prisma.tache.findMany({
+    where: {
+      tenantId,
+      assigneeAId: session!.user.id,
+      statut: { in: ["A_FAIRE", "EN_COURS"] },
+      ...siteFilterForModel("tache", claims),
+    },
+    include: {
+      assigneeA: { select: { id: true, name: true, email: true } },
+      creePar: { select: { id: true, name: true } },
+      classe: { select: { id: true, nom: true } },
+      matiere: { select: { id: true, nom: true } },
+    },
+    orderBy: [
+      { echeance: "asc" },
+      { priorite: "desc" },
+      { createdAt: "desc" },
+    ],
+    take: 100,
+  });
+
+  const tachesSerialisees: TacheData[] = mesTaches.map((t) => ({
+    id: t.id,
+    titre: t.titre,
+    description: t.description,
+    type: t.type,
+    priorite: t.priorite,
+    statut: t.statut,
+    echeance: t.echeance?.toISOString() ?? null,
+    dateFaite: t.dateFaite?.toISOString() ?? null,
+    sourceType: t.sourceType,
+    sourceId: t.sourceId,
+    assigneeA: t.assigneeA,
+    creePar: t.creePar,
+    classe: t.classe,
+    matiere: t.matiere,
+  }));
 
   // --------------------------------------------------------------
   // 1. Planning « ma semaine »
@@ -326,6 +376,17 @@ export default async function MonEspacePage() {
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         <GrilleKpi kpis={kpis} />
+
+        {/* Timeline des tâches — en retard / aujourd'hui / cette semaine / semaine prochaine */}
+        <section className="mt-6 space-y-3">
+          <TaskTimeline
+            taches={tachesSerialisees}
+            maintenant={maintenant.toISOString()}
+            showSync
+            compact
+            title={tEspace("actionsATraiter")}
+          />
+        </section>
 
         {/* Rubriques d'action — files d'attente cliquables */}
         <section className="mt-6 space-y-3">

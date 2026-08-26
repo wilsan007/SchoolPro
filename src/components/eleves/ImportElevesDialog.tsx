@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import {
   Loader2, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle,
   X, MapPin, ArrowLeft, Copy, Ban, RefreshCw, Plus, Undo2, CalendarClock,
-  Columns3, ChevronDown, ChevronRight,
+  Columns3, ChevronDown, ChevronRight, Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -305,6 +305,32 @@ export function ImportElevesDialog({
                   La date de naissance est obligatoire : c&apos;est elle qui permet de distinguer
                   deux homonymes et de reconnaître un élève déjà enregistré.
                 </p>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/import/modele/eleves");
+                      if (!res.ok) throw new Error();
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "modele_import_eleves.xlsx";
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      // silent
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t("downloadModel")}
+                </button>
               </div>
 
               <div

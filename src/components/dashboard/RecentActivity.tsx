@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AccentCard, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials, formatDate, getNoteColor } from "@/lib/utils";
@@ -26,10 +27,13 @@ export async function RecentActivity({ notes }: { notes: Note[] }) {
       </CardHeader>
       <CardContent>
         {notes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <BookOpen className="h-10 w-10 text-muted-foreground/30 mb-3" />
-            <p className="text-sm text-muted-foreground">{t("noRecentGrades")}</p>
-          </div>
+          <EmptyState
+            icon={BookOpen}
+            title={t("noRecentGrades")}
+            description="Les notes saisies récemment apparaîtront ici."
+            accent="emerald"
+            size="sm"
+          />
         ) : (
           <div className="space-y-3 sm:space-y-4">
             {notes.map((note) => (

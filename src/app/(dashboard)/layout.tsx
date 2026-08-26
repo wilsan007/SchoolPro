@@ -10,6 +10,12 @@ import { checkUserFinancialBlock } from "@/lib/financial-guard";
 import { PWAInstallPrompt } from "@/components/parent/PWAInstallPrompt";
 import { WindowManagerProvider } from "@/components/workspace/WindowManager";
 import { Workspace } from "@/components/workspace/Workspace";
+import { MobileLayout } from "@/components/layout/MobileLayout";
+
+// Détection mobile simple via User-Agent (server-side, pas de hydration mismatch)
+function isMobileDevice(userAgent: string): boolean {
+  return /Mobile|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(userAgent);
+}
 
 const getTenantName = unstable_cache(
   async (tenantId: string) => {
@@ -141,7 +147,17 @@ export default async function DashboardLayout({
     return <div className="h-screen bg-background overflow-auto">{children}</div>;
   }
 
-  // Mode workspace : plein écran, dock en bas avec tous les modules
+  // Mode mobile : navigation classique sans iframe/workspace
+  const userAgent = h.get("user-agent") ?? "";
+  if (isMobileDevice(userAgent)) {
+    return (
+      <MobileLayout roleKey={session.user.role} userName={session.user.name}>
+        {children}
+      </MobileLayout>
+    );
+  }
+
+  // Mode workspace desktop : plein écran, dock en bas avec tous les modules
   return (
     <WindowManagerProvider>
       <div className="flex flex-col h-screen overflow-hidden bg-background">

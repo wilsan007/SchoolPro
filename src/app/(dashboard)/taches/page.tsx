@@ -4,8 +4,12 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { Header } from "@/components/layout/Header";
-import { TachesView } from "@/components/taches/TachesView";
+import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
 import { guardPage } from "@/lib/guard-page";
+import { synchroniserTachesAuto } from "@/lib/tache-engine";
+import { getDemoNow } from "@/lib/demo-now";
+import { isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 export default async function TachesPage() {
   const session = await auth();
@@ -13,13 +17,28 @@ export default async function TachesPage() {
   if (!session?.user?.tenantId) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const role = session.user.role as Role;
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const maintenant = await getDemoNow();
+
+  // Auto-sync silencieux : régénère les tâches depuis l'état du système.
+  // Erreurs non bloquantes — la page affiche les tâches existantes.
+  try {
+    await synchroniserTachesAuto(tenantId, session.user);
+  } catch (e) {
+    console.error("[Taches page] Auto-sync échoué:", e);
+  }
+
+  // Les enseignants voient leurs tâches ; la direction voit toutes les tâches.
+  const voirMesTaches = isTeacherRole(role) || role === "PARENT" || role === "ACCOUNTANT";
+  const filterAssignee = voirMesTaches ? session.user.id : undefined;
 
   const [taches, users] = await Promise.all([
     prisma.tache.findMany({
       where: {
         tenantId,
         ...siteFilterForModel("tache", session.user),
+        ...(filterAssignee ? { assigneeAId: filterAssignee } : {}),
         ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       include: {
@@ -31,9 +50,10 @@ export default async function TachesPage() {
       orderBy: [
         { statut: "asc" },
         { echeance: "asc" },
+        { priorite: "desc" },
         { createdAt: "desc" },
       ],
-      take: 200,
+      take: 300,
     }),
     prisma.user.findMany({
       where: { tenantId, ...siteFilterForModel("user", session.user) },
@@ -42,7 +62,7 @@ export default async function TachesPage() {
     }),
   ]);
 
-  const serialized = taches.map((t) => ({
+  const serialized: TacheData[] = taches.map((t) => ({
     id: t.id,
     titre: t.titre,
     description: t.description,
@@ -51,6 +71,8 @@ export default async function TachesPage() {
     statut: t.statut,
     echeance: t.echeance?.toISOString() ?? null,
     dateFaite: t.dateFaite?.toISOString() ?? null,
+    sourceType: t.sourceType,
+    sourceId: t.sourceId,
     assigneeA: t.assigneeA,
     creePar: t.creePar,
     classe: t.classe,
@@ -66,7 +88,15 @@ export default async function TachesPage() {
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <TachesView taches={serialized} users={users} />
+        <div className="max-w-4xl mx-auto">
+          <TaskTimeline
+            taches={serialized}
+            maintenant={maintenant.toISOString()}
+            showSync
+            showCreate={!isTeacherRole(role)}
+            users={users}
+          />
+        </div>
       </div>
     </div>
   );

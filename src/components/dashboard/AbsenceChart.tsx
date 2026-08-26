@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AccentCard, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Loader2 } from "lucide-react";
+import { Loader2, BarChart3 } from "lucide-react";
 
 interface WeekData {
   semaine: string;
@@ -15,7 +16,7 @@ interface WeekData {
   retards: number;
 }
 
-export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteFilter?: Record<string, unknown> }) {
+export function AbsenceChart({ tenantId }: { tenantId: string; siteFilter?: Record<string, unknown> }) {
   const t = useTranslations("dashboard");
   const [data, setData] = useState<WeekData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +29,8 @@ export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteF
       .finally(() => setLoading(false));
   }, [tenantId]);
 
+  const hasData = data.length > 0 && !data.every((d) => d.justifiees === 0 && d.injustifiees === 0 && d.retards === 0);
+
   return (
     <AccentCard accent="amber">
       <CardHeader>
@@ -39,10 +42,14 @@ export function AbsenceChart({ tenantId, siteFilter }: { tenantId: string; siteF
           <div className="flex items-center justify-center h-[200px] sm:h-[300px]">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : data.length === 0 || data.every((d) => d.justifiees === 0 && d.injustifiees === 0 && d.retards === 0) ? (
-          <div className="flex items-center justify-center h-[200px] sm:h-[300px] text-sm text-muted-foreground">
-            {t("noAbsences8Weeks")}
-          </div>
+        ) : !hasData ? (
+          <EmptyState
+            icon={BarChart3}
+            title={t("noAbsences8Weeks")}
+            description="Les données d'absences des 8 dernières semaines apparaîtront ici."
+            accent="amber"
+            size="sm"
+          />
         ) : (
           <div className="w-full h-[200px] sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">

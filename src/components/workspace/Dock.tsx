@@ -263,7 +263,7 @@ export function Dock({ roleKey }: DockProps) {
             style={{ borderBottom: `2px solid hsl(${openGroup.accent} / 0.35)` }}
           >
             <div
-              className="w-full bg-card/97 backdrop-blur-[24px] shadow-[0_-12px_48px_hsl(0_0%_0%_/_0.12)] border-t"
+              className="w-full bg-card/97 backdrop-blur-[12px] shadow-[0_-12px_48px_hsl(0_0%_0%_/_0.12)] border-t"
               style={{ borderTopColor: `hsl(${openGroup.accent} / 0.4)` }}
             >
               <div className="flex items-center gap-3 px-6 pt-4 pb-3">
@@ -290,7 +290,7 @@ export function Dock({ roleKey }: DockProps) {
                 </div>
                 <button
                   onClick={() => setExpandedGroup(null)}
-                  className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-navy hover:bg-secondary transition-colors flex-shrink-0"
+                  className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-navy hover:bg-secondary transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                   title="Fermer"
                 >
                   <X className="w-5 h-5" />
@@ -309,7 +309,7 @@ export function Dock({ roleKey }: DockProps) {
                         key={item.href}
                         onClick={() => handleItemClick(item, openGroup.accent)}
                         className={cn(
-                          "flex flex-col items-start gap-2 p-3 rounded-2xl border transition-all duration-200 text-left group",
+                          "flex flex-col items-start gap-2 p-3 rounded-2xl border transition-all duration-200 text-left group focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
                           isActiveItem
                             ? "border-transparent ring-2"
                             : "border-border/70 hover:border-transparent hover:-translate-y-0.5"
@@ -379,7 +379,7 @@ export function Dock({ roleKey }: DockProps) {
       )}
 
       {/* BARRE DU DOCK — catégories (gauche) | onglets ouverts (droite, scroll horizontal) */}
-      <div className="relative z-50 flex-shrink-0 bg-gradient-to-t from-background to-card/95 backdrop-blur-[20px] border-t border-border/70 print:hidden">
+      <div className="relative z-50 flex-shrink-0 bg-gradient-to-t from-background to-card/95 backdrop-blur-[12px] border-t border-border/70 print:hidden">
         <div className="flex items-stretch h-[76px]">
           {/* PARTIE GAUCHE — Catégories (menu généraux) */}
           <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 border-r border-border/40">
@@ -393,7 +393,7 @@ export function Dock({ roleKey }: DockProps) {
                   key={group.groupKey}
                   onClick={() => handleGroupClick(group.groupKey)}
                   className={cn(
-                    "flex-shrink-0 flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all duration-200 group relative",
+                    "flex-shrink-0 flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all duration-200 group relative focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
                     isExpanded
                       ? "bg-white/70 shadow-inner"
                       : isActiveGroup
@@ -507,7 +507,7 @@ export function Dock({ roleKey }: DockProps) {
                         <button
                           onClick={(e) => handleTabClose(e, win.id)}
                           className={cn(
-                            "w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors",
+                            "w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
                             isActive
                               ? "text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                               : "text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"

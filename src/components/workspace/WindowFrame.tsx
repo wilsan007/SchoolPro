@@ -158,14 +158,14 @@ export function WindowFrame({ window: win, slot, isActive, containerRef }: Windo
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             onClick={handleMinimize}
-            className="w-7 h-7 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+            className="w-7 h-7 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             title="Minimiser"
           >
             <Minus className="w-4 h-4" />
           </button>
           <button
             onClick={handleClose}
-            className="w-7 h-7 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="w-7 h-7 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             title="Fermer"
           >
             <X className="w-4 h-4" />
