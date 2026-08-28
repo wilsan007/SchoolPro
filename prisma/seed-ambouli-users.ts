@@ -17,7 +17,7 @@ export interface UsersData {
   allStaffIds: string[];
 }
 
-const PASSWORD = "Ambouli@2026!";
+const PASSWORD = process.env.SEED_PASSWORD ?? "Ambouli@2026!";
 const SALAIRE_BASE = {
   CDI: 180000,
   FONCTIONNAIRE: 220000,

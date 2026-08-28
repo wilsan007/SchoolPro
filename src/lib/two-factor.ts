@@ -20,21 +20,23 @@ const ISSUER = "EcolPro";
 const ALGORITHM = "aes-256-gcm";
 const KEY_LENGTH = 32;
 const IV_LENGTH = 16;
+const SALT_LENGTH = 16;
 
-/** Récupère la clé de chiffrement depuis l'env. */
-function getEncryptionKey(): Buffer {
+/** Récupère la clé de chiffrement depuis l'env, dérivée avec un sel par secret. */
+function getEncryptionKey(salt: Buffer): Buffer {
   const secret = process.env.TWO_FACTOR_SECRET;
   if (!secret) {
     throw new Error(
       "TWO_FACTOR_SECRET manquant dans les variables d'environnement"
     );
   }
-  return scryptSync(secret, "ecolpro-2fa-salt", KEY_LENGTH);
+  return scryptSync(secret, salt, KEY_LENGTH);
 }
 
-/** Chiffre un secret TOTP. */
+/** Chiffre un secret TOTP avec un sel aléatoire unique. */
 function chiffrerSecret(secretBase32: string): { chiffre: string; iv: string } {
-  const key = getEncryptionKey();
+  const salt = randomBytes(SALT_LENGTH);
+  const key = getEncryptionKey(salt);
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv);
   const encrypted = Buffer.concat([
@@ -42,20 +44,21 @@ function chiffrerSecret(secretBase32: string): { chiffre: string; iv: string } {
     cipher.final(),
   ]);
   const tag = cipher.getAuthTag();
-  // Format: tag + encrypted, encodé en base64
+  // Format: salt + tag + encrypted, encodé en base64
   return {
-    chiffre: Buffer.concat([tag, encrypted]).toString("base64"),
+    chiffre: Buffer.concat([salt, tag, encrypted]).toString("base64"),
     iv: iv.toString("base64"),
   };
 }
 
-/** Déchiffre un secret TOTP. */
+/** Déchiffre un secret TOTP (extrait le sel du préfixe). */
 function dechiffrerSecret(chiffre: string, iv: string): string {
-  const key = getEncryptionKey();
-  const ivBuf = Buffer.from(iv, "base64");
   const data = Buffer.from(chiffre, "base64");
-  const tag = data.subarray(0, 16);
-  const encrypted = data.subarray(16);
+  const salt = data.subarray(0, SALT_LENGTH);
+  const tag = data.subarray(SALT_LENGTH, SALT_LENGTH + 16);
+  const encrypted = data.subarray(SALT_LENGTH + 16);
+  const key = getEncryptionKey(salt);
+  const ivBuf = Buffer.from(iv, "base64");
   const decipher = createDecipheriv(ALGORITHM, key, ivBuf);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(
@@ -73,7 +76,7 @@ function creerTOTP(secret: Secret | string, email: string): TOTP {
   return new TOTP({
     issuer: ISSUER,
     label: email,
-    algorithm: "SHA1",
+    algorithm: "SHA256",
     digits: 6,
     period: 30,
     secret,
@@ -287,6 +290,8 @@ function genererBackupCodes(): string[] {
 
 /** Hash un code de secours pour le stockage (jamais en clair). */
 function hasherBackupCode(code: string): string {
-  const key = getEncryptionKey();
-  return scryptSync(code, key.subarray(0, 16), 32).toString("base64");
+  const salt = randomBytes(SALT_LENGTH);
+  const key = getEncryptionKey(salt);
+  // Inclure le sel dans le hash pour permettre la vérification
+  return salt.toString("base64") + ":" + scryptSync(code, key.subarray(0, 16), 32).toString("base64");
 }

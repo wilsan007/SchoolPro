@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/rbac";
+import { siteFilterForModel } from "@/lib/site-scope";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { validateMagicBytes } from "@/lib/security/magic-bytes";
+import prisma from "@/lib/prisma";
 import {
   getSupabaseServer,
   INSCRIPTION_BUCKET,
@@ -56,11 +59,39 @@ export async function POST(req: NextRequest) {
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
-  const type = (formData.get("type") as string | null) ?? "AUTRE";
-  const candidatureId = formData.get("candidatureId") as string | null;
+  const rawType = (formData.get("type") as string | null) ?? "AUTRE";
+  const rawCandidatureId = formData.get("candidatureId") as string | null;
 
   if (!file) {
     return NextResponse.json({ error: "Aucun fichier" }, { status: 400 });
+  }
+
+  // Whitelist du type de pièce d'inscription
+  const TYPES_AUTORISES = ["PHOTO", "ACTE_NAISSANCE", "PIECE_PARENT", "BULLETIN", "AUTRE"];
+  if (!TYPES_AUTORISES.includes(rawType)) {
+    return NextResponse.json({ error: "Type de pièce invalide" }, { status: 400 });
+  }
+  const type = rawType;
+
+  // Valider candidatureId : alphanumérique + tirets uniquement, et vérifier en base
+  const candidatureId = rawCandidatureId
+    ? rawCandidatureId.replace(/[^a-zA-Z0-9_-]/g, "")
+    : null;
+  if (rawCandidatureId && candidatureId !== rawCandidatureId) {
+    return NextResponse.json({ error: "Identifiant de candidature invalide" }, { status: 400 });
+  }
+  if (candidatureId) {
+    const candidature = await prisma.candidature.findFirst({
+      where: {
+        id: candidatureId,
+        tenantId: session.user.tenantId,
+        ...siteFilterForModel("candidature", session.user),
+      },
+      select: { id: true },
+    });
+    if (!candidature) {
+      return NextResponse.json({ error: "Candidature introuvable" }, { status: 404 });
+    }
   }
 
   // Validation du type MIME
@@ -87,6 +118,14 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
+
+  // Vérifier les magic bytes pour confirmer le type MIME réel
+  if (!validateMagicBytes(buffer, file.type)) {
+    return NextResponse.json(
+      { error: "Le contenu du fichier ne correspond pas au type déclaré" },
+      { status: 400 }
+    );
+  }
 
   const { error: uploadError } = await supabase.storage
     .from(INSCRIPTION_BUCKET)

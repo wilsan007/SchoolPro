@@ -59,6 +59,17 @@ export interface LectureTesseract {
 }
 
 async function ouvrirWorker(): Promise<Worker> {
+  // En production, OCR_LANG_PATH doit pointer vers un dossier local contenant
+  // les fichiers .traineddata. Sans cette variable, Tesseract télécharge depuis
+  // un CDN public — ce qui est inacceptable en production (SSRF potentiel, fuite
+  // de données vers le CDN, indisponibilité réseau).
+  if (process.env.NODE_ENV === "production" && !process.env.OCR_LANG_PATH) {
+    console.warn(
+      "[OCR] OCR_LANG_PATH non configuré en production — " +
+        "les données de langue seront téléchargées depuis le CDN public. " +
+        "Configurez OCR_LANG_PATH vers un dossier local contenant les .traineddata."
+    );
+  }
   return createWorker(LANGUES, 1, {
     cachePath: process.env.OCR_CACHE_PATH ?? tmpdir(),
     // `langPath` n'est passé que s'il est configuré : la bibliothèque retombe

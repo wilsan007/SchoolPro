@@ -4,6 +4,11 @@ import { verifyMetaSignature } from "@/lib/webhooks";
 import { repondreAuParent } from "@/lib/learnos/bot-parent-webhook";
 import { erreurJson } from "@/lib/erreurs-api";
 
+/** Sanitise une valeur pour les logs : retire les caractères de contrôle. */
+function sanitizeForLog(value: string): string {
+  return value.replace(/[\n\r\t]/g, " ").slice(0, 200);
+}
+
 // Pas de valeur par défaut publique : un jeton de vérification connu de tous
 // laisserait un tiers valider le webhook. En production, l'absence de
 // configuration désactive la vérification (handshake refusé) plutôt que
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest) {
             const from = msg.from; // numéro international
             const text = msg.text?.body ?? msg.type ?? "(media)";
 
-            console.log(`[WhatsApp Webhook] Message de ${from}`);
+            console.log(`[WhatsApp Webhook] Message de ${sanitizeForLog(from)}`);
 
             // Le traitement est délibérément à l'intérieur de la boucle et
             // attendu : sur Vercel, la fonction est gelée dès la réponse

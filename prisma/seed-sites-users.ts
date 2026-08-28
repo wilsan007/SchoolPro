@@ -113,7 +113,7 @@ async function main() {
   }
 
   // 5. Hash du mot de passe par défaut
-  const defaultPassword = await bcrypt.hash("EcolPro@2026", 12);
+  const defaultPassword = await bcrypt.hash(process.env.SEED_PASSWORD ?? "EcolPro@2026", 12);
 
   // 6. Créer Mouna Mohamed — Directrice Site 1 (+ Site 3)
   const mouna = await prisma.user.upsert({

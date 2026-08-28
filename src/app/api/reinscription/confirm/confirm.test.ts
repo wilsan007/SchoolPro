@@ -15,6 +15,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/security/rateLimit", () => ({
+  rateLimit: vi.fn(() => ({ allowed: true, remaining: 5, resetAt: Date.now() + 60000 })),
+  getClientIP: vi.fn(() => "127.0.0.1"),
+}));
+
 import prisma from "@/lib/prisma";
 
 const mockPrisma = prisma as unknown as {

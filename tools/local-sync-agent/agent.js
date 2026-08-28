@@ -100,9 +100,11 @@ function downloadBackup() {
 
         fs.mkdirSync(backupPath, { recursive: true });
 
-        const filename =
+        const rawFilename =
           res.headers["content-disposition"]
             ?.match(/filename="([^"]+)"/)?.[1] || `sauvegarde_${dateStr}.zip`;
+        // Sanitiser le filename : ne garder que le basename, rejeter les ..
+        const filename = path.basename(rawFilename).replace(/\.\./g, "") || `sauvegarde_${dateStr}.zip`;
         const filePath = path.join(backupPath, filename);
 
         const fileStream = fs.createWriteStream(filePath);

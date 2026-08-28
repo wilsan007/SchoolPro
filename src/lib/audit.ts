@@ -55,4 +55,59 @@ export function auditFire(params: AuditParams): void {
   audit(params).catch((err) =>
     console.error("[audit] Erreur fire-and-forget:", err)
   );
+  alertIfSecurityEvent(params);
+}
+
+// ============================================================
+// ALERTES DE SÉCURITÉ
+// ============================================================
+
+/** Actions dont un échec répété doit déclencher une alerte. */
+const SECURITY_ACTIONS = new Set([
+  "auth:login",
+  "auth:2fa",
+  "auth:turnstile",
+  "auth:super-admin",
+  "switch-role",
+  "rbac:denied",
+]);
+
+/** Seuil d'échecs avant alerte (dans la fenêtre de 5 min). */
+const ALERT_THRESHOLD = 5;
+const ALERT_WINDOW_SEC = 300;
+
+/** Compteur en mémoire des échecs récents par clé. */
+const failureCounts = new Map<string, { count: number; firstAt: number }>();
+
+/**
+ * Détecte les événements de sécurité (échec d'auth, refus de permission)
+ * et émet une alerte console si le seuil est atteint.
+ *
+ * En production, cette alerte devrait être connectée à un canal
+ * (email, Slack, PagerDuty) via une intégration externe.
+ */
+function alertIfSecurityEvent(params: AuditParams): void {
+  if (params.verdict !== "DENIED") return;
+  if (!SECURITY_ACTIONS.has(params.action)) return;
+
+  const key = `${params.action}:${params.ip ?? params.userId ?? "unknown"}`;
+  const now = Date.now();
+  const entry = failureCounts.get(key);
+
+  if (!entry || now - entry.firstAt > ALERT_WINDOW_SEC * 1000) {
+    failureCounts.set(key, { count: 1, firstAt: now });
+    return;
+  }
+
+  entry.count++;
+  if (entry.count >= ALERT_THRESHOLD) {
+    console.warn(
+      `[SECURITY ALERT] ${entry.count} échecs "${params.action}" ` +
+        `depuis ${params.ip ?? params.userId ?? "?"} ` +
+        `dans les dernières ${ALERT_WINDOW_SEC}s. ` +
+        `Action: ${params.action}, ressource: ${params.resource ?? "N/A"}.`
+    );
+    // Reset pour éviter les alertes en cascade
+    failureCounts.delete(key);
+  }
 }

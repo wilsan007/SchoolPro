@@ -93,6 +93,12 @@ export const ollamaProvider: AiProvider = {
 
   async generate(messages: AiMessage[], options?: AiGenerateOptions): Promise<AiResult> {
     const baseUrl = process.env.OLLAMA_BASE_URL ?? DEFAULT_BASE_URL;
+    if (process.env.NODE_ENV === "production" && baseUrl.startsWith("http://")) {
+      throw new AiUnavailableError(
+        "ollama : OLLAMA_BASE_URL doit utiliser HTTPS en production",
+        "ollama"
+      );
+    }
     const avecImage = messages.some(contientImage);
     const modelVision = process.env.OLLAMA_VISION_MODEL;
     if (avecImage && !modelVision) {

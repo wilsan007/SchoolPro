@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { erreurJson } from "@/lib/erreurs-api";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 
 /**
  * POST /api/reinscription/confirm
@@ -11,6 +12,16 @@ import { erreurJson } from "@/lib/erreurs-api";
  * Il confirme ou refuse la réinscription de son enfant.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit : 5 requêtes/min par IP pour limiter l'énumération d'invitations
+  const ip = getClientIP(req);
+  const rl = rateLimit({ max: 5, windowSec: 60, key: `reinsc-confirm:${ip}` });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Trop de requêtes. Réessayez dans un instant." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const body = await req.json().catch(() => null);
   if (!body?.invitationId || typeof body.confirme !== "boolean") {
     return erreurJson("DONNEES_INVALIDES");

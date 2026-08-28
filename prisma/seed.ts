@@ -28,7 +28,13 @@ async function main() {
   console.log(`✅ Tenant créé: ${tenant.name}`);
 
   // --- Utilisateurs ---
-  const passwordHash = await bcrypt.hash("Demo@2026!", 12);
+  // Mot de passe de seed : utiliser SEED_PASSWORD env var en production,
+  // fallback sur une valeur de démonstration pour le dev local uniquement.
+  const seedPassword = process.env.SEED_PASSWORD ?? "Demo@2026!";
+  if (!process.env.SEED_PASSWORD && process.env.NODE_ENV === "production") {
+    console.warn("⚠️  SEED_PASSWORD non configuré — mot de passe de démonstration utilisé en production !");
+  }
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
 
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@lycee-demo.ecolpro.app" },

@@ -6,7 +6,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Création des comptes d'accès...");
 
-  const passwordHash = await bcrypt.hash("Demo@2026!", 12);
+  const seedPassword = process.env.SEED_PASSWORD ?? "Demo@2026!";
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
 
   // --- Super Admin (global, non lié à un tenant) ---
   const superAdmin = await prisma.user.upsert({

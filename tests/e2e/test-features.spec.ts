@@ -4,7 +4,7 @@ const BASE = "http://localhost:3002";
 const ADMIN_EMAIL = "admin@lycee-demo.ecolpro.app";
 const TEACHER_EMAIL = "enseignant@lycee-demo.ecolpro.app";
 const PARENT_EMAIL = "parent@lycee-demo.ecolpro.app";
-const PASSWORD = "Demo@2026!";
+const PASSWORD = process.env.E2E_PASSWORD ?? "Demo@2026!";
 
 async function login(page: Page, email: string, password: string) {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });

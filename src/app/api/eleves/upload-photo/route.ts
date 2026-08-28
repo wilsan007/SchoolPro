@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { validateMagicBytes } from "@/lib/security/magic-bytes";
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,6 +44,12 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // Vérifier les magic bytes pour confirmer le type MIME réel
+    if (!validateMagicBytes(buffer, file.type)) {
+      return NextResponse.json({ error: "Le contenu du fichier ne correspond pas au type déclaré" }, { status: 400 });
+    }
+
     const base64 = buffer.toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
 

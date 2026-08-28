@@ -23,7 +23,7 @@ import { test as base, expect, type Page } from "@playwright/test";
  * de tokens CSRF stale, et de timing du handler onSubmit.
  */
 
-export const E2E_PASSWORD = "Demo@2026!";
+export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "Demo@2026!";
 const SUFFIXE = "@qa-learnos.test";
 
 export const E2E_CREDENTIALS: Record<string, { email: string; password: string }> = {
