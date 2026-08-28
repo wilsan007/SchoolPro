@@ -4,6 +4,20 @@ overrides:
   sharp: ">=0.35.0"
   next>postcss: ">=8.5.18"
   tar: ^7.5.16
+  # CVE-2026-14257 + contournement : DoS par expansion non bornée.
+  # Override conditionnel : seul brace-expansion >=4.0.0 (vulnérable) est
+  # forcé à 5.0.9. Les versions 1.x/2.x/3.x (utilisées par minimatch@3)
+  # gardent leur API originale et ne sont pas affectées par la CVE.
+  "brace-expansion@>=4.0.0": "5.0.9"
+  # GHSA-w5hq-g745-h8pq : dépassement de buffer dans uuid v3/v5/v6.
+  # Seul uuid <11.1.1 (vulnérable) est forcé à 11.1.1.
+  "uuid@<11.1.1": "11.1.1"
+  # GHSA-5p4m-2wfm-xmqj : consommation CPU quadratique dans js-yaml 4.x.
+  # Pin à 4.3.1 (pas >= car la 5.x casse l'API ESLint 8).
+  "js-yaml@>=4.0.0 <4.3.1": "4.3.1"
+  # GHSA-ggr8-5vv4-36mx : épuisement de pile sur objets récursifs.
+  # Seul deepmerge-ts <8.0.0 (vulnérable) est forcé à 8.0.2.
+  "deepmerge-ts@<8.0.0": "8.0.2"
 
 onlyBuiltDependencies:
   - "@prisma/client"

@@ -23,21 +23,26 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["tesseract.js", "@napi-rs/canvas", "sharp"],
   experimental: {
     serverActions: {
-      allowedOrigins: ["*.ecolpro.app", "*.netlify.app", "*.pages.dev", "*.vercel.app", "localhost:3000", "localhost:3001", "localhost:3002", "localhost:3003", "localhost:3004", "localhost:3005", "10.139.161.24:3003"],
+      // Seul le domaine de production et les hôtes locaux sont autorisés.
+      // Les jokers d'anciennes plateformes (*.netlify.app, *.pages.dev,
+      // *.vercel.app) sont retirés : ils permettent à n'importe quel
+      // sous-domaine de ces plateformes d'appeler nos Server Actions.
+      allowedOrigins: ["*.ecolpro.app", "localhost:3000", "localhost:3001", "localhost:3002", "localhost:3003", "localhost:3004", "localhost:3005", "10.139.161.24:3003"],
     },
   },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.ecolpro.app" },
-      { protocol: "https", hostname: "**.pages.dev" },
-      { protocol: "https", hostname: "**.vercel.app" },
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
   },
   async headers() {
     const securityHeaders = [
-      { key: "X-Frame-Options", value: "DENY" },
+      // SAMEORIGIN (et non DENY) : le workspace charge les modules en
+      // iframes same-origin (?embedded=1). DENY bloquerait tout framing,
+      // contredisant frame-ancestors 'self' dans la CSP.
+      { key: "X-Frame-Options", value: "SAMEORIGIN" },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-DNS-Prefetch-Control", value: "on" },
