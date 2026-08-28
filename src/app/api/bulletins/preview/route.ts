@@ -58,7 +58,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error("[API/bulletins/preview]", error);
-    const message = error instanceof Error ? error.message : "Erreur inconnue";
-    return NextResponse.json({ error: "Erreur serveur", detail: message }, { status: 500 });
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

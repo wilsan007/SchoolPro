@@ -28,10 +28,7 @@ export type MobileScope = MobileUser & SessionSiteClaims;
 export function mobileSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("AUTH_SECRET est requis pour signer/vérifier les jetons mobiles");
-    }
-    return new TextEncoder().encode("ecolpro-dev-secret");
+    throw new Error("AUTH_SECRET est requis pour signer/vérifier les jetons mobiles");
   }
   return new TextEncoder().encode(secret);
 }

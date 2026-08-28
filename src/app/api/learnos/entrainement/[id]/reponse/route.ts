@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { erreurJson } from "@/lib/erreurs-api";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/rbac";
 import { ErreurSeance, soumettreEtape } from "@/lib/learnos/entrainement";
+
+const BodySchema = z.object({
+  exerciceId: z.string().min(1),
+  index: z.number().int().min(0),
+  reponse: z.string(),
+});
 
 /** Codes métier traduits en statuts HTTP — le reste est un 500 légitime. */
 const STATUT_PAR_CODE: Record<ErreurSeance["code"], number> = {
@@ -34,33 +41,29 @@ export async function POST(
   if (denied) return denied;
 
   const { id: feuilleId } = await params;
-  const body = (await req.json().catch(() => null)) as {
-    exerciceId?: string;
-    index?: number;
-    reponse?: string;
-  } | null;
-
-  if (!body?.exerciceId || typeof body.index !== "number" || typeof body.reponse !== "string") {
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
     return erreurJson("CHAMPS_REPONSE_REQUIS");
   }
 
   try {
     const resultat = await soumettreEtape(session.user.tenantId, session.user, {
       feuilleId,
-      exerciceId: body.exerciceId,
-      index: body.index,
+      exerciceId: parsed.data.exerciceId,
+      index: parsed.data.index,
       // Une réponse démesurée n'est pas une réponse : on borne avant de
       // l'écrire, plutôt que de stocker ce qu'un client a bien voulu envoyer.
-      reponse: body.reponse.slice(0, 500),
+      reponse: parsed.data.reponse.slice(0, 500),
     });
     return NextResponse.json(resultat);
   } catch (error) {
     if (error instanceof ErreurSeance) {
       return NextResponse.json(
-        { error: error.message, code: error.code },
+        { error: "Erreur de séance", code: error.code },
         { status: STATUT_PAR_CODE[error.code] }
       );
     }
+    console.error("[API/learnos/entrainement/reponse]", error);
     throw error;
   }
 }

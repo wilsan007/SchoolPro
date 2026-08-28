@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
       // Une tâche en échec ne doit pas empêcher les suivantes : le répartiteur
       // rend compte de chacune séparément plutôt que d'abandonner le passage.
       resultats[tache.nom] = {
-        error: error instanceof Error ? error.message : String(error),
+        error: "Échec de la tâche",
       };
       console.error(`[cron/dispatch] tâche « ${tache.nom} » en échec`, error);
     }

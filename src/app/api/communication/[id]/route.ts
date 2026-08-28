@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 // PATCH — envoyer une notification en brouillon
 export async function PATCH(
@@ -39,6 +40,14 @@ export async function PATCH(
   }
 
   if (action === "annuler") {
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "notification:cancel",
+      verdict: "ALLOWED",
+      resource: "notification",
+      resourceId: id,
+    });
     // eslint-disable-next-line ecolpro/require-tenant-id -- id déjà vérifié par findFirst ci-dessus (ligne 23-25)
     await prisma.notification.delete({ where: { id } });
     return NextResponse.json({ success: true });

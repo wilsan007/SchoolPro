@@ -105,8 +105,9 @@ export async function POST(req: NextRequest) {
         "compris dans la marge (« 3/5 », « 1,5 », « Total : 14/20 »).",
     });
   } catch (error) {
+    console.error("[API/learnos/copies/notes]", error);
     if (error instanceof AiAllProvidersFailedError) {
-      return erreurJson("OCR_INDISPONIBLE", undefined, { detail: error.message });
+      return erreurJson("OCR_INDISPONIBLE");
     }
     return erreurJson("FICHIER_INVALIDE");
   }
@@ -216,9 +217,7 @@ export async function PUT(req: NextRequest) {
   } catch (error) {
     if (error instanceof ErreurCopie) {
       return erreurJson(
-        error.code === "points_hors_bareme" ? "POINTS_HORS_BAREME" : "FEUILLE_PAPIER_INTROUVABLE",
-        undefined,
-        { detail: error.message }
+        error.code === "points_hors_bareme" ? "POINTS_HORS_BAREME" : "FEUILLE_PAPIER_INTROUVABLE"
       );
     }
     throw error;

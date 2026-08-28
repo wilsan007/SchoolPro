@@ -404,9 +404,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("[API/ai/chat]", error);
     if (error instanceof AiConfigError) {
-      return NextResponse.json({ error: error.message }, { status: 503 });
+      return NextResponse.json({ error: "IA non configurée" }, { status: 503 });
     }
-    const message = error instanceof Error ? error.message : "Erreur serveur";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

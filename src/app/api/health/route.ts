@@ -7,8 +7,9 @@ export async function GET() {
     const userCount = await prisma.user.count();
     return NextResponse.json({ ok: true, userCount });
   } catch (error) {
+    console.error("[API/health]", error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : String(error) },
+      { ok: false, error: "Service indisponible" },
       { status: 500 }
     );
   }

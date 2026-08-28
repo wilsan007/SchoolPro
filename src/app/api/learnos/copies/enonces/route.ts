@@ -158,8 +158,9 @@ export async function POST(req: NextRequest) {
           "Conserve la numérotation des exercices et les barèmes indiqués.",
       });
     } catch (error) {
+      console.error("[API/learnos/copies/enonces]", error);
       if (error instanceof AiAllProvidersFailedError) {
-        return erreurJson("OCR_INDISPONIBLE", undefined, { detail: error.message });
+        return erreurJson("OCR_INDISPONIBLE");
       }
       return erreurJson("FICHIER_INVALIDE");
     }

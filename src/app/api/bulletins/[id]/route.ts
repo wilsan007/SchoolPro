@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForRelation } from "@/lib/site-filter";
 import {
@@ -8,6 +9,14 @@ import {
   tracerModificationsBulletin,
   enregistrerHistoriqueBulletin,
 } from "@/lib/bulletin-historique";
+import { auditFire } from "@/lib/audit";
+
+const BodySchema = z.object({
+  appreciation: z.string().optional(),
+  decision: z.string().optional(),
+  moyenneGenerale: z.coerce.number().min(0).max(20).optional(),
+  rang: z.coerce.number().int().min(1).optional(),
+});
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -19,8 +28,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (denied) return denied;
 
     const { id } = await params;
-    const body = await req.json();
-    const { appreciation, decision, moyenneGenerale, rang } = body;
+    const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Données invalides" }, { status: 400 });
+    }
+    const { appreciation, decision, moyenneGenerale, rang } = parsed.data;
 
     const siteFilter = siteFilterForRelation(session.user, "eleve");
 
@@ -113,6 +125,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       }),
       null
     ).catch(() => {/* non-fatal */});
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "bulletin:delete",
+      verdict: "ALLOWED",
+      resource: "bulletin",
+      resourceId: id,
+      metadata: { eleveId: existing.eleveId, periodeId: existing.periodeId },
+    });
 
     await prisma.bulletin.delete({ where: { id } });
 

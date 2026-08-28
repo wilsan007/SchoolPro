@@ -11,6 +11,10 @@ export async function POST(req: NextRequest) {
 
   const stripe = new Stripe(stripeKey);
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("[Stripe Webhook] STRIPE_WEBHOOK_SECRET manquant — rejet de tous les événements");
+    return NextResponse.json({ error: "Configuration incomplète" }, { status: 500 });
+  }
 
   const body = await req.text();
   const signature = req.headers.get("stripe-signature") ?? "";
@@ -18,9 +22,7 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
 
   try {
-    event = webhookSecret
-      ? stripe.webhooks.constructEvent(body, signature, webhookSecret)
-      : JSON.parse(body);
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error("[Stripe Webhook] Signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });

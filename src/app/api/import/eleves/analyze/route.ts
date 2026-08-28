@@ -52,7 +52,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(plan);
   } catch (error) {
     console.error("[API/import/eleves/analyze]", error);
-    const message = error instanceof Error ? error.message : "Erreur lors de l'analyse";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Erreur lors de l'analyse" }, { status: 500 });
   }
 }

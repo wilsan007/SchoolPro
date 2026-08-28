@@ -159,8 +159,6 @@ export async function PATCH(
     return NextResponse.json({ success: true, action, type, id });
   } catch (error) {
     console.error("[api/propositions PATCH]", error);
-    const message =
-      error instanceof Error ? error.message : "Erreur lors du traitement";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: "Erreur lors du traitement" }, { status: 400 });
   }
 }

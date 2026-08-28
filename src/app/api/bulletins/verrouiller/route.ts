@@ -7,6 +7,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { enregistrerHistoriqueBulletin } from "@/lib/bulletin-historique";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { auditFire } from "@/lib/audit";
 import type { Role } from "@prisma/client";
 
 /**
@@ -136,6 +137,15 @@ export async function POST(req: NextRequest) {
         JSON.stringify(action === "verrouiller" ? "VERROUILLE" : "BROUILLON")
       ).catch(() => {/* non-fatal */});
     }
+
+    auditFire({
+      tenantId,
+      userId: session.user.id,
+      action: action === "verrouiller" ? "bulletins:verrouiller" : "bulletins:deverrouiller",
+      verdict: "ALLOWED",
+      resource: "bulletin",
+      metadata: { count: bulletinsModifies.length, classeId },
+    });
 
     return NextResponse.json({
       success: true,

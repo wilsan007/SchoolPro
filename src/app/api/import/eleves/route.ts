@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { z } from "zod";
 import { getSchoolGroup } from "@/lib/school-groups";
 import type { StructureType, Sexe } from "@prisma/client";
 import { siteFilterForModel, requireSiteIdForCreate, mergeFilters } from "@/lib/site-scope";
@@ -12,6 +13,12 @@ import { identityKey } from "@/lib/eleve-identity";
 import { resoudreIdentiteKey } from "@/lib/eleve-identity-server";
 import { normalizePhone } from "@/lib/phone";
 import { randomUUID } from "crypto";
+
+// Schéma de validation des décisions d'import : { "12": "CREER", "13": "IGNORER" }
+const DecisionsSchema = z.record(
+  z.string(),
+  z.enum(["CREER", "METTRE_A_JOUR", "IGNORER"])
+);
 
 // Mapping: nom du groupe scolaire → StructureType
 const GROUP_TO_STRUCTURE: Record<string, StructureType> = {
@@ -93,11 +100,17 @@ export async function POST(req: NextRequest) {
     let decisions: Record<string, Action> = {};
     const decisionsRaw = formData.get("decisions") as string | null;
     if (decisionsRaw) {
+      let parsed: unknown;
       try {
-        decisions = JSON.parse(decisionsRaw);
+        parsed = JSON.parse(decisionsRaw);
       } catch {
         return NextResponse.json({ error: "Décisions illisibles" }, { status: 400 });
       }
+      const result = DecisionsSchema.safeParse(parsed);
+      if (!result.success) {
+        return NextResponse.json({ error: "Décisions invalides" }, { status: 400 });
+      }
+      decisions = result.data as Record<string, Action>;
     }
 
     const actionDe = (l: LignePlan): Action => {

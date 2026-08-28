@@ -130,7 +130,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, classeNom: classe.nom, ...result });
   } catch (error) {
     console.error("[API/emploi-du-temps/bulk-apply]", error);
-    const message = error instanceof Error ? error.message : "Erreur serveur";
-    return NextResponse.json({ error: message }, { status: 409 });
+    return NextResponse.json({ error: "Erreur lors de l'application" }, { status: 409 });
   }
 }

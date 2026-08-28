@@ -58,11 +58,12 @@ export async function POST(req: NextRequest) {
     // la demande. On le dit clairement, et on rappelle que la banque reste
     // remplissable à la main — le dispositif ne dépend pas de l'IA.
     if (error instanceof AiAllProvidersFailedError) {
-      return erreurJson("IA_INDISPONIBLE", undefined, { detail: error.message });
+      return erreurJson("IA_INDISPONIBLE");
     }
     if (error instanceof Error && error.message.includes("compétence introuvable")) {
       return erreurJson("COMPETENCE_INTROUVABLE");
     }
+    console.error("[API/learnos/questions/generer]", error);
     throw error;
   }
 }

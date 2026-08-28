@@ -107,9 +107,8 @@ Réponds uniquement avec le texte de l'appréciation, sans guillemets ni préamb
   } catch (error) {
     console.error("[API/ai/appreciation]", error);
     if (error instanceof AiConfigError) {
-      return NextResponse.json({ error: error.message }, { status: 503 });
+      return NextResponse.json({ error: "IA non configurée" }, { status: 503 });
     }
-    const message = error instanceof Error ? error.message : "Erreur serveur";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

@@ -15,6 +15,8 @@ import { niveauRequiresProfPrincipal } from "@/lib/utils-classe";
 import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import type { Role } from "@prisma/client";
 import { normaliserEmail } from "@/lib/email";
+import { generateRandomPassword } from "@/lib/security/password";
+import { auditFire } from "@/lib/audit";
 
 // ============================================================
 // ÉTABLISSEMENT
@@ -199,7 +201,7 @@ export async function createUser(data: UserFormData) {
   });
   if (existing) throw new Error("Un utilisateur avec cet email existe déjà");
 
-  const password = v.password || "EcolPro2026!";
+  const password = v.password || generateRandomPassword();
   const hashed = await bcrypt.hash(password, 10);
 
   const [firstName, ...restName] = v.name.split(" ");
@@ -366,6 +368,16 @@ export async function deleteUser(userId: string) {
   // aussi ses accès aux autres, puisque la ligne User disparaît.
   // eslint-disable-next-line ecolpro/require-tenant-id
   await prisma.userTenant.deleteMany({ where: { userId } }).catch(() => {});
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user:delete",
+    verdict: "ALLOWED",
+    resource: "user",
+    resourceId: userId,
+    metadata: { deletedEmail: user.email },
+  });
 
   await prisma.user.delete({ where: { id: userId } });
 
@@ -586,6 +598,14 @@ export async function deleteClasse(
 
   // Classe vide : suppression directe
   if (!hasActiveStudents) {
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "classe:delete",
+      verdict: "ALLOWED",
+      resource: "classe",
+      resourceId: classeId,
+    });
     await prisma.classe.delete({ where: { id: classeId } });
   }
 
@@ -1156,6 +1176,15 @@ export async function deleteMatiere(matiereId: string) {
   });
   if (!matiere) throw new Error("Matière non trouvée");
 
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "matiere:delete",
+    verdict: "ALLOWED",
+    resource: "matiere",
+    resourceId: matiereId,
+  });
+
   await prisma.matiere.delete({ where: { id: matiereId } });
 
   revalidatePath("/parametres");
@@ -1411,6 +1440,15 @@ export async function deleteParent(parentId: string) {
     where: { id: parentId, tenantId: session.user.tenantId, ...siteFilterForModel("parent", session.user) },
   });
   if (!parent) throw new Error("Parent non trouvé");
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "parent:delete",
+    verdict: "ALLOWED",
+    resource: "parent",
+    resourceId: parentId,
+  });
 
   await prisma.parent.delete({ where: { id: parentId } });
 
@@ -1925,6 +1963,15 @@ export async function deleteAnneeScolaire(anneeId: string) {
   if (hasPeriodes > 0) {
     throw new Error("Impossible de supprimer une année scolaire liée à des périodes");
   }
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "anneesScolaires:delete",
+    verdict: "ALLOWED",
+    resource: "anneesScolaires",
+    resourceId: anneeId,
+  });
 
   await prisma.anneesScolaires.delete({
     where: { id: anneeId },

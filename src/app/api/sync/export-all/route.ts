@@ -170,10 +170,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      {
-        error: "Erreur lors de la génération de l'export",
-        details: error instanceof Error ? error.message : "Erreur inconnue",
-      },
+      { error: "Erreur lors de la génération de l'export" },
       { status: 500 }
     );
   }
