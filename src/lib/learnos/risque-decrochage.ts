@@ -114,9 +114,11 @@ function niveauPourScore(score: number): NiveauRisque {
 
 /** Compte par élève à partir d'un résultat `groupBy`. */
 function compterParEleve(
-  lignes: { eleveId: string; _count: { eleveId: number } }[]
+  lignes: { eleveId: string | null; _count: { eleveId: number } }[]
 ): Map<string, number> {
-  return new Map(lignes.map((l) => [l.eleveId, l._count.eleveId]));
+  return new Map(
+    lignes.filter((l) => l.eleveId !== null).map((l) => [l.eleveId!, l._count.eleveId])
+  );
 }
 
 // ------------------------------------------------------------

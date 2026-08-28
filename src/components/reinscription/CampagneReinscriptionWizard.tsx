@@ -131,7 +131,7 @@ export function CampagneReinscriptionWizard({
   const [verification, setVerification] = useState<{ ok: boolean; message?: string } | null>(null);
   const [moisGen, setMoisGen] = useState(9); // Septembre par défaut
 
-  const isAdmin = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN";
+  const isAdmin = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "ACCOUNTANT";
   const isTerminee = campagneActive?.statut === "TERMINEE" || campagneActive?.statut === "ANNULEE";
 
   // Vérifier l'étape courante au chargement

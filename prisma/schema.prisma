@@ -35,6 +35,12 @@ enum TenantStatus {
   CANCELLED // Résilié
 }
 
+// Modèle de nommage des niveaux scolaires
+enum ModeleNiveaux {
+  ANNEES // 1ère année → 9ème année, Seconde, 1ère, Terminale (défaut, déjà en DB)
+  FRANCAIS // CI, CP, CE1, CE2, CM1, CM2, 6ème → 3ème, 2nde, 1ère, Terminale
+}
+
 // ============================================================
 // TENANT (Établissement scolaire)
 // ============================================================
@@ -59,11 +65,12 @@ model Tenant {
   siret   String? // Numéro d'agrément
 
   // Configuration pédagogique
-  currentYear String @default("2025-2026")
-  notationMax Int    @default(20) // Notation sur 20 ou 100
-  langue      String @default("fr")
-  timezone    String @default("Africa/Dakar")
-  currency    String @default("XOF") // Franc CFA
+  currentYear   String        @default("2025-2026")
+  notationMax   Int           @default(20) // Notation sur 20 ou 100
+  langue        String        @default("fr")
+  timezone      String        @default("Africa/Dakar")
+  currency      String        @default("XOF") // Franc CFA
+  modeleNiveaux ModeleNiveaux @default(ANNEES) // Système de nommage des niveaux
 
   // Couleurs de marque
   primaryColor   String?
@@ -2124,8 +2131,15 @@ model Facture {
   siteId String? // null = non rattaché à un site spécifique
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  eleveId String
-  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  /// Nullable pour les factures d'admission créées AVANT l'élève (passage à ADMIS).
+  /// Rattaché rétroactivement quand l'élève est créé (passage à INSCRIT).
+  eleveId String?
+  eleve   Eleve?  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  /// Lien vers la candidature d'admission (facture générée au passage à ADMIS).
+  /// Null pour les factures de scolarité classiques.
+  candidatureId String?
+  candidature   Candidature? @relation(fields: [candidatureId], references: [id], onDelete: SetNull)
 
   /// Année scolaire de rattachement. Nullable pour les factures créées
   /// avant l'ajout du champ — backfillées par migration de données.
@@ -2138,6 +2152,10 @@ model Facture {
   devise   String        @default("DJF")
   statut   StatutFacture @default(EN_ATTENTE)
   echeance DateTime?
+
+  /// Mois de scolarité facturé (format "YYYY-MM"). Null pour les factures
+  /// qui ne sont pas liées à un mois spécifique (frais d'inscription, etc.).
+  mois String?
 
   paiements  Paiement[]
   relances   Relance[]
@@ -2152,6 +2170,7 @@ model Facture {
 
   @@index([tenantId])
   @@index([eleveId])
+  @@index([candidatureId])
   @@index([tenantId, statut])
   @@index([siteId])
   @@index([anneeId])
@@ -2573,6 +2592,7 @@ enum CibleNotification {
   ELEVES // Tous les élèves
   CLASSE // Une classe spécifique
   NIVEAU // Un niveau (ex: Terminale)
+  DIRECTION // Membres de la direction (TENANT_ADMIN + PRINCIPAL)
 }
 
 model Notification {
@@ -2794,6 +2814,7 @@ model CongePersonnel {
 
 enum StatutCandidature {
   SOUMISE // Candidature reçue, en attente de traitement
+  DOSSIER_COMPLET // Toutes les pièces justificatives ont été fournies
   EN_EXAMEN // Dossier en cours d'examen
   ADMIS // Candidat admis
   REFUSE // Candidature refusée
@@ -2890,6 +2911,9 @@ model Candidature {
 
   // Historique d'audit du dossier (création, ajouts, changements de statut…)
   historique InscriptionHistorique[]
+
+  // Factures liées à cette candidature (générée au passage à ADMIS)
+  factures Facture[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

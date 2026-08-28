@@ -26,7 +26,7 @@ interface FactureMensuelle {
     prenom: string;
     matricule: string;
     classe: { nom: string } | null;
-  };
+  } | null;
   paiements: { montant: number; methode: string }[];
   relances: { id: string; niveau: number }[];
 }
@@ -95,7 +95,7 @@ export function FacturesMensuelles({ factures }: FacturesMensuellesProps) {
       result.push({
         key,
         label: getMonthLabel(key),
-        factures: facs.sort((a, b) => a.eleve.nom.localeCompare(b.eleve.nom)),
+        factures: facs.sort((a, b) => (a.eleve?.nom ?? "").localeCompare(b.eleve?.nom ?? "")),
         total,
         totalPaye,
         totalRestant: total - totalPaye,
@@ -272,8 +272,8 @@ export function FacturesMensuelles({ factures }: FacturesMensuellesProps) {
                         return (
                           <tr key={f.id} className={cn("border-b last:border-0", i % 2 === 0 ? "bg-background" : "bg-muted/10")}>
                             <td className="px-4 py-2.5">
-                              <div className="font-medium text-xs">{f.eleve.prenom} {f.eleve.nom}</div>
-                              <div className="text-xs text-muted-foreground">{f.eleve.matricule} · {f.eleve.classe?.nom ?? "—"}</div>
+                              <div className="font-medium text-xs">{f.eleve?.prenom ?? ""} {f.eleve?.nom ?? ""}</div>
+                              <div className="text-xs text-muted-foreground">{f.eleve?.matricule ?? ""} · {f.eleve?.classe?.nom ?? "—"}</div>
                             </td>
                             <td className="px-4 py-2.5 text-xs hidden sm:table-cell">{f.libelle}</td>
                             <td className="px-4 py-2.5 text-right font-medium text-xs">{formatMoney(f.montant, f.devise)}</td>

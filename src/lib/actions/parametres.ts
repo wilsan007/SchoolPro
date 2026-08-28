@@ -36,6 +36,7 @@ const EtablissementSchema = z.object({
   currency: z.string().default("DJF"),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
+  modeleNiveaux: z.enum(["ANNEES", "FRANCAIS"]).default("ANNEES"),
 });
 
 export type EtablissementFormData = z.infer<typeof EtablissementSchema>;
@@ -71,10 +72,12 @@ export async function updateEtablissement(data: EtablissementFormData) {
       currency: v.currency,
       primaryColor: v.primaryColor || null,
       secondaryColor: v.secondaryColor || null,
+      modeleNiveaux: v.modeleNiveaux,
     },
   });
 
   revalidatePath("/parametres");
+  revalidateTag("tenant-modele-niveaux");
   return { success: true };
 }
 

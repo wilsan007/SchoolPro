@@ -10,7 +10,7 @@ export const SCHOOL_GROUP_ICONS: Record<SchoolGroup, string> = {
 };
 
 const FRENCH_NIVEAU_TO_YEAR: Record<string, number> = {
-  ci: 1, cp: 1,
+  ci: 0, cp: 1,
   ce1: 2, ce2: 3, cm1: 4, cm2: 5,
   "6ème": 6, "6eme": 6, "6e": 6,
   "5ème": 7, "5eme": 7, "5e": 7,
@@ -22,7 +22,7 @@ const FRENCH_NIVEAU_TO_YEAR: Record<string, number> = {
 };
 
 function yearToGroup(year: number): SchoolGroup {
-  if (year >= 1 && year <= 5) return "Primaire";
+  if (year >= 0 && year <= 5) return "Primaire"; // 0 = CI
   if (year >= 6 && year <= 9) return "Collège";
   if (year >= 10 && year <= 12) return "Lycée";
   return "Autre";

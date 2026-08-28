@@ -52,7 +52,7 @@ interface FactureDetailProps {
       matricule: string;
       classe: { nom: string; niveau: string } | null;
       parents: { parent: { nom: string; prenom: string; phone: string | null; email: string | null } }[];
-    };
+    } | null;
     paiements: Paiement[];
     createdBy?: { id: string; name: string } | null;
   };
@@ -107,7 +107,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
   const totalPaye = useMemo(() => facture.paiements.reduce((sum, p) => sum + p.montant, 0), [facture.paiements]);
   const restant = facture.montant - totalPaye;
   const cfg = statutConfig[facture.statut] ?? statutConfig.EN_ATTENTE;
-  const tuteur = facture.eleve.parents[0]?.parent;
+  const tuteur = facture.eleve?.parents[0]?.parent;
   const canPay = facture.statut !== "ANNULEE" && facture.statut !== "PAYEE" && restant > 0;
 
   async function handlePaiement(e: React.FormEvent) {
@@ -239,11 +239,11 @@ export function FactureDetail({ facture }: FactureDetailProps) {
             <CardTitle className="text-sm">{t("student")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            <p className="font-medium">{facture.eleve.prenom} {facture.eleve.nom}</p>
-            <p className="text-sm text-muted-foreground">{facture.eleve.matricule}</p>
-            <p className="text-sm text-muted-foreground">{facture.eleve.classe?.nom ?? "N/A"} — {facture.eleve.classe?.niveau ?? ""}</p>
+            <p className="font-medium">{facture.eleve?.prenom ?? ""} {facture.eleve?.nom ?? ""}</p>
+            <p className="text-sm text-muted-foreground">{facture.eleve?.matricule ?? ""}</p>
+            <p className="text-sm text-muted-foreground">{facture.eleve?.classe?.nom ?? "N/A"} — {facture.eleve?.classe?.niveau ?? ""}</p>
             <Button asChild variant="outline" size="sm" className="mt-2">
-              <Link href={`/eleves/${facture.eleve.id}`}>{t("viewProfile")}</Link>
+              <Link href={`/eleves/${facture.eleve?.id ?? ""}`}>{t("viewProfile")}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -300,7 +300,7 @@ export function FactureDetail({ facture }: FactureDetailProps) {
             <div className="mb-4 p-3 bg-muted/50 rounded-lg flex flex-wrap items-center gap-3 text-sm">
               <span className="text-muted-foreground">{t("invoice")}:</span>
               <span className="font-mono font-semibold">{facture.numero}</span>
-              <span className="text-muted-foreground">· {facture.eleve.prenom} {facture.eleve.nom}</span>
+              <span className="text-muted-foreground">· {facture.eleve?.prenom ?? ""} {facture.eleve?.nom ?? ""}</span>
               <span className="text-muted-foreground">· {t("remaining")}: </span>
               <span className="font-semibold text-red-600">{formatMoney(restant, facture.devise)}</span>
             </div>

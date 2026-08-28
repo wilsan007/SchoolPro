@@ -79,6 +79,22 @@ async function resolveRecipients(
       });
       break;
     }
+    case "DIRECTION": {
+      // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
+      const direction = await prisma.user.findMany({
+        where: {
+          tenantId,
+          isActive: true,
+          role: { in: ["TENANT_ADMIN", "PRINCIPAL"] },
+        },
+        select: { id: true, email: true },
+      });
+      direction.forEach((u) => {
+        if (u.email) emails.add(u.email);
+        userIds.add(u.id);
+      });
+      break;
+    }
     case "ELEVES":
     case "CLASSE":
     case "NIVEAU": {

@@ -508,6 +508,7 @@ export async function analyserImpactAlertePaiement(
   // Indexation : premier paiement par élève (toutes factures confondues, trié par date).
   const mapPremierPaiement = new Map<string, Date>();
   for (const f of factures) {
+    if (!f.eleveId) continue;
     for (const p of f.paiements) {
       const existant = mapPremierPaiement.get(f.eleveId);
       if (!existant || p.date < existant) {
@@ -519,6 +520,7 @@ export async function analyserImpactAlertePaiement(
   // Date de création de la première facture par élève (pour le groupe témoin).
   const mapPremiereFacture = new Map<string, Date>();
   for (const f of factures) {
+    if (!f.eleveId) continue;
     const existante = mapPremiereFacture.get(f.eleveId);
     if (!existante || f.createdAt < existante) {
       mapPremiereFacture.set(f.eleveId, f.createdAt);

@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: facture.devise.toLowerCase(),
             product_data: {
-              name: `${facture.libelle} — ${facture.eleve.prenom} ${facture.eleve.nom}`,
-              description: `Facture ${facture.numero} | Matricule: ${facture.eleve.matricule}`,
+              name: `${facture.libelle} — ${facture.eleve?.prenom ?? ""} ${facture.eleve?.nom ?? ""}`,
+              description: `Facture ${facture.numero} | Matricule: ${facture.eleve?.matricule ?? ""}`,
             },
             unit_amount: Math.round(restant * 100),
           },

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 import { Search, CheckCircle, XCircle, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 
 interface Absence {
   id: string;
@@ -57,6 +58,7 @@ const motifLabels: Record<string, string> = {
 export function AbsencesList({ absences, canWrite = false }: { absences: Absence[]; canWrite?: boolean }) {
   const t = useTranslations("absences");
   const tCommon = useTranslations("common");
+  const libelleNiveau = useLibelleNiveau();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "EN_ATTENTE" | "INJUSTIFIEE" | "JUSTIFIEE">("all");
   const [activeGroup, setActiveGroup] = useState<SchoolGroup | null>(null);
@@ -243,7 +245,7 @@ export function AbsencesList({ absences, canWrite = false }: { absences: Absence
                 ?.classesByNiveau.map(({ niveau, classes }) => (
                   <div key={niveau} className="flex items-center gap-2 mb-2 last:mb-0">
                     <span className="text-xs font-semibold text-muted-foreground min-w-[60px] flex-shrink-0">
-                      {niveau}
+                      {libelleNiveau(niveau)}
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {classes.map(({ classe, absences: classeAbsences }) => (

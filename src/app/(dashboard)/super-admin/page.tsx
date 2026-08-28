@@ -108,8 +108,8 @@ export default async function SuperAdminPage() {
     devise: f.devise,
     createdAt: f.createdAt.toISOString(),
     tenantName: f.tenant.name,
-    eleveNom: f.eleve.nom,
-    elevePrenom: f.eleve.prenom,
+    eleveNom: f.eleve?.nom ?? "",
+    elevePrenom: f.eleve?.prenom ?? "",
   }));
 
   // ── 3. Audit inter-tenants (impersonation) ───────────────────────

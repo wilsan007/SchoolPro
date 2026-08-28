@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ExportMenu } from "@/components/ui/ExportMenu";
 import type { ExportColumn } from "@/lib/export";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
@@ -34,6 +35,7 @@ interface Skipped {
 
 export function GenerationComptesParentsForm({ classes, hierarchie }: { classes: Classe[]; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("eleves");
+  const libelleNiveau = useLibelleNiveau();
   const [classeId, setClasseId] = useState("");
   const [useCustomPassword, setUseCustomPassword] = useState(false);
   const [customPassword, setCustomPassword] = useState("");
@@ -94,7 +96,7 @@ export function GenerationComptesParentsForm({ classes, hierarchie }: { classes:
                 <SelectTrigger><SelectValue placeholder={t("genAccountsSelectClass")} /></SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.nom} ({c.niveau})</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

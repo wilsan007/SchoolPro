@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { toast } from "sonner";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 import {
@@ -235,6 +236,7 @@ export function CahierJournalView({
   currentUserId,
 }: Props) {
   const t = useTranslations("cahierJournal");
+  const libelleNiveau = useLibelleNiveau();
   const [filterClasse, setFilterClasse] = useState<string>("");
   const [filterMatiere, setFilterMatiere] = useState<string>("");
   const [filterStatut, setFilterStatut] = useState<string>("");
@@ -457,7 +459,7 @@ export function CahierJournalView({
           <option value="">Toutes les classes</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.nom} ({c.niveau})
+              {c.nom} ({libelleNiveau(c.niveau)})
             </option>
           ))}
         </select>
@@ -947,6 +949,7 @@ function KpiCard({
 
 function SeanceDetail({ seance, canWrite, currentUserId, loadingDetail }: { seance: Seance; canWrite: boolean; currentUserId?: string; loadingDetail?: boolean }) {
   const t = useTranslations("cahierJournal");
+  const libelleNiveau = useLibelleNiveau();
   return (
     <div className="mt-3 bg-slate-50 rounded-lg border border-slate-200 p-4 space-y-3">
       {loadingDetail && (
@@ -1022,7 +1025,7 @@ function SeanceDetail({ seance, canWrite, currentUserId, loadingDetail }: { sean
                 className="text-xs px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600"
               >
                 {sc.competence.code} — {sc.competence.libelle}
-                <span className="text-slate-400 ml-1">({sc.niveau})</span>
+                <span className="text-slate-400 ml-1">({libelleNiveau(sc.niveau)})</span>
               </span>
             ))}
           </div>
@@ -2069,6 +2072,7 @@ function CommentairesSection({
 
 function TravailAFaire({ seances }: { seances: Seance[] }) {
   const t = useTranslations("cahierJournal");
+  const libelleNiveau = useLibelleNiveau();
   const now = new Date();
 
   // Séances PLANIFIEE dont la date est passée ou aujourd'hui → à remplir.
@@ -2211,6 +2215,7 @@ function CreateSeanceForm({
   enseignants: Enseignant[];
   onClose: () => void;
 }) {
+  const libelleNiveau = useLibelleNiveau();
   const [classeId, setClasseId] = useState("");
   const [matiereId, setMatiereId] = useState("");
   const [enseignantId, setEnseignantId] = useState("");
@@ -2270,7 +2275,7 @@ function CreateSeanceForm({
             <option value="">Sélectionner…</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nom} ({c.niveau})
+                {c.nom} ({libelleNiveau(c.niveau)})
               </option>
             ))}
           </select>

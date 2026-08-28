@@ -9,6 +9,7 @@ import { previewPromotion, executePromotion, niveauSuivant, activateAnneeScolair
 import { genererFraisInscription, genererMensualites } from "@/lib/actions/facturation-avancee";
 import { cloturerAnnee } from "@/lib/annee-scolaire";
 import { sendWhatsAppMessage } from "@/lib/notifications/whatsapp";
+import { notifyDirection } from "@/lib/notifications/notify-direction";
 
 // ============================================================
 // CRUD CAMPAGNE
@@ -67,7 +68,7 @@ export async function creerCampagne(params: {
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -153,7 +154,7 @@ export async function creerCampagne(params: {
 export async function avancerEtape(campagneId: string, etape: number) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -173,7 +174,7 @@ export async function avancerEtape(campagneId: string, etape: number) {
 export async function annulerCampagne(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -193,7 +194,7 @@ export async function annulerCampagne(campagneId: string) {
 export async function clôturerAncienneAnnee(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -237,7 +238,7 @@ export async function executerPromotionCampagne(
 ) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -264,6 +265,19 @@ export async function executerPromotionCampagne(
     data: { nbDiplomes },
   });
 
+  // Notification à la direction (best-effort)
+  const nbPromus = Object.values(decisions).filter((d) => d === "promouvoir").length;
+  const nbRedoublants = Object.values(decisions).filter((d) => d === "redoubler").length;
+  await notifyDirection({
+    tenantId: session.user.tenantId,
+    titre: "Promotion des élèves effectuée",
+    contenu:
+      `La promotion a été exécutée par ${session.user.name ?? "un administrateur"}.\n` +
+      `Promus : ${nbPromus} | Redoublants : ${nbRedoublants} | Diplômés : ${nbDiplomes}\n` +
+      `Année cible : ${campagne.anneeCible}`,
+    envoyeParId: session.user.id,
+  });
+
   revalidatePath("/parametres/reinscription");
   return { success: true, nbDiplomes };
 }
@@ -275,7 +289,7 @@ export async function executerPromotionCampagne(
 export async function envoyerInvitations(campagneId: string, canal: "WHATSAPP" | "SMS" | "EMAIL" = "WHATSAPP") {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "SECRETARY") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT" && session.user.role !== "SECRETARY") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -322,7 +336,7 @@ export async function envoyerInvitations(campagneId: string, canal: "WHATSAPP" |
 export async function envoyerRelance(invitationId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "SECRETARY") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT" && session.user.role !== "SECRETARY") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -355,7 +369,7 @@ export async function envoyerRelance(invitationId: string) {
 export async function confirmerReinscription(invitationId: string, confirme: boolean) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "SECRETARY") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT" && session.user.role !== "SECRETARY") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -400,7 +414,7 @@ export async function confirmerReinscription(invitationId: string, confirme: boo
 export async function marquerSansReponse(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -477,6 +491,17 @@ export async function genererFraisRenouvellement(campagneId: string) {
     annee: campagne.anneeCible,
   });
 
+  // Notification à la direction (best-effort)
+  await notifyDirection({
+    tenantId: session.user.tenantId,
+    titre: `Frais de renouvellement générés — ${campagne.anneeCible}`,
+    contenu:
+      `Les frais de renouvellement ont été générés par ${session.user.name ?? "le comptable"}.\n` +
+      `Factures créées : ${result.generated} | Ignorées (déjà existantes) : ${result.skipped}\n` +
+      `Année cible : ${campagne.anneeCible}`,
+    envoyeParId: session.user.id,
+  });
+
   revalidatePath("/parametres/reinscription");
   return result;
 }
@@ -509,7 +534,7 @@ export async function genererMensualitesCampagne(campagneId: string, mois: numbe
 export async function activerNouvelleAnnee(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
     throw new Error("Permissions insuffisantes");
   }
 
@@ -529,6 +554,25 @@ export async function activerNouvelleAnnee(campagneId: string) {
   await prisma.campagneReinscription.update({
     where: { id: campagneId },
     data: { statut: "TERMINEE", dateFin: new Date(), etapeActuelle: 6 },
+  });
+
+  // Notification à la direction (best-effort) — résumé global
+  const stats = await prisma.invitationReinscription.groupBy({
+    by: ["statut"],
+    where: { campagneId, tenantId: session.user.tenantId },
+    _count: true,
+  });
+  const statutMap: Record<string, number> = {};
+  for (const s of stats) statutMap[s.statut] = s._count;
+
+  await notifyDirection({
+    tenantId: session.user.tenantId,
+    titre: "Procédure de réinscription terminée",
+    contenu:
+      `La procédure de réinscription a été finalisée par ${session.user.name ?? "un administrateur"}.\n` +
+      `Réinscrits : ${statutMap["CONFIRME"] ?? 0} | Non réinscrits : ${(statutMap["REFUSE"] ?? 0) + (statutMap["SANS_REPONSE"] ?? 0)} | Diplômés : ${campagne.nbDiplomes}\n` +
+      `Nouvelle année active : ${campagne.anneeCible}`,
+    envoyeParId: session.user.id,
   });
 
   revalidatePath("/parametres/reinscription");

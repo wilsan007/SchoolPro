@@ -215,7 +215,7 @@ export async function getActivityFeed(
       id: `pay-${p.id}`,
       type: "paiement",
       titre: `Paiement ${p.facture.numero}`,
-      description: `${p.montant.toLocaleString("fr")} ${p.devise} · ${p.facture.eleve.prenom} ${p.facture.eleve.nom} · ${p.methode}`,
+      description: `${p.montant.toLocaleString("fr")} ${p.devise} · ${p.facture.eleve?.prenom ?? ""} ${p.facture.eleve?.nom ?? ""} · ${p.methode}`,
       date: p.date,
       href: "/facturation",
     });

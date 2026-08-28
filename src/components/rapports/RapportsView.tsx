@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 
 // ─── Types rapports ───────────────────────────────────────────────────────────
 
@@ -205,6 +206,7 @@ function StatistiquesReport({ data, tenant }: { data: any; tenant: any }) {
 
 function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
   const t = useTranslations("rapports");
+  const libelleNiveau = useLibelleNiveau();
   return (
     <div className="p-4 sm:p-8 bg-white text-gray-900" id="rapport-content">
       <div className="text-center border-b-2 border-gray-800 pb-6 mb-8">
@@ -234,7 +236,7 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
             {data.classes?.map((c: any, i: number) => (
               <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                 <td className="p-2 border border-gray-200 font-medium">{c.nom}</td>
-                <td className="p-2 border border-gray-200 text-gray-500">{c.niveau}</td>
+                <td className="p-2 border border-gray-200 text-gray-500">{libelleNiveau(c.niveau)}</td>
                 <td className="p-2 border border-gray-200 text-gray-500">{c.filiere ?? "—"}</td>
                 <td className="p-2 border border-gray-200 text-right font-bold">{c._count?.eleves ?? 0}</td>
                 <td className="p-2 border border-gray-200 text-right text-gray-500">{c.effectifMax}</td>
@@ -298,6 +300,7 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
 
 export function RapportsView() {
   const t = useTranslations("rapports");
+  const libelleNiveau = useLibelleNiveau();
   const [selected, setSelected] = useState<TypeRapport | null>(null);
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(false);

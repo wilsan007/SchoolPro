@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import type { Role } from "@prisma/client";
+import type { Role, ModeleNiveaux } from "@prisma/client";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
@@ -11,6 +11,7 @@ import { PWAInstallPrompt } from "@/components/parent/PWAInstallPrompt";
 import { WindowManagerProvider } from "@/components/workspace/WindowManager";
 import { Workspace } from "@/components/workspace/Workspace";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { NiveauProvider } from "@/lib/niveau-context";
 
 // Détection mobile simple via User-Agent (server-side, pas de hydration mismatch)
 function isMobileDevice(userAgent: string): boolean {
@@ -27,6 +28,18 @@ const getTenantName = unstable_cache(
   },
   ["tenant-name"],
   { revalidate: 300, tags: ["tenant-name"] }
+);
+
+const getTenantModeleNiveaux = unstable_cache(
+  async (tenantId: string): Promise<ModeleNiveaux> => {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { modeleNiveaux: true },
+    });
+    return tenant?.modeleNiveaux ?? "ANNEES";
+  },
+  ["tenant-modele-niveaux"],
+  { revalidate: 300, tags: ["tenant-modele-niveaux"] }
 );
 
 export default async function DashboardLayout({
@@ -75,6 +88,10 @@ export default async function DashboardLayout({
   const tenantName = session.user.tenantId
     ? await getTenantName(session.user.tenantId)
     : "Mon École";
+
+  const modeleNiveaux: ModeleNiveaux = session.user.tenantId
+    ? await getTenantModeleNiveaux(session.user.tenantId)
+    : "ANNEES";
 
   // Fetch sites for the current tenant
   // TENANT_ADMIN / SUPER_ADMIN see all sites; other roles see only their assigned sites
@@ -144,48 +161,56 @@ export default async function DashboardLayout({
     h.get("sec-fetch-dest") === "iframe" || h.get("x-embedded") === "1";
 
   if (isEmbedded) {
-    return <div className="h-screen bg-background overflow-auto">{children}</div>;
+    return (
+      <NiveauProvider modele={modeleNiveaux}>
+        <div className="h-screen bg-background overflow-auto">{children}</div>
+      </NiveauProvider>
+    );
   }
 
   // Mode mobile : navigation classique sans iframe/workspace
   const userAgent = h.get("user-agent") ?? "";
   if (isMobileDevice(userAgent)) {
     return (
-      <MobileLayout roleKey={session.user.role} userName={session.user.name}>
-        {children}
-      </MobileLayout>
+      <NiveauProvider modele={modeleNiveaux}>
+        <MobileLayout roleKey={session.user.role} userName={session.user.name}>
+          {children}
+        </MobileLayout>
+      </NiveauProvider>
     );
   }
 
   // Mode workspace desktop : plein écran, dock en bas avec tous les modules
   return (
-    <WindowManagerProvider>
-      <div className="flex flex-col h-screen overflow-hidden bg-background">
-        <ImpersonationBanner />
-        {partialBlockMessage && (
-          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2 print:hidden">
-            <svg className="h-4 w-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.93 19h12.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L4.2 16c-.77 1.33.19 3 1.73 3z" />
-            </svg>
-            <p className="text-sm text-amber-800">{partialBlockMessage}</p>
-          </div>
-        )}
-        <Workspace
-          roleKey={session.user.role}
-          userName={session.user.name}
-          userAvatar={session.user.image ?? undefined}
-          tenantName={tenantName}
-          tenantId={session.user.tenantId}
-          isSuperAdmin={session.user.role === "SUPER_ADMIN"}
-          availableTenants={session.user.availableTenants}
-          sites={sites}
-          currentSiteId={siteId}
-          isSiteAdmin={isSiteAdmin}
-          availableRoles={availableRoles}
-          currentRole={currentRole}
-        />
-      </div>
-      <PWAInstallPrompt />
-    </WindowManagerProvider>
+    <NiveauProvider modele={modeleNiveaux}>
+      <WindowManagerProvider>
+        <div className="flex flex-col h-screen overflow-hidden bg-background">
+          <ImpersonationBanner />
+          {partialBlockMessage && (
+            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2 print:hidden">
+              <svg className="h-4 w-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.93 19h12.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L4.2 16c-.77 1.33.19 3 1.73 3z" />
+              </svg>
+              <p className="text-sm text-amber-800">{partialBlockMessage}</p>
+            </div>
+          )}
+          <Workspace
+            roleKey={session.user.role}
+            userName={session.user.name}
+            userAvatar={session.user.image ?? undefined}
+            tenantName={tenantName}
+            tenantId={session.user.tenantId}
+            isSuperAdmin={session.user.role === "SUPER_ADMIN"}
+            availableTenants={session.user.availableTenants}
+            sites={sites}
+            currentSiteId={siteId}
+            isSiteAdmin={isSiteAdmin}
+            availableRoles={availableRoles}
+            currentRole={currentRole}
+          />
+        </div>
+        <PWAInstallPrompt />
+      </WindowManagerProvider>
+    </NiveauProvider>
   );
 }

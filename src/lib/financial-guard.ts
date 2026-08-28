@@ -144,6 +144,7 @@ export async function getSituationFinanciereBatch(
   // Indexer par eleveId pour un lookup rapide
   const facturesByEleve = new Map<string, typeof allFactures>();
   for (const f of allFactures) {
+    if (!f.eleveId) continue;
     const arr = facturesByEleve.get(f.eleveId) ?? [];
     arr.push(f);
     facturesByEleve.set(f.eleveId, arr);

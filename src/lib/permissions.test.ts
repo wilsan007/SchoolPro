@@ -178,10 +178,11 @@ describe("administration générale", () => {
     }
   });
 
-  it("réserve les paramètres à la direction", () => {
+  it("réserve les paramètres à la direction et au comptable", () => {
     expect(canAccessRoute("TENANT_ADMIN", "/parametres")).toBe(true);
     expect(canAccessRoute("PRINCIPAL", "/parametres")).toBe(true);
-    for (const role of ["SECRETARY", "TEACHER", "CLASS_TEACHER", "ACCOUNTANT", "PARENT", "STUDENT"] as RoleKey[]) {
+    expect(canAccessRoute("ACCOUNTANT", "/parametres")).toBe(true);
+    for (const role of ["SECRETARY", "TEACHER", "CLASS_TEACHER", "PARENT", "STUDENT"] as RoleKey[]) {
       expect(canAccessRoute(role, "/parametres")).toBe(false);
     }
   });

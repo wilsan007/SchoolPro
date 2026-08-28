@@ -26,7 +26,7 @@ interface FactureWithRelations {
     prenom: string;
     matricule: string;
     classe: { nom: string } | null;
-  };
+  } | null;
   paiements: { montant: number; methode: string }[];
   createdBy?: { id: string; name: string } | null;
 }
@@ -94,13 +94,13 @@ export function FacturesTable({ factures }: FacturesTableProps) {
       Array.from(
         new Map(
           factures.map((f) => [
-            f.eleve.id,
+            f.eleve?.id ?? "",
             {
-              id: f.eleve.id,
-              nom: f.eleve.nom,
-              prenom: f.eleve.prenom,
-              matricule: f.eleve.matricule,
-              classe: f.eleve.classe,
+              id: f.eleve?.id ?? "",
+              nom: f.eleve?.nom ?? "",
+              prenom: f.eleve?.prenom ?? "",
+              matricule: f.eleve?.matricule ?? "",
+              classe: f.eleve?.classe ?? null,
             },
           ])
         ).values()
@@ -115,11 +115,11 @@ export function FacturesTable({ factures }: FacturesTableProps) {
         !q ||
         f.numero.toLowerCase().includes(q) ||
         f.libelle.toLowerCase().includes(q) ||
-        f.eleve.nom.toLowerCase().includes(q) ||
-        f.eleve.prenom.toLowerCase().includes(q) ||
-        f.eleve.matricule.toLowerCase().includes(q);
+        f.eleve?.nom.toLowerCase().includes(q) ||
+        f.eleve?.prenom.toLowerCase().includes(q) ||
+        f.eleve?.matricule.toLowerCase().includes(q);
       const matchesStatut = !statutFilter || f.statut === statutFilter;
-      const matchesEleve = !eleveFilterId || f.eleve.id === eleveFilterId;
+      const matchesEleve = !eleveFilterId || f.eleve?.id === eleveFilterId;
       return matchesSearch && matchesStatut && matchesEleve;
     });
   }, [factures, search, statutFilter, eleveFilterId]);
@@ -138,9 +138,9 @@ export function FacturesTable({ factures }: FacturesTableProps) {
       const methodes = Array.from(new Set(f.paiements.map((p) => p.methode).filter(Boolean))).join(";");
       return [
         f.numero,
-        `${f.eleve.prenom} ${f.eleve.nom}`,
-        f.eleve.matricule,
-        f.eleve.classe?.nom ?? "",
+        `${f.eleve?.prenom ?? ""} ${f.eleve?.nom ?? ""}`,
+        f.eleve?.matricule ?? "",
+        f.eleve?.classe?.nom ?? "",
         f.libelle,
         f.montant,
         paye,
@@ -295,8 +295,8 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                       <tr key={f.id} className="border-b hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs">{f.numero}</td>
                         <td className="px-4 py-3">
-                          <div className="font-medium">{f.eleve.prenom} {f.eleve.nom}</div>
-                          <div className="text-xs text-muted-foreground">{f.eleve.matricule} · {f.eleve.classe?.nom ?? t("notApplicable")}</div>
+                          <div className="font-medium">{f.eleve?.prenom ?? ""} {f.eleve?.nom ?? ""}</div>
+                          <div className="text-xs text-muted-foreground">{f.eleve?.matricule ?? ""} · {f.eleve?.classe?.nom ?? t("notApplicable")}</div>
                           <PaymentMethodsBadges paiements={f.paiements} t={t} />
                         </td>
                         <td className="px-4 py-3 hidden sm:table-cell">{f.libelle}</td>

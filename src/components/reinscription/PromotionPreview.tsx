@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, GraduationCap, ArrowRight, Users, CheckCircle2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { cn } from "@/lib/utils";
 import {
   previewPromotionCampagne,
@@ -43,6 +44,7 @@ export function PromotionPreview({
   onExecuted: () => void;
 }) {
   const t = useTranslations("reinscription");
+  const libelleNiveau = useLibelleNiveau();
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<PromotionClasse[]>([]);
@@ -157,7 +159,7 @@ export function PromotionPreview({
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium text-sm">{classe.classeNom}</span>
-                <Badge variant="outline" className="text-xs">{classe.niveau}</Badge>
+                <Badge variant="outline" className="text-xs">{libelleNiveau(classe.niveau)}</Badge>
                 {classe.niveauSuivant && (
                   <>
                     <ArrowRight className="h-3 w-3 text-muted-foreground" />

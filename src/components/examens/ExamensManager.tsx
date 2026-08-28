@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { ClassSelector } from "@/components/sites/ClassSelector";
 import type { SiteColor } from "@/lib/site-colors";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
@@ -306,6 +307,7 @@ function ExamenCard({
   onUpdate: (updated: Examen) => void;
 }) {
   const t = useTranslations("examens");
+  const libelleNiveau = useLibelleNiveau();
   const [expanded, setExpanded] = useState(false);
   const [showAddSession, setShowAddSession] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -477,7 +479,7 @@ function ExamenCard({
                           {s.niveau && (
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3" />
-                              {s.niveau}
+                              {libelleNiveau(s.niveau)}
                             </span>
                           )}
                         </div>
@@ -584,6 +586,7 @@ export function ExamensManager({
   canWrite?: boolean;
 }) {
   const t = useTranslations("examens");
+  const libelleNiveau = useLibelleNiveau();
   const [examens, setExamens] = useState<Examen[]>(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [filterStatut, setFilterStatut] = useState<StatutExamen | "ALL">("ALL");

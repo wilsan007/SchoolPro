@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
@@ -46,6 +47,7 @@ interface TenantInfo {
 
 export function ConvocationForm({ classes, tenant, hierarchie }: { classes: Classe[]; tenant: TenantInfo; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("vieScolaire");
+  const libelleNiveau = useLibelleNiveau();
   const [classeId, setClasseId] = useState("");
   const [eleveId, setEleveId] = useState("");
   const [motif, setMotif] = useState(MOTIFS_PREDEFINIS[0]);
@@ -105,7 +107,7 @@ export function ConvocationForm({ classes, tenant, hierarchie }: { classes: Clas
               <SelectTrigger><SelectValue placeholder={t("convocationSelect")} /></SelectTrigger>
               <SelectContent>
                 {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nom} ({c.niveau})</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>

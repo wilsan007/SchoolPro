@@ -87,7 +87,7 @@ export async function envoyerRelancesAutomatiques(): Promise<{
 
       const message = messageRelance(
         niveau,
-        `${facture.eleve.prenom} ${facture.eleve.nom}`,
+        `${facture.eleve?.prenom ?? ""} ${facture.eleve?.nom ?? ""}`,
         restant,
         facture.devise,
         facture.echeance!,
@@ -95,7 +95,7 @@ export async function envoyerRelancesAutomatiques(): Promise<{
 
       // Collecter les emails des parents
       const emails: string[] = [];
-      for (const ep of facture.eleve.parents) {
+      for (const ep of facture.eleve?.parents ?? []) {
         const parentEmail = ep.parent.user?.email ?? ep.parent.email;
         if (parentEmail) emails.push(parentEmail);
       }

@@ -27,7 +27,7 @@ interface FactureFound {
     prenom: string;
     matricule: string;
     classe: { nom: string } | null;
-  };
+  } | null;
 }
 
 export function PaiementParNumero({
@@ -135,8 +135,8 @@ export function PaiementParNumero({
                 </div>
                 <p className="text-sm text-muted-foreground">{facture.libelle}</p>
                 <p className="text-xs text-muted-foreground">
-                  {facture.eleve.prenom} {facture.eleve.nom} — {facture.eleve.matricule}
-                  {facture.eleve.classe?.nom ? ` · ${facture.eleve.classe.nom}` : ""}
+                  {facture.eleve?.prenom ?? ""} {facture.eleve?.nom ?? ""} — {facture.eleve?.matricule ?? ""}
+                  {facture.eleve?.classe?.nom ? ` · ${facture.eleve?.classe?.nom}` : ""}
                 </p>
               </div>
               <Badge variant={facture.statut === "EN_RETARD" ? "destructive" : "warning"}>

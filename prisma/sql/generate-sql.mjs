@@ -190,9 +190,22 @@ function devoirDates() {
 }
 
 // ── Levels & classes ─────────────────────────────────────────
+// Deux modèles de niveaux sont supportés :
+//   ANNEES   : 1ère année → 9ème année, Seconde, 1ère, Terminale (défaut)
+//   FRANCAIS : CI, CP, CE1, CE2, CM1, CM2, 6ème → 3ème, 2nde, 1ère, Terminale
+//
+// Le modèle est choisi via la variable d'environnement MODELE_NIVEAUX.
+
+const MODELE_NIVEAUX = process.env.MODELE_NIVEAUX || 'ANNEES';
+
+// Primaire — clés canoniques uniques (suffixe A pour éviter collision collège)
+const PRIMAIRE_NIVEAUX_ANNEES = ['1A','2A','3A','4A','5A'];
+const PRIMAIRE_NIVEAUX_FRANCAIS = ['ci','cp','ce1','ce2','cm1','cm2'];
+const PRIMAIRE_NIVEAUX = MODELE_NIVEAUX === 'FRANCAIS' ? PRIMAIRE_NIVEAUX_FRANCAIS : PRIMAIRE_NIVEAUX_ANNEES;
+
 const COLLEGE_NIVEAUX = ['6eme','5eme','4eme','3eme'];
 const LYCEE_NIVEAUX = ['2nde','1ere','Terminale'];
-const ALL_NIVEAUX = [...COLLEGE_NIVEAUX, ...LYCEE_NIVEAUX];
+const ALL_NIVEAUX = [...PRIMAIRE_NIVEAUX, ...COLLEGE_NIVEAUX, ...LYCEE_NIVEAUX];
 
 /// Enseignants par spécialité et par site, dimensionnés sur le volume horaire
 /// réellement à couvrir : 22 classes × 26 heures = 572 heures par semaine, par
@@ -225,18 +238,37 @@ const ENSEIGNANTS_DU_SITE = Object.fromEntries(['ambouli', 'arhiba'].map(site =>
 ]));
 
 const CLASS_SUFFIXES = {
+  // Primaire
+  'ci': ['A','B'], 'cp': ['A','B'], 'ce1': ['A','B'], 'ce2': ['A','B'], 'cm1': ['A','B'], 'cm2': ['A','B'],
+  '1A': ['A','B'], '2A': ['A','B'], '3A': ['A','B'], '4A': ['A','B'], '5A': ['A','B'],
+  // Collège
   '6eme': ['A','B','C'], '5eme': ['A','B','C'], '4eme': ['A','B','C'], '3eme': ['A','B','C'],
+  // Lycée
   '2nde': ['A','B','C','D'], '1ere': ['S','ES','L'], 'Terminale': ['S','ES','L']
 };
-const CLASS_LABELS = {
+// Libellés selon le modèle
+const CLASS_LABELS_ANNEES = {
+  '1A': '1ère année', '2A': '2ème année', '3A': '3ème année', '4A': '4ème année', '5A': '5ème année',
+  '6eme': '6ème année', '5eme': '7ème année', '4eme': '8ème année', '3eme': '9ème année',
+  '2nde': 'Seconde', '1ere': '1ère', 'Terminale': 'Terminale'
+};
+const CLASS_LABELS_FRANCAIS = {
+  'ci': 'CI', 'cp': 'CP', 'ce1': 'CE1', 'ce2': 'CE2', 'cm1': 'CM1', 'cm2': 'CM2',
   '6eme': '6ème', '5eme': '5ème', '4eme': '4ème', '3eme': '3ème',
   '2nde': '2nde', '1ere': '1ère', 'Terminale': 'Terminale'
 };
-const AGE_BY_NIVEAU = { '6eme':11, '5eme':12, '4eme':13, '3eme':14, '2nde':15, '1ere':16, 'Terminale':17 };
+const CLASS_LABELS = MODELE_NIVEAUX === 'FRANCAIS' ? CLASS_LABELS_FRANCAIS : CLASS_LABELS_ANNEES;
+const AGE_BY_NIVEAU = {
+  'ci':5, 'cp':6, 'ce1':7, 'ce2':8, 'cm1':9, 'cm2':10,
+  '1A':6, '2A':7, '3A':8, '4A':9, '5A':10,
+  '6eme':11, '5eme':12, '4eme':13, '3eme':14, '2nde':15, '1ere':16, 'Terminale':17
+};
 
 function structureFor(niveau, site) {
-  const isLycee = LYCEE_NIVEAUX.includes(niveau);
-  return isLycee ? `struct-lycee-${site === 'ambouli' ? 'amb' : 'arh'}` : `struct-coll-${site === 'ambouli' ? 'amb' : 'arh'}`;
+  const suffix = site === 'ambouli' ? 'amb' : 'arh';
+  if (LYCEE_NIVEAUX.includes(niveau)) return `struct-lycee-${suffix}`;
+  if (PRIMAIRE_NIVEAUX.includes(niveau)) return `struct-prim-${suffix}`;
+  return `struct-coll-${suffix}`; // collège par défaut
 }
 
 function generateClasses() {

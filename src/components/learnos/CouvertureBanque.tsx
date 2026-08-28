@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Loader2, RefreshCw, Wand2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { toast } from "sonner";
 import { texteErreur } from "@/lib/erreurs-client";
 
@@ -62,6 +63,7 @@ export function CouvertureBanque() {
   const t = useTranslations("learnos.couverture");
   const te = useTranslations("learnos.erreurs");
   const tc = useTranslations("learnos.commun");
+  const libelleNiveau = useLibelleNiveau();
 
   const [data, setData] = useState<CouvertureData | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -186,7 +188,7 @@ export function CouvertureBanque() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{chapitre.nom}</span>
                     <Badge variant="outline" className="text-xs">
-                      {chapitre.niveau}
+                      {libelleNiveau(chapitre.niveau)}
                     </Badge>
                     {trousChapitre > 0 && (
                       <Badge variant="destructive" className="text-xs">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ export function ClassGroupedSelect({
   disabled,
 }: ClassGroupedSelectProps) {
   const t = useTranslations("classes");
+  const libelleNiveau = useLibelleNiveau();
 
   if (hierarchie.length === 0) {
     return (
@@ -74,7 +76,7 @@ export function ClassGroupedSelect({
             {cat.niveaux.map((niv) => (
               <SelectGroup key={`${cat.categorie}-${niv.niveau}`}>
                 <SelectLabel className="text-xs font-medium text-muted-foreground/70 pl-4">
-                  {niv.niveau}
+                  {libelleNiveau(niv.niveau)}
                 </SelectLabel>
                 {niv.classes.map((cls) => (
                   <SelectItem key={cls.id} value={cls.id} className="pl-6">

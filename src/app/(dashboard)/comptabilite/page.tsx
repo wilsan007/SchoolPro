@@ -161,6 +161,7 @@ export default async function ComptabilitePage() {
   >();
 
   for (const f of facturesPourFamilles) {
+    if (!f.eleve) continue;
     const parents = f.eleve.parents;
     if (parents.length === 0) continue;
     // On prend le premier parent (gardien si présent, sinon le premier)
@@ -211,7 +212,9 @@ export default async function ComptabilitePage() {
     take: 10,
   });
 
-  const eleveIdsRetard = elevesRetardGroup.map((g) => g.eleveId);
+  const eleveIdsRetard = elevesRetardGroup
+    .map((g) => g.eleveId)
+    .filter((id): id is string => id !== null);
 
   const elevesAdmin = eleveIdsRetard.length
     ? await prisma.eleve.findMany({

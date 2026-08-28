@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Trash2, DollarSign } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { createTarif, deleteTarif, getTarifsForTenant, type TarifFormData } from "@/lib/actions/facturation-avancee";
 
 interface TarifItem {
@@ -34,6 +35,7 @@ function formatMoney(amount: number, devise: string) {
 
 export function TarifsTab() {
   const t = useTranslations("parametres");
+  const libelleNiveau = useLibelleNiveau();
   const [tarifs, setTarifs] = useState<TarifItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -213,7 +215,7 @@ export function TarifsTab() {
                     <tr key={tarif.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">
                         <div className="flex items-center gap-2">
-                          {tarif.niveau}
+                          {libelleNiveau(tarif.niveau)}
                           {!tarif.actif && <Badge variant="secondary">{t("inactive")}</Badge>}
                         </div>
                       </td>

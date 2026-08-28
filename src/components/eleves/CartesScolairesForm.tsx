@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreditCard, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface Classe {
@@ -19,6 +20,7 @@ interface Classe {
 
 export function CartesScolairesForm({ classes, hierarchie }: { classes: Classe[]; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("eleves");
+  const libelleNiveau = useLibelleNiveau();
   const [classeId, setClasseId] = useState("");
   const [generating, setGenerating] = useState(false);
 
@@ -62,7 +64,7 @@ export function CartesScolairesForm({ classes, hierarchie }: { classes: Classe[]
             <SelectTrigger><SelectValue placeholder={t("cardsSelectClass")} /></SelectTrigger>
             <SelectContent>
               {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.nom} ({c.niveau})</SelectItem>
+                <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
               ))}
             </SelectContent>
           </Select>

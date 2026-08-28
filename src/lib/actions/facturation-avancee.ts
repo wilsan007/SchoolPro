@@ -335,7 +335,7 @@ export async function envoyerRelance(factureId: string, canal: string) {
   const niveau = dernierNiveau + 1;
 
   const messages: Record<number, string> = {
-    1: `Première relance : La facture ${facture.numero} de ${facture.eleve.prenom} ${facture.eleve.nom} d'un montant de ${restant} ${facture.devise} est en retard. Merci de régulariser.`,
+    1: `Première relance : La facture ${facture.numero} de ${facture.eleve?.prenom ?? ""} ${facture.eleve?.nom ?? ""} d'un montant de ${restant} ${facture.devise} est en retard. Merci de régulariser.`,
     2: `Deuxième relance : La facture ${facture.numero} reste impayée (${restant} ${facture.devise}). Merci de régulariser rapidement.`,
     3: `Troisième relance (ULTIME) : La facture ${facture.numero} est toujours impayée. Une procédure d'exclusion pourrait être engagée.`,
   };
@@ -355,7 +355,7 @@ export async function envoyerRelance(factureId: string, canal: string) {
 
   // Envoi réel pour les canaux supportés
   if (canal === "whatsapp") {
-    const tuteur = facture.eleve.parents[0]?.parent;
+    const tuteur = facture.eleve?.parents[0]?.parent;
     if (tuteur?.phone) {
       const tenant = await prisma.tenant.findUnique({
         where: { id: session.user.tenantId },
@@ -363,7 +363,7 @@ export async function envoyerRelance(factureId: string, canal: string) {
       });
       await sendPaymentWhatsApp(
         tuteur.phone,
-        `${facture.eleve.prenom} ${facture.eleve.nom}`,
+        `${facture.eleve?.prenom ?? ""} ${facture.eleve?.nom ?? ""}`,
         restant,
         facture.devise,
         facture.numero,
@@ -548,9 +548,9 @@ export async function detecterFacturesEnRetard() {
     return {
       id: f.id,
       numero: f.numero,
-      eleveNom: `${f.eleve.prenom} ${f.eleve.nom}`,
-      matricule: f.eleve.matricule,
-      classe: f.eleve.classe?.nom ?? "N/A",
+      eleveNom: `${f.eleve?.prenom ?? ""} ${f.eleve?.nom ?? ""}`,
+      matricule: f.eleve?.matricule ?? "",
+      classe: f.eleve?.classe?.nom ?? "N/A",
       montant: f.montant,
       restant: f.montant - totalPaye,
       echeance: f.echeance,

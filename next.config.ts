@@ -6,6 +6,7 @@ const isProd = process.env.NODE_ENV === "production";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   poweredByHeader: false,
   eslint: {
     ignoreDuringBuilds: true,

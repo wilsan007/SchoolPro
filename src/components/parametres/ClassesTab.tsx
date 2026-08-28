@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import {
   Loader2, Plus, Trash2, Pencil, Archive, ArchiveRestore,
   ArrowRightLeft, GitMerge, Split, Copy, Download, ChevronDown, ChevronRight,
@@ -56,6 +57,7 @@ type DeleteStrategy = "archive" | "reassign" | "remove";
 export function ClassesTab({ classes, canManage, sites = [] }: { classes: ClasseItem[]; canManage: boolean; sites?: SiteItem[] }) {
   const t = useTranslations("parametres");
   const tStruct = useTranslations("structures");
+  const libelleNiveau = useLibelleNiveau();
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [structures, setStructures] = useState<StructureOption[]>([]);
@@ -647,7 +649,7 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
                   classes.map((c) => (
                     <tr key={c.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{c.nom}</td>
-                      <td className="px-4 py-3">{c.niveau}</td>
+                      <td className="px-4 py-3">{libelleNiveau(c.niveau)}</td>
                       <td className="px-4 py-3 text-muted-foreground">{c.structure?.nom ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{c.filiere ?? "—"}</td>
                       <td className="px-4 py-3 text-right">
@@ -724,7 +726,7 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
                       {archivedClasses.map((c) => (
                         <tr key={c.id} className="border-b opacity-60">
                           <td className="px-4 py-2 font-medium">{c.nom}</td>
-                          <td className="px-4 py-2">{c.niveau}</td>
+                          <td className="px-4 py-2">{libelleNiveau(c.niveau)}</td>
                           <td className="px-4 py-2 text-right">{c._count.eleves}</td>
                           <td className="px-4 py-2 text-xs">{c.annee}</td>
                           <td className="px-4 py-2 text-right">

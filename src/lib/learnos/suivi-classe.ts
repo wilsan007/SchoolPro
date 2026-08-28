@@ -139,8 +139,10 @@ export async function syntheseClasse(
     }),
   ]);
 
-  const compter = (l: { eleveId: string; _count: { eleveId: number } }[]) =>
-    new Map(l.map((x) => [x.eleveId, x._count.eleveId]));
+  const compter = (l: { eleveId: string | null; _count: { eleveId: number } }[]) =>
+    new Map(
+      l.filter((x) => x.eleveId !== null).map((x) => [x.eleveId!, x._count.eleveId])
+    );
 
   const parAbsences = compter(absences);
   const parBloquantes = compter(bloquantes);

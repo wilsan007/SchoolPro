@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { cn } from "@/lib/utils";
 import { texteErreur } from "@/lib/erreurs-client";
 import {
@@ -80,6 +81,7 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
   const t = useTranslations("learnos.banque");
   const tc = useTranslations("learnos.commun");
   const te = useTranslations("learnos.erreurs");
+  const libelleNiveau = useLibelleNiveau();
 
   const [competenceId, setCompetenceId] = useState<string>("");
   const [questions, setQuestions] = useState<Question[] | null>(null);
@@ -221,7 +223,7 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
       >
         <option value="">{t("choisirCompetence")}</option>
         {chapitres.map((chapitre) => (
-          <optgroup key={chapitre.id} label={`${chapitre.niveau} — ${chapitre.nom}`}>
+          <optgroup key={chapitre.id} label={`${libelleNiveau(chapitre.niveau)} — ${chapitre.nom}`}>
             {chapitre.competences.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.code} · {c.libelle}

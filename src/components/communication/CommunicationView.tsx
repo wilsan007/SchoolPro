@@ -9,7 +9,7 @@ import {
   Bell, Plus, Send, Mail, MessageSquare, Smartphone,
   Users, GraduationCap, UserCheck, BookOpen, School,
   Clock, CheckCircle2, Loader2, Eye, Trash2, CalendarClock,
-  Megaphone, BarChart2,
+  Megaphone, BarChart2, Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate, timeAgo } from "@/lib/utils";
@@ -20,7 +20,7 @@ import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 type Canal = "EMAIL" | "SMS" | "PUSH" | "IN_APP";
 type Statut = "BROUILLON" | "PLANIFIEE" | "EN_ENVOI" | "ENVOYEE" | "ECHEC";
-type Cible = "TOUS" | "PARENTS" | "ENSEIGNANTS" | "ELEVES" | "CLASSE" | "NIVEAU";
+type Cible = "TOUS" | "PARENTS" | "ENSEIGNANTS" | "ELEVES" | "CLASSE" | "NIVEAU" | "DIRECTION";
 
 interface Classe { id: string; nom: string; niveau: string }
 
@@ -66,6 +66,7 @@ const CIBLE_CONFIG: Record<Cible, { labelKey: string; icon: React.ReactNode }> =
   ELEVES:      { labelKey: "cibleStudents",          icon: <Users className="w-3.5 h-3.5" /> },
   CLASSE:      { labelKey: "cibleClass",      icon: <BookOpen className="w-3.5 h-3.5" /> },
   NIVEAU:      { labelKey: "cibleLevel",       icon: <BarChart2 className="w-3.5 h-3.5" /> },
+  DIRECTION:   { labelKey: "cibleDirection",   icon: <Briefcase className="w-3.5 h-3.5" /> },
 };
 
 // ─── Formulaire de création ───────────────────────────────────────────────────

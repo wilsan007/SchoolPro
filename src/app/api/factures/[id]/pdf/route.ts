@@ -52,7 +52,7 @@ export async function GET(
 
     const tenant = facture.tenant;
     const eleve = facture.eleve;
-    const tuteur = eleve.parents[0]?.parent;
+    const tuteur = eleve?.parents[0]?.parent;
     const totalPaye = facture.paiements.reduce((sum, p) => sum + p.montant, 0);
     const restant = facture.montant - totalPaye;
 
@@ -154,9 +154,9 @@ export async function GET(
       <div class="two-col">
         <div>
           <div class="section-title">Élève</div>
-          <div class="row"><span class="label">Nom & Prénom</span><span class="value">${eleve.prenom} ${eleve.nom}</span></div>
-          <div class="row"><span class="label">Matricule</span><span class="value">${eleve.matricule}</span></div>
-          <div class="row"><span class="label">Classe</span><span class="value">${eleve.classe?.nom ?? "N/A"} — ${eleve.classe?.niveau ?? ""}</span></div>
+          <div class="row"><span class="label">Nom & Prénom</span><span class="value">${eleve?.prenom ?? ""} ${eleve?.nom ?? ""}</span></div>
+          <div class="row"><span class="label">Matricule</span><span class="value">${eleve?.matricule ?? ""}</span></div>
+          <div class="row"><span class="label">Classe</span><span class="value">${eleve?.classe?.nom ?? "N/A"} — ${eleve?.classe?.niveau ?? ""}</span></div>
         </div>
         <div>
           ${tuteur ? `

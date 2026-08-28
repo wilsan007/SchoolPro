@@ -70,7 +70,31 @@ async function syncLot(
   let created = 0;
   let closed = 0;
 
-  if (sources.length === 0) return { created, closed };
+  if (sources.length === 0) {
+    // Aucune source active : fermer toutes les tâches auto encore ouvertes.
+    const existantes = await prisma.tache.findMany({
+      where: {
+        tenantId,
+        sourceType: { not: null },
+        statut: { in: ["A_FAIRE", "EN_COURS"] },
+      },
+      select: { id: true, sourceType: true, sourceId: true, statut: true },
+    });
+    if (existantes.length > 0) {
+      const result = await prisma.tache.updateMany({
+        where: {
+          tenantId,
+          id: { in: existantes.map((t) => t.id) },
+        },
+        data: {
+          statut: "FAIT",
+          dateFaite: new Date(),
+        },
+      });
+      closed = result.count;
+    }
+    return { created, closed };
+  }
 
   // 1. Récupérer toutes les tâches auto existantes pour ces sources.
   const sourceTypes = [...new Set(sources.map((s) => s.sourceType))];
@@ -562,7 +586,7 @@ async function scannerFacturesEnRetard(
     sourceType: "facture_en_retard",
     sourceId: f.id,
     assigneeAId: comptable.id,
-    titre: `Relancer : ${f.eleve.prenom} ${f.eleve.nom} — ${f.libelle}`,
+    titre: `Relancer : ${f.eleve?.prenom ?? ""} ${f.eleve?.nom ?? ""} — ${f.libelle}`,
     description: `Facture ${f.numero} · ${f.montant} DJF · échéance ${f.echeance?.toLocaleDateString("fr-FR") ?? "—"}`,
     type: "relance_facture",
     priorite: "HAUTE" as PrioriteTache,

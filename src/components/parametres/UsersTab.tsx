@@ -11,6 +11,7 @@ import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin
 import { createUser, toggleUserActive, deleteUser, updateUserPhone, assignUserSites, getUserSites, type UserFormData } from "@/lib/actions/parametres";
 import { addUserToTenant } from "@/lib/actions/user-tenant";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import type { AvailableTenant } from "@/auth.config";
 import type { Role } from "@prisma/client";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,7 @@ interface MatiereItem {
 
 export function UsersTab({ users, canManage, availableTenants = [], sites = [], classes = [], matieres = [] }: { users: UserItem[]; canManage: boolean; availableTenants?: AvailableTenant[]; sites?: SiteItem[]; classes?: ClasseItem[]; matieres?: MatiereItem[] }) {
   const t = useTranslations("parametres");
+  const libelleNiveau = useLibelleNiveau();
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
@@ -507,7 +509,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
                           />
                           <span>
                             {c.nom}
-                            <span className="block text-xs text-muted-foreground">{c.niveau}</span>
+                            <span className="block text-xs text-muted-foreground">{libelleNiveau(c.niveau)}</span>
                           </span>
                         </label>
                       ))}

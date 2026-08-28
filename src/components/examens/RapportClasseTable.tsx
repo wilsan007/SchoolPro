@@ -9,6 +9,7 @@ import { Loader2, Table } from "lucide-react";
 import { ExportMenu } from "@/components/ui/ExportMenu";
 import type { ExportColumn } from "@/lib/export";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface ClasseInfo {
@@ -36,6 +37,7 @@ interface RapportRow {
 
 export function RapportClasseTable({ classes, hierarchie, periodes }: { classes: ClasseInfo[]; hierarchie?: ClassesHierarchie; periodes: PeriodeInfo[] }) {
   const t = useTranslations("evaluations");
+  const libelleNiveau = useLibelleNiveau();
   const [classeId, setClasseId] = useState("");
   const [periodeId, setPeriodeId] = useState(periodes.find((p) => p.isCurrent)?.id ?? "");
   const [rows, setRows] = useState<RapportRow[]>([]);
@@ -93,7 +95,7 @@ export function RapportClasseTable({ classes, hierarchie, periodes }: { classes:
               <SelectTrigger><SelectValue placeholder={t("rapportSelectClass")} /></SelectTrigger>
               <SelectContent>
                 {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nom} ({c.niveau})</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>

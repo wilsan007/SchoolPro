@@ -957,8 +957,8 @@ async function exportComptabilite(
       const totalPaye = f.paiements.reduce((sum, p) => sum + p.montant, 0);
       return {
         numero: f.numero,
-        matricule: f.eleve.matricule,
-        eleve: `${f.eleve.nom} ${f.eleve.prenom}`,
+        matricule: f.eleve?.matricule ?? "",
+        eleve: `${f.eleve?.nom ?? ""} ${f.eleve?.prenom ?? ""}`,
         site: f.site?.nom ?? "Tous sites",
         libelle: f.libelle,
         montant: f.montant,
@@ -984,7 +984,7 @@ async function exportComptabilite(
   addRowsWithBorders(
     echSheet,
     echeanciers.map((e) => ({
-      eleve: `${e.facture.eleve.nom} ${e.facture.eleve.prenom}`,
+      eleve: `${e.facture.eleve?.nom ?? ""} ${e.facture.eleve?.prenom ?? ""}`,
       factureNumero: e.facture.numero,
       nbEcheances: e.nbEcheances,
       intervalleJours: e.intervalleJours,
@@ -1011,7 +1011,7 @@ async function exportComptabilite(
   addRowsWithBorders(
     retardSheet,
     enRetard.map((e) => ({
-      eleve: `${e.facture.eleve.nom} ${e.facture.eleve.prenom}`,
+      eleve: `${e.facture.eleve?.nom ?? ""} ${e.facture.eleve?.prenom ?? ""}`,
       factureNumero: e.facture.numero,
       numero: e.numero,
       montant: e.montant,
@@ -1035,7 +1035,7 @@ async function exportComptabilite(
   addRowsWithBorders(
     paieSheet,
     paiements.map((p) => ({
-      eleve: `${p.facture.eleve.nom} ${p.facture.eleve.prenom}`,
+      eleve: `${p.facture.eleve?.nom ?? ""} ${p.facture.eleve?.prenom ?? ""}`,
       factureNumero: p.facture.numero,
       montant: p.montant,
       devise: p.devise,
@@ -1057,7 +1057,7 @@ async function exportComptabilite(
   addRowsWithBorders(
     relSheet,
     relances.map((r) => ({
-      eleve: `${r.facture.eleve.nom} ${r.facture.eleve.prenom}`,
+      eleve: `${r.facture.eleve?.nom ?? ""} ${r.facture.eleve?.prenom ?? ""}`,
       factureNumero: r.facture.numero,
       niveau: r.niveau,
       canal: r.canal,

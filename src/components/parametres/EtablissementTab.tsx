@@ -28,6 +28,7 @@ interface EtablissementTabProps {
     currency: string;
     primaryColor: string | null;
     secondaryColor: string | null;
+    modeleNiveaux?: "ANNEES" | "FRANCAIS";
   };
   canManage: boolean;
 }
@@ -52,6 +53,7 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
     currency: etablissement.currency,
     primaryColor: etablissement.primaryColor ?? "",
     secondaryColor: etablissement.secondaryColor ?? "",
+    modeleNiveaux: etablissement.modeleNiveaux ?? "ANNEES",
   });
 
   function update<K extends keyof EtablissementFormData>(field: K, value: EtablissementFormData[K]) {
@@ -164,6 +166,15 @@ export function EtablissementTab({ etablissement, canManage }: EtablissementTabP
               <option value="Africa/Djibouti">Africa/Djibouti</option>
               <option value="Europe/Paris">Europe/Paris</option>
             </select>
+          </div>
+          <div className="space-y-1.5 md:col-span-3">
+            <Label htmlFor="modeleNiveaux">{t("modeleNiveaux")}</Label>
+            <select id="modeleNiveaux" value={form.modeleNiveaux} onChange={(e) => update("modeleNiveaux", e.target.value as "ANNEES" | "FRANCAIS")} disabled={!canManage}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="ANNEES">{t("modeleAnnees")}</option>
+              <option value="FRANCAIS">{t("modeleFrancais")}</option>
+            </select>
+            <p className="text-xs text-muted-foreground">{t("modeleNiveauxHint")}</p>
           </div>
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { ChevronRight, ChevronDown, Users, School, GraduationCap, BookOpen, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
@@ -69,6 +70,7 @@ export function ClassTreeSelector({
 }: ClassTreeSelectorProps) {
   const t = useTranslations("classes");
   const tCommon = useTranslations("common");
+  const libelleNiveau = useLibelleNiveau();
 
   // Catégories ouvertes par défaut : toutes si peu de classes, sinon la
   // catégorie contenant la classe sélectionnée.
@@ -132,7 +134,7 @@ export function ClassTreeSelector({
       {selectedClasse && (
         <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 text-sm">
           <span className="font-medium text-foreground">{selectedClasse.nom}</span>
-          <span className="text-xs text-muted-foreground">— {selectedClasse.niveau}</span>
+          <span className="text-xs text-muted-foreground">— {libelleNiveau(selectedClasse.niveau)}</span>
           <button
             onClick={() => onChange(null)}
             className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
@@ -207,7 +209,7 @@ export function ClassTreeSelector({
                         ) : (
                           <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
                         )}
-                        <span className="text-sm font-medium text-foreground/80">{niv.niveau}</span>
+                        <span className="text-sm font-medium text-foreground/80">{libelleNiveau(niv.niveau)}</span>
                         <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
                           <span className="tabular-nums">{niv.classes.length}</span>
                           {nivEffectif > 0 && (

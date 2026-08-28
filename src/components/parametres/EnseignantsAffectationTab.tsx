@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +69,7 @@ interface Props {
 
 export function EnseignantsAffectationTab({ classes, matieres, canManage }: Props) {
   const t = useTranslations("parametres");
+  const libelleNiveau = useLibelleNiveau();
   const [affectations, setAffectations] = useState<Affectation[]>([]);
   const [enseignants, setEnseignants] = useState<EnseignantOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,7 +226,7 @@ export function EnseignantsAffectationTab({ classes, matieres, canManage }: Prop
                     <SelectContent>
                       {classes.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.nom} ({c.niveau})
+                          {c.nom} ({libelleNiveau(c.niveau)})
                         </SelectItem>
                       ))}
                     </SelectContent>

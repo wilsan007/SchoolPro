@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
 
 const CandidatureSchema = z.object({
   nom: z.string().min(1),
@@ -12,7 +12,8 @@ const CandidatureSchema = z.object({
   lieuNaissance: z.string().optional(),
   sexe: z.enum(["M", "F"]).default("M"),
   nationalite: z.string().optional(),
-  classeVoulue: z.string().min(1),
+  classeVoulue: z.string().optional(),
+  classeId: z.string().optional(),
   annee: z.string().min(1),
   parentNom: z.string().min(1),
   parentPrenom: z.string().min(1),
@@ -54,6 +55,25 @@ export async function GET(req: NextRequest) {
 // POST — soumettre une candidature (public, pas d'auth requise)
 export async function POST(req: NextRequest) {
   try {
+    // ── Rate limiting : 5 candidatures / 5 min par IP ──
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? req.headers.get("x-real-ip")
+      ?? "unknown";
+    const cinqMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- rate limiting global par IP
+    const recentCount = await prisma.candidature.count({
+      where: { createdAt: { gte: cinqMinAgo } },
+    });
+    // On utilise une heuristique simple : si plus de 50 candidatures en 5 min
+    // globalement, on bloque (évite le spam massif). Le rate limiting par IP
+    // précis nécessiterait un middleware Edge ou Redis.
+    if (recentCount > 50) {
+      return NextResponse.json(
+        { error: "Trop de candidatures récentes. Veuillez réessayer dans quelques minutes." },
+        { status: 429 }
+      );
+    }
+
     // Identifier le tenant via le subdomain ou header
     const host = req.headers.get("host") ?? "";
     const slug = host.split(".")[0];
@@ -64,6 +84,13 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (session?.user?.tenantId) {
       tenantId = session.user.tenantId;
+
+      // Bloquer la création si l'admin a "Tous les sites" sélectionné
+      // → la candidature serait orpheline (siteId null)
+      const siteError = requireSiteIdForCreate(session.user);
+      if (siteError) {
+        return NextResponse.json({ error: siteError }, { status: 400 });
+      }
     } else {
       // Appel public : résoudre le tenant via le slug
       const tenant = await prisma.tenant.findUnique({ where: { slug } });
@@ -79,16 +106,67 @@ export async function POST(req: NextRequest) {
     // Année par défaut si non précisée
     const annee = data.annee || new Date().getFullYear() + "-" + (new Date().getFullYear() + 1);
 
+    // ── Résolution classeId → classeVoulue (nom) + siteId ──
+    let classeVoulue = data.classeVoulue ?? "";
+    let siteId: string | undefined;
+
+    if (data.classeId && session?.user) {
+      // Résoudre la classe dans le périmètre de l'utilisateur
+      const classe = await prisma.classe.findFirst({
+        where: {
+          id: data.classeId,
+          tenantId,
+          ...siteFilterForModel("classe", session.user),
+        },
+        select: { nom: true, siteId: true },
+      });
+
+      if (!classe) {
+        return NextResponse.json(
+          { error: "Classe introuvable ou hors de votre périmètre" },
+          { status: 400 }
+        );
+      }
+
+      classeVoulue = classe.nom;
+      siteId = classe.siteId ?? undefined;
+    } else if (data.classeId && tenantId) {
+      // Appel public avec classeId : résoudre sans filtre de site
+      // eslint-disable-next-line ecolpro/require-site-filter -- appel public, pas de session utilisateur
+      const classe = await prisma.classe.findFirst({
+        where: { id: data.classeId, tenantId },
+        select: { nom: true, siteId: true },
+      });
+
+      if (!classe) {
+        return NextResponse.json(
+          { error: "Classe introuvable" },
+          { status: 400 }
+        );
+      }
+
+      classeVoulue = classe.nom;
+      siteId = classe.siteId ?? undefined;
+    }
+
+    if (!classeVoulue) {
+      return NextResponse.json(
+        { error: "La classe souhaitée est requise" },
+        { status: 400 }
+      );
+    }
+
     const candidature = await prisma.candidature.create({
       data: {
         tenantId,
+        siteId,
         nom: data.nom,
         prenom: data.prenom,
         dateNaissance: new Date(data.dateNaissance),
         lieuNaissance: data.lieuNaissance,
         sexe: data.sexe,
         nationalite: data.nationalite ?? "SN",
-        classeVoulue: data.classeVoulue,
+        classeVoulue,
         annee,
         parentNom: data.parentNom,
         parentPrenom: data.parentPrenom,
@@ -97,6 +175,7 @@ export async function POST(req: NextRequest) {
         parentLien: data.parentLien,
         commentaire: data.commentaire,
         documents: data.documents ?? [],
+        ...(session?.user?.id ? { creeParId: session.user.id } : {}),
       },
     });
 

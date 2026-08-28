@@ -5,6 +5,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER } from "@/lib/school-groups";
+import { comparerNiveaux } from "@/lib/niveau-display";
 import type { Role } from "@prisma/client";
 
 /**
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
     if (!parNiveau) return null;
 
     const niveaux = Array.from(parNiveau.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => comparerNiveaux(a, b))
       .map(([niveau, classesNiveau]) => ({
         niveau,
         classes: classesNiveau.map((c) => ({

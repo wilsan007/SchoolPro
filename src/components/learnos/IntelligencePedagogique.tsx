@@ -9,6 +9,7 @@ import {
   AlertTriangle, CheckCircle2, Sparkles, Activity, BookOpen,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { toast } from "sonner";
 import { texteErreur } from "@/lib/erreurs-client";
 
@@ -97,6 +98,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
   const t = useTranslations("learnos.intelligence");
   const te = useTranslations("learnos.erreurs");
   const tc = useTranslations("learnos.commun");
+  const libelleNiveau = useLibelleNiveau();
 
   const [data, setData] = useState<IntelligenceData | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -250,7 +252,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs">{p.niveau}</Badge>
+                      <Badge variant="outline" className="text-xs">{libelleNiveau(p.niveau)}</Badge>
                       {p.competence && (
                         <span className="text-sm font-medium truncate">
                           {p.competence.code} — {p.competence.libelle}
@@ -302,7 +304,7 @@ export function IntelligencePedagogique({ anneeId }: { anneeId?: string }) {
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border p-3"
                 >
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">{c.niveau}</Badge>
+                    <Badge variant="outline" className="text-xs">{libelleNiveau(c.niveau)}</Badge>
                     <span className="text-xs text-muted-foreground">
                       {t("surN", { n: c.echantillon })}
                     </span>

@@ -22,6 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations, useFormatter } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -248,6 +249,7 @@ function niveauRecoColor(n: string): string {
 
 export function DossierProgressionView({ eleveId }: Props) {
   const t = useTranslations("dossierProgression");
+  const libelleNiveau = useLibelleNiveau();
   const format = useFormatter();
   const [data, setData] = useState<DossierData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -562,7 +564,7 @@ export function DossierProgressionView({ eleveId }: Props) {
                       <p className="text-xs text-gray-400 mt-0.5">{r.motif}</p>
                     </div>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${niveauRecoColor(r.niveau)}`}>
-                      {r.niveau}
+                      {libelleNiveau(r.niveau)}
                     </span>
                     {r.resolueLe && (
                       <span className="text-xs text-green-600" title={t("recoResolved")}>

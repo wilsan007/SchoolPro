@@ -758,7 +758,7 @@ export async function calculerDelaiPaiement(
   // 2. Calculer les délais individuels.
   const delais = echeances.map((e) => ({
     delai: differenceEnJours(e.dateEcheance, e.payeeLe!),
-    niveau: e.echeancier.facture.eleve.classe?.niveau ?? "INCONNU",
+    niveau: e.echeancier.facture.eleve?.classe?.niveau ?? "INCONNU",
     siteId: e.echeancier.facture.siteId ?? null,
   }));
 

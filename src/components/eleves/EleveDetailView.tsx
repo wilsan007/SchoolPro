@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { DispenseMatiereManager } from "./DispenseMatiereManager";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { deleteEleve } from "@/lib/actions/eleve";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -206,6 +207,7 @@ export function EleveDetailView({
   userRole?: string;
 }) {
   const t = useTranslations("eleveDetail");
+  const libelleNiveau = useLibelleNiveau();
   const router = useRouter();
 
   // Le comptable ne voit que la facturation et les absences dans le profil élève.
@@ -369,7 +371,7 @@ export function EleveDetailView({
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
               <InfoRow label={t("matricule")} value={eleve.matricule} />
               <InfoRow label={t("class")} value={eleve.classe?.nom ?? t("notAssigned")} />
-              <InfoRow label={t("level")} value={eleve.classe?.niveau} />
+              <InfoRow label={t("level")} value={eleve.classe?.niveau ? libelleNiveau(eleve.classe.niveau) : undefined} />
               <InfoRow label={t("regime")} value={eleve.regime ?? t("external")} />
               <InfoRow label={t("birthDate")} value={formatDate(eleve.dateNaissance)} />
               <InfoRow label={t("placeOfBirth")} value={eleve.lieuNaissance} />
@@ -816,7 +818,7 @@ export function EleveDetailView({
                     <div>
                       <p className="font-semibold">{p.annee}</p>
                       <p className="text-sm text-muted-foreground">
-                        {p.classe} · {p.niveau}
+                        {p.classe} · {libelleNiveau(p.niveau)}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">

@@ -4,6 +4,7 @@ import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
+import { comparerNiveaux } from "@/lib/niveau-display";
 
 /**
  * Hiérarchie d'affichage des classes :
@@ -156,7 +157,7 @@ export async function getClassesHierarchie(
     const niveauMap = categorieMap.get(group);
     if (!niveauMap) return null;
     const niveaux: NiveauNode[] = Array.from(niveauMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => comparerNiveaux(a[0], b[0]))
       .map(([niveau, classes]) => ({
         niveau,
         classes: classes.sort((a, b) => a.nom.localeCompare(b.nom)),

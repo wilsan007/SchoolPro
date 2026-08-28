@@ -150,8 +150,9 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
   // mais seule la direction valide et finalise l'inscription.
   ACCOUNTANT: [
     "finance:*", "rh:*", "inventaire:*",
-    "eleves:read", "parents:read",
+    "eleves:read", "eleves:write", "parents:read",
     "admissions:read", "admissions:write",
+    "parametres:read", "parametres:write",
     "analytics:read", "rapports:read", "messages:*", "documents:read",
     "taches:*",
   ],

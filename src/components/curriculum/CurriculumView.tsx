@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { texteErreur } from "@/lib/erreurs-client";
 import { PrerequisProposes } from "@/components/curriculum/PrerequisProposes";
 import { ImportProgramme } from "@/components/curriculum/ImportProgramme";
@@ -58,6 +59,7 @@ export function CurriculumView({ matieres, chapitres, peutModifier }: Props) {
   const t = useTranslations("learnos.curriculum");
   const tc = useTranslations("learnos.commun");
   const te = useTranslations("learnos.erreurs");
+  const libelleNiveau = useLibelleNiveau();
   const router = useRouter();
   const [enCours, demarrer] = useTransition();
 
@@ -278,7 +280,7 @@ export function CurriculumView({ matieres, chapitres, peutModifier }: Props) {
                         <ChevronRight className="h-4 w-4 shrink-0" />
                       )}
                       <CardTitle className="truncate text-base">{chapitre.nom}</CardTitle>
-                      <Badge variant="outline">{chapitre.niveau}</Badge>
+                      <Badge variant="outline">{libelleNiveau(chapitre.niveau)}</Badge>
                       <Badge variant="secondary">
                         {t("nbCompetences", { n: chapitre.competences.length })}
                       </Badge>

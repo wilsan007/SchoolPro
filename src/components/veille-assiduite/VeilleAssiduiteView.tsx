@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useTranslations, useFormatter } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import Link from "next/link";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
@@ -62,6 +63,7 @@ interface Props {
 
 export function VeilleAssiduiteView({ classes, hierarchie }: Props) {
   const t = useTranslations("veilleAssiduite");
+  const libelleNiveau = useLibelleNiveau();
   const format = useFormatter();
   const [classeId, setClasseId] = useState<string>("all");
   const [data, setData] = useState<{ eleves: EleveVeille[]; synthese: Synthese } | null>(null);
@@ -107,7 +109,7 @@ export function VeilleAssiduiteView({ classes, hierarchie }: Props) {
               <SelectItem value="all">{t("allClasses")}</SelectItem>
               {classes.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {c.nom} ({c.niveau})
+                  {c.nom} ({libelleNiveau(c.niveau)})
                 </SelectItem>
               ))}
             </SelectContent>

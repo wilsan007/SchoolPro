@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowRight, ArrowLeft, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 interface EleveSimple {
@@ -26,6 +27,7 @@ interface ClasseSimple {
 
 export function TransfertClasseForm({ classes, hierarchie }: { classes: ClasseSimple[]; hierarchie?: ClassesHierarchie }) {
   const t = useTranslations("eleves");
+  const libelleNiveau = useLibelleNiveau();
   const [sourceClasseId, setSourceClasseId] = useState("");
   const [targetClasseId, setTargetClasseId] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -94,7 +96,7 @@ export function TransfertClasseForm({ classes, hierarchie }: { classes: ClasseSi
               <SelectTrigger><SelectValue placeholder={t("transfertSelect")} /></SelectTrigger>
               <SelectContent>
                 {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nom} ({c.niveau})</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -105,7 +107,7 @@ export function TransfertClasseForm({ classes, hierarchie }: { classes: ClasseSi
               <SelectTrigger><SelectValue placeholder={t("transfertSelect")} /></SelectTrigger>
               <SelectContent>
                 {classes.filter((c) => c.id !== sourceClasseId).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nom} ({c.niveau})</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>

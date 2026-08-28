@@ -9,7 +9,7 @@ import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { verifyTurnstileToken } from "@/lib/security/turnstile";
 
 const BodySchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email(),
   turnstileToken: z.string().optional(),
 });
 

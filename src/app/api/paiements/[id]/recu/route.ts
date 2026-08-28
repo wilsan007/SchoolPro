@@ -59,7 +59,7 @@ export async function GET(
 
     const tenant = paiement.facture.tenant;
     const eleve = paiement.facture.eleve;
-    const tuteur = eleve.parents[0]?.parent;
+    const tuteur = eleve?.parents[0]?.parent;
     const recuNumber = `REC-${new Date(paiement.date).getFullYear()}-${paiement.id.slice(-6).toUpperCase()}`;
 
     function formatMoney(amount: number, devise: string) {
@@ -125,9 +125,9 @@ export async function GET(
 
     <div class="body">
       <div class="section-title">Élève</div>
-      <div class="row"><span class="label">Nom & Prénom</span><span class="value">${eleve.prenom} ${eleve.nom}</span></div>
-      <div class="row"><span class="label">Matricule</span><span class="value">${eleve.matricule}</span></div>
-      <div class="row"><span class="label">Classe</span><span class="value">${eleve.classe?.nom ?? "N/A"} — ${eleve.classe?.niveau ?? ""}</span></div>
+      <div class="row"><span class="label">Nom & Prénom</span><span class="value">${eleve?.prenom ?? ""} ${eleve?.nom ?? ""}</span></div>
+      <div class="row"><span class="label">Matricule</span><span class="value">${eleve?.matricule ?? ""}</span></div>
+      <div class="row"><span class="label">Classe</span><span class="value">${eleve?.classe?.nom ?? "N/A"} — ${eleve?.classe?.niveau ?? ""}</span></div>
 
       ${tuteur ? `
       <div class="section-title">Tuteur légal</div>
