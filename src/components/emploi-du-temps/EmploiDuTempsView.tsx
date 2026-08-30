@@ -3,10 +3,11 @@
 import { useState, useTransition, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles, AlertCircle, CheckCircle2, Download, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Loader2, Clock, Printer, GripVertical, Sparkles, AlertCircle, CheckCircle2, Download, FileSpreadsheet, FileText, ChevronDown, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SmartSuggestPanel } from "./SmartSuggestPanel";
+import { ImportEmploiModal } from "./ImportEmploiModal";
 import { useTranslations } from "next-intl";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
@@ -361,7 +362,18 @@ export function EmploiDuTempsView({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<{ jour: Jour; time: string } | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const dragOffsetRef = useRef(0);
+
+  // Compte des créneaux existants par classe (pour l'étape 1 de l'import).
+  const creneauxParClasse = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of emplois) {
+      const cid = e.classeId;
+      if (cid) counts[cid] = (counts[cid] ?? 0) + 1;
+    }
+    return counts;
+  }, [emplois]);
 
   // Mémoïsé : recalculé à chaque rendu, ce tableau changeait d'identité en
   // permanence et invalidait le `useCallback` de déplacement de créneau, qui
@@ -779,6 +791,18 @@ export function EmploiDuTempsView({
           </div>
           {!readOnly && (
             <Button
+              onClick={() => setShowImport(true)}
+              disabled={classes.length === 0}
+              variant="outline"
+              className="gap-2 w-full sm:w-auto"
+              size="sm"
+            >
+              <Upload className="w-4 h-4" />
+              {t("importBtn")}
+            </Button>
+          )}
+          {!readOnly && (
+            <Button
               onClick={() => setShowSuggest(true)}
               disabled={!selectedClasse}
               className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto"
@@ -909,6 +933,21 @@ export function EmploiDuTempsView({
               );
               return [...otherClasses, ...newCreneaux];
             });
+          }}
+        />
+      )}
+
+      {hierarchie && (
+        <ImportEmploiModal
+          open={showImport}
+          onClose={() => setShowImport(false)}
+          hierarchie={hierarchie}
+          creneauxParClasse={creneauxParClasse}
+          onApplied={() => {
+            // L'import remplace intégralement l'EDT de la classe : on recharge
+            // la page pour récupérer l'état cohérent depuis le serveur (les
+            // créneaux ont été supprimés + recréés en base).
+            window.location.reload();
           }}
         />
       )}

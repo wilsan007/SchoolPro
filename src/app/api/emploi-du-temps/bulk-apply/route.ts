@@ -9,18 +9,38 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const CreneauSchema = z.object({
-  matiereId: z.string().min(1),
+  // matiereId : matière existante. Rendu optionnel pour supporter l'import
+  // qui peut référencer une matière à créer via `matiereACreerKey`. Les
+  // appelants existants (sans matiereACreerKey) doivent toujours fournir un
+  // matiereId non vide — vérifié par le refine ci-dessous.
+  matiereId: z.string().optional(),
+  // Clé référençant une entrée de `matieresACreer` (import d'EDT). Quand elle
+  // est présente, la matière est créée dans la transaction et son ID résolu.
+  matiereACreerKey: z.string().optional(),
   enseignantId: z.string().min(1).nullable(),
   jour: z.enum(["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"]),
   heureDebut: z.string().regex(/^\d{2}:\d{2}$/),
   heureFin: z.string().regex(/^\d{2}:\d{2}$/),
   salle: z.string().max(80).nullable(),
+}).refine((c) => (c.matiereId && c.matiereId.length > 0) || c.matiereACreerKey, {
+  message: "matiereId ou matiereACreerKey requis",
+  path: ["matiereId"],
+});
+
+const MatiereACreerSchema = z.object({
+  key: z.string().min(1),
+  nom: z.string().min(1).max(120),
+  code: z.string().min(1).max(20),
+  niveau: z.string().nullable(),
 });
 
 const Schema = z.object({
   classeId: z.string().min(1),
   creneaux: z.array(CreneauSchema).min(1).max(60),
   periodeId: z.string().optional().or(z.literal("")),
+  // Optionnel : matières à créer atomiquement avant les créneaux (import).
+  // Additif : les appelants existants ne l'envoient pas → comportement inchangé.
+  matieresACreer: z.array(MatiereACreerSchema).optional(),
 });
 
 /**
@@ -44,11 +64,22 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });
     }
-    const { classeId, creneaux, periodeId } = parsed.data;
+    const { classeId, creneaux, periodeId, matieresACreer } = parsed.data;
     const tenantId = session.user.tenantId;
     const periodeIdValue = periodeId || null;
 
-    const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId, ...siteFilter }, select: { id: true, nom: true } });
+    const annee = await getAnneeCouranteLibelle(tenantId);
+    if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
+
+    const classe = await prisma.classe.findFirst({
+      where: {
+        id: classeId,
+        tenantId,
+        ...siteFilter,
+        ...(annee ? { annee } : {}),
+      },
+      select: { id: true, nom: true },
+    });
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
 
     // Auto-conflit interne au plan fourni (classe, enseignant, salle).
@@ -66,10 +97,46 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const annee = await getAnneeCouranteLibelle(tenantId);
-    if (!annee) return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
-
     const result = await prisma.$transaction(async (tx) => {
+      // Auto-création des matières issues de l'import (additif). Les matières
+      // sont créées ici, dans la même transaction que les créneaux, pour
+      // garantir l'atomicité : si un conflit annule la transaction, aucune
+      // matière n'est créée non plus. On évite les doublons de code au sein du
+      // tenant (upsert par code).
+      const matiereKeyToId = new Map<string, string>();
+      if (matieresACreer && matieresACreer.length > 0) {
+        for (const m of matieresACreer) {
+          const existing = await tx.matiere.findFirst({
+            where: { tenantId, code: m.code, ...(m.niveau ? { niveau: m.niveau } : {}) },
+            select: { id: true },
+          });
+          if (existing) {
+            matiereKeyToId.set(m.key, existing.id);
+            continue;
+          }
+          const created = await tx.matiere.create({
+            data: {
+              tenantId,
+              nom: m.nom,
+              code: m.code,
+              niveau: m.niveau,
+              coefficient: 1,
+            },
+          });
+          matiereKeyToId.set(m.key, created.id);
+        }
+      }
+
+      // Résout l'ID de matière de chaque créneau : matiereId direct, ou via
+      // la clé d'une matière fraîchement créée.
+      const creneauxAvecMatiere = creneaux.map((c) => {
+        const matiereId = c.matiereId && c.matiereId.length > 0
+          ? c.matiereId
+          : (c.matiereACreerKey ? matiereKeyToId.get(c.matiereACreerKey) : undefined);
+        if (!matiereId) throw new Error("Créneau sans matière résolvable");
+        return { ...c, matiereId };
+      });
+
       // Supprime les créneaux existants pour cette classe/année/période.
       // Si periodeId est null, supprime les créneaux annuels uniquement.
       // Si periodeId est renseigné, supprime les créneaux de cette période
@@ -90,7 +157,7 @@ export async function POST(req: NextRequest) {
         select: { jour: true, heureDebut: true, heureFin: true, enseignantId: true, salle: true },
       });
 
-      for (const c of creneaux) {
+      for (const c of creneauxAvecMatiere) {
         const conflitEnseignant =
           c.enseignantId &&
           autres.some(
@@ -109,7 +176,7 @@ export async function POST(req: NextRequest) {
       }
 
       await tx.emploiTemps.createMany({
-        data: creneaux.map((c) => ({
+        data: creneauxAvecMatiere.map((c) => ({
           tenantId,
           classeId,
           matiereId: c.matiereId,
@@ -123,7 +190,7 @@ export async function POST(req: NextRequest) {
         })),
       });
 
-      return { deleted: deleted.count, created: creneaux.length };
+      return { deleted: deleted.count, created: creneauxAvecMatiere.length };
     });
 
     revalidatePath("/emploi-du-temps");
