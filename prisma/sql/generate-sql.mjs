@@ -279,7 +279,8 @@ function generateClasses() {
       // niveaux. La numérotation ne dépend pas de l'année — une même classe
       // occupe la même salle d'une année sur l'autre, et deux années
       // différentes ne peuvent de toute façon pas se disputer une salle.
-      let numCollege = 100, numLycee = 200;
+      let numCollege = site === 'ambouli' ? 100 : 300;
+      let numLycee   = site === 'ambouli' ? 200 : 400;
       for (const niveau of ALL_NIVEAUX) {
         for (const suffix of CLASS_SUFFIXES[niveau]) {
           const salle = `Salle ${LYCEE_NIVEAUX.includes(niveau) ? ++numLycee : ++numCollege}`;
@@ -324,7 +325,13 @@ function generateClasses() {
 // de remplissage des classes (I11) doit savoir lire.
 
 const NIVEAU_SUIVANT = {
+  // Primaire modèle ANNEES
+  '1A': '2A', '2A': '3A', '3A': '4A', '4A': '5A', '5A': '6eme',
+  // Primaire modèle FRANCAIS
+  'ci': 'cp', 'cp': 'ce1', 'ce1': 'ce2', 'ce2': 'cm1', 'cm1': 'cm2', 'cm2': '6eme',
+  // Collège
   '6eme': '5eme', '5eme': '4eme', '4eme': '3eme', '3eme': '2nde',
+  // Lycée
   '2nde': '1ere', '1ere': 'Terminale', 'Terminale': null,
 };
 
@@ -884,12 +891,19 @@ const HEURES_HEBDO = {
 /// sinon il se fait dans la salle de la classe — un cours de SVT n'est pas
 /// toujours un travail pratique. L'EPS fait exception : elle exige une
 /// installation sportive, et le créneau est abandonné si aucune n'est libre.
-const SALLES_SPECIALISEES = {
-  PC:   { salles: ['Labo Physique 1', 'Labo Physique 2'], obligatoire: false },
-  SVT:  { salles: ['Labo SVT'],                            obligatoire: false },
-  TECH: { salles: ['Salle Info'],                           obligatoire: false },
-  EPS:  { salles: ['Gymnase', 'Terrain de sport', 'Plateau sportif'], obligatoire: true },
-};
+const NOM_SITE = { ambouli: 'Ambouli', arhiba: 'Arhiba' };
+const SALLES_SPECIALISEES = Object.fromEntries(
+  ['ambouli', 'arhiba'].map(site => {
+    const s = NOM_SITE[site];
+    return [site, {
+      PC:   { salles: [`Labo Physique ${s} 1`, `Labo Physique ${s} 2`], obligatoire: false },
+      SVT:  { salles: [`Labo SVT ${s}`],  obligatoire: false },
+      TECH: { salles: [`Salle Info ${s}`], obligatoire: false },
+      EPS:  { salles: [`Gymnase ${s}`, `Terrain de sport ${s}`,
+                       `Plateau sportif ${s}`], obligatoire: true },
+    }];
+  })
+);
 
 /// Au-delà de douze classes sur la même matière au même moment, l'emploi du
 /// temps trahit une génération sans contrainte — l'audit le signale. On en
@@ -959,7 +973,7 @@ function construireEmploisDuTemps(classes) {
       for (const tache of aPlacer) {
         const { cls, matCode } = tache;
         const ensId = ensParClasseMatiere.get(`${cls.id}|${matCode}`);
-        const spec = SALLES_SPECIALISEES[matCode];
+        const spec = SALLES_SPECIALISEES[site][matCode];
 
         // Candidats : tous les créneaux de la semaine, du moins chargé au plus
         // chargé pour cette matière, avec un départ aléatoire pour ne pas
@@ -1099,9 +1113,12 @@ function genFile06() {
         const evalId = `eval-${cls.id}-${matCode}-${periodeId}-0`;
         const evalType = pick(evalTypes);
         const periodIdx = periods.indexOf(periodeId);
-        const evalMonth = anneeYear === '2024'
-          ? 10 + periodIdx : 10 + periodIdx;
-        const evalDate = `${anneeYear === '2024' ? 2024 : 2025}-${String(Math.min(evalMonth, 12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')} 12:00:00`;
+        // T1 → oct-nov, T2 → janv-févr, T3 → avril-mai (aligné sur les périodes réelles)
+        const evalMonthsByPeriod = anneeYear === '2024'
+          ? [{ y: 2024, m: 10 }, { y: 2025, m: 1 }, { y: 2025, m: 4 }]
+          : [{ y: 2025, m: 10 }, { y: 2026, m: 1 }, { y: 2026, m: 4 }];
+        const em = evalMonthsByPeriod[periodIdx];
+        const evalDate = `${em.y}-${String(em.m).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')} 12:00:00`;
 
         evaluations.push([evalId,'tenant-ambouli',`${matCode} ${periodeId}`,evalType,cls.id,matId,periodeId,evalDate,60,randInt(1,3),null,'TERMINE',TS,TS]);
 
@@ -1187,7 +1204,12 @@ function genFile06() {
         else appGen = 'Trimestre insuffisant';
 
         const bullId = `bull-${eleveId}-${periodeId}`;
-        bulletins.push([bullId,'tenant-ambouli',eleveId,periodeId,moyenne,moyenneClasse,moyennePremier,randInt(0,10),rang,studs.length,appGen,decision,TRUE,TS,null,TS,TS]);
+        // publishedAt: après la fin de chaque période (pour l'horizon démo)
+        const publishedAtByPeriod = anneeYear === '2024'
+          ? ['2024-12-22 12:00:00', '2025-03-30 12:00:00', '2025-07-16 12:00:00']
+          : ['2025-12-20 12:00:00', '2026-03-28 12:00:00', '2026-07-15 12:00:00'];
+        const publishedAt = publishedAtByPeriod[periods.indexOf(periodeId)];
+        bulletins.push([bullId,'tenant-ambouli',eleveId,periodeId,moyenne,moyenneClasse,moyennePremier,randInt(0,10),rang,studs.length,appGen,decision,TRUE,publishedAt,null,TS,TS]);
 
         // ── Bulletin matières : TOUTES les matières ───────────
         for (const matCode of matiereCodes) {
@@ -1707,7 +1729,7 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
     const statut = isPast(rmplDate)
       ? weightedPick([['EFFECTUE',8],['VALIDE',2]])
       : weightedPick([['PROPOSE',6],['VALIDE',4]]);
-    remplacements.push([`rmpl-${i+1}`,'tenant-ambouli',`site-${site}`,null,cls,'mat-MATH',`ens-${site}-1`,`ens-${site}-${randInt(2,20)}`,rmplDate,'08:00','09:00',`Salle ${randInt(101,203)}`,statut,'Maladie',null,'user-principal-coll-amb',TS,TS]);
+    remplacements.push([`rmpl-${i+1}`,'tenant-ambouli',`site-${site}`,null,cls,'mat-MATH',`ens-${site}-1`,`ens-${site}-${randInt(2,20)}`,rmplDate,'08:00','09:00',`Salle ${site === 'ambouli' ? randInt(101,112) : randInt(301,312)}`,statut,'Maladie',null,'user-principal-coll-amb',TS,TS]);
   }
 
   // Devoirs (50)
@@ -2048,6 +2070,80 @@ DELETE FROM "remises_caisse" WHERE "tenantId"='tenant-ambouli';
   sql += batchInsert('regles_appreciation', ['id','tenantId','contexte','seuilMin','seuilMax','libelle','ordre','createdAt','updatedAt'], reglesAppreciation) + '\n\n';
   sql += batchInsert('remises_caisse', ['id','tenantId','siteId','caissierId','montantDeclare','dateRemise','dateSaisieRemise','receveurId','montantRecu','dateReception','dateSaisieReception','commentaireReceveur','statut','periodeDebut','periodeFin','devise','createdAt','updatedAt'], remisesCaisse) + '\n\n';
 
+
+  // ── Journal de Progression Pédagogique (JPP) ──
+  // Séances pédagogiques pour les classes de l'année courante (2025-2026)
+  // et quelques séances pour 2026-2027 (démo rentrée).
+  // Chaque classe × matière reçoit une séance par semaine sur les semaines
+  // déjà écoulées, avec un statut réaliste :
+  //   - semaines passées : EFFECTUEE (85%), ANNULEE (10%), REPORTEE (5%)
+  //   - semaine courante / futures : PLANIFIEE
+  sql += `-- JPP: Séances pédagogiques\nDELETE FROM "seances_pedagogiques" WHERE "tenantId"='tenant-ambouli';\n`;
+
+  const seancesPeda = [];
+  const jppMatieres = ['MATH','FR','ANG','HG','PC','SVT','EPS'];
+  const jppClasses = [];
+  const jppNiveauxSuffixes = {
+    '6eme': 'A', '5eme': 'A', '4eme': 'A', '3eme': 'A', '2nde': 'A',
+    '1ere': 'S', 'Terminale': 'S'
+  };
+  for (const site of ['ambouli','arhiba']) {
+    for (const [niveau, suffix] of Object.entries(jppNiveauxSuffixes)) {
+      // Année N (2025-2026) — séances sur toute l'année (36 semaines)
+      jppClasses.push({ id: `cls-${site}-2025-${niveau}-${suffix}`, site: `site-${site}`, niveau, anneeYear: '2025', maxSem: 36 });
+    }
+  }
+  let spIdx = 0;
+  for (const cls of jppClasses) {
+    const anneeStart = cls.anneeYear === '2026' ? new Date(2026, 8, 1) : new Date(2025, 8, 1); // 1er septembre
+    for (const matCode of jppMatieres) {
+      // 1 séance par semaine, semaines 1 à maxSem
+      for (let sem = 1; sem <= cls.maxSem; sem++) {
+        spIdx++;
+        const seanceDate = new Date(anneeStart);
+        seanceDate.setDate(seanceDate.getDate() + (sem - 1) * 7 + 1); // mardi de chaque semaine
+        const dateStr = `${seanceDate.getFullYear()}-${String(seanceDate.getMonth()+1).padStart(2,'0')}-${String(seanceDate.getDate()).padStart(2,'0')} 08:00:00`;
+        const isPastSeance = isPast(dateStr);
+        let statut, contenu = null, dureeReelle = null, rythme = 'NON_EVALUEE', presents = null, absents = null;
+        if (isPastSeance) {
+          const roll = rand();
+          if (roll < 0.85) {
+            statut = 'EFFECTUEE';
+            dureeReelle = pick([55, 60, 60, 60, 65, 90]);
+            contenu = `Séance ${sem}: ${pick(['Introduction', 'Approfondissement', 'Exercices', 'Évaluation formative', 'Travail de groupe', 'Correction'])} — ${matCode} ${cls.niveau}`;
+            presents = pick([28, 29, 30, 30, 31, 32]);
+            absents = pick([0, 0, 1, 1, 2, 3]);
+            rythme = weightedPick([['A_TEMPS',6],['EN_AVANCE',2],['EN_RETARD',2]]);
+          } else if (roll < 0.95) {
+            statut = 'ANNULEE';
+            contenu = null;
+            rythme = 'NON_EVALUEE';
+          } else {
+            statut = 'REPORTEE';
+            contenu = null;
+            rythme = 'NON_EVALUEE';
+          }
+        } else {
+          statut = 'PLANIFIEE';
+        }
+        const siteName = cls.site.replace('site-', '');
+        const ensId = `ens-${siteName}-${randInt(1,20)}`;
+        seancesPeda.push([
+          `sp-${spIdx}`, 'tenant-ambouli', cls.site,
+          cls.id, `mat-${matCode}`, ensId,
+          null, null, // chapitreId, planificationId — non liés pour le seed démo
+          dateStr, 60, dureeReelle,
+          statut, sem, contenu, rythme, presents, absents,
+          TS, TS
+        ]);
+      }
+    }
+  }
+  sql += batchInsert('seances_pedagogiques',
+    ['id','tenantId','siteId','classeId','matiereId','enseignantId','chapitreId','planificationId','date','dureePrevue','dureeReelle','statut','semaine','contenu','rythme','presents','absents','createdAt','updatedAt'],
+    seancesPeda) + '\n\n';
+  console.log(`  [genFile09] JPP: ${seancesPeda.length} séances pédagogiques (${jppClasses.length} classes 2025-2026)`);
+
   return sql;
 }
 
@@ -2361,8 +2457,8 @@ function genFile11() {
       if (recRoll < 4) { recStatut = 'OBLIGATOIRE'; recDecidePar = null; recDecideeLe = null; recResolueLe = null; }
       else if (recRoll < 6) { recStatut = 'RECOMMANDEE'; recDecidePar = null; recDecideeLe = null; recResolueLe = null; }
       else if (recRoll < 8) { recStatut = 'PROPOSEE'; recDecidePar = null; recDecideeLe = null; recResolueLe = null; }
-      else if (recRoll < 9) { recStatut = 'ACCEPTEE'; recDecidePar = 'user-admin-amb'; recDecideeLe = '2025-02-01 00:00:00'; recResolueLe = '2025-04-15 00:00:00'; }
-      else { recStatut = 'ECARTEE'; recDecidePar = 'user-admin-amb'; recDecideeLe = '2025-02-01 00:00:00'; recResolueLe = null; }
+      else if (recRoll < 9) { recStatut = 'ACCEPTEE'; recDecidePar = 'user-admin-amb'; recDecideeLe = '2025-11-15 00:00:00'; recResolueLe = '2026-02-15 00:00:00'; }
+      else { recStatut = 'ECARTEE'; recDecidePar = 'user-admin-amb'; recDecideeLe = '2025-11-15 00:00:00'; recResolueLe = null; }
       recommandations.set(`${eleveId}|${cpId}`, [`rec-${rcIdx}`,'tenant-ambouli',null,eleveId,cpId,
         recNiveau, recStatut,
         `Compétence ${cpId} nécessite un soutien`,
@@ -2487,7 +2583,13 @@ function genFile11() {
 
   // ── 5. EvaluationCompetence — link evaluations to competences ──
   const evalClassSuffixes = {
+    // Primaire modèle ANNEES
+    '1A': ['A','B'], '2A': ['A','B'], '3A': ['A','B'], '4A': ['A','B'], '5A': ['A','B'],
+    // Primaire modèle FRANCAIS
+    'ci': ['A','B'], 'cp': ['A','B'], 'ce1': ['A','B'], 'ce2': ['A','B'], 'cm1': ['A','B'], 'cm2': ['A','B'],
+    // Collège
     '6eme': ['A','B','C'], '5eme': ['A','B','C'], '4eme': ['A','B','C'], '3eme': ['A','B','C'],
+    // Lycée
     '2nde': ['A','B','C','D'], '1ere': ['S','ES','L'], 'Terminale': ['S','ES','L']
   };
   const evalPeriods = {
@@ -2950,7 +3052,9 @@ function genFile13() {
   for (let i = 0; i < 20; i++) {
     kpIdx++;
     const site = i < 10 ? 'site-ambouli' : 'site-arhiba';
-    kpis.push([`kpi-${kpIdx}`,'tenant-ambouli',site,pick(['PRINCIPAL','ENSEIGNANT','TENANT_ADMIN']),kpiKeys[i%kpiKeys.length],rand()*100,75,`2025-0${randInt(1,6)}-01 00:00:00`,TS]);
+    const kpiMonths = [{y:2025,m:9},{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3},{y:2026,m:4},{y:2026,m:5},{y:2026,m:6}];
+    const kpMo = pick(kpiMonths);
+    kpis.push([`kpi-${kpIdx}`,'tenant-ambouli',site,pick(['PRINCIPAL','ENSEIGNANT','TENANT_ADMIN']),kpiKeys[i%kpiKeys.length],rand()*100,75,`${kpMo.y}-${String(kpMo.m).padStart(2,'0')}-01 00:00:00`,TS]);
   }
 
   // Alertes parent (30)
@@ -3055,7 +3159,9 @@ function genFile13() {
   for (let i = 0; i < 30; i++) {
     evIdx++;
     const site = i < 15 ? 'site-ambouli' : 'site-arhiba';
-    const occurredAt = `2025-0${randInt(1,6)}-15 00:00:00`;
+    const eventMonths = [{y:2025,m:9},{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3},{y:2026,m:4},{y:2026,m:5},{y:2026,m:6}];
+    const evMo = pick(eventMonths);
+    const occurredAt = `${evMo.y}-${String(evMo.m).padStart(2,'0')}-15 00:00:00`;
     // 80% of events are processed (processedAt set after occurredAt), 20% pending (NULL)
     let processedAt = null;
     if (rand() < 0.80) {
