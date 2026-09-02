@@ -3,6 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.21.0",
+  "overrides": {
+    "@auth/core": ">=0.41.3",
+    "postcss": ">=8.5.18",
+    "sharp": ">=0.35.0",
+    "next>postcss": ">=8.5.18",
+    "tar": "^7.5.16",
+    "brace-expansion@>=4.0.0": "5.0.9",
+    "uuid@<11.1.1": "11.1.1",
+    "js-yaml@>=4.0.0 <4.3.1": "4.3.1",
+    "deepmerge-ts@<8.0.0": "8.0.2"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
