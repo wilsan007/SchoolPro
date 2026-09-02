@@ -1,4 +1,4 @@
-app = "schoolpro"
+app = "schoolpro-djib"
 primary_region = "cdg"
 
 [build]
