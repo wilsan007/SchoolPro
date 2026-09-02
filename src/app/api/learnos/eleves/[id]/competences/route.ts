@@ -6,6 +6,8 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
 import { exigencesAVenirPourEleve } from "@/lib/learnos/planification";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
+import { recalculerProfils, fusionnerProfil } from "@/lib/learnos/profile-recompute";
 
 /**
  * Profil de compétences d'un élève (LEARNOS).
@@ -14,6 +16,16 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
  * estimation. Les deux sont transmis séparément : l'interface doit pouvoir
  * dire « nous n'en savons pas assez » plutôt que d'afficher un chiffre
  * auquel personne ne devrait se fier.
+ *
+ * TIME MACHINE
+ * ------------
+ * Les profils stockés (`StudentLearningProfile`) sont des états CUMULATIFS
+ * (moyenne des 5 preuves de l'année). En démo, afficher l'état final en
+ * octobre trahit le bilan de fin d'année. On recale donc les champs
+ * temporels (`masteryScore`, `evidenceCount`, `lastEvidenceAt`, `trend`,
+ * `masteryStatus`) à partir des preuves filtrées par `occurredAt <= demoDate`.
+ * L'horizon démo filtre automatiquement les `LearningEvidence` ; nous
+ * récupérons ces preuves filtrées et recalculons l'agrégat ici.
  */
 export async function GET(
   req: NextRequest,
@@ -44,8 +56,9 @@ export async function GET(
   }
 
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const demoNow = await getDemoNow();
 
-  const [profils, recommandations] = await Promise.all([
+  const [profilsStockes, recommandations, evidencesFiltrees] = await Promise.all([
     prisma.studentLearningProfile.findMany({
       where: {
         tenantId,
@@ -96,7 +109,32 @@ export async function GET(
         competencesBloquees: true,
       },
     }),
+    // Preuves filtrées par l'horizon démo (occurredAt <= demoDate).
+    // Utilisées pour recalculer les champs temporels des profils.
+    prisma.learningEvidence.findMany({
+      where: {
+        tenantId,
+        eleveId,
+        competenceId: { not: null },
+        occurredAt: { lte: demoNow },
+        ...siteFilterForModel("learningEvidence", session.user),
+      },
+      select: {
+        competenceId: true,
+        masterySignal: true,
+        occurredAt: true,
+      },
+    }),
   ]);
+
+  // Recalculer les profils à partir des preuves filtrées par la date simulée.
+  const evidencesPourRecalcul = evidencesFiltrees
+    .filter((e) => e.competenceId !== null)
+    .map((e) => ({ competenceId: e.competenceId!, masterySignal: e.masterySignal, occurredAt: e.occurredAt }));
+  const profilsRecalcules = recalculerProfils(evidencesPourRecalcul);
+  const profils = profilsStockes.map((p) =>
+    fusionnerProfil(p, profilsRecalcules.get(p.competenceId))
+  );
 
   // Ce qui arrive : relie le programme de l'année au profil individuel.
   const aVenir = await exigencesAVenirPourEleve(tenantId, eleveId, session.user);

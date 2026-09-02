@@ -9,6 +9,7 @@ import {
   mergeFilters,
 } from "@/lib/site-scope";
 import { anneeActiveId } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 /**
  * Évolution d'un élève au fil de l'année scolaire.
@@ -22,6 +23,14 @@ import { anneeActiveId } from "@/lib/annee-scolaire";
  *   2. L'historique des preuves d'apprentissage (timeline de masterySignal).
  *   3. Les bulletins par période (moyenne, rang, décision).
  *   4. Une synthèse de trajectoire (progression, précision des prédictions).
+ *
+ * TIME MACHINE
+ * -----------
+ * L'horizon démo filtre automatiquement les preuves (`occurredAt <= demoDate`),
+ * les bulletins (`publishedAt <= demoDate`) et les prédictions (`emiseLe <= demoDate`).
+ * Pour les prédictions, la vérification (`verifieeLe`) n'est PAS filtrée par
+ * l'horizon : on la masque manuellement si `verifieeLe > demoDate` — une
+ * prédiction ne peut pas être « vérifiée » avant que la vérification n'ait eu lieu.
  *
  * ISOLATION
  * ---------
@@ -104,6 +113,13 @@ export async function GET(
   const eleveRelFilter = eleveScopeFilter(session.user, "eleve");
   const siteFilter = siteFilterForModel("predictionDifficulte", session.user);
 
+  // Date simulée (Time Machine) — borne supérieure pour les preuves, bulletins
+  // et vérifications de prédictions. L'horizon démo filtre automatiquement
+  // `LearningEvidence`, `Bulletin` et `PredictionDifficulte` ; nous l'utilisons
+  // aussi ici pour masquer manuellement les vérifications de prédictions qui
+  // n'ont pas encore eu lieu à la date simulée.
+  const demoNow = await getDemoNow();
+
   // Charger en parallèle : prédictions, preuves, bulletins, années disponibles.
   const [predictions, evidences, bulletins, anneesDisponibles] = await Promise.all([
     // 1. Prédictions pour cette année, avec compétence et chapitre.
@@ -174,10 +190,13 @@ export async function GET(
       take: 500,
     }),
 
-    // 3. Bulletins par période.
+    // 3. Bulletins par période — uniquement ceux déjà publiés à la date simulée.
+    //    L'horizon démo filtre `publishedAt <= demoDate` automatiquement ; on
+    //    ajoute aussi `isPublie: true` pour le cas où le flag et la date
+    //    divergent (seed, migration partielle).
     prisma.bulletin.findMany({
       where: mergeFilters(
-        { tenantId, eleveId, periode: { anneeId: annee.id } },
+        { tenantId, eleveId, isPublie: true, periode: { anneeId: annee.id } },
         siteFilterForModel("bulletin", session.user),
         eleveRelFilter
       ),
@@ -213,6 +232,24 @@ export async function GET(
     }),
   ]);
 
+  // ── Masquer les vérifications de prédictions futures ────────────────────
+  // L'horizon démo filtre `emiseLe <= demoDate` (une prédiction non encore
+  // émise n'est pas visible). Mais `verifieeLe` n'est pas filtré : une
+  // prédiction émise en septembre peut être vérifiée en avril, et en se
+  // plaçant en octobre on ne doit pas voir le résultat de cette vérification.
+  const predictionsMasquees = predictions.map((p) => {
+    if (p.verifieeLe && new Date(p.verifieeLe) > demoNow) {
+      return {
+        ...p,
+        verifieeLe: null,
+        masteryApres: null,
+        predictionCorrecte: null,
+        ecart: null,
+      };
+    }
+    return p;
+  });
+
   // ── Synthèse de trajectoire ──────────────────────────────────────────────
 
   // 1. Progression : comparer la maîtrise moyenne au début vs à la fin.
@@ -240,7 +277,7 @@ export async function GET(
       : null;
 
   // 2. Précision des prédictions pour cet élève.
-  const predictionsVerifiees = predictions.filter((p) => p.verifieeLe !== null);
+  const predictionsVerifiees = predictionsMasquees.filter((p) => p.verifieeLe !== null);
   const predictionsCorrectes = predictionsVerifiees.filter(
     (p) => p.predictionCorrecte === true
   );
@@ -258,7 +295,7 @@ export async function GET(
 
   // 4. Distribution par difficulté prédite.
   const distribution: Record<string, number> = {};
-  for (const p of predictions) {
+  for (const p of predictionsMasquees) {
     distribution[p.difficultePredite] =
       (distribution[p.difficultePredite] ?? 0) + 1;
   }
@@ -292,7 +329,7 @@ export async function GET(
       moyenneDebut !== null && moyenneFin !== null
         ? moyenneFin - moyenneDebut
         : null,
-    totalPredictions: predictions.length,
+    totalPredictions: predictionsMasquees.length,
     predictionsVerifiees: predictionsVerifiees.length,
     predictionsCorrectes: predictionsCorrectes.length,
     tauxPrecision,
@@ -306,7 +343,7 @@ export async function GET(
     eleve,
     annee,
     anneesDisponibles,
-    predictions,
+    predictions: predictionsMasquees,
     evidences,
     bulletins,
     synthese,

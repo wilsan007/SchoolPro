@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
+import { recalculerProfils, fusionnerProfil } from "@/lib/learnos/profile-recompute";
 
 /**
  * Profil de compétences d'une classe entière (LEARNOS).
@@ -17,6 +19,12 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
  *  1. Tableau matriciel — lignes = compétences, colonnes = statuts ;
  *  2. Barres empilées — répartition visuelle par compétence ;
  *  3. Heatmap — élève × compétence, couleur = statut.
+ *
+ * TIME MACHINE
+ * -----------
+ * Les profils stockés sont cumulatifs (moyenne des 5 preuves). En démo, on
+ * recale les champs temporels à partir des preuves filtrées par `occurredAt
+ * <= demoDate` pour que la grille montre l'état réel à la date simulée.
  *
  * ENTIÈREMENT DÉTERMINISTE — AUCUN APPEL DE MODÈLE.
  */
@@ -121,23 +129,59 @@ export async function GET(
   }
 
   const competenceIds = competences.map((c) => c.id);
+  const demoNow = await getDemoNow();
 
-  // 3. Tous les profils d'apprentissage pour ces élèves × ces compétences
-  const profils = await prisma.studentLearningProfile.findMany({
-    where: {
-      tenantId,
-      eleveId: { in: eleveIds },
-      competenceId: { in: competenceIds },
-      ...siteFilterForModel("studentLearningProfile", session.user),
-    },
-    select: {
-      eleveId: true,
-      competenceId: true,
-      masteryScore: true,
-      masteryStatus: true,
-      evidenceCount: true,
-      trend: true,
-    },
+  // 3. Profils stockés + preuves filtrées par la date simulée.
+  //    On recalcule les champs temporels (masteryScore, evidenceCount, trend,
+  //    masteryStatus) à partir des preuves <= demoDate pour que la grille
+  //    reflète l'état réel à la date simulée, pas le bilan cumulatif de fin d'année.
+  const [profilsStockes, evidencesFiltrees] = await Promise.all([
+    prisma.studentLearningProfile.findMany({
+      where: {
+        tenantId,
+        eleveId: { in: eleveIds },
+        competenceId: { in: competenceIds },
+        ...siteFilterForModel("studentLearningProfile", session.user),
+      },
+      select: {
+        eleveId: true,
+        competenceId: true,
+        masteryScore: true,
+        masteryStatus: true,
+        evidenceCount: true,
+        trend: true,
+      },
+    }),
+    prisma.learningEvidence.findMany({
+      where: {
+        tenantId,
+        eleveId: { in: eleveIds },
+        competenceId: { in: competenceIds },
+        occurredAt: { lte: demoNow },
+        ...siteFilterForModel("learningEvidence", session.user),
+      },
+      select: {
+        eleveId: true,
+        competenceId: true,
+        masterySignal: true,
+        occurredAt: true,
+      },
+    }),
+  ]);
+
+  // Recalculer les profils par élève à partir des preuves filtrées.
+  // `recalculerProfils` groupe par competenceId ; on l'appelle par élève.
+  const profilsByEleve = new Map<string, ReturnType<typeof recalculerProfils>>();
+  for (const eleveId of eleveIds) {
+    const evidencesEleve = evidencesFiltrees
+      .filter((e) => e.eleveId === eleveId && e.competenceId !== null)
+      .map((e) => ({ competenceId: e.competenceId!, masterySignal: e.masterySignal, occurredAt: e.occurredAt }));
+    profilsByEleve.set(eleveId, recalculerProfils(evidencesEleve));
+  }
+
+  const profils = profilsStockes.map((p) => {
+    const recalcules = profilsByEleve.get(p.eleveId);
+    return fusionnerProfil(p, recalcules?.get(p.competenceId));
   });
 
   return NextResponse.json({

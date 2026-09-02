@@ -8,6 +8,7 @@ vi.mock("@/lib/prisma", () => ({
     planProgression: { findMany: vi.fn() },
     absence: { count: vi.fn() },
     facture: { findMany: vi.fn() },
+    learningEvidence: { findMany: vi.fn() },
   },
 }));
 
@@ -37,6 +38,7 @@ const db = prisma as unknown as {
   planProgression: { findMany: ReturnType<typeof vi.fn> };
   absence: { count: ReturnType<typeof vi.fn> };
   facture: { findMany: ReturnType<typeof vi.fn> };
+  learningEvidence: { findMany: ReturnType<typeof vi.fn> };
 };
 
 const PARENT = { role: "PARENT", id: "u-parent", tenantHasSites: true };
@@ -49,6 +51,7 @@ beforeEach(() => {
   db.planProgression.findMany.mockResolvedValue([]);
   db.absence.count.mockResolvedValue(0);
   db.facture.findMany.mockResolvedValue([]);
+  db.learningEvidence.findMany.mockResolvedValue([]);
 });
 
 /**
@@ -137,6 +140,11 @@ describe("dossierEleve", () => {
     db.studentLearningProfile.findMany.mockResolvedValue([
       { competenceId: "c1", masteryScore: 0.2, masteryStatus: "EMERGING", trend: "stable", competence: competence("Aires") },
       { competenceId: "c2", masteryScore: 0.3, masteryStatus: "EMERGING", trend: "stable", competence: competence("Fractions") },
+    ]);
+    // Preuves correspondantes — le recalcul doit produire EMERGING (score < 0.35).
+    db.learningEvidence.findMany.mockResolvedValue([
+      { competenceId: "c1", masterySignal: 0.2, occurredAt: new Date("2025-09-15") },
+      { competenceId: "c2", masterySignal: 0.3, occurredAt: new Date("2025-09-15") },
     ]);
     db.recommandation.findMany.mockResolvedValue([
       { competenceId: "c2", competencesBloquees: 4 },

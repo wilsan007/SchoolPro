@@ -35,6 +35,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { recalculerProfils, fusionnerProfil } from "@/lib/learnos/profile-recompute";
 
 /** Fenêtre d'observation de l'assiduité, en jours. */
 const FENETRE_ASSIDUITE_JOURS = 30;
@@ -187,7 +188,7 @@ export async function dossierEleve(
 
   const anneeId = await anneeActiveId(tenantId);
 
-  const [profils, recos, plans, absences, factures] = await Promise.all([
+  const [profilsStockes, recos, plans, absences, factures, evidencesFiltrees] = await Promise.all([
     prisma.studentLearningProfile.findMany({
       where: {
         tenantId,
@@ -277,13 +278,38 @@ export async function dossierEleve(
           select: { montant: true, paiements: { select: { montant: true } } },
         })
       : Promise.resolve(null),
+    // Preuves filtrées par l'horizon démo (occurredAt <= demoDate) —
+    // utilisées pour recalculer les champs temporels des profils.
+    prisma.learningEvidence.findMany({
+      where: {
+        tenantId,
+        eleveId,
+        competenceId: { not: null },
+        occurredAt: { lte: maintenant },
+        ...siteFilterForModel("learningEvidence", claims),
+      },
+      select: {
+        competenceId: true,
+        masterySignal: true,
+        occurredAt: true,
+      },
+    }),
   ]);
+
+  // Recalculer les profils à partir des preuves filtrées par la date simulée.
+  const evidencesPourRecalcul = evidencesFiltrees
+    .filter((e) => e.competenceId !== null)
+    .map((e) => ({ competenceId: e.competenceId!, masterySignal: e.masterySignal, occurredAt: e.occurredAt }));
+  const profilsRecalcules = recalculerProfils(evidencesPourRecalcul);
+  const profils = profilsStockes.map((p) =>
+    fusionnerProfil(p, profilsRecalcules.get(p.competenceId))
+  );
 
   const bloquantes = new Map(
     recos.map((r) => [r.competenceId, r.competencesBloquees > 0])
   );
 
-  const versDossier = (p: (typeof profils)[number]): CompetenceDuDossier => ({
+  const versDossier = (p: typeof profils[number]): CompetenceDuDossier => ({
     competenceId: p.competenceId,
     code: p.competence.code,
     libelle: p.competence.libelle,

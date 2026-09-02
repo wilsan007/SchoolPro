@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { withRlsExtension } from "@/lib/prisma-rls";
+import { extensionHorizonDemo } from "@/lib/demo-horizon";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -55,14 +56,16 @@ const appDbUrl = useDirectInDev
 
 export const prisma =
   globalForPrisma.prisma ??
-  withRlsExtension(new PrismaClient({
-    log: ["error"],
-    datasources: {
-      db: {
-        url: appDbUrl,
+  withRlsExtension(
+    new PrismaClient({
+      log: ["error"],
+      datasources: {
+        db: {
+          url: appDbUrl,
+        },
       },
-    },
-  }));
+    })
+  ).$extends(extensionHorizonDemo()) as PrismaClient;
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
