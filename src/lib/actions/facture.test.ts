@@ -121,6 +121,8 @@ describe("facture actions", () => {
     // Élève rattaché à un site par défaut : les tests qui vérifient le
     // rattachement le redéfinissent explicitement.
     mockPrisma.eleve.findUnique.mockResolvedValue({ siteId: "site1" });
+    // getExistingFacturesForEleve : pas de factures existantes par défaut
+    mockPrisma.facture.findMany.mockResolvedValue([]);
   });
 
   describe("getFacturesForTenant", () => {
@@ -196,25 +198,25 @@ describe("facture actions", () => {
     it("throws when not authorized", async () => {
       mockAuth.mockResolvedValue(null);
       await expect(
-        createFacture({ eleveId: "e1", libelle: "Test", montant: 1000, devise: "DJF" })
+        createFacture({ eleveId: "e1", libelle: "Test", montant: 1000, devise: "DJF", type: "MENSUALITE" })
       ).rejects.toThrow("Non autorisé");
     });
 
     it("throws on invalid data (empty eleveId)", async () => {
       await expect(
-        createFacture({ eleveId: "", libelle: "Test", montant: 1000, devise: "DJF" })
+        createFacture({ eleveId: "", libelle: "Test", montant: 1000, devise: "DJF", type: "MENSUALITE" })
       ).rejects.toThrow();
     });
 
     it("throws on invalid data (zero montant)", async () => {
       await expect(
-        createFacture({ eleveId: "e1", libelle: "Test", montant: 0, devise: "DJF" })
+        createFacture({ eleveId: "e1", libelle: "Test", montant: 0, devise: "DJF", type: "MENSUALITE" })
       ).rejects.toThrow();
     });
 
     it("throws on invalid data (empty libelle)", async () => {
       await expect(
-        createFacture({ eleveId: "e1", libelle: "", montant: 1000, devise: "DJF" })
+        createFacture({ eleveId: "e1", libelle: "", montant: 1000, devise: "DJF", type: "MENSUALITE" })
       ).rejects.toThrow();
     });
 
@@ -227,6 +229,7 @@ describe("facture actions", () => {
         montant: 50000,
         devise: "DJF",
         echeance: "2025-12-31",
+        type: "MENSUALITE",
       });
       expect(result).toEqual({ success: true, id: "new-facture-id" });
       expect(mockPrisma.facture.create).toHaveBeenCalledWith(
@@ -246,7 +249,7 @@ describe("facture actions", () => {
     it("generates correct invoice number", async () => {
       mockPrisma.facture.count.mockResolvedValue(0);
       mockPrisma.facture.create.mockResolvedValue({ id: "f1" });
-      await createFacture({ eleveId: "e1", libelle: "Test", montant: 1000, devise: "DJF" });
+      await createFacture({ eleveId: "e1", libelle: "Test", montant: 1000, devise: "DJF", type: "MENSUALITE" });
       const call = mockPrisma.facture.create.mock.calls[0][0];
       expect(call.data.numero).toMatch(/^FAC-\d{4}-00001$/);
     });

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Justification d'une absence par un parent.
@@ -46,12 +47,19 @@ export async function POST(req: NextRequest) {
   const { absenceId, motif, justificatif, commentaire } = parsed.data;
   const tenantId = session.user.tenantId;
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  if (!anneeCourante) {
+    return NextResponse.json({ error: "Aucune année scolaire active" }, { status: 400 });
+  }
+
   // Vérifier que l'absence appartient à l'un des enfants du parent.
   // `eleveScopeFilter` borne au périmètre relationnel (ses enfants uniquement).
+  const anneeFilter = { AND: [{ eleve: { classe: { annee: anneeCourante } } }] };
   const absence = await prisma.absence.findFirst({
     where: mergeFilters(
       { id: absenceId, tenantId },
-      eleveScopeFilter(session.user, "eleve")
+      eleveScopeFilter(session.user, "eleve"),
+      anneeFilter
     ),
     select: { id: true, statut: true, eleveId: true },
   });

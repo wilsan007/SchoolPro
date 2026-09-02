@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import {
   DEMO_NOW_COOKIE,
   DEMO_NOW_ENABLED_COOKIE,
@@ -61,19 +62,34 @@ function poserCookies(date: string | null): Headers {
   return headers;
 }
 
-async function roleAutorise(): Promise<boolean> {
+async function getDemoSession() {
   const session = await auth();
-  return peutDeplacerHorloge(session?.user?.role);
+  if (!peutDeplacerHorloge(session?.user?.role)) return null;
+  return session;
 }
 
 export async function GET() {
-  const autorise = await roleAutorise();
   const realNow = new Date().toISOString();
+  const session = await getDemoSession();
 
   // Le champ `autorise` sert au bouton à se retirer de la barre. Pour un compte
   // non autorisé, l'horloge est rapportée inactive : son état ne le regarde pas.
-  if (!autorise) {
+  if (!session) {
     return NextResponse.json({ autorise: false, enabled: false, date: null, realNow });
+  }
+
+  // ─── Rate limiting : 20 requêtes / min / utilisateur ────────────────────
+  const ip = "unknown";
+  const rl = rateLimit({
+    max: 20,
+    windowSec: 60,
+    key: `demo-now:${session.user.id ?? "anonymous"}:${ip}`,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
   }
 
   const cookieStore = await cookies();
@@ -98,8 +114,23 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await roleAutorise())) {
+  const session = await getDemoSession();
+  if (!session) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
+
+  // ─── Rate limiting : 20 requêtes / min / utilisateur ────────────────────
+  const ip = getClientIP(req);
+  const rl = rateLimit({
+    max: 20,
+    windowSec: 60,
+    key: `demo-now:${session.user.id ?? "anonymous"}:${ip}`,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
   }
 
   try {
@@ -122,8 +153,23 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE() {
-  if (!(await roleAutorise())) {
+  const session = await getDemoSession();
+  if (!session) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
+
+  // ─── Rate limiting : 20 requêtes / min / utilisateur ────────────────────
+  const ip = "unknown";
+  const rl = rateLimit({
+    max: 20,
+    windowSec: 60,
+    key: `demo-now:${session.user.id ?? "anonymous"}:${ip}`,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
   }
 
   return NextResponse.json(

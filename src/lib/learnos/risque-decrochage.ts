@@ -27,7 +27,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Constantes
@@ -137,8 +137,10 @@ export async function calculerRisqueDecrochage(
   tenantId: string,
   claims: SessionSiteClaims,
   options?: { classeId?: string },
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<SyntheseRisque> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   // --- 1. Élèves actifs du tenant/site (ou de la classe) ---
   const eleves = await prisma.eleve.findMany({
     where: {
@@ -216,6 +218,7 @@ export async function calculerRisqueDecrochage(
         eleveId: { in: ids },
         statut: "INJUSTIFIEE",
         date: { gte: depuis },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
       _count: { eleveId: true },
@@ -228,6 +231,7 @@ export async function calculerRisqueDecrochage(
         eleveId: { in: ids },
         statut: "INJUSTIFIEE",
         date: { gte: depuis60, lt: depuis },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
       _count: { eleveId: true },
@@ -240,6 +244,7 @@ export async function calculerRisqueDecrochage(
         eleveId: { in: ids },
         statut: { not: "CLASSE" },
         date: { gte: depuis },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("incident", claims),
       },
       _count: { eleveId: true },
@@ -264,6 +269,7 @@ export async function calculerRisqueDecrochage(
         eleveId: { in: ids },
         statut: "OBLIGATOIRE",
         resolueLe: null,
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("recommandation", claims),
       },
       _count: { eleveId: true },
@@ -284,6 +290,7 @@ export async function calculerRisqueDecrochage(
       where: {
         tenantId,
         eleveId: { in: ids },
+        ...(annee ? { periode: { annee: { libelle: annee } } } : {}),
         ...siteFilterForModel("bulletin", claims),
       },
       select: {
@@ -438,7 +445,8 @@ export async function calculerRisqueEleve(
   tenantId: string,
   eleveId: string,
   claims: SessionSiteClaims,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<ScoreRisqueEleve | null> {
   // Vérifie l'existence et l'accès à l'élève (isolation tenant + site).
   const eleve = await prisma.eleve.findFirst({
@@ -456,7 +464,8 @@ export async function calculerRisqueEleve(
     tenantId,
     claims,
     eleve.classeId ? { classeId: eleve.classeId } : undefined,
-    maintenant
+    maintenant,
+    anneeCourante
   );
 
   return synthese.eleves.find((e) => e.eleveId === eleveId) ?? null;

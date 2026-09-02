@@ -306,6 +306,7 @@ async function findCreneauxOrphelins(
   // — Bornes de la fenêtre d'analyse (28 derniers jours par défaut) —
   const fin = dateFin ?? await getDemoNow();
   const debut = dateDebut ?? new Date(fin.getTime() - FENETRE_DEFAUT_JOURS * 86400000);
+  const anneeCourante = await anneeActiveLibelle(tenantId);
 
   // 1. Récupérer les absences du personnel dans la fenêtre
   const absences = await prisma.absencePersonnel.findMany({
@@ -331,6 +332,7 @@ async function findCreneauxOrphelins(
     where: {
       tenantId,
       enseignantId: { in: enseignantIds },
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("emploiTemps", claims),
     },
     select: {
@@ -445,6 +447,7 @@ export async function calculerTauxCouverture(
   const fin = dateFin ?? await getDemoNow();
   const debut =
     dateDebut ?? new Date(fin.getTime() - FENETRE_DEFAUT_JOURS * 86400000);
+  const anneeCourante = await anneeActiveLibelle(tenantId);
 
   // — Absences du personnel dans la fenêtre —
   const absences = await prisma.absencePersonnel.findMany({
@@ -603,6 +606,7 @@ export async function calculerTauxCouverture(
         where: {
           tenantId,
           enseignantId: { in: enseignantIds },
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
           ...siteFilterForModel("emploiTemps", claims),
         },
         select: {
@@ -770,6 +774,8 @@ export async function prioriserRemplacements(
   dateDebut?: Date,
   dateFin?: Date
 ): Promise<PriorisationRemplacement> {
+  const anneeCourante = await anneeActiveLibelle(tenantId);
+
   // 1. Identifier les créneaux orphelins (remplacements nécessaires)
   const orphelins = await findCreneauxOrphelins(
     tenantId,
@@ -788,7 +794,7 @@ export async function prioriserRemplacements(
 
   const [classes, matieres] = await Promise.all([
     prisma.classe.findMany({
-      where: { id: { in: classeIds }, tenantId, ...siteFilterForModel("classe", claims) },
+      where: { id: { in: classeIds }, tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", claims) },
       select: { id: true, nom: true },
     }),
     prisma.matiere.findMany({

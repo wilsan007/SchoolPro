@@ -38,7 +38,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification-pure";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Types publics
@@ -271,13 +271,16 @@ export async function calculerISP(
  */
 export async function calculerIEIS(
   tenantId: string,
-  claims: SessionSiteClaims
+  claims: SessionSiteClaims,
+  anneeCourante?: string | null
 ): Promise<IndiceComposite> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   // Bulletin n'a pas de siteId propre : le rattachement passe par l'élève.
   const bulletins = await prisma.bulletin.findMany({
     where: {
       tenantId,
       moyenneGenerale: { not: null },
+      ...(annee ? { periode: { annee: { libelle: annee } } } : {}),
       ...siteFilterForModel("bulletin", claims),
     },
     select: {
@@ -462,8 +465,11 @@ export async function calculerICS(
   tenantId: string,
   claims: SessionSiteClaims,
   anneeId?: string,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<IndiceComposite> {
+  // Libellé de l'année courante (ex. « 2025-2026 »), pour filtrer les classes.
+  const anneeLibelle = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const annee = await resoudreAnnee(tenantId, anneeId);
   const debut = annee?.dateDebut ?? new Date(0);
   // `maintenant` borne la période d'observation [debut, maintenant] pour
@@ -494,6 +500,7 @@ export async function calculerICS(
         tenantId,
         statut: { not: "CLASSE" },
         ...periodeFilter,
+        ...(anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {}),
         ...siteFilterForModel("incident", claims),
       },
     }),
@@ -502,6 +509,7 @@ export async function calculerICS(
         tenantId,
         statut: "INJUSTIFIEE",
         ...periodeFilter,
+        ...(anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
     }),
@@ -509,6 +517,7 @@ export async function calculerICS(
       where: {
         tenantId,
         ...periodeFilter,
+        ...(anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {}),
         ...siteFilterForModel("passageInfirmerie", claims),
       },
     }),
@@ -823,13 +832,14 @@ export async function tableauIntelligenceDirecteur(
   tenantId: string,
   claims: SessionSiteClaims,
   anneeId?: string,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<TableauIntelligence> {
   const [isp, ieis, ivf, ics, roi, vitesse, iro] = await Promise.all([
     calculerISP(tenantId, claims, anneeId, maintenant),
-    calculerIEIS(tenantId, claims),
+    calculerIEIS(tenantId, claims, anneeCourante),
     calculerIVF(tenantId, claims),
-    calculerICS(tenantId, claims, anneeId, maintenant),
+    calculerICS(tenantId, claims, anneeId, maintenant, anneeCourante),
     calculerROIPedagogique(tenantId, claims),
     calculerVitesseApprentissage(tenantId, claims),
     calculerIRO(tenantId, claims, anneeId, maintenant),

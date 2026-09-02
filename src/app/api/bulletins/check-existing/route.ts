@@ -6,6 +6,7 @@ import {
   personalScopeFilter,
   mergeFilters,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,6 +32,8 @@ export async function GET(req: NextRequest) {
       siteFilterForModel("bulletin", session.user),
       personalScopeFilter(session.user, "eleve")
     );
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+    const anneeFilter = anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {};
 
     const count = await prisma.bulletin.count({
       where: {
@@ -38,6 +41,7 @@ export async function GET(req: NextRequest) {
         periodeId,
         tenantId: session.user.tenantId,
         ...siteFilter,
+        ...anneeFilter,
       },
     });
 
@@ -52,6 +56,7 @@ export async function GET(req: NextRequest) {
         tenantId: session.user.tenantId,
         isPublie: true,
         ...siteFilter,
+        ...anneeFilter,
       },
     });
 
@@ -63,6 +68,7 @@ export async function GET(req: NextRequest) {
         tenantId: session.user.tenantId,
         statut: { in: ["VERROUILLE", "PUBLIE"] },
         ...siteFilter,
+        ...anneeFilter,
       },
     });
 

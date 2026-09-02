@@ -24,6 +24,10 @@ vi.mock("@/lib/demo-now", () => ({ getDemoNow: vi.fn(async () => DATE_REF) }));
 // Le périmètre site est neutralisé : son comportement est testé ailleurs.
 vi.mock("@/lib/site-scope", () => ({ siteFilterForModel: vi.fn(() => ({})) }));
 
+vi.mock("@/lib/annee-scolaire", () => ({
+  getAnneeCouranteLibelle: vi.fn().mockResolvedValue("2025-2026"),
+}));
+
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
@@ -315,6 +319,9 @@ describe("PATCH /api/vie-scolaire/exclusions/[id]", () => {
     mockPrisma.incident.findFirst.mockResolvedValue({ id: "inc-1" });
     await PATCH(req("http://l", { reintegrer: true }) as never, params("san-1") as never);
     expect(mockPrisma.incident.update).toHaveBeenCalled();
+    // Le filtre année protège contre la lecture d'incidents d'autres années.
+    const findWhere = mockPrisma.incident.findFirst.mock.calls[0][0].where;
+    expect(findWhere.eleve).toEqual({ classe: { annee: "2025-2026" } });
     const call = mockPrisma.incident.update.mock.calls[0][0];
     expect(call.where.id).toBe("inc-1");
     expect(call.data.statut).toBe("RESOLU");

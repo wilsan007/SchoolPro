@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
+import { siteFilterForModel, mergeFilters } from "@/lib/site-filter";
+
+const QuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
 
 export async function GET(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -10,7 +16,11 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const limit = parseInt(searchParams.get("limit") ?? "50");
+  const parsed = QuerySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });
+  }
+  const { limit } = parsed.data;
 
   const participantRows = await prisma.conversationParticipant.findMany({
     where: { userId: user.id },
@@ -22,11 +32,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ conversations: [], nonLus: 0 });
   }
 
+  const siteFilter = siteFilterForModel("conversation", user);
+
   const conversations = await prisma.conversation.findMany({
-    where: {
-      id: { in: conversationIds },
-      tenantId: user.tenantId,
-    },
+    where: mergeFilters(
+      {
+        id: { in: conversationIds },
+        tenantId: user.tenantId,
+      },
+      siteFilter
+    ),
     select: {
       id: true,
       subject: true,
@@ -67,7 +82,6 @@ export async function GET(req: NextRequest) {
     const lastReadAt = myParticipation?.lastReadAt;
     const lastMessage = c.messages[0] ?? null;
 
-    // Compter les non-lus réellement
     const unreadCount = lastMessage && lastMessage.senderId !== user.id && !lastMessage.readBy.includes(user.id) ? 1 : 0;
 
     return {

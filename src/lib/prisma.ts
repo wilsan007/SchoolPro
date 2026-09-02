@@ -7,6 +7,20 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /**
+ * Ajoute (ou met à jour) `connection_limit` et `pool_timeout` dans la
+ * query string d'une URL Postgres. Utilisé pour borner le client de fond
+ * afin de ne pas épuiser le pool session Supabase (15 connexions max).
+ */
+function withConnectionLimit(url: string | undefined, limit: number): string | undefined {
+  if (!url) return url;
+  const [base, qs] = url.split("?");
+  const params = new URLSearchParams(qs ?? "");
+  params.set("connection_limit", String(limit));
+  params.set("pool_timeout", "30");
+  return qs === undefined ? `${base}?${params}` : `${base}?${params}`;
+}
+
+/**
  * Client applicatif.
  *
  * `withRlsExtension` pose le contexte multi-tenant (tenant, sites,
@@ -18,22 +32,26 @@ const globalForPrisma = globalThis as unknown as {
  * (off → warn → enforce).
  *
  * CHOIX DE L'URL :
- *   — Dev : `DIRECT_URL` (mode session, port 5432) — 5x plus rapide grâce
- *     aux prepared statements. Supabase limite à 15 connexions en mode
- *     session, mais après optimisation des requêtes concurrentes (max ~16
- *     sur /direction batch 2, dont 10 findMany take:50 qui se terminent
- *     en <100ms), le pool ne s'épuise plus.
+ *   — Dev : `DATABASE_URL` (pooler transaction, port 6543) — limite ~200
+ *     connexions, évite l'erreur `EMAXCONNSESSION` (pool session = 15).
+ *     Coût : ~5x plus lent (pas de prepared statements en mode transaction),
+ *     acceptable en dev. Pour forcer le mode session rapide le temps d'un
+ *     profilage, poser `PRISMA_DEV_DIRECT=true` (revient à l'ancien comportement,
+ *     risqué si plusieurs dev servers / onglets tournent).
  *   — Prod : `DATABASE_URL` (pooler transaction, port 6543) — nécessaire
  *     en serverless pour limiter les connexions.
- *   — Background : `DIRECT_URL` (mode session) — séquentiel, peu concurrent.
+ *   — Background : `DIRECT_URL` (mode session) plafonné à 3 connexions —
+ *     séquentiel, peu concurrent, garde les prepared statements.
  *
  * Sur un VPS (PostgreSQL local), on passera en mode session direct sans
  * pgbouncer : plus de limite de connexions, prepared statements actifs.
  */
-const appDbUrl =
-  process.env.NODE_ENV === "production"
-    ? process.env.DATABASE_URL
-    : process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const useDirectInDev =
+  process.env.NODE_ENV !== "production" &&
+  process.env.PRISMA_DEV_DIRECT === "true";
+const appDbUrl = useDirectInDev
+  ? process.env.DIRECT_URL ?? process.env.DATABASE_URL
+  : process.env.DATABASE_URL;
 
 export const prisma =
   globalForPrisma.prisma ??
@@ -63,13 +81,23 @@ export default prisma;
  * Un traitement de fond est séquentiel et peu concurrent : le mode session lui
  * convient, et le rend cinq fois plus rapide. Repli sur `DATABASE_URL` si
  * `DIRECT_URL` n'est pas renseigné.
+ *
+ * PLAFOND DE CONNEXIONS
+ * Le mode session Supabase est limité à 15 connexions projet. Pour ne pas
+ * épuiser le pool (EMAXCONNSESSION) quand l'app et les scripts tournent en
+ * parallèle, on borne ce client à 3 connexions via `connection_limit=3` et
+ * un `pool_timeout=30` pour attendre une place plutôt que de planter.
  */
+const backgroundDbUrl = withConnectionLimit(
+  process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+  3,
+);
 export const prismaBackground =
   globalForPrisma.prismaBackground ??
   withRlsExtension(
     new PrismaClient({
       log: ["error"],
-      datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
+      datasources: { db: { url: backgroundDbUrl } },
     })
   );
 

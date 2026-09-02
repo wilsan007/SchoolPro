@@ -71,8 +71,10 @@ INSERT INTO sites ("id", "tenantId", "nom", "code", "adresse", "ville", "telepho
   )
 ON CONFLICT ("id") DO NOTHING;
 
--- ── 4 Structures (Collège + Lycée par site) ─────────────────
+-- ── 6 Structures (Primaire + Collège + Lycée par site) ───────
 INSERT INTO structures ("id", "tenantId", "siteId", "type", "nom", "actif", "createdAt", "updatedAt") VALUES
+  ('struct-prim-amb',  'tenant-ambouli', 'site-ambouli', 'PRIMAIRE', 'Primaire Ambouli', TRUE, '2024-09-15 12:00:00', '2024-09-15 12:00:00'),
+  ('struct-prim-arh',  'tenant-ambouli', 'site-arhiba',  'PRIMAIRE', 'Primaire Arhiba',  TRUE, '2024-09-15 12:00:00', '2024-09-15 12:00:00'),
   ('struct-coll-amb',  'tenant-ambouli', 'site-ambouli', 'COLLEGE', 'Collège Ambouli', TRUE, '2024-09-15 12:00:00', '2024-09-15 12:00:00'),
   ('struct-lycee-amb', 'tenant-ambouli', 'site-ambouli', 'LYCEE',   'Lycée Ambouli',   TRUE, '2024-09-15 12:00:00', '2024-09-15 12:00:00'),
   ('struct-coll-arh',  'tenant-ambouli', 'site-arhiba',  'COLLEGE', 'Collège Arhiba',  TRUE, '2024-09-15 12:00:00', '2024-09-15 12:00:00'),

@@ -77,7 +77,8 @@ import {
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockCheckPermission = checkPermission as ReturnType<typeof vi.fn>;
-const mockPrisma = prisma as unknown as typeof mockPrismaObj;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockPrisma = prisma as unknown as any;
 const fnPiecesRequisesPresentes = mockPiecesRequisesPresentes as ReturnType<typeof vi.fn>;
 const fnPiecesManquantes = mockPiecesManquantes as ReturnType<typeof vi.fn>;
 

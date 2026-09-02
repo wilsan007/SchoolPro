@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidateTag } from "next/cache";
+
+const BodySchema = z.object({}).passthrough();
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,7 +27,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "L'examen doit être terminé pour délibérer" }, { status: 400 });
     }
 
-    const body = await req.json();
+    const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Données invalides" }, { status: 400 });
+    }
 
     // Enregistrer les notes de délibération comme JSON dans une annotation (extensible)
     // En production : créer un modèle ResultatExamen dédié

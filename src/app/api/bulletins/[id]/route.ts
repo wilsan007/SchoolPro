@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForRelation } from "@/lib/site-filter";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import {
   peutModifierBulletin,
   tracerModificationsBulletin,
@@ -33,11 +34,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Données invalides" }, { status: 400 });
     }
     const { appreciation, decision, moyenneGenerale, rang } = parsed.data;
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     const siteFilter = siteFilterForRelation(session.user, "eleve");
 
     const existing = await prisma.bulletin.findFirst({
-      where: { id, tenantId: session.user.tenantId, ...siteFilter },
+      where: { id, tenantId: session.user.tenantId, ...siteFilter, ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
     });
     if (!existing) return NextResponse.json({ error: "Bulletin introuvable" }, { status: 404 });
 
@@ -90,11 +92,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (denied) return denied;
 
     const { id } = await params;
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     const siteFilter2 = siteFilterForRelation(session.user, "eleve");
 
     const existing = await prisma.bulletin.findFirst({
-      where: { id, tenantId: session.user.tenantId, ...siteFilter2 },
+      where: { id, tenantId: session.user.tenantId, ...siteFilter2, ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
     });
     if (!existing) return NextResponse.json({ error: "Bulletin introuvable" }, { status: 404 });
 

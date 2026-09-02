@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const PatchSchema = z.object({
   statut: z.enum(["OUVERT", "EN_TRAITEMENT", "RESOLU", "CLASSE"]).optional(),
@@ -29,12 +30,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { id } = await params;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     const body = await req.json();
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
     const existing = await prisma.incident.findFirst({
-      where: { id, tenantId, ...siteFilterForModel("incident", session.user) },
+      where: {
+        id,
+        tenantId,
+        ...siteFilterForModel("incident", session.user),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+      },
     });
     if (!existing) return erreurJson("INCIDENT_INTROUVABLE");
 
@@ -69,12 +76,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     const body = await req.json();
     const parsed = SanctionSchema.safeParse(body);
     if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
     const existing = await prisma.incident.findFirst({
-      where: { id, tenantId, ...siteFilterForModel("incident", session.user) },
+      where: {
+        id,
+        tenantId,
+        ...siteFilterForModel("incident", session.user),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+      },
     });
     if (!existing) return erreurJson("INCIDENT_INTROUVABLE");
 

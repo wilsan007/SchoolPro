@@ -130,7 +130,7 @@ export async function seedClassesEleves(
   // Année 2 (2025-2026) : on "promeut" les élèves (6ème→5ème, etc.),
   //   Terminale → Alumni, nouveaux entrants en 6ème et 2nde.
 
-  const eleveRegistry: { id: string; nom: string; prenom: string; sexe: Sexe; dateNaissance: Date; niveau: string; site: string; annee: string; classeId: string; matricule: string }[] = [];
+  const eleveRegistry: { id: string; nom: string; prenom: string; sexe: Sexe; dateNaissance: Date; niveau: string; site: string; annee: string; classeId: string; matricule: string; moyenneY1: number }[] = [];
   let matriculeCounter = 1;
 
   // Année 1 : création initiale
@@ -171,7 +171,7 @@ export async function seedClassesEleves(
           },
         });
         elevesList.push({ id: eleve.id, nom, prenom, sexe, dateNaissance });
-        eleveRegistry.push({ id: eleve.id, nom, prenom, sexe, dateNaissance, niveau: cls.niveau, site, annee: "2024-2025", classeId: cls.id, matricule });
+        eleveRegistry.push({ id: eleve.id, nom, prenom, sexe, dateNaissance, niveau: cls.niveau, site, annee: "2024-2025", classeId: cls.id, matricule, moyenneY1: 0 });
 
         // Parent
         const parentPrenom = sexe === Sexe.M ? pick(NOMS_GARCONS) : pick(NOMS_FILLES);
@@ -242,6 +242,7 @@ export async function seedClassesEleves(
   for (const e of eleveRegistry) {
     // Moyenne annuelle réaliste
     const moyenne = clamp(gauss(11.5, 3), 4, 18);
+    e.moyenneY1 = moyenne;
     const mention = mentionBulletin(moyenne);
     const decision = moyenne >= 10 ? "Passage" : "Redoublement";
     const niveauSuivant = PROMOTION[e.niveau];
@@ -312,21 +313,52 @@ export async function seedClassesEleves(
   console.log(`  ✅ Parcours scolaires année 1: ${eleveRegistry.length}`);
   console.log(`  ✅ Alumni (Terminale diplômés): ${alumniIds.length}`);
 
-  // Année 2 : promotion
+  // Départs : ~3% des élèves ne reviennent pas l'année suivante
+  const MOTIFS_DEPART = [
+    { statut: StatutEleve.TRANSFERE, motif: "Transfert vers un autre établissement" },
+    { statut: StatutEleve.TRANSFERE, motif: "Déménagement" },
+    { statut: StatutEleve.TRANSFERE, motif: "Transfert" },
+    { statut: StatutEleve.ABANDONNE, motif: "Raisons familiales" },
+    { statut: StatutEleve.ABANDONNE, motif: "Raisons financières" },
+  ];
+  const nbDeparts = Math.round(eleveRegistry.length * 0.03);
+  const elevesDepart = pickSome(eleveRegistry.filter(e => e.niveau !== "Terminale"), nbDeparts);
+  const elevesPartisIds = new Set(elevesDepart.map(e => e.id));
+
+  for (const e of elevesDepart) {
+    const motifDepart = pick(MOTIFS_DEPART);
+    await prisma.eleve.update({
+      where: { id: e.id },
+      data: {
+        statut: motifDepart.statut,
+        dateSortie: dateStr(2025, 7, 15),
+        motifSortie: motifDepart.motif,
+      },
+    });
+  }
+  console.log(`  ✅ Départs (transferts/abandons): ${elevesDepart.length} (~3%)`);
+
+  // Année 2 : promotion + redoublement
   const eleveRegistryY2: typeof eleveRegistry = [];
   for (const e of eleveRegistry) {
-    if (e.niveau === "Terminale") continue; // déjà diplômé
+    if (elevesPartisIds.has(e.id)) continue; // élève parti, pas de réinscription
+    // Terminale diplômé → déjà traité, skip
+    if (e.niveau === "Terminale" && e.moyenneY1 >= 10) continue;
 
-    const niveauSuivant = PROMOTION[e.niveau];
-    if (!niveauSuivant) continue;
+    // Déterminer le niveau de destination
+    const niveauSuivant = e.moyenneY1 >= 10 ? PROMOTION[e.niveau] : e.niveau;
+    if (!niveauSuivant && e.niveau !== "Terminale") continue;
+    // Si Terminale avec moyenne < 10, niveauSuivant = "Terminale" (redoublement)
+    const niveauDest = e.niveau === "Terminale" && e.moyenneY1 < 10 ? "Terminale" : niveauSuivant;
+    if (!niveauDest) continue;
 
-    // Trouver la classe correspondante en année 2
     const key = `${e.site}-2025-2026`;
     const classesY2 = classesBySiteYear[key];
-    // Prendre une classe du niveau suivant (lettre aléatoire)
-    const classesNiveau = classesY2.filter(c => c.niveau === niveauSuivant);
+    const classesNiveau = classesY2.filter(c => c.niveau === niveauDest);
     if (classesNiveau.length === 0) continue;
     const clsY2 = pick(classesNiveau);
+
+    const isRedoublant = e.moyenneY1 < 10;
 
     // Mettre à jour l'élève : nouvelle classe
     await prisma.eleve.update({
@@ -341,16 +373,57 @@ export async function seedClassesEleves(
         eleveId: e.id,
         classeId: clsY2.id,
         dateEntree: dateStr(2025, 9, 15),
-        motif: "Promotion",
+        motif: isRedoublant ? "Redoublement" : "Promotion",
       },
     });
 
-    eleveRegistryY2.push({ ...e, niveau: niveauSuivant, annee: "2025-2026", classeId: clsY2.id });
+    eleveRegistryY2.push({ ...e, niveau: niveauDest, annee: "2025-2026", classeId: clsY2.id });
 
     // Ajouter à elevesByClass
     if (!elevesByClass[clsY2.id]) elevesByClass[clsY2.id] = [];
     elevesByClass[clsY2.id].push({ id: e.id, nom: e.nom, prenom: e.prenom, sexe: e.sexe, dateNaissance: e.dateNaissance });
   }
+
+  // Parcours scolaires pour l'année 2
+  for (const e of eleveRegistryY2) {
+    // Pour un redoublant, la moyenne Y2 est corrélée à Y1 (gain modéré)
+    // Pour un promu, nouvelle moyenne indépendante
+    let moyenneY2: number;
+    if (e.moyenneY1 < 10) {
+      // Redoublant : gain de 0.5 à 2.5 points en général
+      const gain = 0.5 + (randInt(0, 20) / 10); // 0.5 à 2.5
+      moyenneY2 = clamp(e.moyenneY1 + gain, 4, 18);
+    } else {
+      // Promu : moyenne indépendante
+      moyenneY2 = clamp(gauss(11.5, 3), 4, 18);
+    }
+
+    const mention = mentionBulletin(moyenneY2);
+    const decision = moyenneY2 >= 10 ? "Passage" : "Redoublement";
+
+    // Rang réel : compter les élèves de la même classe
+    const classeEffectif = elevesByClass[e.classeId]?.length || 28;
+
+    await prisma.parcoursScolaire.create({
+      data: {
+        tenantId: ref.tenantId,
+        eleveId: e.id,
+        annee: "2025-2026",
+        classe: e.niveau,
+        niveau: e.niveau,
+        moyenneAnnuelle: Math.round(moyenneY2 * 100) / 100,
+        rang: randInt(1, classeEffectif),
+        effectif: classeEffectif,
+        decision,
+        mention,
+        recommandation: e.niveau === "Terminale"
+          ? (moyenneY2 >= 14 ? TypeRecommandation.EXCELLENTE_VOIE : TypeRecommandation.FILIERE_SCIENTIFIQUE)
+          : moyenneY2 < 8 ? TypeRecommandation.SOUTIEN_RENFORCE : moyenneY2 < 10 ? TypeRecommandation.REDOUBLEMENT : undefined,
+        commentaire: moyenneY2 >= 14 ? "Excellent trimestre, continuez ainsi" : moyenneY2 >= 10 ? "Travail satisfaisant" : "Doit fournir plus d'efforts",
+      },
+    });
+  }
+  console.log(`  ✅ Parcours scolaires année 2: ${eleveRegistryY2.length}`);
 
   // Nouveaux entrants en 6ème et 2nde pour l'année 2
   for (const site of ["ambouli", "arhiba"] as const) {
@@ -390,7 +463,7 @@ export async function seedClassesEleves(
         });
         if (!elevesByClass[cls.id]) elevesByClass[cls.id] = [];
         elevesByClass[cls.id].push({ id: eleve.id, nom, prenom, sexe, dateNaissance });
-        eleveRegistryY2.push({ id: eleve.id, nom, prenom, sexe, dateNaissance, niveau: cls.niveau, site, annee: "2025-2026", classeId: cls.id, matricule });
+        eleveRegistryY2.push({ id: eleve.id, nom, prenom, sexe, dateNaissance, niveau: cls.niveau, site, annee: "2025-2026", classeId: cls.id, matricule, moyenneY1: 0 });
 
         // Parent
         const parentPrenom = sexe === Sexe.M ? pick(NOMS_GARCONS) : pick(NOMS_FILLES);
@@ -446,15 +519,6 @@ export async function seedClassesEleves(
     }
   }
   console.log(`  ✅ Élèves année 2: ${eleveRegistryY2.length} (promotion + nouveaux entrants)`);
-
-  // Quelques élèves transférés/abandonnés pour réalisme
-  const transferes = pickSome(eleveRegistryY2, 5);
-  for (const e of transferes) {
-    await prisma.eleve.update({
-      where: { id: e.id },
-      data: { statut: StatutEleve.TRANSFERE, dateSortie: dateStr(2025, 11, randInt(1, 28)), motifSortie: "Transfert" },
-    });
-  }
 
   return { classesBySiteYear, elevesByClass, parentsByEleve, alumniIds };
 }

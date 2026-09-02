@@ -20,7 +20,7 @@ import * as archiver from "archiver";
 import { Writable } from "stream";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ============================================================
 // TYPES
@@ -312,9 +312,11 @@ async function exportNotesBulletins(
   workbook.creator = "EcolPro";
   workbook.created = new Date();
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   const [notes, bulletins] = await Promise.all([
     prisma.note.findMany({
-      where: { tenantId, ...siteFilterForModel("note", claims) },
+      where: { tenantId, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}), ...siteFilterForModel("note", claims) },
       include: {
         eleve: { select: { matricule: true, nom: true, prenom: true } },
         classe: { select: { nom: true, niveau: true, siteId: true } },
@@ -336,7 +338,7 @@ async function exportNotesBulletins(
 
   // Récupérer les classes pour mapper classeId → nom/niveau/site
   const classes = await prisma.classe.findMany({
-    where: { tenantId, ...siteFilterForModel("classe", claims) },
+    where: { tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", claims) },
     include: { site: { select: { nom: true } } },
   });
   const classeMap = new Map(
@@ -472,9 +474,11 @@ async function exportEmploiTemps(
   workbook.creator = "EcolPro";
   workbook.created = new Date();
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   const [emploiTemps, classes, enseignants] = await Promise.all([
     prisma.emploiTemps.findMany({
-      where: { tenantId, ...siteFilterForModel("emploiTemps", claims) },
+      where: { tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("emploiTemps", claims) },
       include: {
         classe: { select: { nom: true, niveau: true, siteId: true } },
         matiere: { select: { nom: true } },
@@ -483,7 +487,7 @@ async function exportEmploiTemps(
       orderBy: [{ classe: { niveau: "asc" } }, { jour: "asc" }, { heureDebut: "asc" }],
     }),
     prisma.classe.findMany({
-      where: { tenantId, ...siteFilterForModel("classe", claims) },
+      where: { tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", claims) },
       include: { site: { select: { nom: true } } },
     }),
     prisma.enseignant.findMany({
@@ -1107,12 +1111,14 @@ async function exportParametres(
   workbook.creator = "EcolPro";
   workbook.created = new Date();
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   const [tenant, sites, structures, classes, matieres, periodes, annees, evenements, inventaire] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: tenantId } }),
     prisma.site.findMany({ where: { tenantId }, orderBy: { nom: "asc" } }),
     prisma.structure.findMany({ where: { tenantId, ...siteFilterForModel("structure", claims) }, include: { site: { select: { nom: true } } } }),
     prisma.classe.findMany({
-      where: { tenantId, deletedAt: null, ...siteFilterForModel("classe", claims) },
+      where: { tenantId, deletedAt: null, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", claims) },
       include: {
         site: { select: { nom: true } },
         structure: { select: { nom: true, type: true } },
@@ -1339,16 +1345,18 @@ async function exportAbsences(
   workbook.creator = "EcolPro";
   workbook.created = new Date();
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   const [absences, classes] = await Promise.all([
     prisma.absence.findMany({
-      where: { tenantId, ...siteFilterForModel("absence", claims) },
+      where: { tenantId, ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}), ...siteFilterForModel("absence", claims) },
       include: {
         eleve: { select: { matricule: true, nom: true, prenom: true, classeId: true } },
       },
       orderBy: { date: "desc" },
     }),
     prisma.classe.findMany({
-      where: { tenantId, ...siteFilterForModel("classe", claims) },
+      where: { tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", claims) },
       include: { site: { select: { nom: true } } },
     }),
   ]);

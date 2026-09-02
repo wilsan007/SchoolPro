@@ -8,6 +8,7 @@ vi.mock("@/lib/prisma", () => ({
     recommandation: {
       findFirst: vi.fn(),
       upsert: vi.fn(),
+      create: vi.fn(),
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
@@ -48,6 +49,7 @@ beforeEach(() => {
   mockPrisma.studentLearningProfile.findMany.mockResolvedValue([]);
   mockPrisma.recommandation.findFirst.mockResolvedValue(null);
   mockPrisma.recommandation.upsert.mockResolvedValue({});
+  mockPrisma.recommandation.create.mockResolvedValue({});
   mockPrisma.recommandation.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.recommandation.deleteMany.mockResolvedValue({ count: 1 });
   mockPrisma.learningEvidence.findMany.mockResolvedValue([]);
@@ -197,7 +199,8 @@ describe("recalcul", () => {
 
   it("ne recommande rien sans profil", async () => {
     expect(await recalculerRecommandation("t1", "e1", "c1")).toBeNull();
-    expect(mockPrisma.recommandation.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.recommandation.create).not.toHaveBeenCalled();
+    expect(mockPrisma.recommandation.updateMany).not.toHaveBeenCalled();
   });
 
   // Le silence de la bande consolidée est la condition de l'attention portée
@@ -207,14 +210,15 @@ describe("recalcul", () => {
     const bande = await recalculerRecommandation("t1", "e1", "c1");
 
     expect(bande).toBe("CONSOLIDE");
-    expect(mockPrisma.recommandation.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.recommandation.create).not.toHaveBeenCalled();
+    expect(mockPrisma.recommandation.updateMany).not.toHaveBeenCalled();
   });
 
   it("recommande aussi bien vers le haut que vers le bas", async () => {
     profil(0.95);
     await recalculerRecommandation("t1", "e1", "c1");
 
-    const donnees = mockPrisma.recommandation.upsert.mock.calls[0][0].create;
+    const donnees = mockPrisma.recommandation.create.mock.calls[0][0].data;
     expect(donnees.niveau).toBe("EXCELLENCE");
     expect(donnees.statut).toBe("PROPOSEE");
   });
@@ -227,7 +231,7 @@ describe("recalcul", () => {
 
     await recalculerRecommandation("t1", "e1", "c1");
 
-    const donnees = mockPrisma.recommandation.upsert.mock.calls[0][0].create;
+    const donnees = mockPrisma.recommandation.create.mock.calls[0][0].data;
     expect(donnees.statut).toBe("OBLIGATOIRE");
     expect(donnees.competencesBloquees).toBe(2);
   });
@@ -240,7 +244,7 @@ describe("recalcul", () => {
 
     await recalculerRecommandation("t1", "e1", "c1");
 
-    expect(mockPrisma.recommandation.upsert.mock.calls[0][0].create.statut).toBe("ECARTEE");
+    expect(mockPrisma.recommandation.updateMany.mock.calls[0][0].data.statut).toBe("ECARTEE");
   });
 
   it("conserve de même une recommandation acceptée", async () => {
@@ -249,7 +253,7 @@ describe("recalcul", () => {
 
     await recalculerRecommandation("t1", "e1", "c1");
 
-    expect(mockPrisma.recommandation.upsert.mock.calls[0][0].create.statut).toBe("ACCEPTEE");
+    expect(mockPrisma.recommandation.updateMany.mock.calls[0][0].data.statut).toBe("ACCEPTEE");
   });
 
   // On conserve l'historique plutôt que de le supprimer : il dira plus tard
@@ -261,7 +265,11 @@ describe("recalcul", () => {
     await recalculerRecommandation("t1", "e1", "c1");
 
     expect(mockPrisma.recommandation.deleteMany).not.toHaveBeenCalled();
-    expect(mockPrisma.recommandation.updateMany.mock.calls[0][0].data.resolueLe).toBeInstanceOf(Date);
+    const appel = mockPrisma.recommandation.updateMany.mock.calls[0][0];
+    // Le `where` inclut `tenantId` : c'est le motif du remplacement d'upsert
+    // par updateMany (la contrainte unique ne couvrait pas tenantId).
+    expect(appel.where.tenantId).toBe("t1");
+    expect(appel.data.resolueLe).toBeInstanceOf(Date);
   });
 
   it("retire une recommandation que la confiance ne justifie plus", async () => {
@@ -289,7 +297,7 @@ describe("recalcul", () => {
 
     await recalculerRecommandation("t1", "e1", "c1");
 
-    const donnees = mockPrisma.recommandation.upsert.mock.calls[0][0].create;
+    const donnees = mockPrisma.recommandation.create.mock.calls[0][0].data;
     expect(donnees.motif).toContain("Fractions");
     expect(donnees.regleDeclenchee).toBe("critique_prerequis_manquant");
   });
@@ -298,7 +306,7 @@ describe("recalcul", () => {
     profil(0.2);
     await recalculerRecommandation("t1", "e1", "c1");
 
-    const donnees = mockPrisma.recommandation.upsert.mock.calls[0][0].create;
+    const donnees = mockPrisma.recommandation.create.mock.calls[0][0].data;
     expect(donnees.tenantId).toBe("t1");
     expect(donnees.siteId).toBe("site1");
   });

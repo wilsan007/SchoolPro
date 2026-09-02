@@ -2123,6 +2123,18 @@ enum StatutFacture {
   ANNULEE
 }
 
+/// Type de facture pour le contrôle d'unicité multi-services.
+///   MENSUALITE / CANTINE / TRANSPORT → unicité par (eleveId, type, mois)
+///   INSCRIPTION / RENOUVELLEMENT / LIBRE → unicité par (eleveId, type)
+enum TypeFacture {
+  MENSUALITE
+  INSCRIPTION
+  RENOUVELLEMENT
+  CANTINE
+  TRANSPORT
+  LIBRE
+}
+
 model Facture {
   id       String @id @default(cuid())
   tenantId String
@@ -2157,6 +2169,10 @@ model Facture {
   /// qui ne sont pas liées à un mois spécifique (frais d'inscription, etc.).
   mois String?
 
+  /// Type de facture (contrôle d'unicité multi-services).
+  /// Voir l'enum TypeFacture pour les règles d'unicité par type.
+  type TypeFacture @default(MENSUALITE)
+
   paiements  Paiement[]
   relances   Relance[]
   echeances  EcheancePaiement[]
@@ -2175,6 +2191,8 @@ model Facture {
   @@index([siteId])
   @@index([anneeId])
   @@index([tenantId, anneeId])
+  /// Index pour le contrôle d'unicité multi-services (eleveId, type, mois).
+  @@index([eleveId, type, mois])
   @@map("factures")
 }
 

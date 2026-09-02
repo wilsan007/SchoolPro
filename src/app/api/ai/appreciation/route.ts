@@ -5,6 +5,8 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { generateCompletion, AiConfigError } from "@/lib/ai/glm-client";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 
 const Schema = z.object({
   eleveId: z.string().min(1),
@@ -20,6 +22,15 @@ export async function POST(req: NextRequest) {
     const denied = checkPermission(session.user.role, "ai:teacher");
     if (denied) return denied;
 
+    const ip = getClientIP(req);
+    const rl = rateLimit({ max: 30, windowSec: 60, key: `ai-appreciation:${session.user.id}:${ip}` });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Trop de requêtes", retryAfter: Math.ceil((rl.resetAt - Date.now()) / 1000) },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const parsed = Schema.safeParse(body);
     if (!parsed.success) {
@@ -27,6 +38,7 @@ export async function POST(req: NextRequest) {
     }
     const { eleveId, periodeId } = parsed.data;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     const eleve = await prisma.eleve.findFirst({
       where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", session.user) },
@@ -46,6 +58,7 @@ export async function POST(req: NextRequest) {
         periodeId,
         tenantId,
         ...siteFilterForModel("bulletin", session.user),
+        ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
       },
       include: {
         // Les lignes de matières appartiennent au bulletin retourné, lui-même déjà

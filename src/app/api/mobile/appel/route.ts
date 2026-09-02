@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import prisma from "@/lib/prisma";
+import { z } from "zod";
 import { sendAbsenceAlert } from "@/lib/sms/africasTalking";
 import { sendEmail, renderNotificationEmail } from "@/lib/notifications/email";
 import { sendAbsenceWhatsApp } from "@/lib/notifications/whatsapp";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { revalidateTag } from "next/cache";
+
+const AppelSchema = z.object({
+  classeId: z.string().min(1),
+  date: z.string().min(1),
+  presences: z.record(z.string(), z.enum(["present", "absent", "retard"])),
+});
 
 export async function POST(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -18,19 +26,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
-  const body = await req.json();
-  const { classeId, date, presences } = body;
-
-  if (!classeId || !date || !presences) {
-    return NextResponse.json({ error: "Données manquantes" }, { status: 400 });
+  const parsed = AppelSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
 
+  const { classeId, date, presences } = parsed.data;
   const appelDate = new Date(date);
   const dateStr = appelDate.toISOString().split("T")[0];
+  const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
 
-  // La classe doit appartenir au tenant ET au périmètre de sites de l'appelant.
   const classe = await prisma.classe.findFirst({
-    where: { id: classeId, tenantId: user.tenantId, ...siteFilterForModel("classe", user) },
+    where: {
+      id: classeId,
+      tenantId: user.tenantId,
+      ...siteFilterForModel("classe", user),
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
+    },
     select: { id: true, nom: true },
   });
 
@@ -45,7 +57,7 @@ export async function POST(req: NextRequest) {
   // pas vérifiés : on pouvait créer des absences — et déclencher les SMS,
   // WhatsApp et e-mails aux parents — pour des élèves d'un autre site, voire
   // d'un autre établissement. Chaque élève doit appartenir à cette classe.
-  const eleveIdsSaisis = Object.keys(presences as Record<string, string>);
+  const eleveIdsSaisis = Object.keys(presences);
   if (eleveIdsSaisis.length > 0) {
     const elevesValides = await prisma.eleve.findMany({
       where: {
@@ -70,14 +82,14 @@ export async function POST(req: NextRequest) {
   });
   const ecoleNom = tenant?.name ?? "EcolPro";
 
-  const absentEleveIds = Object.entries(presences as Record<string, string>)
+  const absentEleveIds = Object.entries(presences)
     .filter(([, status]) => status !== "present")
     .map(([eleveId]) => eleveId);
 
   let created = 0;
   let notifSent = 0;
 
-  for (const [eleveId, status] of Object.entries(presences as Record<string, string>)) {
+  for (const [eleveId, status] of Object.entries(presences)) {
     if (status === "present") continue;
 
     const absenceId = `appel-${classeId}-${eleveId}-${dateStr}`;

@@ -179,6 +179,25 @@ export function BulletinAnnuelPreview({ data }: Props) {
         </tbody>
       </table>
 
+      {/* Décision de fin d'année et appréciation générale — le bilan annuel est
+          le document décisionnel (les trimestriels ne portent que les moyennes). */}
+      {(data.decision || data.appreciation) && (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+          {data.appreciation && (
+            <div className="border border-black p-2">
+              <span className="font-bold">{t("mentionLabel")} : </span>
+              {t(`mention${data.appreciation}`)}
+            </div>
+          )}
+          {data.decision && (
+            <div className="border border-black p-2 bg-[#fbcfe8]">
+              <span className="font-bold">{t("decisionLabel")} : </span>
+              <span className="font-bold text-blue-900">{t(`decision${data.decision}`)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Signature & Cachet */}
       <div className="flex justify-end mt-6">
         <div className="text-center text-[10px] w-[60mm]">

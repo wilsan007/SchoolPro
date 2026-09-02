@@ -6,6 +6,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidatePath } from "next/cache";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Décision humaine sur une recommandation.
@@ -36,9 +37,15 @@ export async function PATCH(
     return erreurJson("STATUT_INVALIDE");
   }
   const tenantId = session.user.tenantId;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   const existante = await prisma.recommandation.findFirst({
-    where: { id, tenantId, ...siteFilterForModel("recommandation", session.user) },
+    where: {
+      id,
+      tenantId,
+      ...siteFilterForModel("recommandation", session.user),
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+    },
     select: { id: true },
   });
   if (!existante) {
@@ -48,7 +55,11 @@ export async function PATCH(
   // `updateMany` pour exiger le tenant dans le `where` : une écriture ne se
   // contente pas d'un identifiant.
   await prisma.recommandation.updateMany({
-    where: { id, tenantId },
+    where: {
+      id,
+      tenantId,
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+    },
     data: {
       statut: parsed.data.statut,
       decideParId: session.user.id,

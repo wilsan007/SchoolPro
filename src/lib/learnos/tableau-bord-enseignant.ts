@@ -24,7 +24,7 @@ import { predirePourChapitre } from "@/lib/learnos/prediction-engine";
 import { proposerPlanLecon, type PlanLeconPropose } from "@/lib/learnos/plan-lecon";
 import { ciblesPourEleve, type CibleExercice } from "@/lib/learnos/exercice-selector";
 import type { PalierExercice } from "@prisma/client";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Type de retour
@@ -82,11 +82,13 @@ export interface TableauBordSeance {
 export async function tableauBordSeance(
   tenantId: string,
   claims: SessionSiteClaims,
-  seanceId: string
+  seanceId: string,
+  anneeCourante?: string | null
 ): Promise<TableauBordSeance | null> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   // 1. Charger la séance avec classe, matière, chapitre et compétences.
   const seance = await prisma.seancePedagogique.findFirst({
-    where: { id: seanceId, tenantId, ...siteFilterForModel("seancePedagogique", claims) },
+    where: { id: seanceId, tenantId, ...(annee ? { classe: { annee: annee } } : {}), ...siteFilterForModel("seancePedagogique", claims) },
     select: {
       id: true,
       date: true,
@@ -377,10 +379,12 @@ export async function genererPlanLeconPourSeance(
   tenantId: string,
   claims: SessionSiteClaims,
   seanceId: string,
-  actorId: string
+  actorId: string,
+  anneeCourante?: string | null
 ): Promise<PlanLeconPropose | null> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const seance = await prisma.seancePedagogique.findFirst({
-    where: { id: seanceId, tenantId, ...siteFilterForModel("seancePedagogique", claims) },
+    where: { id: seanceId, tenantId, ...(annee ? { classe: { annee: annee } } : {}), ...siteFilterForModel("seancePedagogique", claims) },
     select: {
       dureePrevue: true,
       classe: { select: { id: true, nom: true, niveau: true } },
@@ -430,10 +434,12 @@ export async function exercicesRemediationPourEleve(
   tenantId: string,
   claims: SessionSiteClaims,
   seanceId: string,
-  eleveId: string
+  eleveId: string,
+  anneeCourante?: string | null
 ): Promise<CibleExercice[]> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const seance = await prisma.seancePedagogique.findFirst({
-    where: { id: seanceId, tenantId, ...siteFilterForModel("seancePedagogique", claims) },
+    where: { id: seanceId, tenantId, ...(annee ? { classe: { annee: annee } } : {}), ...siteFilterForModel("seancePedagogique", claims) },
     select: {
       chapitre: { select: { matiereId: true } },
     },

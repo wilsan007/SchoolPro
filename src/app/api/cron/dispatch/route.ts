@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { drainEvents } from "@/lib/learnos/event-bus";
 import { passerEnRevueLesPlansEchus } from "@/lib/learnos/plan-engine";
 import prisma from "@/lib/prisma";
@@ -136,6 +137,10 @@ const TACHES: Tache[] = [
   },
 ];
 
+const QuerySchema = z.object({
+  force: z.string().min(1).optional(),
+});
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -144,7 +149,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const forcee = new URL(req.url).searchParams.get("force");
+  const { force: forcee } = QuerySchema.parse({
+    force: new URL(req.url).searchParams.get("force") ?? undefined,
+  });
   const heure = new Date().getUTCHours();
 
   const aExecuter = forcee

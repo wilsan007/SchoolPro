@@ -1,12 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { z } from "zod";
+import { checkPermission } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
+import { ContexteAppreciation } from "@prisma/client";
+
+const RegleSchema = z.object({
+  contexte: z.nativeEnum(ContexteAppreciation),
+  seuilMin: z.coerce.number().default(0),
+  seuilMax: z.coerce.number().default(0),
+  libelle: z.string().min(1),
+  ordre: z.coerce.number().default(0),
+});
+
+const PutSchema = RegleSchema.omit({ ordre: true }).extend({
+  id: z.string().min(1),
+  ordre: z.coerce.number().optional(),
+});
+
+const QuerySchema = z.object({
+  id: z.string().min(1),
+});
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+
+  const denied = checkPermission(session.user.role, "parametres:read");
+  if (denied) return denied;
 
   const regles = await prisma.reglesAppreciation.findMany({
     where: { tenantId: session.user.tenantId },
@@ -22,21 +45,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { contexte, seuilMin, seuilMax, libelle, ordre } = body;
+  const denied = checkPermission(session.user.role, "parametres:write");
+  if (denied) return denied;
 
-  if (!contexte || !libelle) {
-    return NextResponse.json({ error: "contexte et libelle requis" }, { status: 400 });
+  const parsed = RegleSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
 
   const regle = await prisma.reglesAppreciation.create({
     data: {
       tenantId: session.user.tenantId,
-      contexte,
-      seuilMin: parseFloat(seuilMin),
-      seuilMax: parseFloat(seuilMax),
-      libelle,
-      ordre: ordre ?? 0,
+      ...parsed.data,
     },
   });
 
@@ -49,22 +69,19 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { id, contexte, seuilMin, seuilMax, libelle, ordre } = body;
+  const denied = checkPermission(session.user.role, "parametres:write");
+  if (denied) return denied;
 
-  if (!id) {
-    return NextResponse.json({ error: "id requis" }, { status: 400 });
+  const parsed = PutSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
+
+  const { id, ...data } = parsed.data;
 
   const regle = await prisma.reglesAppreciation.update({
     where: { id, tenantId: session.user.tenantId },
-    data: {
-      contexte,
-      seuilMin: parseFloat(seuilMin),
-      seuilMax: parseFloat(seuilMax),
-      libelle,
-      ordre,
-    },
+    data,
   });
 
   return NextResponse.json(regle);
@@ -76,14 +93,17 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
+  const denied = checkPermission(session.user.role, "parametres:write");
+  if (denied) return denied;
+
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) {
+  const parsed = QuerySchema.safeParse({ id: searchParams.get("id") });
+  if (!parsed.success) {
     return NextResponse.json({ error: "id requis" }, { status: 400 });
   }
 
   await prisma.reglesAppreciation.delete({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id: parsed.data.id, tenantId: session.user.tenantId },
   });
 
   return NextResponse.json({ success: true });

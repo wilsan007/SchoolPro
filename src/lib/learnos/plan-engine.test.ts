@@ -11,6 +11,10 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/annee-scolaire", () => ({
+  getAnneeCouranteLibelle: vi.fn().mockResolvedValue("2025-2026"),
+}));
+
 import prisma from "@/lib/prisma";
 import {
   evaluerBesoinDePlans,
@@ -132,9 +136,12 @@ describe("déclenchement", () => {
 
   it("ignore les recommandations écartées par un enseignant", async () => {
     await evaluerBesoinDePlans("t1", "e1", MAINTENANT);
-    expect(mockPrisma.recommandation.findMany.mock.calls[0][0].where.statut).toEqual({
+    const where = mockPrisma.recommandation.findMany.mock.calls[0][0].where;
+    expect(where.statut).toEqual({
       not: "ECARTEE",
     });
+    // Le filtre année empêche de remonter des recommandations d'autres années.
+    expect(where.eleve).toEqual({ classe: { annee: "2025-2026" } });
   });
 });
 

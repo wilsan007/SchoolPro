@@ -18,6 +18,7 @@
 import prisma from "@/lib/prisma";
 import { publishEvent } from "@/lib/learnos/events";
 import type { DevoirEnRetardPayload } from "@/lib/learnos/events";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Détecte les devoirs en retard et publie un événement `devoir.enretard` pour
@@ -25,11 +26,20 @@ import type { DevoirEnRetardPayload } from "@/lib/learnos/events";
  *
  * @returns nombre de nouvelles alertes publiées.
  */
-export async function detecterDevoirsEnRetard(): Promise<{ count: number }> {
+export async function detecterDevoirsEnRetard(
+  anneeCourante?: string | null
+): Promise<{ count: number }> {
   let count = 0;
 
   try {
     const maintenant = new Date();
+
+    const anneesCourantes = anneeCourante
+      ? [anneeCourante]
+      : (await prisma.anneesScolaires.findMany({
+          where: { isCurrent: true },
+          select: { libelle: true },
+        })).map((a) => a.libelle).filter(Boolean) as string[];
 
     // Tâche système : elle balaie délibérément tous les tenants, comme les
     // autres crons de l'application (cf. api/cron/dispatch, alertes-parent).
@@ -38,6 +48,7 @@ export async function detecterDevoirsEnRetard(): Promise<{ count: number }> {
       where: {
         statut: { in: ["A_FAIRE", "EN_COURS"] },
         dateRendu: { lt: maintenant },
+        ...(anneesCourantes.length > 0 ? { classe: { annee: { in: anneesCourantes } } } : {}),
       },
       select: {
         id: true,

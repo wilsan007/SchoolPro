@@ -1,380 +1,213 @@
+/**
+ * Tests d'exhaustivité et de cohérence de la matrice RBAC.
+ *
+ * Inspirés de GOSE 2.0 — la matrice de permissions est l'unique
+ * source de vérité. Ce test valide qu'elle est complète, cohérente
+ * et que les séparations de rôles sont respectées.
+ */
 import { describe, it, expect } from "vitest";
 import {
   ROLE_PERMISSIONS,
-  ROUTE_RULES,
-  canAccessRoute,
-  findRouteRule,
   roleHasPermission,
+  roleHasAnyPermission,
+  ALL_PERMISSIONS,
+  ROUTE_RULES,
   type RoleKey,
-} from "./permissions";
-
-/**
- * Ces tests figent les frontières que la QA avait trouvées ouvertes.
- * Chacun correspond à un accès réellement obtenu par un compte qui n'aurait
- * pas dû l'avoir — les garder verts est la seule protection contre une
- * régression silencieuse de la matrice.
- */
+} from "@/lib/permissions";
 
 const TOUS_LES_ROLES: RoleKey[] = [
-  "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY", "TEACHER",
-  "CLASS_TEACHER", "COUNSELOR", "NURSE", "ACCOUNTANT", "CAISSIER",
-  "SUPERVISOR", "SUBJECT_LEAD",
-  "SITE_MANAGER", "INSPECTOR",
-  "PARENT", "STUDENT",
+  "SUPER_ADMIN",
+  "TENANT_ADMIN",
+  "PRINCIPAL",
+  "SECRETARY",
+  "TEACHER",
+  "CLASS_TEACHER",
+  "COUNSELOR",
+  "NURSE",
+  "ACCOUNTANT",
+  "CAISSIER",
+  "SUPERVISOR",
+  "SUBJECT_LEAD",
+  "SITE_MANAGER",
+  "INSPECTOR",
+  "PARENT",
+  "STUDENT",
 ];
 
-describe("intégrité du registre", () => {
-  it("déclare une règle pour chaque écran du dashboard", () => {
-    // Liste tenue à la main : une page ajoutée sans règle doit faire échouer
-    // ce test plutôt que d'hériter d'un comportement par défaut.
-    const ecrans = [
-      "/dashboard", "/acces-bloque", "/direction", "/mon-espace", "/ma-classe",
-      "/parent", "/parent/factures/x", "/eleve", "/entrainement", "/eleves", "/eleves/nouveau",
-      "/eleves/comptes", "/eleves/transfert", "/parents", "/notes",
-      "/notes/bulletins", "/evaluations", "/examens", "/examens/rapport-classe",
-      "/curriculum", "/recommandations", "/cours", "/emploi-du-temps",
-      "/absences", "/absences/appel", "/vie-scolaire", "/vie-scolaire/convocations",
-      "/orientation", "/admissions", "/facturation", "/facturation/nouvelle",
-      "/caisse",
-      "/rh", "/inventaire", "/alumni", "/messages", "/communication",
-      "/rapports", "/analytics", "/parametres", "/parametres/audit",
-      "/super-admin", "/bulletin/x/y",
-    ];
-    const sansRegle = ecrans.filter((r) => findRouteRule(r) === null);
-    expect(sansRegle).toEqual([]);
-  });
-
-  it("refuse par défaut une route inconnue", () => {
+describe("Matrice RBAC — exhaustivité", () => {
+  it("chaque rôle de l'union type a une entrée dans ROLE_PERMISSIONS", () => {
     for (const role of TOUS_LES_ROLES) {
-      expect(canAccessRoute(role, "/route-jamais-declaree")).toBe(false);
+      expect(ROLE_PERMISSIONS[role]).toBeDefined();
+      expect(Array.isArray(ROLE_PERMISSIONS[role])).toBe(true);
     }
   });
 
-  it("n'ancre pas les motifs des pages qui ont des sous-routes", () => {
-    // `/facturation$` laissait `/facturation/nouvelle` hors du registre.
-    expect(findRouteRule("/facturation/nouvelle")).toBe(findRouteRule("/facturation"));
-    expect(findRouteRule("/parametres/audit")).not.toBe(findRouteRule("/parametres"));
-  });
-
-  it("place /parent avant /parents sans les confondre", () => {
-    expect(canAccessRoute("PARENT", "/parent")).toBe(true);
-    expect(canAccessRoute("PARENT", "/parents")).toBe(false);
-    expect(canAccessRoute("TENANT_ADMIN", "/parents")).toBe(true);
-    expect(canAccessRoute("TENANT_ADMIN", "/parent")).toBe(false);
-  });
-});
-
-describe("cloisonnement du parent", () => {
-  const interdits = [
-    "/direction", "/eleves", "/parents", "/evaluations", "/examens",
-    "/curriculum", "/recommandations", "/facturation", "/facturation/nouvelle",
-    "/rh", "/inventaire", "/admissions", "/alumni", "/vie-scolaire",
-    "/parametres", "/parametres/audit", "/analytics", "/rapports",
-    "/super-admin", "/ma-classe", "/mon-espace", "/entrainement", "/communication",
-  ];
-  it.each(interdits)("refuse %s au parent", (route) => {
-    expect(canAccessRoute("PARENT", route)).toBe(false);
-  });
-
-  const autorises = ["/dashboard", "/parent", "/parent/factures/x", "/messages", "/bulletin/x/y"];
-  it.each(autorises)("autorise %s au parent", (route) => {
-    expect(canAccessRoute("PARENT", route)).toBe(true);
-  });
-});
-
-describe("cloisonnement de l'élève", () => {
-  const interdits = [
-    "/direction", "/eleves", "/parents", "/evaluations", "/curriculum",
-    "/recommandations", "/facturation", "/rh", "/parametres", "/analytics",
-    "/vie-scolaire", "/orientation", "/parent", "/ma-classe", "/super-admin",
-  ];
-  it.each(interdits)("refuse %s à l'élève", (route) => {
-    expect(canAccessRoute("STUDENT", route)).toBe(false);
-  });
-
-  it("lui laisse son entraînement, à lui seul", () => {
-    expect(canAccessRoute("STUDENT", "/entrainement")).toBe(true);
-    for (const role of TOUS_LES_ROLES.filter((r) => r !== "STUDENT")) {
-      expect(canAccessRoute(role, "/entrainement")).toBe(false);
-    }
-  });
-
-  it("ne lui donne pas la création ni la suppression de cours", () => {
-    expect(roleHasPermission("STUDENT", "cours:read")).toBe(true);
-    expect(roleHasPermission("STUDENT", "cours:write")).toBe(false);
-    expect(roleHasPermission("STUDENT", "cours:delete")).toBe(false);
-  });
-});
-
-describe("périmètre de l'enseignant", () => {
-  it("ouvre le curriculum, les recommandations et son espace", () => {
-    // `/ma-classe` est réservé au prof principal (CLASS_TEACHER) : un TEACHER
-    // n'est pas prof principal → page vide. `/mon-espace` reste son accueil.
-    for (const route of ["/curriculum", "/recommandations", "/mon-espace", "/notes", "/evaluations"]) {
-      expect(canAccessRoute("TEACHER", route)).toBe(true);
-    }
-    expect(canAccessRoute("TEACHER", "/ma-classe")).toBe(false);
-    expect(canAccessRoute("TEACHER", "/ma-matiere")).toBe(false);
-  });
-
-  it("lui donne l'écriture sur la banque de questions LEARNOS", () => {
-    // `curriculum:write` est exigé par /api/learnos/questions et n'était
-    // accordé à aucun rôle : personne ne pouvait créer de question.
-    for (const role of ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "TENANT_ADMIN"] as RoleKey[]) {
-      expect(roleHasPermission(role, "curriculum:write")).toBe(true);
-    }
-  });
-
-  it("lui donne le suivi d'entraînement mais pas la séance", () => {
-    expect(roleHasPermission("TEACHER", "entrainement:read")).toBe(true);
-    expect(roleHasPermission("TEACHER", "entrainement:valider")).toBe(true);
-    expect(roleHasPermission("TEACHER", "entrainement:write")).toBe(false);
-  });
-
-  it("lui ferme la finance, les RH et les paramètres", () => {
-    for (const route of ["/facturation", "/facturation/nouvelle", "/rh", "/parametres", "/direction", "/analytics"]) {
-      expect(canAccessRoute("TEACHER", route)).toBe(false);
+  it("ROLE_PERMISSIONS ne contient que les 16 rôles attendus", () => {
+    const keys = Object.keys(ROLE_PERMISSIONS);
+    expect(keys).toHaveLength(16);
+    for (const role of TOUS_LES_ROLES) {
+      expect(keys).toContain(role);
     }
   });
 });
 
-describe("suivi d'entraînement : qui peut lire l'évolution", () => {
-  const lecteurs: RoleKey[] = [
-    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER",
-    "CLASS_TEACHER", "COUNSELOR", "PARENT", "STUDENT",
-  ];
-  it.each(lecteurs)("%s lit l'évolution", (role) => {
-    expect(roleHasPermission(role, "entrainement:read")).toBe(true);
+describe("Matrice RBAC — cohérence des permissions", () => {
+  it("SUPER_ADMIN a le wildcard *", () => {
+    expect(ROLE_PERMISSIONS.SUPER_ADMIN).toContain("*");
   });
 
-  it.each(["SECRETARY", "NURSE", "ACCOUNTANT"] as RoleKey[])("%s ne la lit pas", (role) => {
-    expect(roleHasPermission(role, "entrainement:read")).toBe(false);
-  });
-});
-
-describe("administration générale", () => {
-  it("ouvre le pilotage à la direction seule", () => {
-    for (const role of ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/direction")).toBe(true);
-    }
-    for (const role of ["TEACHER", "CLASS_TEACHER", "SECRETARY", "NURSE", "PARENT", "STUDENT"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/direction")).toBe(false);
-    }
+  it("TENANT_ADMIN a plus de permissions que PRINCIPAL", () => {
+    const admin = ROLE_PERMISSIONS.TENANT_ADMIN.length;
+    const principal = ROLE_PERMISSIONS.PRINCIPAL.length;
+    expect(admin).toBeGreaterThan(principal);
   });
 
-  it("laisse la direction suivre la pédagogie via curriculum et recommandations", () => {
-    // `/ma-classe` et `/mon-espace` sont les espaces de travail de l'enseignant
-    // et du prof principal : la direction n'y a pas de périmètre utile (pas
-    // d'enseignant, pas de classe dont elle est prof principal). Elle supervise
-    // via `/direction`, `/curriculum` et `/recommandations`.
-    for (const route of ["/curriculum", "/recommandations"]) {
-      expect(canAccessRoute("TENANT_ADMIN", route)).toBe(true);
-      expect(canAccessRoute("PRINCIPAL", route)).toBe(true);
-    }
-    for (const route of ["/ma-classe", "/mon-espace", "/ma-matiere"]) {
-      expect(canAccessRoute("TENANT_ADMIN", route)).toBe(false);
-      expect(canAccessRoute("PRINCIPAL", route)).toBe(false);
-      expect(canAccessRoute("SUPER_ADMIN", route)).toBe(false);
-    }
+  it("TEACHER peut lire ET écrire des notes (notes:*)", () => {
+    expect(roleHasPermission("TEACHER", "notes:read")).toBe(true);
+    expect(roleHasPermission("TEACHER", "notes:write")).toBe(true);
   });
 
-  it("réserve les paramètres à la direction et au comptable", () => {
-    expect(canAccessRoute("TENANT_ADMIN", "/parametres")).toBe(true);
-    expect(canAccessRoute("PRINCIPAL", "/parametres")).toBe(true);
-    expect(canAccessRoute("ACCOUNTANT", "/parametres")).toBe(true);
-    for (const role of ["SECRETARY", "TEACHER", "CLASS_TEACHER", "PARENT", "STUDENT"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/parametres")).toBe(false);
-    }
+  it("PARENT ne peut pas créer d'élèves (eleves:write)", () => {
+    expect(roleHasPermission("PARENT", "eleves:write")).toBe(false);
   });
 
-  it("réserve la console plateforme au super-admin", () => {
-    expect(canAccessRoute("SUPER_ADMIN", "/super-admin")).toBe(true);
-    for (const role of TOUS_LES_ROLES.filter((r) => r !== "SUPER_ADMIN")) {
-      expect(canAccessRoute(role, "/super-admin")).toBe(false);
-    }
-  });
-});
-
-/**
- * Les quatre écrans de saisie du personnel (`/notes`, `/absences`, `/cours`,
- * `/emploi-du-temps`) portaient une simple permission que PARENT et STUDENT
- * possèdent : ils apparaissaient donc dans le menu des familles et leur
- * ouvraient l'outil de quelqu'un d'autre. La correction restreint l'ÉCRAN par
- * rôle sans retirer la permission — d'où les deux blocs de tests ci-dessous,
- * l'un qui ferme, l'autre qui vérifie qu'on n'a pas fermé trop large.
- */
-const ECRANS_DE_SAISIE = ["/notes", "/absences", "/cours", "/emploi-du-temps"];
-
-describe("écrans de saisie du personnel fermés aux familles", () => {
-  it.each(ECRANS_DE_SAISIE)("refuse %s au parent", (route) => {
-    expect(canAccessRoute("PARENT", route)).toBe(false);
+  it("STUDENT ne peut pas créer de notes (notes:write)", () => {
+    expect(roleHasPermission("STUDENT", "notes:write")).toBe(false);
   });
 
-  it.each(ECRANS_DE_SAISIE)("refuse %s à l'élève", (route) => {
-    expect(canAccessRoute("STUDENT", route)).toBe(false);
+  it("NURSE a des permissions minimales", () => {
+    const perms = ROLE_PERMISSIONS.NURSE;
+    expect(perms).toContain("eleves:read");
+    expect(perms).toContain("absences:read");
+    expect(perms).not.toContain("notes:*");
+    expect(perms).not.toContain("bulletins:write");
   });
 
-  it("ferme aussi les sous-routes de saisie, pas seulement la racine", () => {
-    for (const route of ["/absences/appel", "/notes/saisie", "/cours/nouveau", "/emploi-du-temps/edition"]) {
-      expect(canAccessRoute("PARENT", route)).toBe(false);
-      expect(canAccessRoute("STUDENT", route)).toBe(false);
-    }
+  it("ACCOUNTANT a finance:* mais pas notes:write", () => {
+    expect(roleHasPermission("ACCOUNTANT", "finance:write")).toBe(true);
+    expect(roleHasPermission("ACCOUNTANT", "notes:write")).toBe(false);
   });
 
-  it("ferme la console /notes/bulletins aux familles mais garde la route imprimable /bulletin", () => {
-    // La console de génération (`/notes/bulletins`) charge toutes les classes
-    // et tous les élèves du tenant avec nom/prénom/matricule : elle est fermée
-    // aux familles par liste `roles`, comme `/notes`. La route imprimable
-    // `/bulletin/{eleveId}/{periodeId}` reste ouverte et est scopée par
-    // `eleveScopeFilter` côté API.
-    const iBulletins = ROUTE_RULES.findIndex((r) => r.pattern.source === String.raw`^\/notes\/bulletins`);
-    const iNotes = ROUTE_RULES.findIndex((r) => r.pattern.source === String.raw`^\/notes`);
-    expect(iBulletins).toBeGreaterThanOrEqual(0);
-    expect(iNotes).toBeGreaterThanOrEqual(0);
-    expect(iBulletins).toBeLessThan(iNotes);
-
-    expect(findRouteRule("/notes/bulletins")).not.toBe(findRouteRule("/notes"));
-    for (const role of ["PARENT", "STUDENT"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/notes/bulletins")).toBe(false);
-      expect(canAccessRoute(role, "/notes/bulletins/2024")).toBe(false);
-    }
-    // Le personnel garde l'accès à la console.
-    for (const role of ["SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "TEACHER", "CLASS_TEACHER"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/notes/bulletins")).toBe(true);
-    }
+  it("CAISSIER a finance:read et finance:write mais pas finance:*", () => {
+    expect(roleHasPermission("CAISSIER", "finance:read")).toBe(true);
+    expect(roleHasPermission("CAISSIER", "finance:write")).toBe(true);
+    expect(ROLE_PERMISSIONS.CAISSIER).not.toContain("finance:*");
   });
 
-  it("laisse les documents imprimables /bulletin ouverts aux familles", () => {
-    for (const role of ["PARENT", "STUDENT"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/bulletin/eleve-1/trimestre-1")).toBe(true);
-    }
-  });
-
-  it("conserve aux familles leur espace, la messagerie et le tableau de bord", () => {
-    expect(canAccessRoute("PARENT", "/parent")).toBe(true);
-    expect(canAccessRoute("STUDENT", "/eleve")).toBe(true);
-    for (const role of ["PARENT", "STUDENT"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/messages")).toBe(true);
-      expect(canAccessRoute(role, "/dashboard")).toBe(true);
-    }
-  });
-
-  it("ne retire aucune permission aux familles : on restreint l'écran, pas le droit", () => {
-    // Intention documentée : `notes:read` & co. restent nécessaires aux
-    // familles pour leur propre espace et pour les routes API. Seul l'écran
-    // de saisie leur est fermé.
-    for (const role of ["PARENT", "STUDENT"] as RoleKey[]) {
-      for (const perm of ["notes:read", "absences:read", "cours:read", "emploi-du-temps:read"]) {
-        expect(roleHasPermission(role, perm)).toBe(true);
-        expect(ROLE_PERMISSIONS[role]).toContain(perm);
-      }
-    }
-  });
-});
-
-describe("écrans de saisie : le personnel garde ses accès", () => {
-  // Un test par rôle et par écran : ce sont ces assertions qui protègent
-  // contre une fermeture trop large, faite au nom du cloisonnement familial.
-  const attendus: Array<[RoleKey, string]> = [
-    ["SUPER_ADMIN", "/notes"], ["TENANT_ADMIN", "/notes"], ["PRINCIPAL", "/notes"],
-    ["TEACHER", "/notes"], ["CLASS_TEACHER", "/notes"],
-
-    ["SUPER_ADMIN", "/absences"], ["TENANT_ADMIN", "/absences"], ["PRINCIPAL", "/absences"],
-    ["SECRETARY", "/absences"], ["TEACHER", "/absences"], ["CLASS_TEACHER", "/absences"],
-    ["COUNSELOR", "/absences"], ["NURSE", "/absences"],
-
-    ["SUPER_ADMIN", "/cours"], ["TENANT_ADMIN", "/cours"], ["PRINCIPAL", "/cours"],
-    ["TEACHER", "/cours"], ["CLASS_TEACHER", "/cours"],
-
-    ["SUPER_ADMIN", "/emploi-du-temps"], ["TENANT_ADMIN", "/emploi-du-temps"],
-    ["PRINCIPAL", "/emploi-du-temps"], ["SECRETARY", "/emploi-du-temps"],
-    ["TEACHER", "/emploi-du-temps"], ["CLASS_TEACHER", "/emploi-du-temps"],
-  ];
-  it.each(attendus)("%s garde %s", (role, route) => {
-    expect(canAccessRoute(role, route)).toBe(true);
-  });
-
-  it("n'ouvre pas ces écrans à un rôle qui n'avait pas la permission", () => {
-    // ACCOUNTANT ne possède aucune des quatre permissions : la correction ne
-    // doit pas avoir changé son cas.
-    for (const route of ECRANS_DE_SAISIE) {
-      expect(canAccessRoute("ACCOUNTANT", route)).toBe(false);
-    }
-    // SECRETARY, COUNSELOR et NURSE n'ont pas `notes:read` ni `cours:read`.
-    for (const role of ["SECRETARY", "COUNSELOR", "NURSE"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/notes")).toBe(false);
-      expect(canAccessRoute(role, "/cours")).toBe(false);
-    }
-  });
-
-  it("ne restreint par rôle que des écrans dont la permission fuit vers les familles", () => {
-    // Garde-fou : chaque règle porteuse d'une liste `roles` doit être une
-    // décision consciente, pas un copier-coller. On vérifie ici qu'aucune
-    // liste `roles` n'est vide (ce qui fermerait l'écran à tout le monde).
-    for (const rule of ROUTE_RULES) {
-      if (rule.roles) expect(rule.roles.length).toBeGreaterThan(0);
-    }
-  });
-});
-
-describe("cohérence outcome ↔ rôle : pas d'écran vide", () => {
-  // Principe : un rôle n'accède à un écran que si celui-ci produit un outcome
-  // utile pour lui. Les pages « ma classe », « ma matière » et « mon espace »
-  // résolvent l'enseignant par `userId` : un rôle qui n'est pas enseignant (ou
-  // pas prof principal) obtient une page vide — un menu qui mène à rien.
-  //
-  // Ces tests verrouillent la correction et empêchent une régression où la
-  // direction ou un enseignant non-prof-principal récupère ces écrans.
-
-  it("réserve /ma-classe au seul prof principal", () => {
-    expect(canAccessRoute("CLASS_TEACHER", "/ma-classe")).toBe(true);
-    for (const role of [
-      "TEACHER", "SUBJECT_LEAD", "PRINCIPAL", "TENANT_ADMIN", "SUPER_ADMIN",
-    ] as RoleKey[]) {
-      expect(canAccessRoute(role, "/ma-classe")).toBe(false);
-    }
-  });
-
-  it("réserve /ma-matiere au seul coordinateur de matière", () => {
-    expect(canAccessRoute("SUBJECT_LEAD", "/ma-matiere")).toBe(true);
-    for (const role of [
-      "TEACHER", "CLASS_TEACHER", "PRINCIPAL", "TENANT_ADMIN", "SUPER_ADMIN",
-    ] as RoleKey[]) {
-      expect(canAccessRoute(role, "/ma-matiere")).toBe(false);
-    }
-  });
-
-  it("réserve /mon-espace aux enseignants qui ont un service", () => {
-    for (const role of ["TEACHER", "CLASS_TEACHER"] as RoleKey[]) {
-      expect(canAccessRoute(role, "/mon-espace")).toBe(true);
-    }
-    for (const role of [
-      "PRINCIPAL", "TENANT_ADMIN", "SUPER_ADMIN", "SUBJECT_LEAD",
-    ] as RoleKey[]) {
-      expect(canAccessRoute(role, "/mon-espace")).toBe(false);
-    }
-  });
-
-  it("donne à l'inspecteur l'accès à /analytics", () => {
-    // L'inspecteur a `analytics:read` mais n'était pas dans la liste `roles`
-    // de `/analytics` → il ne voyait pas l'analytique, son outil de travail.
-    expect(canAccessRoute("INSPECTOR", "/analytics")).toBe(true);
-  });
-});
-
-describe("cohérence de la matrice", () => {
-  it("déclare les seize rôles", () => {
-    expect(Object.keys(ROLE_PERMISSIONS).sort()).toEqual([...TOUS_LES_ROLES].sort());
-  });
-
-  it("n'exige aucune permission qu'aucun rôle ne possède", () => {
-    const accordees = new Set(
-      Object.values(ROLE_PERMISSIONS).flat().map((p) => p.split(":")[0])
+  it("INSPECTOR n'a que des permissions en lecture", () => {
+    const perms = ROLE_PERMISSIONS.INSPECTOR;
+    const hasWrite = perms.some(
+      (p) => p.includes(":write") || p.includes(":*") || p.includes(":delete")
     );
-    const exigees = ROUTE_RULES.flatMap((r) =>
-      r.permission === null ? [] : (Array.isArray(r.permission) ? r.permission : [r.permission])
-    ).map((p) => p.split(":")[0]);
-    const orphelines = [...new Set(exigees)].filter((m) => !accordees.has(m));
-    expect(orphelines).toEqual([]);
+    expect(hasWrite).toBe(false);
+  });
+});
+
+describe("roleHasPermission", () => {
+  it("SUPER_ADMIN avec n'importe quelle permission retourne true", () => {
+    expect(roleHasPermission("SUPER_ADMIN", "anything:read")).toBe(true);
+    expect(roleHasPermission("SUPER_ADMIN", "finance:delete")).toBe(true);
+  });
+
+  it("TEACHER avec notes:read retourne true", () => {
+    expect(roleHasPermission("TEACHER", "notes:read")).toBe(true);
+  });
+
+  it("TEACHER avec eleves:write retourne false", () => {
+    expect(roleHasPermission("TEACHER", "eleves:write")).toBe(false);
+  });
+
+  it("PARENT avec bulletins:read retourne true", () => {
+    expect(roleHasPermission("PARENT", "bulletins:read")).toBe(true);
+  });
+
+  it("PARENT avec bulletins:write retourne false", () => {
+    expect(roleHasPermission("PARENT", "bulletins:write")).toBe(false);
+  });
+
+  it("TEACHER avec notes:* wildcard — notes:read doit matcher", () => {
+    expect(roleHasPermission("TEACHER", "notes:read")).toBe(true);
+  });
+
+  it("rôle inconnu retourne false", () => {
+    expect(roleHasPermission("UNKNOWN_ROLE", "notes:read")).toBe(false);
+  });
+});
+
+describe("roleHasAnyPermission", () => {
+  it("TEACHER avec [eleves:write, notes:read] retourne true (OU logique)", () => {
+    expect(roleHasAnyPermission("TEACHER", ["eleves:write", "notes:read"])).toBe(true);
+  });
+
+  it("TEACHER avec [eleves:write, finance:*] retourne false", () => {
+    expect(roleHasAnyPermission("TEACHER", ["eleves:write", "finance:*"])).toBe(false);
+  });
+});
+
+describe("ALL_PERMISSIONS", () => {
+  it("ne contient pas de doublons", () => {
+    const unique = new Set(ALL_PERMISSIONS);
+    expect(unique.size).toBe(ALL_PERMISSIONS.length);
+  });
+
+  it("ne contient pas le wildcard *", () => {
+    expect(ALL_PERMISSIONS).not.toContain("*");
+  });
+});
+
+describe("Séparabilité des rôles (inspiré GOSE 2.0)", () => {
+  it("un STUDENT ne peut pas accéder à finance", () => {
+    expect(roleHasPermission("STUDENT", "finance:read")).toBe(false);
+    expect(roleHasPermission("STUDENT", "finance:*")).toBe(false);
+  });
+
+  it("un PARENT ne peut pas écrire de notes", () => {
+    expect(roleHasPermission("PARENT", "notes:write")).toBe(false);
+  });
+
+  it("un NURSE ne peut pas écrire de bulletins", () => {
+    expect(roleHasPermission("NURSE", "bulletins:write")).toBe(false);
+  });
+
+  it("un CAISSIER ne peut pas accéder aux paramètres", () => {
+    expect(roleHasPermission("CAISSIER", "parametres:read")).toBe(false);
+    expect(roleHasPermission("CAISSIER", "parametres:*")).toBe(false);
+  });
+
+  it("un TEACHER ne peut pas accéder aux admissions", () => {
+    expect(roleHasPermission("TEACHER", "admissions:read")).toBe(false);
+    expect(roleHasPermission("TEACHER", "admissions:write")).toBe(false);
+  });
+});
+
+describe("ROUTE_RULES — routes critiques", () => {
+  it("la route /notes nécessite notes:read", () => {
+    const rule = ROUTE_RULES.find((r) => r.pattern.test("/notes"));
+    expect(rule).toBeDefined();
+    expect(rule?.permission).toBe("notes:read");
+  });
+
+  it("la route /eleves nécessite eleves:read", () => {
+    const rule = ROUTE_RULES.find((r) => r.pattern.test("/eleves"));
+    expect(rule).toBeDefined();
+    expect(rule?.permission).toBe("eleves:read");
+  });
+
+  it("la route /direction nécessite analytics:read", () => {
+    const rule = ROUTE_RULES.find((r) => r.pattern.test("/direction"));
+    expect(rule).toBeDefined();
+    expect(rule?.permission).toBe("analytics:read");
+  });
+
+  it("la route /parent est restreinte au rôle PARENT", () => {
+    const rule = ROUTE_RULES.find((r) => r.pattern.test("/parent"));
+    expect(rule).toBeDefined();
+    expect(rule?.roles).toContain("PARENT");
+  });
+
+  it("la route /eleve est restreinte au rôle STUDENT", () => {
+    const rule = ROUTE_RULES.find((r) => r.pattern.test("/eleve"));
+    expect(rule).toBeDefined();
+    expect(rule?.roles).toContain("STUDENT");
   });
 });

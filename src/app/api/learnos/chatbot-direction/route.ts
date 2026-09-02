@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { poserQuestion, type TourConversation, CHATBOT_DIRECTION_ACTIF } from "@/lib/learnos/chatbot-direction";
 import { getDemoNow } from "@/lib/demo-now";
+
+const BodySchema = z.object({
+  question: z.string().min(3),
+  historique: z.array(z.any()).max(10).optional(),
+});
 
 /**
  * POST /api/learnos/chatbot-direction
@@ -44,16 +50,11 @@ export async function POST(req: NextRequest) {
   }
 
   const tenantId = session.user.tenantId;
-  const body = await req.json().catch(() => ({}));
-  const question = body?.question as string;
-  const historique = (body?.historique ?? []) as TourConversation[];
-
-  if (!question || question.trim().length < 3) {
-    return NextResponse.json(
-      { error: "Question trop courte" },
-      { status: 400 }
-    );
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
+  const { question, historique = [] } = parsed.data;
 
   if (question.length > 500) {
     return NextResponse.json(
@@ -63,16 +64,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Valider l'historique : max 10 tours, chaque message max 1000 caractères.
-  const historiqueValide = Array.isArray(historique)
-    ? historique
-        .filter(
-          (t) =>
-            (t.role === "user" || t.role === "assistant") &&
-            typeof t.content === "string" &&
-            t.content.length <= 1000
-        )
-        .slice(-10)
-    : [];
+  const historiqueValide = (Array.isArray(historique) ? historique : [])
+    .filter(
+      (t: unknown) =>
+        t && typeof t === "object" &&
+        ((t as { role: string }).role === "user" || (t as { role: string }).role === "assistant") &&
+        typeof (t as { content: unknown }).content === "string" &&
+        (t as { content: string }).content.length <= 1000
+    )
+    .slice(-10);
 
   try {
     // Récupérer le nom du tenant pour l'injecter dans le contexte de l'IA.
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       session.user,
       question.trim(),
       session.user.id,
-      historiqueValide,
+      historiqueValide as TourConversation[],
       await getDemoNow(),
       tenant?.name ?? "Établissement",
     );

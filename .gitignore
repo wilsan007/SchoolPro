@@ -87,4 +87,17 @@ next-env.d.ts
 
 # Fichier seed trop volumineux pour GitHub (>100MB)
 prisma/sql/_archive/SEED-COMPLET.sql
+
+# Scripts temporaires et backups dans prisma/sql/
+prisma/sql/_*.sh
+prisma/sql/_*.mjs
+prisma/sql/_*.py
+prisma/sql/_*.txt
+prisma/sql/*.bak
+
+# Fichiers de debug E2E
+tests/e2e/debug-*.spec.ts
+
+# Artifacts d'audit générés temporairement
+AUDIT-PERIMETRE.json
 .env*

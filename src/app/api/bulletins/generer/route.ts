@@ -244,6 +244,7 @@ export async function POST(req: NextRequest) {
           eleveId: eleve.id,
           periodeId,
           ...siteFilterForModel("bulletin", session.user),
+          ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
         },
         select: { id: true, statut: true },
       });
@@ -317,7 +318,7 @@ export async function POST(req: NextRequest) {
       // `tenantId`, ce qui interdit d'écrire sur le bulletin d'un autre
       // établissement si un identifiant venait à être forgé.
       await prisma.bulletin.updateMany({
-        where: { eleveId: b.eleveId, periodeId, tenantId },
+        where: { eleveId: b.eleveId, periodeId, tenantId, ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
         data: {
           rang: b.moyenne !== null ? i + 1 : null,
           moyenneClasse,

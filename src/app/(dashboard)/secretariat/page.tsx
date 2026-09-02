@@ -24,6 +24,7 @@ function serialiserItems(items: ActivityItem[]): ActivityItemData[] {
     description: i.description,
     date: i.date.toISOString(),
     href: i.href,
+    acteur: i.acteur,
   }));
 }
 

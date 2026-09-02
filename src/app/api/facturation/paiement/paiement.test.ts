@@ -42,7 +42,8 @@ import { checkPermission } from "@/lib/rbac";
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockCheckPermission = checkPermission as ReturnType<typeof vi.fn>;
-const mockPrisma = prisma as unknown as typeof mockPrismaObj;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockPrisma = prisma as unknown as any;
 
 function req(url: string, body?: unknown) {
   return { url, json: () => Promise.resolve(body) } as unknown as Request;

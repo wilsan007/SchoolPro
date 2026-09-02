@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 import { erreurJson } from "@/lib/erreurs-api";
 import { genererClasseur, type SectionClasseur } from "@/lib/pdf/classeur-generator";
 
@@ -16,14 +17,23 @@ import { genererClasseur, type SectionClasseur } from "@/lib/pdf/classeur-genera
  *   titre?: string
  * }
  */
+
+const ClasseurBodySchema = z.object({
+  anneeId: z.string().min(1),
+  classeId: z.string().min(1).optional(),
+  eleveIds: z.array(z.string().min(1)).optional(),
+  periodeId: z.string().min(1).optional(),
+  sections: z.array(z.any()).min(1),
+  titre: z.string().optional(),
+});
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const body = await req.json().catch(() => null);
-  if (!body?.anneeId || !body?.sections) {
-    return erreurJson("DONNEES_INVALIDES");
-  }
+  const raw = await req.json().catch(() => null);
+  const parsed = ClasseurBodySchema.safeParse(raw);
+  if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
+  const body = parsed.data;
 
   const tenantId = session.user.tenantId;
 
@@ -51,7 +61,7 @@ export async function POST(req: NextRequest) {
   if (body.classeId) {
     // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId, la route vérifie les permissions
     const c = await prisma.classe.findFirst({
-      where: { id: body.classeId, tenantId },
+      where: { id: body.classeId, tenantId, annee: annee.libelle },
       select: { nom: true, niveau: true },
     });
     if (c) classe = c;

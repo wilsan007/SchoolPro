@@ -54,6 +54,8 @@ export async function GET(req: NextRequest) {
     // et lisait donc les notes de tous les élèves du tenant.
     const scopeFilter = eleveScopeFilter(session.user, "eleve");
 
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+
     const where = mergeFilters(
       {
         tenantId: session.user.tenantId,
@@ -61,6 +63,7 @@ export async function GET(req: NextRequest) {
         ...(matiereId && { matiereId }),
         ...(periodeId && { periodeId }),
         ...(eleveId && { eleveId }),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       scopeFilter
     );
@@ -148,6 +151,7 @@ export async function POST(req: NextRequest) {
             ...siteFilterForModel("bulletin", session.user),
             periodeId: { in: periodeIds },
             statut: { in: ["VERROUILLE", "PUBLIE"] },
+            ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
           },
           select: { id: true, periode: { select: { nom: true } } },
         });

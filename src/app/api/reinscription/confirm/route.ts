@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { erreurJson } from "@/lib/erreurs-api";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+
+const BodySchema = z.object({
+  invitationId: z.string().min(1),
+  confirme: z.boolean(),
+});
 
 /**
  * POST /api/reinscription/confirm
@@ -22,13 +28,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json().catch(() => null);
-  if (!body?.invitationId || typeof body.confirme !== "boolean") {
+  const raw = await req.json().catch(() => null);
+  const parsed = BodySchema.safeParse(raw);
+  if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES");
   }
+  const { invitationId, confirme } = parsed.data;
 
   const invitation = await prisma.invitationReinscription.findUnique({
-    where: { id: body.invitationId },
+    where: { id: invitationId },
     include: { campagne: true },
   });
 
@@ -44,15 +52,15 @@ export async function POST(req: NextRequest) {
 
   await prisma.$transaction([
     prisma.invitationReinscription.update({
-      where: { id: body.invitationId, tenantId: invitation.tenantId },
+      where: { id: invitationId, tenantId: invitation.tenantId },
       data: {
-        statut: body.confirme ? "CONFIRME" : "REFUSE",
+        statut: confirme ? "CONFIRME" : "REFUSE",
         dateReponse: new Date(),
       },
     }),
     prisma.eleve.update({
       where: { id: invitation.eleveId, tenantId: invitation.tenantId },
-      data: { statut: body.confirme ? "REINSCRIT" : "NON_REINSCRIT" },
+      data: { statut: confirme ? "REINSCRIT" : "NON_REINSCRIT" },
     }),
   ]);
 
@@ -75,8 +83,8 @@ export async function POST(req: NextRequest) {
 
   return Response.json({
     success: true,
-    statut: body.confirme ? "CONFIRME" : "REFUSE",
-    message: body.confirme
+    statut: confirme ? "CONFIRME" : "REFUSE",
+    message: confirme
       ? "Réinscription confirmée. Merci !"
       : "Réinscription refusée. Merci d'avoir répondu.",
   });

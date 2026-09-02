@@ -20,6 +20,10 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/rbac", () => ({ checkPermission: vi.fn(() => null) }));
 
+vi.mock("@/lib/annee-scolaire", () => ({
+  getAnneeCouranteLibelle: vi.fn().mockResolvedValue("2025-2026"),
+}));
+
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
@@ -111,6 +115,7 @@ describe("GET /api/conseil-augmente", () => {
     const where = mockPrisma.classe.findFirst.mock.calls[0][0].where;
     expect(where.tenantId).toBe("t1");
     expect(where.id).toBe("c1");
+    expect(where.annee).toBe("2025-2026");
   });
 
   it("filtre la période par tenant via l'année", async () => {

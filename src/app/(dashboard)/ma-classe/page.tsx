@@ -74,8 +74,13 @@ export default async function MaClassePage({
 
   const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
     items.map((i) => ({
-      id: i.id, type: i.type, titre: i.titre, description: i.description,
-      date: i.date.toISOString(), href: i.href,
+      id: i.id,
+      type: i.type,
+      titre: i.titre,
+      description: i.description,
+      date: i.date.toISOString(),
+      href: i.href,
+      acteur: i.acteur,
     }));
 
   const itemsParPeriode = {

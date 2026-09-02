@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 
 // Cache navigateur 60s : les données analytics changent peu d'une minute à l'autre.
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const maintenant = await getDemoNow();
 
   const anneeId = await anneeActiveId(tenantId);
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   // Filtres réutilisés
   const eleveFilter = siteFilterForModel("eleve", session.user);
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     // Toutes les notes publiées pour calcul de moyennes
     prisma.note.findMany({
-      where: { tenantId, ...siteFilterForModel("note", session.user), isPubliee: true },
+      where: { tenantId, ...siteFilterForModel("note", session.user), isPubliee: true, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
       select: {
         valeur: true, noteMax: true, coefficient: true,
         eleve: { select: { id: true, nom: true, prenom: true, classeId: true } },
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest) {
     prisma.absence.groupBy({
       by: ["statut", "date"],
       where: { tenantId, ...absenceFilter,
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
         date: { gte: trenteJoursAgo },
       },
       _count: { id: true },
@@ -82,7 +84,7 @@ export async function GET(req: NextRequest) {
 
     // Bulletins publiés
     prisma.bulletin.findMany({
-      where: { tenantId, ...siteFilterForModel("bulletin", session.user), isPublie: true },
+      where: { tenantId, ...siteFilterForModel("bulletin", session.user), isPublie: true, ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
       select: {
         moyenneGenerale: true, rang: true, decision: true,
         eleve: { select: { id: true, nom: true, prenom: true, classeId: true } },
@@ -94,6 +96,7 @@ export async function GET(req: NextRequest) {
     prisma.incident.groupBy({
       by: ["type", "statut"],
       where: { tenantId, ...siteFilterForModel("incident", session.user),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
         date: { gte: sixMoisAgo },
       },
       _count: { id: true },
@@ -111,7 +114,7 @@ export async function GET(req: NextRequest) {
     // Absences injustifiées par élève (pour prédiction décrochage)
     prisma.absence.groupBy({
       by: ["eleveId", "statut"],
-      where: { tenantId, ...absenceFilter, statut: "INJUSTIFIEE" },
+      where: { tenantId, ...absenceFilter, statut: "INJUSTIFIEE", ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}) },
       _count: { id: true },
     }),
     // Répartition par sexe
@@ -127,7 +130,7 @@ export async function GET(req: NextRequest) {
     }),
     // Absences par classe — filtrées sur l'année active pour éviter de scanner toute la table
     prisma.absence.findMany({
-      where: { tenantId, ...absenceFilter, date: { gte: sixMoisAgo } },
+      where: { tenantId, ...absenceFilter, ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}), date: { gte: sixMoisAgo } },
       select: { eleve: { select: { classeId: true, classe: { select: { nom: true } } } } },
     }),
   ]);

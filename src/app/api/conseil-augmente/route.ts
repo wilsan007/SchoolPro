@@ -8,6 +8,7 @@ import {
   mergeFilters,
 } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Conseil Augmenté — agrégation par élève des signaux pédagogiques,
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
 
   const tenantId = session.user.tenantId;
   const user = session.user;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   // Vérifier que la classe appartient au tenant et au périmètre de site de
   // l'appelant. Sans cela, un enseignant d'un site obtiendrait le récapitulatif
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
       id: classeId,
       tenantId,
       ...siteFilterForModel("classe", user),
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
     },
     select: { id: true },
   });

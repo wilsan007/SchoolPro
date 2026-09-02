@@ -13,6 +13,7 @@ import {
 } from "@/lib/site-scope";
 import { niveauRequiresProfPrincipal } from "@/lib/utils-classe";
 import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import type { Role } from "@prisma/client";
 import { normaliserEmail } from "@/lib/email";
 import { generateRandomPassword } from "@/lib/security/password";
@@ -239,12 +240,13 @@ export async function createUser(data: UserFormData) {
 
   // Auto-create Enseignant record for teacher roles + affectations
   if (v.role === "TEACHER" || v.role === "CLASS_TEACHER") {
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
     // Déduire le site depuis la première classe sélectionnée.
     // L'enseignant n'a accès qu'au site de ses classes.
     let siteIdDeduit: string | null = null;
     if (v.classeIds.length > 0) {
       const premiereClasse = await prisma.classe.findFirst({
-        where: { id: v.classeIds[0], tenantId: session.user.tenantId, ...siteFilterForModel("classe", session.user) },
+        where: { id: v.classeIds[0], tenantId: session.user.tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", session.user) },
         select: { siteId: true },
       });
       siteIdDeduit = premiereClasse?.siteId ?? null;
@@ -406,12 +408,13 @@ export async function getClassesForSettings() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const siteIds = (session.user as { siteIds?: string[] }).siteIds;
 
   const siteFilter = siteFilterForModel("classe", session.user);
   return prisma.classe.findMany({
-    where: { tenantId: session.user.tenantId, deletedAt: null, ...siteFilter },
+    where: { tenantId: session.user.tenantId, deletedAt: null, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilter },
     include: {
       // Sans ce filtre, l'effectif affiché inclut les fiches archivées :
       // les classes annonçaient jusqu'à 63 élèves pour 29 réels.
@@ -496,11 +499,13 @@ export async function deleteClasse(
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
   const strategy = options?.strategy ?? "archive";
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classe = await prisma.classe.findFirst({
     where: {
       id: classeId,
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     include: { _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
@@ -538,6 +543,7 @@ export async function deleteClasse(
       where: {
         id: options.reassignToClasseId,
         tenantId: session.user.tenantId,
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
         ...siteFilterForModel("classe", session.user),
       },
       select: { id: true },
@@ -644,12 +650,14 @@ export async function updateClasse(classeId: string, data: UpdateClasseFormData)
   }
 
   const v = parsed.data;
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   // Vérifier que la classe existe et appartient au tenant
   const existing = await prisma.classe.findFirst({
     where: {
       id: classeId,
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true },
@@ -699,11 +707,13 @@ export async function updateClasse(classeId: string, data: UpdateClasseFormData)
 export async function archiveClasse(classeId: string, reason?: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classe = await prisma.classe.findFirst({
     where: {
       id: classeId,
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true, deletedAt: true },
@@ -731,11 +741,13 @@ export async function archiveClasse(classeId: string, reason?: string) {
 export async function restoreClasse(classeId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classe = await prisma.classe.findFirst({
     where: {
       id: classeId,
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true, deletedAt: true },
@@ -763,11 +775,13 @@ export async function restoreClasse(classeId: string) {
 export async function getArchivedClasses() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   return prisma.classe.findMany({
     where: {
       tenantId: session.user.tenantId,
       deletedAt: { not: null },
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     include: {
@@ -786,11 +800,13 @@ export async function transferClasse(classeId: string, targetSiteId: string) {
   if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
     throw new Error("Permission refusée : réservé aux administrateurs");
   }
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classe = await prisma.classe.findFirst({
     where: {
       id: classeId,
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true, siteId: true, nom: true },
@@ -847,12 +863,14 @@ export async function mergeClasses(sourceIds: string[], targetClasseId: string) 
   if (sourceIds.length === 0) {
     throw new Error("Au moins une classe source est requise");
   }
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   // Vérifier que toutes les classes existent et appartiennent au tenant
   const target = await prisma.classe.findFirst({
     where: {
       id: targetClasseId,
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true, effectifMax: true, _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
@@ -863,6 +881,7 @@ export async function mergeClasses(sourceIds: string[], targetClasseId: string) 
     where: {
       id: { in: sourceIds },
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true, nom: true, _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
@@ -1002,11 +1021,13 @@ export async function splitClasse(
 export async function duplicateClasse(classeId: string, newAnnee: string, copyStudents: boolean = false) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const source = await prisma.classe.findFirst({
     where: {
       id: classeId,
       tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: {
@@ -1082,11 +1103,13 @@ export async function duplicateClasse(classeId: string, newAnnee: string, copySt
 export async function getClassesForExport() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classes = await prisma.classe.findMany({
     where: {
       tenantId: session.user.tenantId,
       deletedAt: null,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     include: {

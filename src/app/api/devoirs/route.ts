@@ -200,8 +200,13 @@ export async function PATCH(req: NextRequest) {
   }
   const { id, statut } = parsed.data;
 
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const existing = await prisma.devoir.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: {
+      id,
+      tenantId: session.user.tenantId,
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+    },
     select: { id: true, statut: true, classeId: true },
   });
   if (!existing) {

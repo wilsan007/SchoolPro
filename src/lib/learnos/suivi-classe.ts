@@ -19,7 +19,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /** Fenêtre d'observation des absences, en jours. */
 const FENETRE_ABSENCES_JOURS = 30;
@@ -66,10 +66,12 @@ export async function syntheseClasse(
   tenantId: string,
   classeId: string,
   claims: SessionSiteClaims,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<SyntheseClasse | null> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const classe = await prisma.classe.findFirst({
-    where: { id: classeId, tenantId, ...siteFilterForModel("classe", claims) },
+    where: { id: classeId, tenantId, ...(annee ? { annee: annee } : {}), ...siteFilterForModel("classe", claims) },
     select: { id: true, nom: true },
   });
   if (!classe) return null;
@@ -101,7 +103,9 @@ export async function syntheseClasse(
       by: ["eleveId"],
       where: {
         tenantId, eleveId: { in: ids }, statut: "INJUSTIFIEE",
-        date: { gte: depuis }, ...siteFilterForModel("absence", claims),
+        date: { gte: depuis },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
+        ...siteFilterForModel("absence", claims),
       },
       _count: { eleveId: true },
     }),
@@ -109,6 +113,7 @@ export async function syntheseClasse(
       by: ["eleveId"],
       where: {
         tenantId, eleveId: { in: ids }, statut: "OBLIGATOIRE", resolueLe: null,
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("recommandation", claims),
       },
       _count: { eleveId: true },
@@ -117,6 +122,7 @@ export async function syntheseClasse(
       by: ["eleveId"],
       where: {
         tenantId, eleveId: { in: ids }, statut: { not: "CLASSE" },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("incident", claims),
       },
       _count: { eleveId: true },

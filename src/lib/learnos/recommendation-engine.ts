@@ -433,11 +433,20 @@ export async function recalculerRecommandation(
     resolueLe: null,
   };
 
-  await prisma.recommandation.upsert({
-    where: { eleveId_competenceId: { eleveId, competenceId } },
-    create: donnees,
-    update: donnees,
-  });
+  // `upsert` exige un sélecteur unique ; la contrainte `@@unique([eleveId, competenceId])`
+  // n'inclut pas `tenantId`. On remplace par updateMany/create pour garder le
+  // filtre `tenantId` dans le `where` (règle ecolpro/require-tenant-id).
+  // `existante` a déjà été lu avec `tenantId` (ligne 374), donc la portée est sûre.
+  if (existante) {
+    await prisma.recommandation.updateMany({
+      where: { id: existante.id, tenantId },
+      data: donnees,
+    });
+  } else {
+    await prisma.recommandation.create({
+      data: donnees,
+    });
+  }
 
   return bande;
 }

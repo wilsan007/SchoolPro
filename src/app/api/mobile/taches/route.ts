@@ -5,6 +5,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { synchroniserTachesAuto, getTachesUtilisateur } from "@/lib/tache-engine";
 import { bucketPour, BUCKET_ORDER, type BucketTache } from "@/lib/tache-buckets";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { z } from "zod";
 
 /**
@@ -122,10 +123,16 @@ export async function PATCH(req: NextRequest) {
 
     const { id, statut } = parsed.data;
     const siteFilter = siteFilterForModel("tache", user);
+    const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
 
     // Vérifier que la tâche appartient au tenant de l'utilisateur.
     const existing = await prisma.tache.findFirst({
-      where: { id, tenantId: user.tenantId, ...siteFilter },
+      where: {
+        id,
+        tenantId: user.tenantId,
+        ...siteFilter,
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+      },
     });
     if (!existing) {
       return NextResponse.json(

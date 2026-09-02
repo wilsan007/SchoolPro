@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import type { Role } from "@prisma/client";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const TEACHER_ROLES: Role[] = ["TEACHER", "CLASS_TEACHER"];
 
@@ -39,6 +40,13 @@ export async function getTeacherScope(
     return { classeIds: [], matiereIds: [], isRestricted: false };
   }
 
+  // Si l'appelant n'a pas passé `anneeCourante` (undefined), on récupère
+  // l'année active. Si `null` est passé explicitement, on conserve le
+  // comportement historique (toutes années).
+  const anneeEffective = anneeCourante === undefined
+    ? await getAnneeCouranteLibelle(tenantId)
+    : anneeCourante;
+
   // eslint-disable-next-line ecolpro/require-site-filter -- teacher lookup by userId+tenantId, site scoping is caller's responsibility
   const enseignant = await prisma.enseignant.findFirst({
     where: { userId, tenantId },
@@ -52,8 +60,8 @@ export async function getTeacherScope(
   // Filtre année : restreint les classes/matières à l'année courante.
   // `AffectationEnseignant` n'a pas de champ `annee` mais sa `classe` en a un.
   // `EmploiTemps` a son propre champ `annee` (libellé string).
-  const filtreAnneeClasse = anneeCourante ? { annee: anneeCourante } : {};
-  const filtreAnneeEmploi = anneeCourante ? { annee: anneeCourante } : {};
+  const filtreAnneeClasse = anneeEffective ? { annee: anneeEffective } : {};
+  const filtreAnneeEmploi = anneeEffective ? { annee: anneeEffective } : {};
 
   /* eslint-disable ecolpro/require-site-filter -- teacher scope resolution, site scoping is caller's responsibility */
   const [affectations, emploiEntries, principalClasses] = await Promise.all([

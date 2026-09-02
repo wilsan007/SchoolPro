@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
-import { normalizeText, fuzzyFind } from "@/lib/text-match";
+import { normalizeText, fuzzyFindStrict, fuzzyFind } from "@/lib/text-match";
 import { overlaps, timeToMinutes } from "@/lib/emploi-du-temps/suggest";
 import { getGridConfig, MAX_MINUTES_PAR_JOUR } from "@/lib/grid-config";
 import { parseEmploiFile, parseMatiereNiveau, type RawCreneau, type Jour } from "@/lib/import-parser";
@@ -112,8 +112,8 @@ function matchMatiere(
   }
   if (found) return { matiere: found, niveau };
 
-  // 3. Fuzzy sur le nom.
-  const fuzzy = fuzzyFind(
+  // 3. Fuzzy strict sur le nom (évite les faux positifs : "Graphisme" ≠ "Écriture").
+  const fuzzy = fuzzyFindStrict(
     matieres.map((m) => ({ id: m.id, nom: m.nom })),
     nom,
   );

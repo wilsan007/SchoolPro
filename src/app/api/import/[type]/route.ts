@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { z } from "zod";
+import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import {
   lireFichier,
@@ -13,6 +15,10 @@ import {
   type TypeImport,
 } from "@/lib/import-unifie";
 import { validerEntetes, type TypeModele } from "@/lib/import-modeles";
+
+const ImportFileSchema = z.object({
+  file: z.instanceof(File),
+});
 
 /**
  * POST /api/import/[type]
@@ -42,11 +48,19 @@ export async function POST(
     });
   }
 
+  if (type === "personnel-admin") {
+    const denied = checkPermission(session.user.role, "rh:write");
+    if (denied) return denied;
+  }
+
   const formData = await req.formData().catch(() => null);
   if (!formData) return erreurJson("DONNEES_INVALIDES");
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) return erreurJson("FICHIER_INVALIDE");
+  const parsedForm = ImportFileSchema.safeParse({ file: formData.get("file") });
+  if (!parsedForm.success) {
+    return erreurJson("FICHIER_INVALIDE");
+  }
+  const file = parsedForm.data.file;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const empreinte = empreinteFichier(buffer);

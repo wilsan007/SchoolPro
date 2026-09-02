@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { z } from "zod";
 import { erreurJson } from "@/lib/erreurs-api";
 import {
   lireFichier,
@@ -8,6 +9,10 @@ import {
   appliquerImportPersonnelAdmin,
 } from "@/lib/import-unifie";
 import { validerEntetes } from "@/lib/import-modeles";
+
+const ApplySchema = z.object({
+  file: z.instanceof(File),
+});
 
 /**
  * POST /api/import/personnel-admin/apply
@@ -25,8 +30,11 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData().catch(() => null);
   if (!formData) return erreurJson("DONNEES_INVALIDES");
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) return erreurJson("FICHIER_INVALIDE");
+  const parsed = ApplySchema.safeParse({ file: formData.get("file") });
+  if (!parsed.success) {
+    return erreurJson("FICHIER_INVALIDE");
+  }
+  const file = parsed.data.file;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const empreinte = empreinteFichier(buffer);

@@ -27,6 +27,7 @@
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { compterCompetencesEnAval } from "@/lib/learnos/recommendation-engine";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Constantes
@@ -102,11 +103,13 @@ export async function simulerRemediation(
   // Une recommandation OBLIGATOIRE n'est émise que pour une bande CRITIQUE
   // qui bloque assez de compétences en aval (cf. `statutParDefaut`). Ce
   // sont donc les élèves les plus exposés au redoublement.
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const recommandations = await prisma.recommandation.findMany({
     where: {
       tenantId,
       statut: "OBLIGATOIRE",
       resolueLe: null,
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       ...siteFilterForModel("recommandation", claims),
     },
     select: {

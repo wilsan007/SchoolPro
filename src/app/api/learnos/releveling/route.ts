@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { releverTexte, type NiveauLecture } from "@/lib/learnos/releveling";
+
+const NiveauxValides: NiveauLecture[] = [
+  "ELEMENTAIRE",
+  "FONDAMENTAL",
+  "INTERMEDIAIRE",
+  "AVANCE",
+];
+
+const BodySchema = z.object({
+  texte: z.string().min(10),
+  niveau: z.enum(["ELEMENTAIRE", "FONDAMENTAL", "INTERMEDIAIRE", "AVANCE"]),
+  matiereNom: z.string().optional(),
+  niveauScolaire: z.string().optional(),
+});
 
 /**
  * POST /api/learnos/releveling
@@ -20,23 +35,11 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
-  const body = await req.json().catch(() => ({}));
-  const { texte, niveau, matiereNom, niveauScolaire } = body;
-
-  if (!texte || typeof texte !== "string" || texte.trim().length < 10) {
-    return NextResponse.json(
-      { error: "Texte trop court (min 10 caractères)" },
-      { status: 400 }
-    );
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
-
-  const niveauxValides: NiveauLecture[] = ["ELEMENTAIRE", "FONDAMENTAL", "INTERMEDIAIRE", "AVANCE"];
-  if (!niveau || !niveauxValides.includes(niveau)) {
-    return NextResponse.json(
-      { error: `Niveau invalide. Valeurs acceptées : ${niveauxValides.join(", ")}` },
-      { status: 400 }
-    );
-  }
+  const { texte, niveau, matiereNom, niveauScolaire } = parsed.data;
 
   try {
     const resultat = await releverTexte(tenantId, session.user, {

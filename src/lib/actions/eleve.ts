@@ -72,8 +72,13 @@ export async function getClassesForTenant() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   return prisma.classe.findMany({
-    where: { tenantId: session.user.tenantId, ...siteFilterForModel("classe", session.user) },
+    where: {
+      tenantId: session.user.tenantId,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
+      ...siteFilterForModel("classe", session.user),
+    },
     orderBy: { nom: "asc" },
   });
 }
@@ -224,9 +229,13 @@ export async function createEleve(
   // S'il n'est rattaché à aucune classe, on conserve le site de la session.
   let resolvedSiteId = session.user.siteId ?? null;
   if (values.classeId) {
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- findUnique pour récupérer le siteId de la classe
-    const classe = await prisma.classe.findUnique({
-      where: { id: values.classeId },
+    const classe = await prisma.classe.findFirst({
+      where: {
+        id: values.classeId,
+        tenantId,
+        ...siteFilterForModel("classe", session.user),
+        ...(anneeInscription ? { annee: anneeInscription } : {}),
+      },
       select: { siteId: true },
     });
     if (classe?.siteId) resolvedSiteId = classe.siteId;

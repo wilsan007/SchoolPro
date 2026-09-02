@@ -116,6 +116,7 @@ export async function PATCH(
   // ── Génération automatique de la facture au passage à ADMIS ──
   let factureCreeId: string | null = null;
   if (data.statut === "ADMIS" && candidature.statut !== "ADMIS") {
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     // a) Idempotence : vérifier qu'aucune facture n'existe déjà pour cette candidature
     // eslint-disable-next-line ecolpro/require-site-filter -- recherche par candidatureId, pas de filtre site nécessaire
     const factureExistante = await prisma.facture.findFirst({
@@ -136,6 +137,7 @@ export async function PATCH(
           tenantId,
           nom: candidature.classeVoulue,
           ...(candidature.siteId ? { siteId: candidature.siteId } : {}),
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
         },
         select: { niveau: true },
       });
@@ -192,6 +194,7 @@ export async function PATCH(
           montant: montantTotal, // = fraisInscription + mensualite (premier mois)
           devise: tarif?.devise ?? "DJF",
           statut: "EN_ATTENTE",
+          type: "INSCRIPTION",
           mois: moisScolarite,
           createdById: session.user.id,
         },

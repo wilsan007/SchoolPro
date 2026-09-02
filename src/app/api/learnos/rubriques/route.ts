@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { proposerRubrique } from "@/lib/learnos/rubrique-evaluation";
 import { persisterRubrique } from "@/lib/learnos/workflow-validation";
+
+const BodySchema = z.object({
+  competenceId: z.string().min(1),
+  niveauScolaire: z.string().min(1),
+  baremeTotal: z.coerce.number().int().min(1).optional(),
+  persister: z.boolean().optional(),
+});
 
 /**
  * POST /api/learnos/rubriques
@@ -22,15 +30,11 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
-  const body = await req.json().catch(() => ({}));
-  const { competenceId, niveauScolaire, baremeTotal, persister } = body;
-
-  if (!competenceId || !niveauScolaire) {
-    return NextResponse.json(
-      { error: "competenceId et niveauScolaire sont requis" },
-      { status: 400 }
-    );
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
+  const { competenceId, niveauScolaire, baremeTotal, persister } = parsed.data;
 
   try {
     const rubrique = await proposerRubrique(

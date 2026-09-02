@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
 import { getDemoNow } from "@/lib/demo-now";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const TYPES_EXCLUSION = ["EXCLUSION_COURS", "EXCLUSION_TEMP"];
 
@@ -36,6 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { id } = await params;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     const body = await req.json();
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) {
@@ -117,7 +119,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // la sanction a déjà été vérifiée plus haut, mais le linter exige une
         // lecture directe sur le modèle incident avec tenantId.
         const incident = await prisma.incident.findFirst({
-          where: { id: existing.incidentId, tenantId, ...siteFilterForModel("incident", session.user) },
+          where: {
+            id: existing.incidentId,
+            tenantId,
+            ...siteFilterForModel("incident", session.user),
+            ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+          },
         });
         if (!incident) return erreurJson("INCIDENT_INTROUVABLE");
 

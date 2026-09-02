@@ -42,10 +42,10 @@ export async function POST(req: NextRequest) {
 
     const { classeId, periodeId, action } = parsed.data;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     // Périmètre enseignant : le verrouillage concerne la classe du prof.
     if (action === "verrouiller" && isTeacherRole(session.user.role as Role)) {
-      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
       const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
       if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
         return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     const eleveIds = eleves.map((e) => e.id);
 
     const bulletins = await prisma.bulletin.findMany({
-      where: { tenantId, periodeId, eleveId: { in: eleveIds }, ...siteFilterForModel("bulletin", session.user) },
+      where: { tenantId, periodeId, eleveId: { in: eleveIds }, ...siteFilterForModel("bulletin", session.user), ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
       select: { id: true, statut: true },
     });
 
@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
           eleveId: { in: eleveIds },
           statut: "BROUILLON",
           ...siteFilterForModel("bulletin", session.user),
+          ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
         },
         data: {
           statut: "VERROUILLE",
@@ -113,6 +114,7 @@ export async function POST(req: NextRequest) {
           eleveId: { in: eleveIds },
           statut: "VERROUILLE",
           ...siteFilterForModel("bulletin", session.user),
+          ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
         },
         data: {
           statut: "BROUILLON",

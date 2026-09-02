@@ -202,14 +202,24 @@ describe("import-parser", () => {
   });
 
   describe("parseEmploiFile — snapping", () => {
-    it("applique le snapping quand stepMinutes est fourni", async () => {
+    it("applique le snapping quand l'écart dépasse la tolérance (5 min)", async () => {
+      const csv = [
+        "Horaire,Lundi",
+        "08:08-08:52,Mathématiques",
+      ].join("\n");
+      const result = await parseEmploiFile(Buffer.from(csv, "utf-8"), "edt.csv", 30);
+      expect(result.creneaux[0].heureDebut).toBe("08:00"); // down (écart 8 min > 5)
+      expect(result.creneaux[0].heureFin).toBe("09:00"); // up (écart 8 min > 5)
+    });
+
+    it("préserve l'heure source quand l'écart est ≤ 5 min (tolérance)", async () => {
       const csv = [
         "Horaire,Lundi",
         "08:05-08:55,Mathématiques",
       ].join("\n");
       const result = await parseEmploiFile(Buffer.from(csv, "utf-8"), "edt.csv", 30);
-      expect(result.creneaux[0].heureDebut).toBe("08:00"); // down
-      expect(result.creneaux[0].heureFin).toBe("09:00"); // up
+      expect(result.creneaux[0].heureDebut).toBe("08:05"); // préservé (écart 5 min ≤ 5)
+      expect(result.creneaux[0].heureFin).toBe("08:55"); // préservé (écart 5 min ≤ 5)
     });
   });
 

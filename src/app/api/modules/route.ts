@@ -1,11 +1,18 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { z } from "zod";
+import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import {
   listerModulesPourTenant,
   activerModule,
   desactiverModule,
 } from "@/lib/modules";
+
+const PatchSchema = z.object({
+  action: z.enum(["activer", "desactiver"]),
+  moduleCode: z.string().min(1),
+});
 
 /**
  * GET /api/modules
@@ -14,6 +21,9 @@ import {
 export async function GET() {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
+
+  const denied = checkPermission(session.user.role, "parametres:read");
+  if (denied) return denied;
 
   const modules = await listerModulesPourTenant(session.user.tenantId);
   return Response.json({ modules });
@@ -30,17 +40,20 @@ export async function PATCH(req: NextRequest) {
     return erreurJson("NON_AUTORISE");
   }
 
-  const body = await req.json().catch(() => null);
-  if (!body?.action || !body?.moduleCode) {
+  const denied = checkPermission(session.user.role, "parametres:write");
+  if (denied) return denied;
+
+  const parsed = PatchSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES");
   }
 
   try {
-    switch (body.action) {
+    switch (parsed.data.action) {
       case "activer": {
         const result = await activerModule(
           session.user.tenantId,
-          body.moduleCode,
+          parsed.data.moduleCode,
           session.user.id
         );
         return Response.json(result);
@@ -49,14 +62,11 @@ export async function PATCH(req: NextRequest) {
       case "desactiver": {
         const result = await desactiverModule(
           session.user.tenantId,
-          body.moduleCode,
+          parsed.data.moduleCode,
           session.user.id
         );
         return Response.json(result);
       }
-
-      default:
-        return erreurJson("DONNEES_INVALIDES");
     }
   } catch (e) {
     return erreurJson("ERREUR_SERVEUR", undefined, {

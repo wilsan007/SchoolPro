@@ -37,6 +37,8 @@ import {
 import type { BulkCreneauProposal } from "@/lib/emploi-du-temps/bulk-generate";
 import type { Role } from "@prisma/client";
 import { siteFilterForModel, siteFilterForRelation, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 
 type PendingAction = CreneauProposal & { type: "create_emploi_du_temps" };
 
@@ -193,7 +195,7 @@ function scopeForRole(role: Role): AiScope | null {
   return null;
 }
 
-async function buildSystemPrompt(scope: AiScope, tenantId: string, userId: string, ecoleNom: string, siteFilter: Record<string, unknown>, absenceFilter: Record<string, unknown>): Promise<string> {
+async function buildSystemPrompt(scope: AiScope, tenantId: string, userId: string, ecoleNom: string, siteFilter: Record<string, unknown>, absenceFilter: Record<string, unknown>, anneeCourante: string | null): Promise<string> {
   const base = `Tu es l'assistant IA intégré à EcolPro, le logiciel de gestion scolaire de "${ecoleNom}". Réponds toujours en français, de façon concise, concrète et actionnable. Si tu n'as pas une information précise, dis-le clairement plutôt que d'inventer des chiffres ou des noms.`;
 
   if (scope === "ai:admin") {
@@ -204,9 +206,9 @@ async function buildSystemPrompt(scope: AiScope, tenantId: string, userId: strin
 
     const [nbEleves, nbClasses, nbAbsencesAujourdhui] = await Promise.all([
       prisma.eleve.count({ where: { tenantId, ...siteFilter, statut: "ACTIF" } }),
-      prisma.classe.count({ where: { tenantId, ...siteFilter } }),
+      prisma.classe.count({ where: { tenantId, ...siteFilter, ...(anneeCourante ? { annee: anneeCourante } : {}) } }),
       // eslint-disable-next-line ecolpro/require-site-filter -- absenceFilter = siteFilterForRelation(session.user, "eleve"), spread sous un nom de variable
-      prisma.absence.count({ where: { tenantId, ...absenceFilter, date: { gte: debutJour, lte: finJour } } }),
+      prisma.absence.count({ where: { tenantId, ...absenceFilter, ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}), date: { gte: debutJour, lte: finJour } } }),
     ]);
 
     return `${base}
@@ -301,6 +303,15 @@ export async function POST(req: NextRequest) {
     const denied = checkPermission(session.user.role, scope);
     if (denied) return denied;
 
+    const ip = getClientIP(req);
+    const rl = rateLimit({ max: 20, windowSec: 60, key: `ai-chat:${session.user.id}:${ip}` });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Trop de requêtes", retryAfter: Math.ceil((rl.resetAt - Date.now()) / 1000) },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const parsed = Schema.safeParse(body);
     if (!parsed.success) {
@@ -311,7 +322,8 @@ export async function POST(req: NextRequest) {
     const siteFilter = siteFilterForModel("eleve", session.user);
     const absenceFilter = siteFilterForRelation(session.user, "eleve");
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
-    const systemPrompt = await buildSystemPrompt(scope, tenantId, session.user.id, tenant?.name ?? "votre établissement", siteFilter, absenceFilter);
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+    const systemPrompt = await buildSystemPrompt(scope, tenantId, session.user.id, tenant?.name ?? "votre établissement", siteFilter, absenceFilter, anneeCourante);
 
     const recentMessages = parsed.data.messages.slice(-MAX_CONTEXT_MESSAGES);
     const messages: ChatMessage[] = [

@@ -24,7 +24,7 @@
 
 import prisma from "@/lib/prisma";
 import { semaineScolaire } from "@/lib/learnos/planification-pure";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Type de retour
@@ -66,12 +66,14 @@ const FENETRE_BONNE_NOUVELLE_JOURS = 7;
  */
 export async function detecterAlertesPedagogiques(
   tenantId: string,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<AlertePedagogique[]> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   try {
     const alertes = await Promise.all([
       competencesMaitrisees(tenantId, maintenant),
-      devoirsEnRetard(tenantId, maintenant),
+      devoirsEnRetard(tenantId, maintenant, annee),
       chapitresNonEnseignes(tenantId, maintenant),
       elevesEnDifficulte(tenantId, maintenant),
     ]);
@@ -186,14 +188,17 @@ async function competencesMaitrisees(
  */
 async function devoirsEnRetard(
   tenantId: string,
-  maintenant: Date
+  maintenant: Date,
+  anneeCourante?: string | null
 ): Promise<AlertePedagogique[]> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
   const devoirs = await prisma.devoir.findMany({
     where: {
       tenantId,
       dateRendu: { lt: maintenant },
       statut: { in: ["A_FAIRE", "EN_COURS"] },
+      ...(annee ? { classe: { annee: annee } } : {}),
     },
     select: {
       id: true,

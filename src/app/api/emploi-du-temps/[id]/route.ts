@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -14,9 +15,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const { id } = await params;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     const existing = await prisma.emploiTemps.findFirst({
-      where: { id, tenantId, ...siteFilterForModel("emploiTemps", session.user) },
+      where: {
+        id,
+        tenantId,
+        ...siteFilterForModel("emploiTemps", session.user),
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
+      },
     });
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
@@ -39,10 +46,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { id } = await params;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     const body = await req.json();
 
     const existing = await prisma.emploiTemps.findFirst({
-      where: { id, tenantId, ...siteFilterForModel("emploiTemps", session.user) },
+      where: {
+        id,
+        tenantId,
+        ...siteFilterForModel("emploiTemps", session.user),
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
+      },
     });
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
@@ -78,6 +91,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           },
         ],
         ...siteFilterForModel("emploiTemps", session.user),
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
       },
     });
 
@@ -124,6 +138,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             },
           ],
           ...siteFilterForModel("emploiTemps", session.user),
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
         },
       });
       if (teacherConflict) {
@@ -155,6 +170,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             },
           ],
           ...siteFilterForModel("emploiTemps", session.user),
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
         },
       });
       if (roomConflict) {

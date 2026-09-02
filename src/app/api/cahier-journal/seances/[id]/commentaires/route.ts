@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { auditFire } from "@/lib/audit";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { z } from "zod";
 
 const CreateSchema = z.object({
@@ -26,11 +27,13 @@ export async function GET(
     if (denied) return denied;
 
     const { id } = await params;
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
     const seance = await prisma.seancePedagogique.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       select: { id: true },
     });
@@ -62,11 +65,13 @@ export async function POST(
     if (denied) return denied;
 
     const { id } = await params;
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
     const seance = await prisma.seancePedagogique.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       select: { id: true },
     });

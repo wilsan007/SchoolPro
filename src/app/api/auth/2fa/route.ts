@@ -1,6 +1,8 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { erreurJson } from "@/lib/erreurs-api";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import {
   setup2FA,
   verify2FA,
@@ -9,6 +11,12 @@ import {
   verifierCodeConnexion,
 } from "@/lib/two-factor";
 import { deuxFacteursObligatoire } from "@/lib/two-factor-policy";
+
+const BodySchema = z.object({
+  action: z.enum(["setup", "verify", "disable", "backup"]),
+  token: z.string().optional(),
+  code: z.string().optional(),
+});
 
 /**
  * POST /api/auth/2fa
@@ -19,19 +27,36 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return erreurJson("NON_AUTORISE");
 
-  const body = await req.json().catch(() => null);
-  if (!body?.action) return erreurJson("DONNEES_INVALIDES");
+  // ─── Rate limiting : 30 requêtes / min / utilisateur ────────────────────
+  const ip = getClientIP(req);
+  const rl = rateLimit({
+    max: 30,
+    windowSec: 60,
+    key: `2fa:${session.user.id}:${ip}`,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
+  const raw = await req.json().catch(() => null);
+  const parsed = BodySchema.safeParse(raw);
+  if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
+
+  const { action, token, code } = parsed.data;
 
   try {
-    switch (body.action) {
+    switch (action) {
       case "setup": {
         const result = await setup2FA(session.user.id);
         return Response.json(result);
       }
 
       case "verify": {
-        if (!body.token) return erreurJson("DONNEES_INVALIDES");
-        const success = await verify2FA(session.user.id, body.token);
+        if (!token) return erreurJson("DONNEES_INVALIDES");
+        const success = await verify2FA(session.user.id, token);
         if (!success) {
           return erreurJson("STATUT_INVALIDE", undefined, {
             detail: "Code TOTP invalide",
@@ -41,8 +66,8 @@ export async function POST(req: NextRequest) {
       }
 
       case "backup": {
-        if (!body.code) return erreurJson("DONNEES_INVALIDES");
-        const success = await verifyBackupCode(session.user.id, body.code);
+        if (!code) return erreurJson("DONNEES_INVALIDES");
+        const success = await verifyBackupCode(session.user.id, code);
         if (!success) {
           return erreurJson("STATUT_INVALIDE", undefined, {
             detail: "Code de secours invalide",
@@ -64,11 +89,11 @@ export async function POST(req: NextRequest) {
 
         // Un code valide est exigé : sinon, une session volée suffirait à
         // retirer la protection, ce qui la viderait de son sens.
-        if (!body.token) return erreurJson("DONNEES_INVALIDES");
+        if (!token) return erreurJson("DONNEES_INVALIDES");
         // `verifierCodeConnexion` et non `verify2FA` : cette dernière ACTIVE
         // le 2FA en cas de succès — l'appeler ici revenait à l'activer juste
         // avant de le désactiver.
-        const success = await verifierCodeConnexion(session.user.id, body.token);
+        const success = await verifierCodeConnexion(session.user.id, token);
         if (!success) {
           return erreurJson("STATUT_INVALIDE", undefined, {
             detail: "Code TOTP invalide",
@@ -92,14 +117,31 @@ export async function POST(req: NextRequest) {
  * GET /api/auth/2fa
  * Retourne le statut 2FA de l'utilisateur courant.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return erreurJson("NON_AUTORISE");
 
+  // ─── Rate limiting : 30 requêtes / min / utilisateur ────────────────────
+  const ip = getClientIP(req);
+  const rl = rateLimit({
+    max: 30,
+    windowSec: 60,
+    key: `2fa:${session.user.id}:${ip}`,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   // Importer prisma ici pour éviter de l'importer au niveau du module
   const { prisma } = await import("@/lib/prisma");
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
+  const user = await prisma.user.findFirstOrThrow({
+    where: {
+      id: session.user.id,
+      tenantId: session.user.tenantId ?? null,
+    },
     select: {
       twoFactorEnabled: true,
       twoFactorVerifiedAt: true,

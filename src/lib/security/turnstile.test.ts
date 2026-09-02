@@ -15,7 +15,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.TURNSTILE_SECRET;
-  delete process.env.NODE_ENV;
+  // NODE_ENV est read-only en TypeScript — utiliser vi.stubEnv pour le réinitialiser
+  vi.stubEnv("NODE_ENV", "test");
 });
 
 // Import après les mocks
@@ -45,7 +46,7 @@ describe("verifyTurnstileToken — mode développement (bypass)", () => {
 describe("verifyTurnstileToken — production (avec TURNSTILE_SECRET)", () => {
   beforeEach(() => {
     process.env.TURNSTILE_SECRET = "1x0000000000000000000000000000000AA";
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
   });
 
   it("retourne success:true pour un token valide", async () => {

@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { eleveScopeFilter, mergeFilters } from "@/lib/site-filter";
+
+const QuerySchema = z.object({
+  q: z.string().optional(),
+  classeId: z.string().optional(),
+  annee: z.string().optional(),
+});
 
 export async function GET(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -12,18 +20,21 @@ export async function GET(req: NextRequest) {
 
   const tenantId = user.tenantId;
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q");
-  const classeId = searchParams.get("classeId");
+  const parsed = QuerySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });
+  }
 
-  // Isolation par site + périmètre personnel, appliquée directement sur `Eleve`.
-  // `mergeFilters` est indispensable : le `OR` de recherche ci-dessous écraserait
-  // un fragment étalé naïvement.
+  const { q, classeId, annee } = parsed.data;
+  const anneeLibelle = annee ?? (await getAnneeCouranteLibelle(tenantId));
+
   const scopeFilter = eleveScopeFilter(user, null);
 
   const eleves = await prisma.eleve.findMany({
     where: mergeFilters(
       {
         tenantId,
+        ...(anneeLibelle ? { anneeInscription: anneeLibelle } : {}),
         ...(classeId ? { classeId } : {}),
         ...(q
           ? {

@@ -42,6 +42,7 @@ import {
   siteFilterForModel,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Modèle d'audience
@@ -237,8 +238,9 @@ interface Actor extends SessionSiteClaims {
  * « utilisateurs ».
  */
 async function classeIdsForScope(actor: Actor, scope: AudienceScope): Promise<string[]> {
+  const anneeCourante = await getAnneeCouranteLibelle(actor.tenantId);
   const base = mergeFilters(
-    { tenantId: actor.tenantId },
+    { tenantId: actor.tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
     siteFilterForModel("classe", actor),
     await teacherClasseFilter(actor),
     await parentClasseFilter(actor)
@@ -430,7 +432,9 @@ async function resolveEnseignants(actor: Actor, scope: AudienceScope) {
 
   // Professeurs principaux + intervenants via l'emploi du temps : c'est la
   // seule définition fidèle de « les enseignants de cette classe ».
-  // `classeIds` sort de `classeIdsForScope`, déjà borné au périmètre de site.
+  // `classeIds` sort de `classeIdsForScope`, déjà borné au périmètre de site
+  // et à l'année active.
+  const anneeCourante = await getAnneeCouranteLibelle(actor.tenantId);
   const [classes, creneaux] = await Promise.all([
     // eslint-disable-next-line ecolpro/require-site-filter
     prisma.classe.findMany({
@@ -443,6 +447,7 @@ async function resolveEnseignants(actor: Actor, scope: AudienceScope) {
         classeId: { in: classeIds },
         enseignantId: { not: null },
         tenantId: actor.tenantId,
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
       },
       select: { enseignant: { select: { userId: true } } },
       distinct: ["enseignantId"],

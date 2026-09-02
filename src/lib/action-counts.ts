@@ -102,6 +102,9 @@ export async function getDirectionCounts(
   claims: SessionSiteClaims
 ): Promise<RubricCount[]> {
   const anneeId = await anneeActiveId(tenantId);
+  const anneeLibelle = await getAnneeCouranteLibelle(tenantId);
+  const filtreAnneeViaEleveClasse = anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {};
+  const filtreAnneeBulletin = anneeLibelle ? { periode: { annee: { libelle: anneeLibelle } } } : {};
   const [
     bulletinsAValider,
     facturesRetard,
@@ -115,6 +118,7 @@ export async function getDirectionCounts(
       where: {
         tenantId,
         isPublie: false,
+        ...filtreAnneeBulletin,
         ...siteFilterForModel("bulletin", claims),
       },
     }),
@@ -130,6 +134,7 @@ export async function getDirectionCounts(
       where: {
         tenantId,
         statut: "OUVERT",
+        ...filtreAnneeViaEleveClasse,
         ...siteFilterForModel("incident", claims),
       },
     }),
@@ -190,6 +195,8 @@ export async function getTeacherCounts(
 ): Promise<RubricCount[]> {
   const perimetre = classeIds ? { classeId: { in: classeIds } } : {};
   const maintenant = await getDemoNow();
+  const anneeLibelle = await getAnneeCouranteLibelle(tenantId);
+  const filtreAnneeViaClasse = anneeLibelle ? { classe: { annee: anneeLibelle } } : {};
 
   // Trouver l'enseignant pour filtrer par ses ressources.
   const enseignant = await prisma.enseignant.findFirst({
@@ -216,6 +223,7 @@ export async function getTeacherCounts(
         date: { lt: maintenant },
         statut: { not: "ANNULE" },
         notes: { none: {} },
+        ...filtreAnneeViaClasse,
         ...siteFilterForModel("evaluation", claims),
         ...perimetre,
       },
@@ -227,7 +235,10 @@ export async function getTeacherCounts(
         resolueLe: null,
         statut: { in: ["OBLIGATOIRE", "RECOMMANDEE"] },
         ...siteFilterForModel("recommandation", claims),
-        ...(classeIds ? { eleve: { classeId: { in: classeIds } } } : {}),
+        eleve: {
+          ...(classeIds ? { classeId: { in: classeIds } } : {}),
+          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+        },
       },
     }),
     // Plans de progression actifs ou en revue
@@ -246,6 +257,7 @@ export async function getTeacherCounts(
             tenantId,
             enseignantId: enseignant.id,
             statut: "PLANIFIEE",
+            ...filtreAnneeViaClasse,
             ...siteFilterForModel("seancePedagogique", claims),
           },
         })
@@ -257,6 +269,7 @@ export async function getTeacherCounts(
             tenantId,
             enseignantId: enseignant.id,
             statut: "RENDU",
+            ...filtreAnneeViaClasse,
             ...siteFilterForModel("devoir", claims),
           },
         })
@@ -267,6 +280,7 @@ export async function getTeacherCounts(
         tenantId,
         date: { gte: maintenant },
         statut: "PLANIFIE",
+        ...filtreAnneeViaClasse,
         ...siteFilterForModel("evaluation", claims),
         ...perimetre,
       },
@@ -297,6 +311,9 @@ export async function getClassTeacherCounts(
   classeIds: string[]
 ): Promise<RubricCount[]> {
   const maintenant = await getDemoNow();
+  const anneeLibelle = await getAnneeCouranteLibelle(tenantId);
+  const filtreAnneeViaClasse = anneeLibelle ? { classe: { annee: anneeLibelle } } : {};
+  const filtreAnneeBulletin = anneeLibelle ? { periode: { annee: { libelle: anneeLibelle } } } : {};
 
   const enseignant = await prisma.enseignant.findFirst({
     where: {
@@ -323,6 +340,7 @@ export async function getClassTeacherCounts(
         statut: { not: "ANNULE" },
         notes: { none: {} },
         classeId: { in: classeIds },
+        ...filtreAnneeViaClasse,
         ...siteFilterForModel("evaluation", claims),
       },
     }),
@@ -332,6 +350,7 @@ export async function getClassTeacherCounts(
         tenantId,
         isPublie: false,
         eleve: { classeId: { in: classeIds } },
+        ...filtreAnneeBulletin,
         ...siteFilterForModel("bulletin", claims),
       },
     }),
@@ -340,7 +359,10 @@ export async function getClassTeacherCounts(
       where: {
         tenantId,
         statut: "OUVERT",
-        eleve: { classeId: { in: classeIds } },
+        eleve: {
+          classeId: { in: classeIds },
+          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+        },
         ...siteFilterForModel("incident", claims),
       },
     }),
@@ -349,7 +371,10 @@ export async function getClassTeacherCounts(
       where: {
         tenantId,
         statut: "EN_ATTENTE",
-        eleve: { classeId: { in: classeIds } },
+        eleve: {
+          classeId: { in: classeIds },
+          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+        },
         ...siteFilterForModel("absence", claims),
       },
     }),
@@ -359,7 +384,10 @@ export async function getClassTeacherCounts(
         tenantId,
         resolueLe: null,
         statut: "OBLIGATOIRE",
-        eleve: { classeId: { in: classeIds } },
+        eleve: {
+          classeId: { in: classeIds },
+          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+        },
         ...siteFilterForModel("recommandation", claims),
       },
     }),
@@ -370,6 +398,7 @@ export async function getClassTeacherCounts(
             tenantId,
             enseignantId: enseignant.id,
             statut: "RENDU",
+            ...filtreAnneeViaClasse,
             ...siteFilterForModel("devoir", claims),
           },
         })

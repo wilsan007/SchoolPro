@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import {
   lireFichier,
@@ -15,29 +17,45 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
  * Analyse + applique un import d'enseignants en une seule étape.
  * Body: multipart/form-data avec file=... et optionnellement siteId=...
  */
+
+const ApplySchema = z.object({
+  file: z.instanceof(File, { message: "Fichier requis" }),
+  siteId: z.string().optional().nullable(),
+});
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    return erreurJson("PERMISSIONS_INSUFFISANTES");
-  }
+  const denied = checkPermission(session.user.role, "rh:write");
+  if (denied) return denied;
 
   const formData = await req.formData().catch(() => null);
   if (!formData) return erreurJson("DONNEES_INVALIDES");
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) return erreurJson("FICHIER_INVALIDE");
+  const parsed = ApplySchema.safeParse({
+    file: formData.get("file"),
+    siteId: formData.get("siteId"),
+  });
 
-  const siteIdParDefaut = (formData.get("siteId") as string | null) || session.user.siteId || null;
+  if (!parsed.success) {
+    return erreurJson("DONNEES_INVALIDES", undefined, {
+      details: parsed.error.issues,
+    });
+  }
 
+  const { file, siteId } = parsed.data;
+
+  const siteIdParDefaut = siteId ?? session.user.siteId ?? null;
   const buffer = Buffer.from(await file.arrayBuffer());
   const empreinte = empreinteFichier(buffer);
+
+  const tenantId = session.user.tenantId;
+  const annee = await getAnneeCouranteLibelle(tenantId);
 
   try {
     const { headers, rows } = await lireFichier(buffer, file.type);
 
-    // Validation des entêtes
     const validation = validerEntetes(headers, "enseignants");
     if (!validation.valide) {
       return NextResponse.json(
@@ -50,9 +68,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const tenantId = session.user.tenantId;
-    const annee = await getAnneeCouranteLibelle(tenantId);
 
     const plan = await analyserEnseignants(rows, tenantId, headers);
     plan.empreinte = empreinte;

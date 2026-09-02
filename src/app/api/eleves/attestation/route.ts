@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { z } from "zod";
 import { getAttestationData } from "@/lib/attestation-generator";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+
+const BodySchema = z.object({
+  eleveId: z.string().min(1),
+  honorifique: z.string().optional(),
+  titre: z.string().optional(),
+});
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -10,18 +17,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { eleveId, honorifique, titre } = body as {
-    eleveId: string;
-    honorifique: string;
-    titre: string;
-  };
-
-  if (!eleveId) {
-    return NextResponse.json({ error: "eleveId requis" }, { status: 400 });
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
+  const { eleveId, honorifique, titre } = parsed.data;
 
-  const data = await getAttestationData(eleveId, session.user.tenantId, honorifique, titre, session.user);
+  const data = await getAttestationData(eleveId, session.user.tenantId, honorifique ?? "", titre ?? "", session.user);
   if (!data) {
     return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
   }

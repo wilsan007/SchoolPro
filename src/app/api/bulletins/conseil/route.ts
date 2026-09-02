@@ -38,17 +38,17 @@ export async function POST(req: NextRequest) {
     const { periodeId, decisions } = parsed.data;
     const { classeId } = parsed.data;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     // Vérifier que la classe existe et appartient au périmètre enseignant.
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user) },
+      where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user), ...(anneeCourante ? { annee: anneeCourante } : {}) },
       select: { id: true },
     });
     if (!classe) {
       return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
     }
     if (isTeacherRole(session.user.role as Role)) {
-      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
       const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
       if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
         return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });

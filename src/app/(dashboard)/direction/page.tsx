@@ -37,11 +37,19 @@ const getCachedActivityFeed = unstable_cache(
     claims: SessionSiteClaims,
     maintenantKey: string,
     anneeId: string | null,
-    anneeLibelle: string | null
+    anneeLibelle: string | null,
+    anneeDateDebut: string | null,
+    anneeDateFin: string | null
   ) => {
     void _key;
     const result = await getActivityFeedAllPeriodes(
-      tenantId, claims, new Date(maintenantKey), anneeId, anneeLibelle
+      tenantId,
+      claims,
+      new Date(maintenantKey),
+      anneeId,
+      anneeLibelle,
+      anneeDateDebut ? new Date(anneeDateDebut) : null,
+      anneeDateFin ? new Date(anneeDateFin) : null
     );
     // Sérialiser les Date en ISO pour que le cache puisse stocker du JSON.
     const serialized = {
@@ -63,11 +71,12 @@ const getCachedTeacherDelays = unstable_cache(
     claims: SessionSiteClaims,
     maintenantKey: string,
     anneeId: string | null,
-    anneeDateDebut: string | null
+    anneeDateDebut: string | null,
+    anneeLibelle: string | null
   ) => {
     void _key;
-    const anneePasse = anneeId && anneeDateDebut
-      ? { id: anneeId, dateDebut: new Date(anneeDateDebut) }
+    const anneePasse = anneeId && anneeDateDebut && anneeLibelle
+      ? { id: anneeId, dateDebut: new Date(anneeDateDebut), libelle: anneeLibelle }
       : null;
     return getTeacherDelays(tenantId, claims, new Date(maintenantKey), anneePasse);
   },
@@ -106,8 +115,13 @@ export default async function DirectionPage() {
 
   const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
     items.map((i) => ({
-      id: i.id, type: i.type, titre: i.titre, description: i.description,
-      date: i.date.toISOString(), href: i.href,
+      id: i.id,
+      type: i.type,
+      titre: i.titre,
+      description: i.description,
+      date: i.date.toISOString(),
+      href: i.href,
+      acteur: i.acteur,
     }));
 
   // ──────────────────────────────────────────────────────────────
@@ -148,7 +162,10 @@ export default async function DirectionPage() {
           tenantId,
           statut: "INJUSTIFIEE",
           date: { gte: debutMois, lte: maintenant },
-          eleve: { siteId: { in: siteIds } },
+          eleve: {
+            siteId: { in: siteIds },
+            ...(annee?.libelle ? { classe: { annee: annee.libelle } } : {}),
+          },
           ...siteFilterForModel("absence", claims),
         },
         _count: true,
@@ -301,8 +318,17 @@ export default async function DirectionPage() {
   const anneeLibelle = annee?.libelle ?? null;
   const cacheKey = [tenantId, claims.role, claims.siteId ?? "all", maintenant.toISOString()].join(":");
   const [feedCache, retards] = await Promise.all([
-    getCachedActivityFeed(cacheKey, tenantId, claims, maintenant.toISOString(), anneeId ?? null, anneeLibelle),
-    getCachedTeacherDelays(cacheKey, tenantId, claims, maintenant.toISOString(), anneeId ?? null, annee?.dateDebut?.toISOString() ?? null),
+    getCachedActivityFeed(
+      cacheKey,
+      tenantId,
+      claims,
+      maintenant.toISOString(),
+      anneeId ?? null,
+      anneeLibelle,
+      annee?.dateDebut?.toISOString() ?? null,
+      annee?.dateFin?.toISOString() ?? null
+    ),
+    getCachedTeacherDelays(cacheKey, tenantId, claims, maintenant.toISOString(), anneeId ?? null, annee?.dateDebut?.toISOString() ?? null, anneeLibelle),
   ]);
 
   // Reconvertir les dates ISO du cache en Date pour le serialiser.
@@ -327,6 +353,7 @@ export default async function DirectionPage() {
       tenantId,
       statut: { in: ["A_FAIRE", "EN_COURS"] },
       ...siteFilterForModel("tache", claims),
+      ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
     },
     include: {
       assigneeA: { select: { id: true, name: true, email: true } },

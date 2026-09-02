@@ -29,6 +29,7 @@
 import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { semaineScolaire, datesDeLaSemaine } from "@/lib/learnos/planification-pure";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import type { SessionSiteClaims } from "@/lib/site-scope";
 
 // ──────────────────────────────────────────────────────────────
@@ -95,7 +96,10 @@ export async function detecterDecalageSemaine(
   claims: SessionSiteClaims,
   semaine?: number,
   maintenant: Date = new Date(),
+  anneeCourante?: string | null,
 ): Promise<ResultatAlerteDecalage> {
+  // Libellé de l'année courante (ex. « 2025-2026 »), pour filtrer les classes.
+  const anneeLibelle = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   // 1. Résoudre l'année et la semaine à analyser.
   const annee = await prisma.anneesScolaires.findFirst({
     where: { id: anneeId, tenantId },
@@ -161,6 +165,7 @@ export async function detecterDecalageSemaine(
             classeId,
             matiereId,
             dateDonne: { gte: debut, lte: fin },
+            ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
             ...siteFilterForModel("devoir", claims),
           },
         })
@@ -188,6 +193,7 @@ export async function detecterDecalageSemaine(
             matiereId,
             classeId,
             date: { gte: debut, lte: fin },
+            ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
             ...siteFilterForModel("note", claims),
           },
         })

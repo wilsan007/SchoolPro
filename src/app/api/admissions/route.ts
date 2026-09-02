@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const CandidatureSchema = z.object({
   nom: z.string().min(1),
@@ -111,12 +112,14 @@ export async function POST(req: NextRequest) {
     let siteId: string | undefined;
 
     if (data.classeId && session?.user) {
+      const anneeCourante = await getAnneeCouranteLibelle(tenantId!);
       // Résoudre la classe dans le périmètre de l'utilisateur
       const classe = await prisma.classe.findFirst({
         where: {
           id: data.classeId,
           tenantId,
           ...siteFilterForModel("classe", session.user),
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
         },
         select: { nom: true, siteId: true },
       });
@@ -131,10 +134,11 @@ export async function POST(req: NextRequest) {
       classeVoulue = classe.nom;
       siteId = classe.siteId ?? undefined;
     } else if (data.classeId && tenantId) {
+      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
       // Appel public avec classeId : résoudre sans filtre de site
       // eslint-disable-next-line ecolpro/require-site-filter -- appel public, pas de session utilisateur
       const classe = await prisma.classe.findFirst({
-        where: { id: data.classeId, tenantId },
+        where: { id: data.classeId, tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
         select: { nom: true, siteId: true },
       });
 

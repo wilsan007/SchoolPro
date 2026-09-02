@@ -3,6 +3,8 @@
  * Récupère les données préparées par le script de génération.
  */
 
+import { decisionAnnuelle, mentionAnnuelle } from "@/lib/bulletin-decision";
+
 export type NoteExamen = {
   intitule: string;
   type: string;
@@ -497,8 +499,10 @@ export async function getBulletinAnnuelData(
     rangAnnuel,
     effectifClasse: classeEleves.length,
 
-    appreciation: null,
-    decision: null,
+    // Bilan annuel décisionnel : la décision et la mention sont dérivées de la
+    // moyenne annuelle. On renvoie des CODES stables, traduits à l'affichage.
+    appreciation: mentionAnnuelle(moyenneAnnuelle),
+    decision: decisionAnnuelle(moyenneAnnuelle),
 
     profPrincipalNom: eleve.classe.profPrincipal?.user.name,
     generatedAt: new Date(),

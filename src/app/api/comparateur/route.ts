@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { isTenantWideRole } from "@/lib/site-scope";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /* eslint-disable ecolpro/require-site-filter -- comparateur inter-sites :
    cet agrégat compare volontairement tous les sites du tenant entre eux.
@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
   const siteId = url.searchParams.get("siteId") || undefined;
 
   const activeAnneeId = await anneeActiveId(tenantId);
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   // Seuls TENANT_ADMIN et SUPER_ADMIN peuvent comparer les sites
   if (mode === "sites" && !isTenantWideRole(role)) {
@@ -133,6 +134,7 @@ export async function GET(req: NextRequest) {
           tenantId,
           siteId: { in: siteIds },
           statut: { in: ["OBLIGATOIRE", "RECOMMANDEE", "PROPOSEE"] },
+          ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
         },
         _count: { id: true },
       }),
@@ -205,6 +207,7 @@ export async function GET(req: NextRequest) {
             tenantId,
             isPubliee: true,
             eleve: { siteId: site.id },
+            ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
           },
           _avg: { valeur: true },
           _count: { id: true },
@@ -214,7 +217,10 @@ export async function GET(req: NextRequest) {
           where: {
             tenantId,
             statut: "INJUSTIFIEE",
-            eleve: { siteId: site.id },
+            eleve: {
+              siteId: site.id,
+              ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+            },
           },
         }),
         // Exclusions

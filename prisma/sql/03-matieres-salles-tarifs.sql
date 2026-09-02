@@ -54,69 +54,69 @@ ON CONFLICT ("id") DO NOTHING;
 -- générateur d'emploi du temps réserve en vérifiant leur disponibilité.
 INSERT INTO salles ("id", "tenantId", "siteId", "nom", "capacite", "type", "batiment") VALUES
   -- Site Ambouli (AMB) — une salle attitrée par classe
-  ('salle-AMB-salle-101',        'tenant-ambouli', 'site-ambouli', 'Salle 101',            35, 'cours',        'Bloc A'),  -- 6ème A
-  ('salle-AMB-salle-102',        'tenant-ambouli', 'site-ambouli', 'Salle 102',            35, 'cours',        'Bloc A'),  -- 6ème B
-  ('salle-AMB-salle-103',        'tenant-ambouli', 'site-ambouli', 'Salle 103',            35, 'cours',        'Bloc A'),  -- 6ème C
-  ('salle-AMB-salle-104',        'tenant-ambouli', 'site-ambouli', 'Salle 104',            35, 'cours',        'Bloc A'),  -- 5ème A
-  ('salle-AMB-salle-105',        'tenant-ambouli', 'site-ambouli', 'Salle 105',            35, 'cours',        'Bloc A'),  -- 5ème B
-  ('salle-AMB-salle-106',        'tenant-ambouli', 'site-ambouli', 'Salle 106',            35, 'cours',        'Bloc A'),  -- 5ème C
-  ('salle-AMB-salle-107',        'tenant-ambouli', 'site-ambouli', 'Salle 107',            35, 'cours',        'Bloc B'),  -- 4ème A
-  ('salle-AMB-salle-108',        'tenant-ambouli', 'site-ambouli', 'Salle 108',            35, 'cours',        'Bloc B'),  -- 4ème B
-  ('salle-AMB-salle-109',        'tenant-ambouli', 'site-ambouli', 'Salle 109',            35, 'cours',        'Bloc B'),  -- 4ème C
-  ('salle-AMB-salle-110',        'tenant-ambouli', 'site-ambouli', 'Salle 110',            35, 'cours',        'Bloc B'),  -- 3ème A
-  ('salle-AMB-salle-111',        'tenant-ambouli', 'site-ambouli', 'Salle 111',            35, 'cours',        'Bloc B'),  -- 3ème B
-  ('salle-AMB-salle-112',        'tenant-ambouli', 'site-ambouli', 'Salle 112',            35, 'cours',        'Bloc B'),  -- 3ème C
-  ('salle-AMB-salle-201',        'tenant-ambouli', 'site-ambouli', 'Salle 201',            35, 'cours',        'Bloc C'),  -- 2nde A
-  ('salle-AMB-salle-202',        'tenant-ambouli', 'site-ambouli', 'Salle 202',            35, 'cours',        'Bloc C'),  -- 2nde B
-  ('salle-AMB-salle-203',        'tenant-ambouli', 'site-ambouli', 'Salle 203',            35, 'cours',        'Bloc C'),  -- 2nde C
-  ('salle-AMB-salle-204',        'tenant-ambouli', 'site-ambouli', 'Salle 204',            35, 'cours',        'Bloc C'),  -- 2nde D
-  ('salle-AMB-salle-205',        'tenant-ambouli', 'site-ambouli', 'Salle 205',            35, 'cours',        'Bloc C'),  -- 1ère S
-  ('salle-AMB-salle-206',        'tenant-ambouli', 'site-ambouli', 'Salle 206',            35, 'cours',        'Bloc C'),  -- 1ère ES
-  ('salle-AMB-salle-207',        'tenant-ambouli', 'site-ambouli', 'Salle 207',            35, 'cours',        'Bloc C'),  -- 1ère L
-  ('salle-AMB-salle-208',        'tenant-ambouli', 'site-ambouli', 'Salle 208',            35, 'cours',        'Bloc C'),  -- Terminale S
-  ('salle-AMB-salle-209',        'tenant-ambouli', 'site-ambouli', 'Salle 209',            35, 'cours',        'Bloc C'),  -- Terminale ES
-  ('salle-AMB-salle-210',        'tenant-ambouli', 'site-ambouli', 'Salle 210',            35, 'cours',        'Bloc C'),  -- Terminale L
-  ('salle-AMB-labo-physique-1',   'tenant-ambouli', 'site-ambouli', 'Labo Physique 1',     25, 'labo',         'Bloc D'),
-  ('salle-AMB-labo-physique-2',   'tenant-ambouli', 'site-ambouli', 'Labo Physique 2',     25, 'labo',         'Bloc D'),
-  ('salle-AMB-labo-svt',          'tenant-ambouli', 'site-ambouli', 'Labo SVT',            25, 'labo',         'Bloc D'),
-  ('salle-AMB-salle-info',        'tenant-ambouli', 'site-ambouli', 'Salle Info',          30, 'informatique', 'Bloc D'),
-  ('salle-AMB-gymnase',           'tenant-ambouli', 'site-ambouli', 'Gymnase',             60, 'sport',        'Annexe'),
-  ('salle-AMB-terrain-sport',     'tenant-ambouli', 'site-ambouli', 'Terrain de sport',    60, 'sport',        'Annexe'),
-  ('salle-AMB-plateau-sportif',   'tenant-ambouli', 'site-ambouli', 'Plateau sportif',     60, 'sport',        'Annexe'),
-  ('salle-AMB-salle-des-professeurs','tenant-ambouli','site-ambouli', 'Salle des professeurs', 40, 'cours',     'Bloc A'),
-  ('salle-AMB-cdi',               'tenant-ambouli', 'site-ambouli', 'CDI',                 40, 'cours',        'Bloc B'),
+  ('salle-AMB-salle-101',            'tenant-ambouli', 'site-ambouli', 'Salle 101',                    35, 'cours',        'Bloc A'),  -- 6ème A
+  ('salle-AMB-salle-102',            'tenant-ambouli', 'site-ambouli', 'Salle 102',                    35, 'cours',        'Bloc A'),  -- 6ème B
+  ('salle-AMB-salle-103',            'tenant-ambouli', 'site-ambouli', 'Salle 103',                    35, 'cours',        'Bloc A'),  -- 6ème C
+  ('salle-AMB-salle-104',            'tenant-ambouli', 'site-ambouli', 'Salle 104',                    35, 'cours',        'Bloc A'),  -- 5ème A
+  ('salle-AMB-salle-105',            'tenant-ambouli', 'site-ambouli', 'Salle 105',                    35, 'cours',        'Bloc A'),  -- 5ème B
+  ('salle-AMB-salle-106',            'tenant-ambouli', 'site-ambouli', 'Salle 106',                    35, 'cours',        'Bloc A'),  -- 5ème C
+  ('salle-AMB-salle-107',            'tenant-ambouli', 'site-ambouli', 'Salle 107',                    35, 'cours',        'Bloc B'),  -- 4ème A
+  ('salle-AMB-salle-108',            'tenant-ambouli', 'site-ambouli', 'Salle 108',                    35, 'cours',        'Bloc B'),  -- 4ème B
+  ('salle-AMB-salle-109',            'tenant-ambouli', 'site-ambouli', 'Salle 109',                    35, 'cours',        'Bloc B'),  -- 4ème C
+  ('salle-AMB-salle-110',            'tenant-ambouli', 'site-ambouli', 'Salle 110',                    35, 'cours',        'Bloc B'),  -- 3ème A
+  ('salle-AMB-salle-111',            'tenant-ambouli', 'site-ambouli', 'Salle 111',                    35, 'cours',        'Bloc B'),  -- 3ème B
+  ('salle-AMB-salle-112',            'tenant-ambouli', 'site-ambouli', 'Salle 112',                    35, 'cours',        'Bloc B'),  -- 3ème C
+  ('salle-AMB-salle-201',            'tenant-ambouli', 'site-ambouli', 'Salle 201',                    35, 'cours',        'Bloc C'),  -- 2nde A
+  ('salle-AMB-salle-202',            'tenant-ambouli', 'site-ambouli', 'Salle 202',                    35, 'cours',        'Bloc C'),  -- 2nde B
+  ('salle-AMB-salle-203',            'tenant-ambouli', 'site-ambouli', 'Salle 203',                    35, 'cours',        'Bloc C'),  -- 2nde C
+  ('salle-AMB-salle-204',            'tenant-ambouli', 'site-ambouli', 'Salle 204',                    35, 'cours',        'Bloc C'),  -- 2nde D
+  ('salle-AMB-salle-205',            'tenant-ambouli', 'site-ambouli', 'Salle 205',                    35, 'cours',        'Bloc C'),  -- 1ère S
+  ('salle-AMB-salle-206',            'tenant-ambouli', 'site-ambouli', 'Salle 206',                    35, 'cours',        'Bloc C'),  -- 1ère ES
+  ('salle-AMB-salle-207',            'tenant-ambouli', 'site-ambouli', 'Salle 207',                    35, 'cours',        'Bloc C'),  -- 1ère L
+  ('salle-AMB-salle-208',            'tenant-ambouli', 'site-ambouli', 'Salle 208',                    35, 'cours',        'Bloc C'),  -- Terminale S
+  ('salle-AMB-salle-209',            'tenant-ambouli', 'site-ambouli', 'Salle 209',                    35, 'cours',        'Bloc C'),  -- Terminale ES
+  ('salle-AMB-salle-210',            'tenant-ambouli', 'site-ambouli', 'Salle 210',                    35, 'cours',        'Bloc C'),  -- Terminale L
+  ('salle-AMB-labo-physique-1',      'tenant-ambouli', 'site-ambouli', 'Labo Physique Ambouli 1',      25, 'labo',        'Bloc D'),
+  ('salle-AMB-labo-physique-2',      'tenant-ambouli', 'site-ambouli', 'Labo Physique Ambouli 2',      25, 'labo',        'Bloc D'),
+  ('salle-AMB-labo-svt',             'tenant-ambouli', 'site-ambouli', 'Labo SVT Ambouli',             25, 'labo',        'Bloc D'),
+  ('salle-AMB-salle-info',           'tenant-ambouli', 'site-ambouli', 'Salle Info Ambouli',           30, 'informatique','Bloc D'),
+  ('salle-AMB-gymnase',              'tenant-ambouli', 'site-ambouli', 'Gymnase Ambouli',              60, 'sport',       'Annexe'),
+  ('salle-AMB-terrain-sport',        'tenant-ambouli', 'site-ambouli', 'Terrain de sport Ambouli',     60, 'sport',       'Annexe'),
+  ('salle-AMB-plateau-sportif',      'tenant-ambouli', 'site-ambouli', 'Plateau sportif Ambouli',      60, 'sport',       'Annexe'),
+  ('salle-AMB-salle-des-professeurs','tenant-ambouli', 'site-ambouli', 'Salle des professeurs Ambouli',40, 'cours',       'Bloc A'),
+  ('salle-AMB-cdi',                  'tenant-ambouli', 'site-ambouli', 'CDI Ambouli',                  40, 'cours',       'Bloc B'),
   -- Site Arhiba (ARH) — une salle attitrée par classe
-  ('salle-ARH-salle-101',        'tenant-ambouli', 'site-arhiba', 'Salle 101',            35, 'cours',        'Bloc A'),  -- 6ème A
-  ('salle-ARH-salle-102',        'tenant-ambouli', 'site-arhiba', 'Salle 102',            35, 'cours',        'Bloc A'),  -- 6ème B
-  ('salle-ARH-salle-103',        'tenant-ambouli', 'site-arhiba', 'Salle 103',            35, 'cours',        'Bloc A'),  -- 6ème C
-  ('salle-ARH-salle-104',        'tenant-ambouli', 'site-arhiba', 'Salle 104',            35, 'cours',        'Bloc A'),  -- 5ème A
-  ('salle-ARH-salle-105',        'tenant-ambouli', 'site-arhiba', 'Salle 105',            35, 'cours',        'Bloc A'),  -- 5ème B
-  ('salle-ARH-salle-106',        'tenant-ambouli', 'site-arhiba', 'Salle 106',            35, 'cours',        'Bloc A'),  -- 5ème C
-  ('salle-ARH-salle-107',        'tenant-ambouli', 'site-arhiba', 'Salle 107',            35, 'cours',        'Bloc B'),  -- 4ème A
-  ('salle-ARH-salle-108',        'tenant-ambouli', 'site-arhiba', 'Salle 108',            35, 'cours',        'Bloc B'),  -- 4ème B
-  ('salle-ARH-salle-109',        'tenant-ambouli', 'site-arhiba', 'Salle 109',            35, 'cours',        'Bloc B'),  -- 4ème C
-  ('salle-ARH-salle-110',        'tenant-ambouli', 'site-arhiba', 'Salle 110',            35, 'cours',        'Bloc B'),  -- 3ème A
-  ('salle-ARH-salle-111',        'tenant-ambouli', 'site-arhiba', 'Salle 111',            35, 'cours',        'Bloc B'),  -- 3ème B
-  ('salle-ARH-salle-112',        'tenant-ambouli', 'site-arhiba', 'Salle 112',            35, 'cours',        'Bloc B'),  -- 3ème C
-  ('salle-ARH-salle-201',        'tenant-ambouli', 'site-arhiba', 'Salle 201',            35, 'cours',        'Bloc C'),  -- 2nde A
-  ('salle-ARH-salle-202',        'tenant-ambouli', 'site-arhiba', 'Salle 202',            35, 'cours',        'Bloc C'),  -- 2nde B
-  ('salle-ARH-salle-203',        'tenant-ambouli', 'site-arhiba', 'Salle 203',            35, 'cours',        'Bloc C'),  -- 2nde C
-  ('salle-ARH-salle-204',        'tenant-ambouli', 'site-arhiba', 'Salle 204',            35, 'cours',        'Bloc C'),  -- 2nde D
-  ('salle-ARH-salle-205',        'tenant-ambouli', 'site-arhiba', 'Salle 205',            35, 'cours',        'Bloc C'),  -- 1ère S
-  ('salle-ARH-salle-206',        'tenant-ambouli', 'site-arhiba', 'Salle 206',            35, 'cours',        'Bloc C'),  -- 1ère ES
-  ('salle-ARH-salle-207',        'tenant-ambouli', 'site-arhiba', 'Salle 207',            35, 'cours',        'Bloc C'),  -- 1ère L
-  ('salle-ARH-salle-208',        'tenant-ambouli', 'site-arhiba', 'Salle 208',            35, 'cours',        'Bloc C'),  -- Terminale S
-  ('salle-ARH-salle-209',        'tenant-ambouli', 'site-arhiba', 'Salle 209',            35, 'cours',        'Bloc C'),  -- Terminale ES
-  ('salle-ARH-salle-210',        'tenant-ambouli', 'site-arhiba', 'Salle 210',            35, 'cours',        'Bloc C'),  -- Terminale L
-  ('salle-ARH-labo-physique-1',   'tenant-ambouli', 'site-arhiba', 'Labo Physique 1',     25, 'labo',         'Bloc D'),
-  ('salle-ARH-labo-physique-2',   'tenant-ambouli', 'site-arhiba', 'Labo Physique 2',     25, 'labo',         'Bloc D'),
-  ('salle-ARH-labo-svt',          'tenant-ambouli', 'site-arhiba', 'Labo SVT',            25, 'labo',         'Bloc D'),
-  ('salle-ARH-salle-info',        'tenant-ambouli', 'site-arhiba', 'Salle Info',          30, 'informatique', 'Bloc D'),
-  ('salle-ARH-gymnase',           'tenant-ambouli', 'site-arhiba', 'Gymnase',             60, 'sport',        'Annexe'),
-  ('salle-ARH-terrain-sport',     'tenant-ambouli', 'site-arhiba', 'Terrain de sport',    60, 'sport',        'Annexe'),
-  ('salle-ARH-plateau-sportif',   'tenant-ambouli', 'site-arhiba', 'Plateau sportif',     60, 'sport',        'Annexe'),
-  ('salle-ARH-salle-des-professeurs','tenant-ambouli','site-arhiba', 'Salle des professeurs', 40, 'cours',     'Bloc A'),
-  ('salle-ARH-cdi',               'tenant-ambouli', 'site-arhiba', 'CDI',                 40, 'cours',        'Bloc B')
+  ('salle-ARH-salle-301',            'tenant-ambouli', 'site-arhiba', 'Salle 301',                    35, 'cours',        'Bloc A'),  -- 6ème A
+  ('salle-ARH-salle-302',            'tenant-ambouli', 'site-arhiba', 'Salle 302',                    35, 'cours',        'Bloc A'),  -- 6ème B
+  ('salle-ARH-salle-303',            'tenant-ambouli', 'site-arhiba', 'Salle 303',                    35, 'cours',        'Bloc A'),  -- 6ème C
+  ('salle-ARH-salle-304',            'tenant-ambouli', 'site-arhiba', 'Salle 304',                    35, 'cours',        'Bloc A'),  -- 5ème A
+  ('salle-ARH-salle-305',            'tenant-ambouli', 'site-arhiba', 'Salle 305',                    35, 'cours',        'Bloc A'),  -- 5ème B
+  ('salle-ARH-salle-306',            'tenant-ambouli', 'site-arhiba', 'Salle 306',                    35, 'cours',        'Bloc A'),  -- 5ème C
+  ('salle-ARH-salle-307',            'tenant-ambouli', 'site-arhiba', 'Salle 307',                    35, 'cours',        'Bloc B'),  -- 4ème A
+  ('salle-ARH-salle-308',            'tenant-ambouli', 'site-arhiba', 'Salle 308',                    35, 'cours',        'Bloc B'),  -- 4ème B
+  ('salle-ARH-salle-309',            'tenant-ambouli', 'site-arhiba', 'Salle 309',                    35, 'cours',        'Bloc B'),  -- 4ème C
+  ('salle-ARH-salle-310',            'tenant-ambouli', 'site-arhiba', 'Salle 310',                    35, 'cours',        'Bloc B'),  -- 3ème A
+  ('salle-ARH-salle-311',            'tenant-ambouli', 'site-arhiba', 'Salle 311',                    35, 'cours',        'Bloc B'),  -- 3ème B
+  ('salle-ARH-salle-312',            'tenant-ambouli', 'site-arhiba', 'Salle 312',                    35, 'cours',        'Bloc B'),  -- 3ème C
+  ('salle-ARH-salle-401',            'tenant-ambouli', 'site-arhiba', 'Salle 401',                    35, 'cours',        'Bloc C'),  -- 2nde A
+  ('salle-ARH-salle-402',            'tenant-ambouli', 'site-arhiba', 'Salle 402',                    35, 'cours',        'Bloc C'),  -- 2nde B
+  ('salle-ARH-salle-403',            'tenant-ambouli', 'site-arhiba', 'Salle 403',                    35, 'cours',        'Bloc C'),  -- 2nde C
+  ('salle-ARH-salle-404',            'tenant-ambouli', 'site-arhiba', 'Salle 404',                    35, 'cours',        'Bloc C'),  -- 2nde D
+  ('salle-ARH-salle-405',            'tenant-ambouli', 'site-arhiba', 'Salle 405',                    35, 'cours',        'Bloc C'),  -- 1ère S
+  ('salle-ARH-salle-406',            'tenant-ambouli', 'site-arhiba', 'Salle 406',                    35, 'cours',        'Bloc C'),  -- 1ère ES
+  ('salle-ARH-salle-407',            'tenant-ambouli', 'site-arhiba', 'Salle 407',                    35, 'cours',        'Bloc C'),  -- 1ère L
+  ('salle-ARH-salle-408',            'tenant-ambouli', 'site-arhiba', 'Salle 408',                    35, 'cours',        'Bloc C'),  -- Terminale S
+  ('salle-ARH-salle-409',            'tenant-ambouli', 'site-arhiba', 'Salle 409',                    35, 'cours',        'Bloc C'),  -- Terminale ES
+  ('salle-ARH-salle-410',            'tenant-ambouli', 'site-arhiba', 'Salle 410',                    35, 'cours',        'Bloc C'),  -- Terminale L
+  ('salle-ARH-labo-physique-1',      'tenant-ambouli', 'site-arhiba', 'Labo Physique Arhiba 1',       25, 'labo',        'Bloc D'),
+  ('salle-ARH-labo-physique-2',      'tenant-ambouli', 'site-arhiba', 'Labo Physique Arhiba 2',       25, 'labo',        'Bloc D'),
+  ('salle-ARH-labo-svt',             'tenant-ambouli', 'site-arhiba', 'Labo SVT Arhiba',              25, 'labo',        'Bloc D'),
+  ('salle-ARH-salle-info',           'tenant-ambouli', 'site-arhiba', 'Salle Info Arhiba',            30, 'informatique','Bloc D'),
+  ('salle-ARH-gymnase',              'tenant-ambouli', 'site-arhiba', 'Gymnase Arhiba',               60, 'sport',       'Annexe'),
+  ('salle-ARH-terrain-sport',        'tenant-ambouli', 'site-arhiba', 'Terrain de sport Arhiba',      60, 'sport',       'Annexe'),
+  ('salle-ARH-plateau-sportif',      'tenant-ambouli', 'site-arhiba', 'Plateau sportif Arhiba',       60, 'sport',       'Annexe'),
+  ('salle-ARH-salle-des-professeurs','tenant-ambouli', 'site-arhiba', 'Salle des professeurs Arhiba', 40, 'cours',       'Bloc A'),
+  ('salle-ARH-cdi',                  'tenant-ambouli', 'site-arhiba', 'CDI Arhiba',                   40, 'cours',       'Bloc B')
 ON CONFLICT ("id") DO NOTHING;
 
 -- ── 8 Tarifs (Collège/Lycée × 2 ans × 2 sites) ──────────────

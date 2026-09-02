@@ -7,6 +7,7 @@ import {
   personalScopeFilter,
   mergeFilters,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import ExcelJS from "exceljs";
 
 export async function GET(req: NextRequest) {
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest) {
     const denied = checkPermission(session.user.role, "bulletins:read");
     if (denied) return denied;
     const siteFilter = siteFilterForModel("classe", session.user);
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
@@ -29,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     // Récupérer la classe et les élèves
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId: session.user.tenantId, ...siteFilter },
+      where: { id: classeId, tenantId: session.user.tenantId, ...siteFilter, ...(anneeCourante ? { annee: anneeCourante } : {}) },
       select: { nom: true },
     });
     if (!classe) {

@@ -6,6 +6,7 @@ import {
   siteFilterForModel,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 interface SessionUser extends SessionSiteClaims {
   id: string;
@@ -273,10 +274,12 @@ async function recipientScopeFilter(
       // Classes où l'émetteur a un enfant inscrit : c'est le lien de filiation
       // qui borne la requête, pas le site. Un parent dont les enfants sont sur
       // deux sites doit joindre les enseignants des deux.
+      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
       // eslint-disable-next-line ecolpro/require-site-filter
       const classes = await prisma.classe.findMany({
         where: {
           tenantId,
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
           eleves: { some: { deletedAt: null, parents: { some: { parentId: parent.id } } } },
         },
         select: { id: true, profPrincipal: { select: { userId: true } } },

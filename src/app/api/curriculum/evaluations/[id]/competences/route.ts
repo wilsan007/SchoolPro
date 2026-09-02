@@ -9,6 +9,7 @@ import {
   siteFilterForRelation,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -41,8 +42,14 @@ async function chargerEvaluation(
   tenantId: string,
   claims: SessionSiteClaims
 ) {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   return prisma.evaluation.findFirst({
-    where: { id, tenantId, ...siteFilterForRelation(claims, "classe") },
+    where: {
+      id,
+      tenantId,
+      ...siteFilterForRelation(claims, "classe"),
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+    },
     select: { id: true, matiereId: true, classe: { select: { siteId: true } } },
   });
 }

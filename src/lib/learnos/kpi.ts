@@ -27,7 +27,7 @@ import {
   type SessionSiteClaims,
 } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification";
-import { anneeALaDate } from "@/lib/annee-scolaire";
+import { anneeALaDate, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export type UniteKpi = "pourcentage" | "nombre";
 
@@ -120,8 +120,12 @@ async function valeursPrecedentes(
 export async function kpisDirection(
   tenantId: string,
   claims: SessionSiteClaims,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<Kpi[]> {
+  // Libellé de l'année courante (ex. « 2025-2026 ») — sert à filtrer les
+  // classes, dont le champ `annee` est cette chaîne.
+  const anneeLibelle = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const precedents = await valeursPrecedentes(tenantId, claims, "DIRECTION", jourDe(maintenant));
 
   // Année active au sens chronologique : celle qui contient `maintenant`.
@@ -159,6 +163,7 @@ export async function kpisDirection(
           },
           statut: { not: "ANNULE" },
           notes: { none: {} },
+          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
           ...siteFilterForRelation(claims, "classe"),
         },
       }),
@@ -171,6 +176,7 @@ export async function kpisDirection(
           statut: "OBLIGATOIRE",
           resolueLe: null,
           createdAt: { gte: fenetreDebut ?? new Date(0) },
+          ...(anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {}),
           ...siteFilterForModel("recommandation", claims),
         },
         select: { eleveId: true },
@@ -236,8 +242,10 @@ export async function kpisEnseignant(
   claims: SessionSiteClaims,
   userId: string,
   classeIds: string[] | null,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<Kpi[]> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const precedents = await valeursPrecedentes(tenantId, claims, "ENSEIGNANT", jourDe(maintenant));
   const perimetre = classeIds ? { classeId: { in: classeIds } } : {};
 
@@ -248,6 +256,7 @@ export async function kpisEnseignant(
         date: { lt: maintenant },
         statut: { not: "ANNULE" },
         notes: { none: {} },
+        ...(annee ? { classe: { annee: annee } } : {}),
         ...siteFilterForRelation(claims, "classe"),
         ...perimetre,
       },
@@ -257,6 +266,7 @@ export async function kpisEnseignant(
         tenantId,
         resolueLe: null,
         statut: { in: ["OBLIGATOIRE", "RECOMMANDEE"] },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("recommandation", claims),
         ...(classeIds ? { eleve: { classeId: { in: classeIds } } } : {}),
       },

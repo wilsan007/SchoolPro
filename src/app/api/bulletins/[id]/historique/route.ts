@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForRelation } from "@/lib/site-filter";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * GET /api/bulletins/[id]/historique
@@ -22,11 +23,12 @@ export async function GET(
     if (denied) return denied;
 
     const { id } = await params;
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     // Vérifier que le bulletin appartient bien au tenant de l'utilisateur
     const siteFilter = siteFilterForRelation(session.user, "eleve");
     const bulletin = await prisma.bulletin.findFirst({
-      where: { id, tenantId: session.user.tenantId, ...siteFilter },
+      where: { id, tenantId: session.user.tenantId, ...siteFilter, ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
       select: { id: true },
     });
     if (!bulletin) {

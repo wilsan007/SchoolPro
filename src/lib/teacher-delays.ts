@@ -50,12 +50,13 @@ export async function getTeacherDelays(
   maintenant: Date = new Date(),
   // Passer l'année déjà résolue évite une requête DB redondante
   // quand l'appelant (ex: page direction) l'a déjà calculée.
-  anneePasse?: { id: string; dateDebut: Date } | null
+  anneePasse?: { id: string; dateDebut: Date; libelle: string } | null
 ): Promise<ThemeRetard[]> {
   // Année active au sens chronologique : pendant l'été, c'est la dernière
   // année terminée. Sans ce filtre, les retards cumulent toutes les années.
   const annee = anneePasse !== undefined ? anneePasse : await anneeALaDate(tenantId, maintenant);
   const anneeId = annee?.id;
+  const anneeLibelle = annee?.libelle ?? null;
   const fenetreDebut = annee?.dateDebut;
 
   // ── Requêtes en parallèle ──────────────────────────────────────
@@ -72,6 +73,7 @@ export async function getTeacherDelays(
         },
         statut: { not: "ANNULE" },
         notes: { none: {} },
+        ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
         ...siteFilterForModel("evaluation", claims),
       },
       select: {
@@ -92,6 +94,7 @@ export async function getTeacherDelays(
           gte: fenetreDebut ?? new Date(0),
           lt: maintenant,
         },
+        ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
         ...siteFilterForModel("seancePedagogique", claims),
       },
       select: {
@@ -229,7 +232,10 @@ export async function getTeacherDelays(
   // Source principale : AffectationEnseignant
   const affectationLinks = evalKeys.size > 0
     ? await prisma.affectationEnseignant.findMany({
-        where: { tenantId },
+        where: {
+          tenantId,
+          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+        },
         select: {
           classeId: true, matiereId: true,
           enseignantId: true,
@@ -243,6 +249,7 @@ export async function getTeacherDelays(
     ? await prisma.emploiTemps.findMany({
         where: {
           tenantId,
+          ...(anneeLibelle ? { annee: anneeLibelle } : {}),
           ...siteFilterForModel("emploiTemps", claims),
         },
         select: {

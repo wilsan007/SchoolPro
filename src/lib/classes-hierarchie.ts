@@ -22,6 +22,8 @@ export interface ClasseNode {
   siteId: string | null;
   siteNom: string | null;
   effectif: number;
+  /** Type de structure pédagogique (pour la grille dynamique). */
+  structureType: string | null;
 }
 
 export interface NiveauNode {
@@ -149,6 +151,7 @@ export async function getClassesHierarchie(
       siteId: c.siteId,
       siteNom: c.site?.nom ?? null,
       effectif: effectifsMap[c.id] ?? 0,
+      structureType: c.structure?.type ?? null,
     });
   }
 
@@ -174,12 +177,12 @@ export async function getClassesHierarchie(
  * Aplatit la hiérarchie en une liste plate de classes (pour compatibilité
  * avec les composants existants qui attendent `{ id, nom }[]`).
  */
-export function aplatirHierarchie(hierarchie: ClassesHierarchie): { id: string; nom: string; niveau: string }[] {
-  const result: { id: string; nom: string; niveau: string }[] = [];
+export function aplatirHierarchie(hierarchie: ClassesHierarchie): { id: string; nom: string; niveau: string; structureType: string | null }[] {
+  const result: { id: string; nom: string; niveau: string; structureType: string | null }[] = [];
   for (const cat of hierarchie) {
     for (const niv of cat.niveaux) {
       for (const cls of niv.classes) {
-        result.push({ id: cls.id, nom: cls.nom, niveau: cls.niveau });
+        result.push({ id: cls.id, nom: cls.nom, niveau: cls.niveau, structureType: cls.structureType });
       }
     }
   }

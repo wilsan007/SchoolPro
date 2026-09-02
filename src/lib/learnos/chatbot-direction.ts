@@ -35,7 +35,7 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel, siteFilterForRelation, type SessionSiteClaims } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification";
 import { executeAiQuery, getSchemaForRole } from "@/lib/learnos/ai-query-engine";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // --- Nouvelles bibliothèques d'intelligence (outils fermés étendus) ---
 
@@ -786,8 +786,10 @@ export async function poserQuestion(
   actorId: string,
   historique: TourConversation[] = [],
   maintenant: Date = new Date(),
-  tenantNom: string = "Établissement"
+  tenantNom: string = "Établissement",
+  anneeCourante?: string | null
 ): Promise<ReponseChatbot> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   // Construire les messages avec l'historique récent pour le contexte.
   const toursRecents = historique.slice(-MAX_TOURS_HISTORIQUE);
 
@@ -908,7 +910,7 @@ export async function poserQuestion(
           : result.data;
       } else {
         // Outil fermé existant.
-        donnees = await executerOutil(tenantId, claims, appel.name, args, maintenant);
+        donnees = await executerOutil(tenantId, claims, appel.name, args, maintenant, annee);
       }
 
       dernierOutil = appel.name;
@@ -975,15 +977,16 @@ async function executerOutil(
   claims: SessionSiteClaims,
   nomOutil: string,
   args: Record<string, unknown>,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<unknown> {
   switch (nomOutil) {
     case "analyser_effectifs":
-      return analyserEffectifs(tenantId, claims, args.dimension as string);
+      return analyserEffectifs(tenantId, claims, args.dimension as string, anneeCourante);
     case "analyser_notes":
-      return analyserNotes(tenantId, claims, args.dimension as string, args.matiere as string | undefined);
+      return analyserNotes(tenantId, claims, args.dimension as string, args.matiere as string | undefined, anneeCourante);
     case "analyser_absences":
-      return analyserAbsences(tenantId, claims, args.dimension as string, maintenant);
+      return analyserAbsences(tenantId, claims, args.dimension as string, maintenant, anneeCourante);
     case "analyser_programme":
       return analyserProgramme(tenantId, claims, args.dimension as string, maintenant);
     case "analyser_finances":
@@ -1026,8 +1029,10 @@ async function executerOutil(
 async function analyserEffectifs(
   tenantId: string,
   claims: SessionSiteClaims,
-  dimension: string
+  dimension: string,
+  anneeCourante?: string | null
 ): Promise<unknown> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   if (dimension === "total") {
     const total = await prisma.eleve.count({
       where: {
@@ -1045,6 +1050,7 @@ async function analyserEffectifs(
       where: {
         tenantId,
         deletedAt: null,
+        ...(annee ? { annee: annee } : {}),
         ...siteFilterForModel("classe", claims),
       },
       select: {
@@ -1104,11 +1110,14 @@ async function analyserNotes(
   tenantId: string,
   claims: SessionSiteClaims,
   dimension: string,
-  matiereNom?: string
+  matiereNom?: string,
+  anneeCourante?: string | null
 ): Promise<unknown> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   if (dimension === "moyenne_par_matiere") {
     const where = {
       tenantId,
+      ...(annee ? { classe: { annee: annee } } : {}),
       ...siteFilterForRelation(claims, "classe"),
       ...(matiereNom ? { matiere: { nom: { contains: matiereNom, mode: "insensitive" as const } } } : {}),
     };
@@ -1141,6 +1150,7 @@ async function analyserNotes(
         tenantId,
         statut: "OBLIGATOIRE",
         resolueLe: null,
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("recommandation", claims),
       },
       select: { eleveId: true },
@@ -1157,6 +1167,7 @@ async function analyserNotes(
       where: {
         tenantId,
         deletedAt: null,
+        ...(annee ? { annee: annee } : {}),
         ...siteFilterForModel("classe", claims),
       },
       select: {
@@ -1200,7 +1211,7 @@ async function analyserNotes(
       });
       if (periodes.length === 0) continue;
       const notesCount = await prisma.note.count({
-        where: { tenantId, periodeId: { in: periodes.map((p) => p.id) }, ...siteFilterForRelation(claims, "classe") },
+        where: { tenantId, periodeId: { in: periodes.map((p) => p.id) }, ...(annee ? { classe: { annee: annee } } : {}), ...siteFilterForRelation(claims, "classe") },
       });
       if (notesCount > 0) {
         anneeUtilisee = an;
@@ -1231,6 +1242,7 @@ async function analyserNotes(
     const notesPremiere = await prisma.note.findMany({
       where: {
         tenantId,
+        ...(annee ? { classe: { annee: annee } } : {}),
         ...siteFilterForRelation(claims, "classe"),
         periodeId: premiere.id,
       },
@@ -1240,6 +1252,7 @@ async function analyserNotes(
     const notesDerniere = await prisma.note.findMany({
       where: {
         tenantId,
+        ...(annee ? { classe: { annee: annee } } : {}),
         ...siteFilterForRelation(claims, "classe"),
         periodeId: derniere.id,
       },
@@ -1334,8 +1347,10 @@ async function analyserAbsences(
   tenantId: string,
   claims: SessionSiteClaims,
   dimension: string,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<unknown> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   if (dimension === "taux_global") {
     const totalEleves = await prisma.eleve.count({
       where: {
@@ -1352,6 +1367,7 @@ async function analyserAbsences(
       where: {
         tenantId,
         date: { gte: debutPeriode, lte: maintenant },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
     });
@@ -1384,6 +1400,7 @@ async function analyserAbsences(
       where: {
         tenantId,
         date: { gte: debutPeriode },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
       select: { eleveId: true },
@@ -1438,6 +1455,7 @@ async function analyserAbsences(
       where: {
         tenantId,
         deletedAt: null,
+        ...(annee ? { annee: annee } : {}),
         ...siteFilterForModel("classe", claims),
       },
       select: {
@@ -1458,6 +1476,7 @@ async function analyserAbsences(
       where: {
         tenantId,
         date: { gte: debutPeriode, lte: maintenant },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
       select: { eleve: { select: { classeId: true } } },

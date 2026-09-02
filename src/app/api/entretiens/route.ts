@@ -8,6 +8,7 @@ import {
   requireSiteIdForCreate,
   isRelationScopedRole,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const EntretienSchema = z.object({
   eleveId: z.string().min(1),
@@ -22,6 +23,11 @@ const EntretienSchema = z.object({
   prochainRendezVous: z.string().datetime().nullable().optional(),
 });
 
+const QuerySchema = z.object({
+  eleveId: z.string().optional(),
+  siteId: z.string().optional(),
+});
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
@@ -34,8 +40,14 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const eleveId = searchParams.get("eleveId");
-  const requestedSiteId = searchParams.get("siteId");
+  const query = QuerySchema.safeParse(Object.fromEntries(searchParams));
+  if (!query.success) {
+    return NextResponse.json(
+      { error: "Paramètres invalides", details: query.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const { eleveId, siteId: requestedSiteId } = query.data;
 
   const sessionSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   let activeSiteId: string | null = sessionSiteId;
@@ -47,12 +59,22 @@ export async function GET(req: NextRequest) {
     siteId: activeSiteId,
   };
 
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+  if (!anneeCourante) {
+    return NextResponse.json(
+      { error: "Aucune année scolaire active" },
+      { status: 400 }
+    );
+  }
   const siteFilter = siteFilterForModel("entretienConseiller", claims);
   const entretiens = await prisma.entretienConseiller.findMany({
     where: {
       tenantId: session.user.tenantId,
       ...siteFilter,
-      ...(eleveId && { eleveId }),
+      eleve: {
+        ...(eleveId ? { id: eleveId } : {}),
+        classe: { annee: anneeCourante },
+      },
     },
     include: {
       eleve: {

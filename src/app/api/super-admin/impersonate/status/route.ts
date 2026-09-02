@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { erreurJson } from "@/lib/erreurs-api";
+import { authorizeSuperAdmin } from "@/lib/rbac";
 
 /**
  * GET /api/super-admin/impersonate/status
@@ -8,11 +7,10 @@ import { erreurJson } from "@/lib/erreurs-api";
  * Retourne l'état d'impersonation courant pour la bannière.
  */
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return erreurJson("NON_AUTORISE");
-  }
+  const gate = await authorizeSuperAdmin();
+  if (!gate.ok) return gate.response;
 
+  const { session } = gate;
   const impersonating = (session.user as { impersonating?: boolean }).impersonating ?? false;
   const impersonatedTenantName =
     (session.user as { impersonatedTenantName?: string | null }).impersonatedTenantName ?? null;

@@ -27,6 +27,7 @@ import type { NiveauAlerteParent } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { sendWhatsAppMessage } from "@/lib/notifications/whatsapp";
 import { traducteurPour } from "@/lib/learnos/traducteur";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /** Absences injustifiées, sur la fenêtre ci-dessous, déclenchant `ATTENTION`. */
 const ABSENCES_POUR_ALERTE = 3;
@@ -67,10 +68,12 @@ export function empreinteDe(signature: string): string {
  */
 export async function detecterAlertes(
   tenantId: string,
-  maintenant: Date = new Date()
+  maintenant: Date = new Date(),
+  anneeCourante?: string | null
 ): Promise<{ detectees: number; nouvelles: number }> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const detectees = [
-    ...(await absencesRepetees(tenantId, maintenant)),
+    ...(await absencesRepetees(tenantId, maintenant, annee)),
     ...(await parcoursAlArret(tenantId, maintenant)),
     ...(await jalonsAtteints(tenantId, maintenant)),
   ];
@@ -105,14 +108,19 @@ export async function detecterAlertes(
 /** Absences injustifiées répétées sur une semaine. */
 async function absencesRepetees(
   tenantId: string,
-  maintenant: Date
+  maintenant: Date,
+  anneeCourante?: string | null
 ): Promise<AlerteDetectee[]> {
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const depuis = new Date(maintenant.getTime() - FENETRE_ABSENCES_JOURS * 86_400_000);
 
   // eslint-disable-next-line ecolpro/require-site-filter
   const groupes = await prisma.absence.groupBy({
     by: ["eleveId"],
-    where: { tenantId, statut: "INJUSTIFIEE", date: { gte: depuis } },
+    where: {
+      tenantId, statut: "INJUSTIFIEE", date: { gte: depuis },
+      ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
+    },
     _count: { eleveId: true },
     having: { eleveId: { _count: { gte: ABSENCES_POUR_ALERTE } } },
   });

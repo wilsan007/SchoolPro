@@ -188,6 +188,8 @@ export async function genererMensualites(params: {
         devise: tarif.devise,
         statut: "EN_ATTENTE",
         echeance,
+        type: "MENSUALITE",
+        mois: `${annee.split("-")[0]}-${String(mois).padStart(2, "0")}`,
         createdById: session.user.id,
       },
     });
@@ -277,6 +279,7 @@ export async function genererFraisInscription(params: {
         devise: tarif.devise,
         statut: "EN_ATTENTE",
         echeance: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 jours
+        type,
         createdById: session.user.id,
       },
     });

@@ -330,6 +330,7 @@ async function calculerTenueCahier(
       tenantId,
       semaine,
       enseignantId: { in: enseignants.map((e) => e.id) },
+      ...(anneeLibelle?.libelle ? { classe: { annee: anneeLibelle.libelle } } : {}),
       ...siteFilterForModel("seancePedagogique", claims),
     },
     select: {

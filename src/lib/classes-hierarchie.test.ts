@@ -419,14 +419,14 @@ describe("aplatirHierarchie", () => {
           {
             niveau: "6eme",
             classes: [
-              { id: "c1", nom: "6ème A", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0 },
-              { id: "c2", nom: "6ème B", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "c1", nom: "6ème A", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
+              { id: "c2", nom: "6ème B", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
           {
             niveau: "3eme",
             classes: [
-              { id: "c3", nom: "3ème A", niveau: "3eme", filiere: "Scientifique", siteId: null, siteNom: null, effectif: 0 },
+              { id: "c3", nom: "3ème A", niveau: "3eme", filiere: "Scientifique", siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
         ],
@@ -438,7 +438,7 @@ describe("aplatirHierarchie", () => {
           {
             niveau: "seconde",
             classes: [
-              { id: "c4", nom: "Seconde S", niveau: "seconde", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "c4", nom: "Seconde S", niveau: "seconde", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
         ],
@@ -448,10 +448,10 @@ describe("aplatirHierarchie", () => {
     const plate = aplatirHierarchie(hierarchie);
 
     expect(plate).toEqual([
-      { id: "c1", nom: "6ème A", niveau: "6eme" },
-      { id: "c2", nom: "6ème B", niveau: "6eme" },
-      { id: "c3", nom: "3ème A", niveau: "3eme" },
-      { id: "c4", nom: "Seconde S", niveau: "seconde" },
+      { id: "c1", nom: "6ème A", niveau: "6eme", structureType: null },
+      { id: "c2", nom: "6ème B", niveau: "6eme", structureType: null },
+      { id: "c3", nom: "3ème A", niveau: "3eme", structureType: null },
+      { id: "c4", nom: "Seconde S", niveau: "seconde", structureType: null },
     ]);
   });
 
@@ -468,7 +468,7 @@ describe("aplatirHierarchie", () => {
           {
             niveau: "cp",
             classes: [
-              { id: "p1", nom: "CP A", niveau: "cp", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "p1", nom: "CP A", niveau: "cp", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
         ],
@@ -480,7 +480,7 @@ describe("aplatirHierarchie", () => {
           {
             niveau: "6eme",
             classes: [
-              { id: "k1", nom: "6ème A", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "k1", nom: "6ème A", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
         ],
@@ -506,8 +506,8 @@ describe("extraireClasseIds", () => {
           {
             niveau: "6eme",
             classes: [
-              { id: "c1", nom: "6ème A", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0 },
-              { id: "c2", nom: "6ème B", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "c1", nom: "6ème A", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
+              { id: "c2", nom: "6ème B", niveau: "6eme", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
         ],
@@ -519,7 +519,7 @@ describe("extraireClasseIds", () => {
           {
             niveau: "seconde",
             classes: [
-              { id: "c3", nom: "Seconde S", niveau: "seconde", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "c3", nom: "Seconde S", niveau: "seconde", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
         ],
@@ -553,14 +553,14 @@ describe("extraireClasseIds", () => {
           {
             niveau: "cp",
             classes: [
-              { id: "a", nom: "A", niveau: "cp", filiere: null, siteId: null, siteNom: null, effectif: 0 },
-              { id: "b", nom: "B", niveau: "cp", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "a", nom: "A", niveau: "cp", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
+              { id: "b", nom: "B", niveau: "cp", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
           {
             niveau: "ce1",
             classes: [
-              { id: "c", nom: "C", niveau: "ce1", filiere: null, siteId: null, siteNom: null, effectif: 0 },
+              { id: "c", nom: "C", niveau: "ce1", filiere: null, siteId: null, siteNom: null, effectif: 0, structureType: null },
             ],
           },
         ],

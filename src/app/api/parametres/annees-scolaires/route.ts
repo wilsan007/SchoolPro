@@ -1,8 +1,24 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { checkPermission } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { erreurJson } from "@/lib/erreurs-api";
 import { listerAnneesAvecResume, definirAnneeCourante } from "@/lib/annee-scolaire";
+
+const PostSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("creer"),
+    libelle: z.string().min(1),
+    dateDebut: z.string().min(1),
+    dateFin: z.string().min(1),
+    definirCourante: z.boolean().optional(),
+  }),
+  z.object({
+    action: z.literal("definirCourante"),
+    anneeId: z.string().min(1),
+  }),
+]);
 
 /**
  * GET /api/parametres/annees-scolaires
@@ -11,6 +27,9 @@ import { listerAnneesAvecResume, definirAnneeCourante } from "@/lib/annee-scolai
 export async function GET() {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
+
+  const denied = checkPermission(session.user.role, "parametres:read");
+  if (denied) return denied;
 
   const annees = await listerAnneesAvecResume(session.user.tenantId);
   return Response.json({ annees });
@@ -25,18 +44,20 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const body = await req.json().catch(() => null);
-  if (!body) return erreurJson("DONNEES_INVALIDES");
+  const denied = checkPermission(session.user.role, "parametres:write");
+  if (denied) return denied;
+
+  const parsed = PostSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
+  }
 
   const tenantId = session.user.tenantId;
+  const body = parsed.data;
 
   if (body.action === "creer") {
-    const { libelle, dateDebut, dateFin } = body;
-    if (!libelle || !dateDebut || !dateFin) {
-      return erreurJson("DONNEES_INVALIDES");
-    }
+    const { libelle, dateDebut, dateFin, definirCourante } = body;
 
-    // Vérifier qu'il n'y a pas déjà une année avec le même libellé
     const existante = await prisma.anneesScolaires.findFirst({
       where: { tenantId, libelle },
     });
@@ -52,24 +73,18 @@ export async function POST(req: NextRequest) {
         libelle,
         dateDebut: new Date(dateDebut),
         dateFin: new Date(dateFin),
-        isCurrent: body.definirCourante ?? false,
+        isCurrent: definirCourante ?? false,
       },
     });
 
-    if (body.definirCourante) {
+    if (definirCourante) {
       await definirAnneeCourante(annee.id, tenantId);
     }
 
     return Response.json(annee, { status: 201 });
   }
 
-  if (body.action === "definirCourante") {
-    const { anneeId } = body;
-    if (!anneeId) return erreurJson("DONNEES_INVALIDES");
-
-    const annee = await definirAnneeCourante(anneeId, tenantId);
-    return Response.json(annee);
-  }
-
-  return erreurJson("DONNEES_INVALIDES");
+  const { anneeId } = body;
+  const annee = await definirAnneeCourante(anneeId, tenantId);
+  return Response.json(annee);
 }

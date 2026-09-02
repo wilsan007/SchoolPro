@@ -12,6 +12,11 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/audit", () => ({ auditFire: vi.fn() }));
 
+vi.mock("@/lib/security/rateLimit", () => ({
+  rateLimit: vi.fn(() => ({ allowed: true, remaining: 9 })),
+  getClientIP: vi.fn(() => "127.0.0.1"),
+}));
+
 vi.mock("@/lib/erreurs-api", () => ({
   erreurJson: vi.fn((code: string) => {
     const status = code === "NON_AUTORISE" ? 401 : code === "UTILISATEUR_INTROUVABLE" ? 404 : 400;
@@ -69,8 +74,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue(SESSION);
   mockValiderMotDePasse.mockReturnValue(null); // password valide par défaut
-  mockBcrypt.compare.mockImplementation(async (_plain: string, hash: string) =>
-    hash === HASHED_OLD
+  // compare(plain, hash) : retourne true seulement si plain = "OldPass1!" et hash = HASHED_OLD
+  mockBcrypt.compare.mockImplementation(async (plain: string, hash: string) =>
+    hash === HASHED_OLD && plain === "OldPass1!"
   );
   mockBcrypt.hash.mockResolvedValue(HASHED_NEW);
   mockPrisma.user.findUnique.mockResolvedValue({

@@ -271,10 +271,13 @@ export async function resolveCreneauProposal(
   }
   const args = { ...rawArgs, heureDebut, heureFin };
 
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  if (!annee) return { ok: false, message: "Aucune année scolaire active pour ce tenant" };
+
   // Recherche floue en mémoire (plutôt qu'un simple ILIKE en base) : le modèle
   // écrit souvent des abréviations sans accent ("maths", "1ere L") qui ne sont
   // pas des sous-chaînes littérales du nom réel ("Mathématiques", "1ère L").
-  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, annee, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) {
     return { ok: false, message: `Aucune classe ne correspond à "${args.classeNom}".` };
@@ -323,9 +326,6 @@ export async function resolveCreneauProposal(
     }
     enseignant = enseignants[0];
   }
-
-  const annee = await getAnneeCouranteLibelle(tenantId);
-  if (!annee) return { ok: false, message: "Aucune année scolaire active pour ce tenant" };
 
   const overlapConditions = {
     OR: [
@@ -400,7 +400,10 @@ export async function listCreneaux(
   args: z.infer<typeof ListerArgsSchema>,
   siteClaims?: SessionSiteClaims
 ): Promise<ListerResult> {
-  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  if (!annee) return { ok: false, message: "Aucune année scolaire active pour ce tenant" };
+
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, annee, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) {
     return { ok: false, message: `Aucune classe ne correspond à "${args.classeNom}".` };
@@ -412,9 +415,6 @@ export async function listCreneaux(
     };
   }
   const classe = classes[0];
-
-  const annee = await getAnneeCouranteLibelle(tenantId);
-  if (!annee) return { ok: false, message: "Aucune année scolaire active pour ce tenant" };
 
   const emplois = await prisma.emploiTemps.findMany({
     where: { tenantId, ...siteFilterForModel("emploiTemps", siteClaims ?? {}), classeId: classe.id, annee, ...(args.jour ? { jour: args.jour } : {}) },
@@ -447,8 +447,9 @@ export async function listCreneaux(
 }
 
 export async function listClasses(tenantId: string, args: z.infer<typeof ListerClassesArgsSchema>, siteClaims?: SessionSiteClaims) {
+  const annee = await getAnneeCouranteLibelle(tenantId);
   const allClasses = await prisma.classe.findMany({
-    where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) },
+    where: { tenantId, ...(annee ? { annee } : {}), ...siteFilterForModel("classe", siteClaims ?? {}) },
     select: { nom: true, niveau: true, effectifMax: true },
     orderBy: { nom: "asc" },
   });
@@ -493,7 +494,8 @@ export async function listSalles(tenantId: string, siteClaims?: SessionSiteClaim
 }
 
 export async function suggererCreneaux(tenantId: string, args: z.infer<typeof SuggererArgsSchema>, siteClaims?: SessionSiteClaims) {
-  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...(annee ? { annee } : {}), ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) return { ok: false as const, message: `Aucune classe ne correspond à "${args.classeNom}".` };
   if (classes.length > 1) {
@@ -550,7 +552,8 @@ export async function suggererCreneaux(tenantId: string, args: z.infer<typeof Su
 }
 
 export async function resolveRestructuration(tenantId: string, args: z.infer<typeof RestructurerArgsSchema>, siteClaims?: SessionSiteClaims) {
-  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  const allClasses = await prisma.classe.findMany({ where: { tenantId, ...(annee ? { annee } : {}), ...siteFilterForModel("classe", siteClaims ?? {}) }, select: { id: true, nom: true } });
   const classes = fuzzyFind(allClasses, args.classeNom);
   if (classes.length === 0) return { ok: false as const, message: `Aucune classe ne correspond à "${args.classeNom}".` };
   if (classes.length > 1) {

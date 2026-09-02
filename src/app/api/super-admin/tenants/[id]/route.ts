@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
-import { auth } from "@/lib/auth";
+import { authorizeSuperAdmin } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import type { Session } from "next-auth";
 
-function requireSuperAdmin(session: Session | null) {
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
-    throw new Error("FORBIDDEN");
-  }
-}
+const ParamsSchema = z.object({
+  id: z.string().min(1),
+});
 
 const UpdateSchema = z.object({
   status: z.enum(["TRIAL", "ACTIVE", "SUSPENDED", "CANCELLED"]).optional(),
@@ -22,14 +19,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  try { requireSuperAdmin(session); } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-  }
-
-  const { id } = await params;
+  const gate = await authorizeSuperAdmin();
+  if (!gate.ok) return gate.response;
 
   try {
+    const { id } = ParamsSchema.parse(await params);
     const json = await request.json();
     const data = UpdateSchema.parse(json);
 
@@ -57,12 +51,14 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  try { requireSuperAdmin(session); } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-  }
+  const gate = await authorizeSuperAdmin();
+  if (!gate.ok) return gate.response;
 
-  const { id } = await params;
+  const parsed = ParamsSchema.safeParse(await params);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
+  }
+  const { id } = parsed.data;
 
   // Suppression en cascade (onDelete: Cascade sur tous les modèles enfants)
   await prisma.tenant.delete({ where: { id } });

@@ -23,6 +23,7 @@ import { createHash } from "crypto";
 import prisma from "@/lib/prisma";
 import { fuzzyFind } from "@/lib/text-match";
 import { infererColonnes, valeurChamp, type MappingColonnes } from "@/lib/column-inference";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 export type TypeImport = "eleves" | "enseignants" | "classes" | "matieres" | "parents" | "edt-externes" | "personnel-admin";
 
@@ -248,6 +249,7 @@ export async function analyserClasses(
   const hs = headers ?? Object.keys(rows[0] ?? {});
 
   const lignes: LigneImport<DonneesClasse>[] = [];
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -266,7 +268,7 @@ export async function analyserClasses(
 
     // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId
     const existe = !!(await prisma.classe.findFirst({
-      where: { nom, tenantId },
+      where: { nom, tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
     }));
 
     lignes.push({

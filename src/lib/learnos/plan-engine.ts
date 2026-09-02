@@ -53,6 +53,7 @@ import { Prisma, type StatutPlan } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { resoudreSeuils } from "@/lib/learnos/recommendation-engine";
 import { SEUILS_MAITRISE } from "@/lib/learnos/learning-twin";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /** Délai par défaut avant le point d'étape, en jours. */
 const DELAI_REVUE_JOURS = 30;
@@ -112,9 +113,11 @@ export async function evaluerBesoinDePlans(
 ): Promise<ResultatEvaluation> {
   const resultat: ResultatEvaluation = { proposes: [], ajustes: [], plafondAtteint: false };
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const recommandations = (await prisma.recommandation.findMany({
-    where: { tenantId, eleveId, resolueLe: null, statut: { not: "ECARTEE" } },
+    where: { tenantId, eleveId, resolueLe: null, statut: { not: "ECARTEE" }, ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}) },
     select: {
       competenceId: true,
       niveau: true,

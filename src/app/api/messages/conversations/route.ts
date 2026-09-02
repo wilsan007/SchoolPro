@@ -252,12 +252,12 @@ export async function POST(req: NextRequest) {
       // de site de l'émetteur. Le contrôle de site manquait : un personnel du
       // site A pouvait ouvrir une conversation sur une classe du site B en
       // connaissant son identifiant.
-      const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId, ...siteFilterForModel("classe", actor) } });
+      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+      const classe = await prisma.classe.findFirst({ where: { id: classeId, tenantId, ...siteFilterForModel("classe", actor), ...(anneeCourante ? { annee: anneeCourante } : {}) } });
       if (!classe) {
         return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
       }
       if (isTeacherRole(session.user.role as Role)) {
-        const anneeCourante = await getAnneeCouranteLibelle(tenantId);
         const scope = await getTeacherScope(tenantId, userId, session.user.role as Role, anneeCourante);
         if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
           return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });

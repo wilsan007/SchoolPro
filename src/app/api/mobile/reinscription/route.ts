@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { eleveScopeFilter } from "@/lib/site-filter";
+
+const QuerySchema = z.object({
+  annee: z.string().optional(),
+});
+
+const PostSchema = z.object({
+  invitationId: z.string().min(1),
+  confirme: z.boolean(),
+});
 
 /**
  * Campagnes de réinscription et invitations accessibles depuis l'app mobile.
@@ -20,6 +30,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const parsed = QuerySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });
+  }
+  const { annee } = parsed.data;
+
   // Parent/Élève : voir ses invitations
   if (user.role === "PARENT" || user.role === "STUDENT") {
     const scopeFilter = eleveScopeFilter(user, "eleve");
@@ -28,7 +45,10 @@ export async function GET(req: NextRequest) {
       where: {
         tenantId: user.tenantId,
         ...scopeFilter,
-        campagne: { statut: { in: ["EN_COURS", "PROMOTION", "REINSCRIPTIONS"] } },
+        campagne: {
+          statut: { in: ["EN_COURS", "PROMOTION", "REINSCRIPTIONS"] },
+          ...(annee ? { anneeCible: annee } : {}),
+        },
       },
       select: {
         id: true,
@@ -67,6 +87,7 @@ export async function GET(req: NextRequest) {
     where: {
       tenantId: user.tenantId,
       statut: { in: ["EN_COURS", "PROMOTION", "REINSCRIPTIONS"] },
+      ...(annee ? { anneeCible: annee } : {}),
     },
     orderBy: { dateDebut: "desc" },
     select: {
@@ -121,14 +142,16 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
-  if (!body?.invitationId || typeof body.confirme !== "boolean") {
-    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
+  const parsed = PostSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });
   }
+  const { invitationId, confirme } = parsed.data;
 
   // Vérifier que l'invitation appartient au scope de l'utilisateur
   const scopeFilter = eleveScopeFilter(user, "eleve");
   const invitation = await prisma.invitationReinscription.findFirst({
-    where: { id: body.invitationId, tenantId: user.tenantId, ...scopeFilter },
+    where: { id: invitationId, tenantId: user.tenantId, ...scopeFilter },
     include: { campagne: true },
   });
 
@@ -144,15 +167,15 @@ export async function POST(req: NextRequest) {
 
   await prisma.$transaction([
     prisma.invitationReinscription.update({
-      where: { id: body.invitationId, tenantId: user.tenantId },
+      where: { id: invitationId, tenantId: user.tenantId },
       data: {
-        statut: body.confirme ? "CONFIRME" : "REFUSE",
+        statut: confirme ? "CONFIRME" : "REFUSE",
         dateReponse: new Date(),
       },
     }),
     prisma.eleve.update({
       where: { id: invitation.eleveId, tenantId: user.tenantId },
-      data: { statut: body.confirme ? "REINSCRIT" : "NON_REINSCRIT" },
+      data: { statut: confirme ? "REINSCRIT" : "NON_REINSCRIT" },
     }),
   ]);
 
@@ -175,6 +198,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    statut: body.confirme ? "CONFIRME" : "REFUSE",
+    statut: confirme ? "CONFIRME" : "REFUSE",
   });
 }

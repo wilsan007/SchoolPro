@@ -32,9 +32,15 @@ export async function GET(
 
   const { id } = await params;
   const siteFilter = siteFilterForModel("tache", session.user);
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const tache = await prisma.tache.findFirst({
-    where: { id, tenantId: session.user.tenantId, ...siteFilter },
+    where: {
+      id,
+      tenantId: session.user.tenantId,
+      ...siteFilter,
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+    },
     include: {
       assigneeA: { select: { name: true, email: true } },
       creePar: { select: { name: true } },
@@ -93,7 +99,12 @@ export async function PATCH(
     }
 
     const existing = await prisma.tache.findFirst({
-      where: { id, tenantId: session.user.tenantId, ...siteFilter },
+      where: {
+        id,
+        tenantId: session.user.tenantId,
+        ...siteFilter,
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+      },
     });
     if (!existing) {
       return NextResponse.json({ error: "Tâche introuvable" }, { status: 404 });
@@ -175,9 +186,15 @@ export async function DELETE(
 
   const { id } = await params;
   const siteFilter = siteFilterForModel("tache", session.user);
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const existing = await prisma.tache.findFirst({
-    where: { id, tenantId: session.user.tenantId, ...siteFilter },
+    where: {
+      id,
+      tenantId: session.user.tenantId,
+      ...siteFilter,
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+    },
   });
   if (!existing) {
     return NextResponse.json({ error: "Tâche introuvable" }, { status: 404 });

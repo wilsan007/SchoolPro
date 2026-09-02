@@ -96,7 +96,7 @@ describe("rappelerEcheancesTaches — rappels J-3 et J-1", () => {
     const callJ1 = mockPrisma.notification.create.mock.calls.find(
       (c) => c[0].data.titre === "[J-1] Corriger le devoir"
     );
-    expect(callJ1[0].data.contenu).toContain("demain");
+    expect(callJ1?.[0]?.data?.contenu).toContain("demain");
   });
 
   it("est idempotent : ne renvoie pas un palier déjà notifié", async () => {

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
 import { exigencesAVenirPourEleve } from "@/lib/learnos/planification";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * Profil de compétences d'un élève (LEARNOS).
@@ -41,6 +42,8 @@ export async function GET(
   if (!eleve) {
     return erreurJson("ELEVE_INTROUVABLE");
   }
+
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   const [profils, recommandations] = await Promise.all([
     prisma.studentLearningProfile.findMany({
@@ -79,6 +82,7 @@ export async function GET(
         eleveId,
         resolueLe: null,
         ...siteFilterForModel("recommandation", session.user),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       },
       select: {
         id: true,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
+import prisma from "@/lib/prisma";
 import { erreurJson } from "@/lib/erreurs-api";
 
 /**
@@ -14,6 +14,10 @@ import { erreurJson } from "@/lib/erreurs-api";
  */
 
 const TYPES = ["VACANCE_SCOLAIRE", "EXAMEN", "JOUR_FERIE", "AUTRE"] as const;
+
+const QuerySchema = z.object({
+  anneeId: z.string().min(1),
+});
 
 const CreerSchema = z.object({
   anneeId: z.string().min(1),
@@ -27,8 +31,19 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const anneeId = req.nextUrl.searchParams.get("anneeId");
-  if (!anneeId) return erreurJson("DONNEES_INVALIDES");
+  const denied = checkPermission(session.user.role, "parametres:read");
+  if (denied) return denied;
+
+  const parsed = QuerySchema.safeParse(
+    Object.fromEntries(req.nextUrl.searchParams.entries())
+  );
+  if (!parsed.success) {
+    return erreurJson("DONNEES_INVALIDES", undefined, {
+      details: parsed.error.issues,
+    });
+  }
+
+  const { anneeId } = parsed.data;
 
   // Vérifier que l'année appartient au tenant de l'appelant.
   const annee = await prisma.anneesScolaires.findFirst({
@@ -48,7 +63,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "eleves:write");
+
+  const denied = checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
   const parsed = CreerSchema.safeParse(await req.json().catch(() => null));

@@ -8,6 +8,14 @@ import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
 import { anneeActiveId, getContexteAnnees } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
+import type { TypeFacture } from "@prisma/client";
+import {
+  canCreateFacture as canCreateFactureDomain,
+  batchValide,
+  cleUnicite,
+  TYPES_MENSUELS,
+  type FactureExistante,
+} from "@/lib/domain/facture-unicite";
 
 const FactureSchema = z.object({
   eleveId: z.string().min(1, "L'élève est requis"),
@@ -15,6 +23,8 @@ const FactureSchema = z.object({
   montant: z.number().min(0.01, "Le montant doit être positif"),
   devise: z.string().default("DJF"),
   echeance: z.string().optional(),
+  type: z.enum(["MENSUALITE", "INSCRIPTION", "RENOUVELLEMENT", "CANTINE", "TRANSPORT", "LIBRE"]).default("MENSUALITE"),
+  mois: z.string().optional(), // "YYYY-MM" pour les types mensuels
 });
 
 export type FactureFormData = z.infer<typeof FactureSchema>;
@@ -158,6 +168,25 @@ export async function createFacture(data: FactureFormData) {
   }
 
   const values = parsed.data;
+  const type = values.type as TypeFacture;
+  const mois = values.mois ?? null;
+
+  // Vérification d'unicité : récupère les factures existantes de l'élève
+  // (non annulées) et applique la règle du domaine.
+  const existantes = await getExistingFacturesForEleve(values.eleveId, session);
+  const check = canCreateFactureDomain(type, mois, existantes);
+  if (!check.autorise && check.factureExistante) {
+    const f = check.factureExistante;
+    if (check.raison === "deja_payee") {
+      throw new Error(
+        `Une facture ${type} existe déjà et est payée (n° ${f.numero}). Impossible de la régénérer.`,
+      );
+    }
+    throw new Error(
+      `Une facture ${type} existe déjà (n° ${f.numero}, statut ${f.statut}). Annulez-la d'abord si c'était une erreur.`,
+    );
+  }
+
   // Compteur de numérotation, volontairement tenant-wide (et non borné au site courant) :
   // "numero" ne porte aucune contrainte d'unicité en base et n'est jamais renvoyé à l'appelant
   // tel quel comme donnée d'un autre site — seul son prochain incrément l'est. Le scoper par
@@ -189,6 +218,8 @@ export async function createFacture(data: FactureFormData) {
       devise: values.devise || "DJF",
       statut: "EN_ATTENTE",
       echeance: values.echeance ? new Date(values.echeance) : null,
+      type,
+      mois: TYPES_MENSUELS.has(type) ? mois : null,
       createdById: session.user.id,
     },
   });
@@ -196,6 +227,180 @@ export async function createFacture(data: FactureFormData) {
   revalidatePath("/facturation");
   revalidateTag("dashboard-data");
   return { success: true, id: facture.id };
+}
+
+/**
+ * Récupère les factures existantes (non annulées) d'un élève pour
+ * verrouiller l'UI et vérifier l'unicité. Retourne les champs
+ * nécessaires au contrôle d'unicité du domaine.
+ */
+export async function getExistingFacturesForEleve(
+  eleveId: string,
+  session?: { user: { tenantId: string | null; role: string; siteId?: string | null } },
+): Promise<FactureExistante[]> {
+  const sess = session ?? (await auth());
+  if (!sess?.user?.tenantId) return [];
+  const tenantId = sess.user.tenantId;
+
+  const factures = await prisma.facture.findMany({
+    where: mergeFilters(
+      { tenantId, eleveId, statut: { not: "ANNULEE" } },
+      siteFilterForModel("facture", sess.user),
+    ),
+    select: { id: true, numero: true, type: true, statut: true, mois: true },
+  });
+  return factures.map((f) => ({
+    id: f.id,
+    numero: f.numero,
+    type: f.type,
+    statut: f.statut,
+    mois: f.mois,
+  }));
+}
+
+// ============================================================
+// CRÉATION MULTI-SERVICES (batch)
+// ============================================================
+
+/** Une facture candidate dans un batch multi-services. */
+export interface FactureBatchItem {
+  eleveId: string;
+  libelle: string;
+  montant: number;
+  devise?: string;
+  echeance?: string;
+  type: TypeFacture;
+  mois?: string | null;
+}
+
+/** Résultat de la création batch : { created, blocked }. */
+export interface FactureBatchResult {
+  created: { id: string; numero: string; type: TypeFacture; libelle: string }[];
+  blocked: { type: TypeFacture; mois: string | null; raison: string; numero?: string }[];
+}
+
+/**
+ * Crée plusieurs factures pour un même élève en une seule transaction.
+ *
+ * - Vérifie l'exclusivité mutuelle (INSCRIPTION + RENOUVELLEMENT interdits).
+ * - Vérifie chaque facture individuellement via canCreateFacture.
+ * - Les factures bloquées sont listées mais n'empêchent pas la création
+ *   des autres.
+ * - Numérotation séquentielle atomique dans une $transaction.
+ */
+export async function createFacturesCombinees(items: FactureBatchItem[]): Promise<FactureBatchResult> {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  const tenantId = session.user.tenantId;
+
+  if (items.length === 0) {
+    return { created: [], blocked: [] };
+  }
+
+  // Tous les items doivent concerner le même élève.
+  const eleveId = items[0].eleveId;
+  if (items.some((i) => i.eleveId !== eleveId)) {
+    throw new Error("Toutes les factures du batch doivent concerner le même élève");
+  }
+
+  // Vérifier l'exclusivité mutuelle (INSCRIPTION + RENOUVELLEMENT).
+  const types = items.map((i) => i.type);
+  if (!batchValide(types)) {
+    throw new Error(
+      "Exclusivité mutuelle : INSCRIPTION et RENOUVELLEMENT ne peuvent pas être facturés simultanément",
+    );
+  }
+
+  // Récupérer les factures existantes de l'élève pour vérifier l'unicité.
+  const existantes = await getExistingFacturesForEleve(eleveId, session);
+
+  // Dédoublonner le batch : pas deux fois le même (type, mois).
+  const vus = new Set<string>();
+  const uniques: FactureBatchItem[] = [];
+  const blocked: FactureBatchResult["blocked"] = [];
+
+  for (const item of items) {
+    const key = cleUnicite(item.type, item.mois ?? null);
+    if (vus.has(key)) {
+      blocked.push({
+        type: item.type,
+        mois: item.mois ?? null,
+        raison: "Doublon dans le batch (même type et mois)",
+      });
+      continue;
+    }
+    vus.add(key);
+    uniques.push(item);
+  }
+
+  // Vérifier chaque facture individuellement.
+  const toCreate: FactureBatchItem[] = [];
+  for (const item of uniques) {
+    const check = canCreateFactureDomain(item.type, item.mois ?? null, existantes);
+    if (!check.autorise && check.factureExistante) {
+      const f = check.factureExistante;
+      blocked.push({
+        type: item.type,
+        mois: item.mois ?? null,
+        raison:
+          check.raison === "deja_payee"
+            ? `Déjà payée (n° ${f.numero})`
+            : `Existe déjà (n° ${f.numero}, statut ${f.statut}). Annulez-la d'abord.`,
+        numero: f.numero,
+      });
+      continue;
+    }
+    toCreate.push(item);
+  }
+
+  if (toCreate.length === 0) {
+    return { created: [], blocked };
+  }
+
+  // Récupérer le siteId de l'élève et l'année active.
+  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- lookup to get siteId for creation
+  const eleve = await prisma.eleve.findUnique({
+    where: { id: eleveId },
+    select: { siteId: true },
+  });
+  const factureSiteId = eleve?.siteId ?? null;
+  const factureAnneeId = await anneeActiveId(tenantId);
+
+  // Compteur tenant-wide pour la numérotation séquentielle.
+  // eslint-disable-next-line ecolpro/require-site-filter
+  let count = await prisma.facture.count({ where: { tenantId } });
+
+  const created: FactureBatchResult["created"] = [];
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of toCreate) {
+      count++;
+      const numero = `FAC-${new Date().getFullYear()}-${String(count).padStart(5, "0")}`;
+      const f = await tx.facture.create({
+        data: {
+          tenantId,
+          siteId: factureSiteId,
+          eleveId,
+          anneeId: factureAnneeId,
+          numero,
+          libelle: item.libelle,
+          montant: item.montant,
+          devise: item.devise || "DJF",
+          statut: "EN_ATTENTE",
+          echeance: item.echeance ? new Date(item.echeance) : null,
+          type: item.type,
+          mois: TYPES_MENSUELS.has(item.type) ? (item.mois ?? null) : null,
+          createdById: session.user.id,
+        },
+      });
+      created.push({ id: f.id, numero: f.numero, type: f.type, libelle: f.libelle });
+    }
+  });
+
+  revalidatePath("/facturation");
+  revalidateTag("dashboard-data");
+  return { created, blocked };
 }
 
 export async function getFactureByNumero(numero: string) {

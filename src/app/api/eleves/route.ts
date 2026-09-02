@@ -150,8 +150,14 @@ export async function POST(req: NextRequest) {
     // une classe d'un autre site.
     let resolvedSiteId = siteIdForCreate(session.user);
     if (parsed.data.classeId) {
+      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
       const classe = await prisma.classe.findFirst({
-        where: { id: parsed.data.classeId, tenantId, ...siteFilter },
+        where: {
+          id: parsed.data.classeId,
+          tenantId,
+          ...siteFilter,
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
+        },
         select: { id: true, siteId: true },
       });
       if (!classe) {

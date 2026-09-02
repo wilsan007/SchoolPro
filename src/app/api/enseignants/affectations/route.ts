@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { auditFire } from "@/lib/audit";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * GET /api/enseignants/affectations
@@ -24,9 +25,13 @@ export async function GET() {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   const affectations = await prisma.affectationEnseignant.findMany({
-    where: { tenantId },
+    where: {
+      tenantId,
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+    },
     include: {
       enseignant: {
         select: {
@@ -76,6 +81,8 @@ export async function POST(req: NextRequest) {
 
   const { enseignantId, classeId, matiereId } = parsed.data;
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   // Vérifier que l'enseignant, la classe et la matière appartiennent au tenant.
   // Pas de filtre site ici : on valide l'appartenance tenant uniquement,
   // car l'affectation peut relier un enseignant multi-sites à une classe
@@ -88,7 +95,11 @@ export async function POST(req: NextRequest) {
     }),
     // eslint-disable-next-line ecolpro/require-site-filter -- validation tenant-only
     prisma.classe.findFirst({
-      where: { id: classeId, tenantId },
+      where: {
+        id: classeId,
+        tenantId,
+        ...(anneeCourante ? { annee: anneeCourante } : {}),
+      },
       select: { id: true },
     }),
     // eslint-disable-next-line ecolpro/require-site-filter -- validation tenant-only
@@ -161,6 +172,7 @@ export async function DELETE(req: NextRequest) {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -169,7 +181,11 @@ export async function DELETE(req: NextRequest) {
   }
 
   const existing = await prisma.affectationEnseignant.findFirst({
-    where: { id, tenantId },
+    where: {
+      id,
+      tenantId,
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+    },
   });
 
   if (!existing) {

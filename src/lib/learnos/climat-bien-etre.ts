@@ -287,11 +287,11 @@ function filtreSiteIdColumn(
  */
 async function borneAnneeCourante(
   tenantId: string
-): Promise<{ debut: Date; fin: Date } | null> {
+): Promise<{ debut: Date; fin: Date; libelle: string } | null> {
   const annee = await anneeActive(tenantId);
 
   if (!annee) return null;
-  return { debut: annee.dateDebut, fin: annee.dateFin };
+  return { debut: annee.dateDebut, fin: annee.dateFin, libelle: annee.libelle };
 }
 
 // ------------------------------------------------------------
@@ -372,6 +372,7 @@ export async function analyserCorrelationInfirmerie(
     where: {
       tenantId,
       eleveId: { in: ids },
+      ...(bornes ? { periode: { annee: { libelle: bornes.libelle } } } : {}),
       ...siteFilterForModel("bulletin", claims),
     },
     select: {

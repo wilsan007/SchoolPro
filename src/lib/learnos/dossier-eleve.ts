@@ -34,7 +34,7 @@ import {
   siteFilterForModel,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
-import { anneeActiveId } from "@/lib/annee-scolaire";
+import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /** Fenêtre d'observation de l'assiduité, en jours. */
 const FENETRE_ASSIDUITE_JOURS = 30;
@@ -161,10 +161,13 @@ export async function dossierEleve(
     pourResponsable?: string;
     avecFinance?: boolean;
     maintenant?: Date;
+    anneeCourante?: string | null;
   } = {}
 ): Promise<DossierEleve | null> {
-  const { pourResponsable, avecFinance = false, maintenant = new Date() } =
+  const { pourResponsable, avecFinance = false, maintenant = new Date(), anneeCourante } =
     options;
+
+  const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
 
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", claims) },
@@ -210,6 +213,7 @@ export async function dossierEleve(
         tenantId,
         eleveId,
         resolueLe: null,
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("recommandation", claims),
       },
       select: { competenceId: true, competencesBloquees: true },
@@ -255,6 +259,7 @@ export async function dossierEleve(
         eleveId,
         statut: "INJUSTIFIEE",
         date: { gte: depuis },
+        ...(annee ? { eleve: { classe: { annee: annee } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
     }),

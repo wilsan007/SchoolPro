@@ -10,6 +10,8 @@ import { SmartSuggestPanel } from "./SmartSuggestPanel";
 import { ImportEmploiModal } from "./ImportEmploiModal";
 import { useTranslations } from "next-intl";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { niveauToNumero } from "@/lib/domain/emploi-du-temps";
+import { getGridConfig, computeEndTime, getValidStartSlots, isFineGridType } from "@/lib/grid-config";
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -25,7 +27,7 @@ const ALL_SLOTS = [
 
 const SLOT_HEIGHT = 48;
 
-interface Classe { id: string; nom: string; niveau: string }
+interface Classe { id: string; nom: string; niveau: string; structureType?: string | null }
 interface Matiere { id: string; nom: string; code: string; couleur: string | null; coefficient: number }
 interface Enseignant { id: string; user: { name: string | null } }
 interface Salle { id: string; nom: string; capacite: number; type: string | null }
@@ -71,13 +73,57 @@ function parseGroupe(salle: string | null): { salleAffichee: string | null; grou
 
 function matiereColor(couleur: string | null): string {
   if (!couleur) return "bg-gray-100 border-gray-300 text-gray-800 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300";
+  // Palette étendue à 37 couleurs uniques. Chaque hex mappe vers une classe
+  // Tailwind complète (fond + bordure + texte, avec variantes dark mode).
+  // Familles : rouge, bleu, ambre, émeraude, violet, rose, teal, orange,
+  // indigo, lime, cyan, purple, yellow, slate, sky, green, fuchsia — chacune
+  // en plusieurs nuances pour garantir l'unicité visuelle.
   const colorMap: Record<string, string> = {
-    "#3b82f6": "bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300",
+    // Famille rouge / rose
     "#ef4444": "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300",
+    "#dc2626": "bg-red-200 border-red-400 text-red-900 dark:bg-red-900/40 dark:border-red-600 dark:text-red-200",
+    "#e11d48": "bg-rose-100 border-rose-300 text-rose-800 dark:bg-rose-900/30 dark:border-rose-700 dark:text-rose-300",
+    "#9f1239": "bg-rose-200 border-rose-400 text-rose-900 dark:bg-rose-900/40 dark:border-rose-600 dark:text-rose-200",
+    "#f43f5e": "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400",
+    // Famille bleu / sky / indigo
+    "#3b82f6": "bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300",
+    "#2563eb": "bg-blue-200 border-blue-400 text-blue-900 dark:bg-blue-900/40 dark:border-blue-600 dark:text-blue-200",
+    "#0ea5e9": "bg-sky-100 border-sky-300 text-sky-800 dark:bg-sky-900/30 dark:border-sky-700 dark:text-sky-300",
+    "#0284c7": "bg-sky-200 border-sky-400 text-sky-900 dark:bg-sky-900/40 dark:border-sky-600 dark:text-sky-200",
+    "#6366f1": "bg-indigo-100 border-indigo-300 text-indigo-800 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300",
+    "#4f46e5": "bg-indigo-200 border-indigo-400 text-indigo-900 dark:bg-indigo-900/40 dark:border-indigo-600 dark:text-indigo-200",
+    // Famille ambre / yellow / orange
     "#f59e0b": "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300",
-    "#8b5cf6": "bg-violet-100 border-violet-300 text-violet-800 dark:bg-violet-900/30 dark:border-violet-700 dark:text-violet-300",
-    "#10b981": "bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300",
+    "#d97706": "bg-amber-200 border-amber-400 text-amber-900 dark:bg-amber-900/40 dark:border-amber-600 dark:text-amber-200",
+    "#eab308": "bg-yellow-100 border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300",
+    "#ca8a04": "bg-yellow-200 border-yellow-400 text-yellow-900 dark:bg-yellow-900/40 dark:border-yellow-600 dark:text-yellow-200",
     "#f97316": "bg-orange-100 border-orange-300 text-orange-800 dark:bg-orange-900/30 dark:border-orange-700 dark:text-orange-300",
+    "#ea580c": "bg-orange-200 border-orange-400 text-orange-900 dark:bg-orange-900/40 dark:border-orange-600 dark:text-orange-200",
+    // Famille émeraude / green / lime / teal
+    "#10b981": "bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300",
+    "#059669": "bg-emerald-200 border-emerald-400 text-emerald-900 dark:bg-emerald-900/40 dark:border-emerald-600 dark:text-emerald-200",
+    "#22c55e": "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300",
+    "#16a34a": "bg-green-200 border-green-400 text-green-900 dark:bg-green-900/40 dark:border-green-600 dark:text-green-200",
+    "#84cc16": "bg-lime-100 border-lime-300 text-lime-800 dark:bg-lime-900/30 dark:border-lime-700 dark:text-lime-300",
+    "#65a30d": "bg-lime-200 border-lime-400 text-lime-900 dark:bg-lime-900/40 dark:border-lime-600 dark:text-lime-200",
+    "#14b8a6": "bg-teal-100 border-teal-300 text-teal-800 dark:bg-teal-900/30 dark:border-teal-700 dark:text-teal-300",
+    "#0d9488": "bg-teal-200 border-teal-400 text-teal-900 dark:bg-teal-900/40 dark:border-teal-600 dark:text-teal-200",
+    // Famille violet / purple / fuchsia
+    "#8b5cf6": "bg-violet-100 border-violet-300 text-violet-800 dark:bg-violet-900/30 dark:border-violet-700 dark:text-violet-300",
+    "#7c3aed": "bg-violet-200 border-violet-400 text-violet-900 dark:bg-violet-900/40 dark:border-violet-600 dark:text-violet-200",
+    "#a855f7": "bg-purple-100 border-purple-300 text-purple-800 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300",
+    "#9333ea": "bg-purple-200 border-purple-400 text-purple-900 dark:bg-purple-900/40 dark:border-purple-600 dark:text-purple-200",
+    "#d946ef": "bg-fuchsia-100 border-fuchsia-300 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:border-fuchsia-700 dark:text-fuchsia-300",
+    "#c026d3": "bg-fuchsia-200 border-fuchsia-400 text-fuchsia-900 dark:bg-fuchsia-900/40 dark:border-fuchsia-600 dark:text-fuchsia-200",
+    // Famille cyan
+    "#06b6d4": "bg-cyan-100 border-cyan-300 text-cyan-800 dark:bg-cyan-900/30 dark:border-cyan-700 dark:text-cyan-300",
+    "#0891b2": "bg-cyan-200 border-cyan-400 text-cyan-900 dark:bg-cyan-900/40 dark:border-cyan-600 dark:text-cyan-200",
+    // Famille slate / gray
+    "#64748b": "bg-slate-100 border-slate-300 text-slate-800 dark:bg-slate-900/30 dark:border-slate-700 dark:text-slate-300",
+    "#475569": "bg-slate-200 border-slate-400 text-slate-900 dark:bg-slate-900/40 dark:border-slate-600 dark:text-slate-200",
+    // Rose supplémentaire
+    "#ec4899": "bg-pink-100 border-pink-300 text-pink-800 dark:bg-pink-900/30 dark:border-pink-700 dark:text-pink-300",
+    "#db2777": "bg-pink-200 border-pink-400 text-pink-900 dark:bg-pink-900/40 dark:border-pink-600 dark:text-pink-200",
   };
   return colorMap[couleur] ?? "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300";
 }
@@ -94,6 +140,7 @@ function AddCreneauModal({
   emploisExistants,
   availableSlots,
   periodeId,
+  structureType,
   onClose,
   onAdded,
 }: {
@@ -108,19 +155,42 @@ function AddCreneauModal({
   emploisExistants: EmploiCreneau[];
   availableSlots: string[];
   periodeId?: string;
+  /** Type de structure pour la grille dynamique (fine 10min ou standard 30min). */
+  structureType?: string | null;
   onClose: () => void;
   onAdded: (c: EmploiCreneau) => void;
 }) {
   const t = useTranslations("emploi");
+  // Grille dynamique selon le type de structure
+  const gridConfig = getGridConfig(structureType);
+  const fineGrid = isFineGridType(structureType);
+  const slots = gridConfig.slots;
   const [form, setForm] = useState({
     classeId,
     matiereId: matieres[0]?.id ?? "",
     enseignantId: "",
     jour: "DIMANCHE" as Jour,
-    heureDebut: availableSlots[0] ?? "07:30",
-    heureFin: availableSlots[1] ?? "08:00",
+    heureDebut: slots[0] ?? "07:00",
+    heureFin: computeEndTime(slots[0] ?? "07:00", fineGrid ? 30 : 60),
     salle: "",
   });
+  // Durée sélectionnée pour la grille fine (en minutes)
+  const [duree, setDuree] = useState(fineGrid ? 30 : 60);
+
+  // Quick-pick pour la grille fine
+  const QUICK_PICKS = [30, 40, 50, 60];
+
+  // Slots de début valides pour la durée sélectionnée
+  const validStartSlots = getValidStartSlots(slots, duree);
+
+  // Met à jour l'heure de fin quand la durée ou l'heure de début change
+  function updateHeureDebut(debut: string) {
+    setForm((prev) => ({ ...prev, heureDebut: debut, heureFin: computeEndTime(debut, duree) }));
+  }
+  function updateDuree(d: number) {
+    setDuree(d);
+    setForm((prev) => ({ ...prev, heureFin: computeEndTime(prev.heureDebut, d) }));
+  }
   const [isPending, startTransition] = useTransition();
 
   // Filter enseignants: only those who already teach the selected matiere
@@ -250,22 +320,66 @@ function AddCreneauModal({
               <select
                 required
                 value={form.heureDebut}
-                onChange={(e) => setForm({ ...form, heureDebut: e.target.value })}
+                onChange={(e) => updateHeureDebut(e.target.value)}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {availableSlots.slice(0, -1).map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                {validStartSlots.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
               </select>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("endLabel")}</label>
-              <select
-                required
-                value={form.heureFin}
-                onChange={(e) => setForm({ ...form, heureFin: e.target.value })}
-                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                {availableSlots.slice(1).map((slot) => <option key={slot} value={slot}>{slot}</option>)}
-              </select>
+              {fineGrid ? (
+                // Sélecteur de durée pour la grille fine (boutons +/- et quick-pick)
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const idx = gridConfig.durations.indexOf(duree);
+                        if (idx > 0) updateDuree(gridConfig.durations[idx - 1]);
+                      }}
+                      className="px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-sm"
+                    >−</button>
+                    <span className="text-sm font-medium min-w-[60px] text-center">{duree} min</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const idx = gridConfig.durations.indexOf(duree);
+                        if (idx >= 0 && idx < gridConfig.durations.length - 1) updateDuree(gridConfig.durations[idx + 1]);
+                      }}
+                      className="px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-sm"
+                    >+</button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {QUICK_PICKS.filter((q) => gridConfig.durations.includes(q)).map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => updateDuree(q)}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-xs border",
+                          duree === q
+                            ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400",
+                        )}
+                      >
+                        {q}min
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">Fin : {form.heureFin}</p>
+                </div>
+              ) : (
+                // Sélecteur classique début/fin pour la grille standard
+                <select
+                  required
+                  value={form.heureFin}
+                  onChange={(e) => setForm({ ...form, heureFin: e.target.value })}
+                  className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {slots.slice(1).map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                </select>
+              )}
             </div>
           </div>
           {/* Avertissement disponibilité enseignant */}
@@ -544,9 +658,16 @@ export function EmploiDuTempsView({
   // partagent exactement le même horaire (sessions dédoublées en groupes
   // A/B) sont regroupés et affichés côte à côte plutôt que superposés — sans
   // ça, un seul des deux groupes était visible/cliquable.
+  //
+  // FUSION DES CRÉNEAUX ADJACENTS : les créneaux qui se suivent dans le temps
+  // (même jour, même matière, même prof, même salle, heure de fin du précédent
+  // = heure de début du suivant) sont fusionnés en un seul bloc visuel.
+  // Les sessions dédoublées en groupes A/B (même horaire, prof/salle différents)
+  // restent affichées côte à côte, pas superposées.
   function renderCreneauxForDay(jour: Jour) {
     const jourCreneaux = classeEmplois.filter((c) => c.jour === jour);
 
+    // 1. Grouper par horaire exact (pour les groupes A/B)
     const parHoraire = new Map<string, EmploiCreneau[]>();
     for (const c of jourCreneaux) {
       const key = `${c.heureDebut}-${c.heureFin}`;
@@ -554,85 +675,197 @@ export function EmploiDuTempsView({
       parHoraire.get(key)!.push(c);
     }
 
-    return [...parHoraire.values()].map((group) => {
-      const startIdx = slotIndexIn(group[0].heureDebut, ALL_SLOTS);
-      const endIdx = slotIndexIn(group[0].heureFin, ALL_SLOTS);
+    // 2. Trier les groupes par heure de début
+    const sortedGroups = [...parHoraire.values()].sort((a, b) =>
+      a[0].heureDebut.localeCompare(b[0].heureDebut),
+    );
+
+    // 3. Fusionner les groupes adjacents (un seul créneau par groupe,
+    //    pas de A/B, même matière/prof/salle, adjacence exacte)
+    interface BlocFusionne {
+      groups: EmploiCreneau[][];
+      heureDebut: string;
+      heureFin: string;
+    }
+    const blocs: BlocFusionne[] = [];
+    for (const group of sortedGroups) {
+      const prev = blocs[blocs.length - 1];
+      const prevGroup = prev?.groups[prev.groups.length - 1] ?? null;
+      // Fusion possible seulement si :
+      // - le bloc précédent a un seul groupe d'un seul créneau (pas de A/B)
+      // - le groupe courant a un seul créneau (pas de A/B)
+      // - adjacence exacte + même matière + même prof + même salle
+      const canFuse =
+        prev &&
+        prev.groups.length === 1 &&
+        prevGroup!.length === 1 &&
+        group.length === 1 &&
+        prev.heureFin === group[0].heureDebut &&
+        prevGroup![0].matiere.nom === group[0].matiere.nom &&
+        (prevGroup![0].enseignant?.user.name ?? null) === (group[0].enseignant?.user.name ?? null) &&
+        (prevGroup![0].salle ?? null) === (group[0].salle ?? null);
+
+      if (canFuse) {
+        // Fusion : étendre le bloc précédent
+        prev.groups.push(group);
+        prev.heureFin = group[0].heureFin;
+      } else {
+        blocs.push({ groups: [group], heureDebut: group[0].heureDebut, heureFin: group[0].heureFin });
+      }
+    }
+
+    // 4. Rendre chaque bloc fusionné
+    return blocs.map((bloc, blocIdx) => {
+      const startIdx = slotIndexIn(bloc.heureDebut, ALL_SLOTS);
+      const endIdx = slotIndexIn(bloc.heureFin, ALL_SLOTS);
       if (startIdx < 0 || endIdx < 0) return null;
 
       const top = startIdx * SLOT_HEIGHT;
       const height = (endIdx - startIdx) * SLOT_HEIGHT;
 
+      // Pour un bloc fusionné, on affiche une seule carte visuelle.
+      // Pour un bloc non fusionné (un seul groupe), on affiche les groupes A/B côte à côte.
+      const isFused = bloc.groups.length > 1;
+      const allCreneaux = bloc.groups.flat();
+
       return (
         <div
-          key={`${jour}-${group[0].heureDebut}-${group[0].heureFin}`}
+          key={`${jour}-${bloc.heureDebut}-${bloc.heureFin}-${blocIdx}`}
           className="absolute left-1 right-1 flex gap-1 pointer-events-none"
           style={{ top: top + 2, height: height - 4 }}
         >
-          {group.map((creneau) => {
-            const { salleAffichee, groupe } = parseGroupe(creneau.salle);
-            return (
-              <div
-                key={creneau.id}
-                draggable={!readOnly}
-                onDragStart={(e) => {
-                  if (readOnly) { e.preventDefault(); return; }
-                  console.log('[drag-drop] dragStart on creneau', creneau.id, creneau.matiere.code);
-                  setDraggedId(creneau.id);
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", creneau.id);
-                }}
-                onDragEnd={() => {
-                  setDraggedId(null);
-                  setDragOverSlot(null);
-                }}
-                className={cn(
-                  "relative flex-1 min-w-0 rounded-lg border overflow-hidden group transition-all",
-                  matiereColor(creneau.matiere.couleur),
-                  !readOnly && "cursor-grab active:cursor-grabbing",
-                  draggedId === creneau.id && "opacity-50 ring-2 ring-green-500",
-                  // When dragging, disable pointer-events on all cards so drop events
-                  // reach the grid cells underneath. The dragged card keeps pointer-events
-                  // so the dragstart/dragend still work.
-                  draggedId && draggedId !== creneau.id ? "pointer-events-none" : "pointer-events-auto"
-                )}
-              >
-                <div className="p-1.5 h-full flex flex-col justify-between">
-                  <div className="flex items-start gap-1">
-                    <GripVertical className="w-3 h-3 opacity-40 flex-shrink-0 mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold leading-tight truncate">
-                        {creneau.matiere.code}
-                        {groupe && <span className="ml-1 opacity-70">· Gr.{groupe}</span>}
-                      </p>
-                      {height >= 80 && (
-                        <p className="text-xs opacity-80 truncate leading-tight mt-0.5">
+          {isFused ? (
+            // Bloc fusionné : une seule carte visuelle pour tout le bloc
+            (() => {
+              const creneau = allCreneaux[0];
+              const { salleAffichee, groupe } = parseGroupe(creneau.salle);
+              return (
+                <div
+                  key={creneau.id}
+                  draggable={!readOnly}
+                  onDragStart={(e) => {
+                    if (readOnly) { e.preventDefault(); return; }
+                    setDraggedId(creneau.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", creneau.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedId(null);
+                    setDragOverSlot(null);
+                  }}
+                  className={cn(
+                    "relative flex-1 min-w-0 rounded-lg border overflow-hidden group transition-all",
+                    matiereColor(creneau.matiere.couleur),
+                    !readOnly && "cursor-grab active:cursor-grabbing",
+                    draggedId === creneau.id && "opacity-50 ring-2 ring-green-500",
+                    draggedId && draggedId !== creneau.id ? "pointer-events-none" : "pointer-events-auto",
+                  )}
+                >
+                  <div className="p-1.5 h-full flex flex-col justify-between">
+                    <div className="flex items-start gap-1">
+                      <GripVertical className="w-3 h-3 opacity-40 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold leading-tight truncate uppercase">
                           {creneau.matiere.nom}
+                          {groupe && <span className="ml-1 opacity-70">· Gr.{groupe}</span>}
                         </p>
+                        {height >= 48 && (
+                          <p className="text-[10px] opacity-60 truncate leading-tight mt-0.5 uppercase">
+                            {creneau.matiere.code}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs opacity-70 leading-tight">
+                      {height >= 64 && creneau.enseignant && (
+                        <p className="truncate">{creneau.enseignant.user.name}</p>
                       )}
+                      {height >= 48 && salleAffichee && (
+                        <p className="truncate">{salleAffichee}</p>
+                      )}
+                      <p>{bloc.heureDebut}→{bloc.heureFin}</p>
                     </div>
                   </div>
-                  <div className="text-xs opacity-70 leading-tight">
-                    {height >= 64 && creneau.enseignant && (
-                      <p className="truncate">{creneau.enseignant.user.name}</p>
-                    )}
-                    {height >= 48 && salleAffichee && (
-                      <p className="truncate">{salleAffichee}</p>
-                    )}
-                    <p>{creneau.heureDebut}→{creneau.heureFin}</p>
-                  </div>
+                  {!readOnly && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Supprimer tous les créneaux du bloc fusionné
+                        allCreneaux.forEach((c) => deleteCreneau(c.id));
+                      }}
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
+                      title={t("deleteTitle")}
+                    >
+                      <Trash2 className="w-3 h-3 text-red-500" />
+                    </button>
+                  )}
                 </div>
-                {!readOnly && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
-                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
-                    title={t("deleteTitle")}
-                  >
-                    <Trash2 className="w-3 h-3 text-red-500" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
+              );
+            })()
+          ) : (
+            // Bloc non fusionné : groupes A/B côte à côte (comportement existant)
+            bloc.groups[0].map((creneau) => {
+              const { salleAffichee, groupe } = parseGroupe(creneau.salle);
+              return (
+                <div
+                  key={creneau.id}
+                  draggable={!readOnly}
+                  onDragStart={(e) => {
+                    if (readOnly) { e.preventDefault(); return; }
+                    setDraggedId(creneau.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", creneau.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedId(null);
+                    setDragOverSlot(null);
+                  }}
+                  className={cn(
+                    "relative flex-1 min-w-0 rounded-lg border overflow-hidden group transition-all",
+                    matiereColor(creneau.matiere.couleur),
+                    !readOnly && "cursor-grab active:cursor-grabbing",
+                    draggedId === creneau.id && "opacity-50 ring-2 ring-green-500",
+                    draggedId && draggedId !== creneau.id ? "pointer-events-none" : "pointer-events-auto"
+                  )}
+                >
+                  <div className="p-1.5 h-full flex flex-col justify-between">
+                    <div className="flex items-start gap-1">
+                      <GripVertical className="w-3 h-3 opacity-40 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold leading-tight truncate uppercase">
+                          {creneau.matiere.nom}
+                          {groupe && <span className="ml-1 opacity-70">· Gr.{groupe}</span>}
+                        </p>
+                        {height >= 48 && (
+                          <p className="text-[10px] opacity-60 truncate leading-tight mt-0.5 uppercase">
+                            {creneau.matiere.code}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs opacity-70 leading-tight">
+                      {height >= 64 && creneau.enseignant && (
+                        <p className="truncate">{creneau.enseignant.user.name}</p>
+                      )}
+                      {height >= 48 && salleAffichee && (
+                        <p className="truncate">{salleAffichee}</p>
+                      )}
+                      <p>{creneau.heureDebut}→{creneau.heureFin}</p>
+                    </div>
+                  </div>
+                  {!readOnly && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteCreneau(creneau.id); }}
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-0.5 shadow"
+                      title={t("deleteTitle")}
+                    >
+                      <Trash2 className="w-3 h-3 text-red-500" />
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       );
     });
@@ -905,6 +1138,7 @@ export function EmploiDuTempsView({
           emploisExistants={emplois}
           availableSlots={availableSlotsForAdd}
           periodeId={selectedPeriodeId}
+          structureType={selectedClasse.structureType}
           onClose={() => setShowAdd(false)}
           onAdded={addCreneau}
         />

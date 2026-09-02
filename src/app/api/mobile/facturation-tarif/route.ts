@@ -28,11 +28,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "classeId requis" }, { status: 400 });
   }
 
+  const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
+
   const classe = await prisma.classe.findFirst({
     where: {
       id: classeId,
       tenantId: user.tenantId,
       ...siteFilterForModel("classe", user),
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
     },
     select: { id: true, nom: true, niveau: true, siteId: true },
   });
@@ -40,8 +43,6 @@ export async function GET(req: NextRequest) {
   if (!classe) {
     return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
   }
-
-  const anneeCourante = await getAnneeCouranteLibelle(user.tenantId);
 
   const tarif = await prisma.tarifNiveau.findFirst({
     where: {

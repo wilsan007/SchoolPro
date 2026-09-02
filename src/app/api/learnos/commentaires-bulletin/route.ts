@@ -5,6 +5,7 @@ import { erreurJson } from "@/lib/erreurs-api";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 import { proposerCommentaires } from "@/lib/learnos/commentaires-bulletin";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
  * POST /api/learnos/commentaires-bulletin
@@ -33,6 +34,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+  const filtreAnneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
+  const filtreAnneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
+
   // Charger les données agrégées de l'élève.
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId, deletedAt: null, ...siteFilterForModel("eleve", session.user) },
@@ -57,6 +62,7 @@ export async function POST(req: NextRequest) {
       matiereId,
       periodeId,
       ...siteFilterForRelation(session.user, "classe"),
+      ...filtreAnneeClasse,
     },
     select: { valeur: true, noteMax: true, date: true },
     orderBy: { date: "asc" },
@@ -70,6 +76,7 @@ export async function POST(req: NextRequest) {
       periodeId,
       classeId: eleve.classe?.id,
       ...siteFilterForRelation(session.user, "classe"),
+      ...filtreAnneeClasse,
     },
     select: { valeur: true, noteMax: true, eleveId: true },
   });
@@ -102,7 +109,7 @@ export async function POST(req: NextRequest) {
 
   // Moyenne générale.
   const toutesNotes = await prisma.note.findMany({
-    where: { tenantId, eleveId, periodeId, ...siteFilterForRelation(session.user, "classe") },
+    where: { tenantId, eleveId, periodeId, ...siteFilterForRelation(session.user, "classe"), ...filtreAnneeClasse },
     select: { valeur: true, noteMax: true },
   });
   const moyenneGenerale = toutesNotes.length > 0
@@ -115,6 +122,7 @@ export async function POST(req: NextRequest) {
       tenantId,
       eleveId,
       ...siteFilterForModel("absence", session.user),
+      ...filtreAnneeEleve,
     },
   });
 
@@ -143,6 +151,7 @@ export async function POST(req: NextRequest) {
         matiereId,
         periodeId: periodePrecedente.id,
         ...siteFilterForRelation(session.user, "classe"),
+        ...filtreAnneeClasse,
       },
       select: { valeur: true, noteMax: true },
     });

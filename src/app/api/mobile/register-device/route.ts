@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
   if (!user.id) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
+  if (!user.tenantId) {
+    return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
+  }
 
   const parsed = RegisterSchema.safeParse(await req.json());
   if (!parsed.success) {

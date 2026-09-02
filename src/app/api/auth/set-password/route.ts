@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { auditFire } from "@/lib/audit";
 import { erreurJson } from "@/lib/erreurs-api";
+import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { validerMotDePasse } from "@/lib/password-validation";
 
 const BodySchema = z.object({
@@ -15,6 +16,20 @@ const BodySchema = z.object({
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return erreurJson("NON_AUTORISE");
+
+  // ─── Rate limiting : 10 requêtes / 15 min / utilisateur ─────────────────
+  const ip = getClientIP(request);
+  const rl = rateLimit({
+    max: 10,
+    windowSec: 900,
+    key: `set-password:${session.user.id}:${ip}`,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": "900" } }
+    );
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = BodySchema.safeParse(body);

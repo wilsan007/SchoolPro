@@ -65,7 +65,8 @@ function echeanceDepuisRetard(jours: number): Date {
  */
 async function syncLot(
   tenantId: string,
-  sources: SourceTache[]
+  sources: SourceTache[],
+  anneeLibelle: string | null
 ): Promise<{ created: number; closed: number }> {
   let created = 0;
   let closed = 0;
@@ -77,6 +78,7 @@ async function syncLot(
         tenantId,
         sourceType: { not: null },
         statut: { in: ["A_FAIRE", "EN_COURS"] },
+        ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
       },
       select: { id: true, sourceType: true, sourceId: true, statut: true },
     });
@@ -85,6 +87,7 @@ async function syncLot(
         where: {
           tenantId,
           id: { in: existantes.map((t) => t.id) },
+          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
         },
         data: {
           statut: "FAIT",
@@ -106,6 +109,7 @@ async function syncLot(
       sourceType: { in: sourceTypes },
       sourceId: { in: sourceIds },
       statut: { in: ["A_FAIRE", "EN_COURS"] },
+      ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
     },
     select: { id: true, sourceType: true, sourceId: true, statut: true },
   });
@@ -161,6 +165,7 @@ async function syncLot(
       where: {
         tenantId,
         id: { in: aFermer.map((t) => t.id) },
+        ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
       },
       data: {
         statut: "FAIT",
@@ -211,7 +216,7 @@ async function scannerEvaluationsSansNotes(
   // Résoudre les enseignants via AffectationEnseignant (source principale).
   const keys = evaluations.map((e) => `${e.classeId}|${e.matiereId}`);
   const affectations = await prisma.affectationEnseignant.findMany({
-    where: { tenantId },
+    where: { tenantId, ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}) },
     select: {
       classeId: true,
       matiereId: true,
@@ -232,7 +237,7 @@ async function scannerEvaluationsSansNotes(
   const missingKeys = keys.filter((k) => !enseignantMap.has(k));
   if (missingKeys.length > 0) {
     const emplois = await prisma.emploiTemps.findMany({
-      where: { tenantId, ...siteFilterForModel("emploiTemps", claims) },
+      where: { tenantId, ...(anneeLibelle ? { annee: anneeLibelle } : {}), ...siteFilterForModel("emploiTemps", claims) },
       select: {
         classeId: true,
         matiereId: true,
@@ -707,7 +712,7 @@ export async function synchroniserTachesAuto(
   const toutesSources = [...batch1.flat(), ...batch2.flat(), ...batch3.flat()];
 
   // Synchroniser en un seul appel (le moteur gère l'idempotence).
-  const result = await syncLot(tenantId, toutesSources);
+  const result = await syncLot(tenantId, toutesSources, anneeLibelle);
 
   return {
     created: result.created,
@@ -749,12 +754,14 @@ export async function getTachesUtilisateur(
   }>;
 }> {
   const limit = options?.limit ?? 200;
+  const anneeLibelle = await getAnneeCouranteLibelle(tenantId);
 
   const taches = await prisma.tache.findMany({
     where: {
       tenantId,
       assigneeAId: userId,
       ...(options?.statut ? { statut: options.statut as any } : {}),
+      ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
       ...siteFilterForModel("tache", claims),
     },
     include: {

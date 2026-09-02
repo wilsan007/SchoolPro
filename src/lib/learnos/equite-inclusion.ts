@@ -33,6 +33,7 @@ import {
   resolveSiteScope,
   type SessionSiteClaims,
 } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ------------------------------------------------------------
 // Constantes
@@ -372,6 +373,7 @@ export async function analyserEquiteInterSite(
   claims: SessionSiteClaims
 ): Promise<EquiteInterSite> {
   const scope = resolveSiteScope(claims);
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
   // --- 1. Sites du tenant (filtrés par périmètre) ---
   const sites = await prisma.site.findMany({
@@ -453,6 +455,7 @@ export async function analyserEquiteInterSite(
       prisma.bulletin.findMany({
         where: {
           tenantId,
+          ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
           ...siteFilterForModel("bulletin", claims),
           eleve: {
             deletedAt: null,
@@ -611,11 +614,14 @@ export async function analyserRepresentationGenre(
   tenantId: string,
   claims: SessionSiteClaims
 ): Promise<RepresentationGenre> {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   // --- 1. Recommandations d'excellence / avancé, par sexe ---
   const recosExcellence = await prisma.recommandation.findMany({
     where: {
       tenantId,
       niveau: { in: ["EXCELLENCE", "AVANCE"] },
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       ...siteFilterForModel("recommandation", claims),
     },
     select: {
@@ -635,6 +641,7 @@ export async function analyserRepresentationGenre(
     where: {
       tenantId,
       recommandation: "FILIERE_SCIENTIFIQUE",
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       ...siteFilterForModel("parcoursScolaire", claims),
     },
     select: {
@@ -704,6 +711,8 @@ export async function comparerInternesExternes(
   tenantId: string,
   claims: SessionSiteClaims
 ): Promise<InternesExternes> {
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
   // --- 1. Élèves actifs avec leur régime et leur niveau (via classe) ---
   const eleves = await prisma.eleve.findMany({
     where: {
@@ -740,6 +749,7 @@ export async function comparerInternesExternes(
       where: {
         tenantId,
         eleveId: { in: eleveIds },
+        ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
         ...siteFilterForModel("bulletin", claims),
       },
       select: {

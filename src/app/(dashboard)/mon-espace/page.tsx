@@ -74,8 +74,13 @@ export default async function MonEspacePage() {
 
   const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
     items.map((i) => ({
-      id: i.id, type: i.type, titre: i.titre, description: i.description,
-      date: i.date.toISOString(), href: i.href,
+      id: i.id,
+      type: i.type,
+      titre: i.titre,
+      description: i.description,
+      date: i.date.toISOString(),
+      href: i.href,
+      acteur: i.acteur,
     }));
 
   const itemsParPeriode = {
@@ -101,6 +106,7 @@ export default async function MonEspacePage() {
       assigneeAId: session!.user.id,
       statut: { in: ["A_FAIRE", "EN_COURS"] },
       ...siteFilterForModel("tache", claims),
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
     },
     include: {
       assigneeA: { select: { id: true, name: true, email: true } },
@@ -257,6 +263,7 @@ export default async function MonEspacePage() {
             profPrincipalId: enseignant.id,
             tenantId,
             ...siteFilterForModel("classe", claims),
+            ...(anneeCourante ? { annee: anneeCourante } : {}),
           },
           select: { id: true },
         }),
@@ -275,6 +282,7 @@ export default async function MonEspacePage() {
           id: { in: classeIdsDispo },
           tenantId,
           ...siteFilterForModel("classe", claims),
+          ...(anneeCourante ? { annee: anneeCourante } : {}),
         },
         select: { id: true, nom: true },
         orderBy: { nom: "asc" },

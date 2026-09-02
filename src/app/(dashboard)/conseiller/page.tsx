@@ -38,6 +38,7 @@ export default async function ConseillerPage() {
       ...siteFilterForModel("recommandation", claims),
       statut: "OBLIGATOIRE",
       resolueLe: null,
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
     },
   });
 

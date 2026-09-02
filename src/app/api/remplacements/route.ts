@@ -122,10 +122,11 @@ export async function POST(req: NextRequest) {
 
     const tenantId = session.user.tenantId;
     const d = parsed.data;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     // Vérifier que la classe et la matière appartiennent au tenant.
     const [classe, matiere] = await Promise.all([
-      prisma.classe.findFirst({ where: { id: d.classeId, tenantId, ...siteFilterForModel("classe", session.user) } }),
+      prisma.classe.findFirst({ where: { id: d.classeId, tenantId, ...siteFilterForModel("classe", session.user), ...(anneeCourante ? { annee: anneeCourante } : {}) } }),
       prisma.matiere.findFirst({ where: { id: d.matiereId, tenantId, ...siteFilterForModel("matiere", session.user) } }),
     ]);
     if (!classe) {

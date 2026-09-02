@@ -87,9 +87,15 @@ export async function PUT(
 
     const evaluationId = (await params).id;
     const siteFilter2 = siteFilterForRelation(session.user, "classe");
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     const evaluation = await prisma.evaluation.findFirst({
-      where: { id: evaluationId, tenantId: session.user.tenantId, ...siteFilter2 },
+      where: {
+        id: evaluationId,
+        tenantId: session.user.tenantId,
+        ...siteFilter2,
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+      },
       // Le site de la classe situe les événements LEARNOS émis plus bas.
       include: { classe: { select: { siteId: true } } },
     });
@@ -110,6 +116,7 @@ export async function PUT(
             ...siteFilterForModel("bulletin", session.user),
             periodeId: evaluation.periodeId,
             statut: { in: ["VERROUILLE", "PUBLIE"] },
+            ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
           },
           select: { id: true, periode: { select: { nom: true } } },
         });

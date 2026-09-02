@@ -16,6 +16,12 @@ const CoursSchema = z.object({
   dureeMin: z.number().optional(),
 });
 
+const QuerySchema = z.object({
+  statut: z.enum(["BROUILLON", "PUBLIE", "ARCHIVE"]).optional(),
+  niveau: z.enum(["DEBUTANT", "INTERMEDIAIRE", "AVANCE"]).optional(),
+  siteId: z.string().optional(),
+});
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -31,9 +37,14 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const statut = searchParams.get("statut");
-  const niveau = searchParams.get("niveau");
-  const requestedSiteId = searchParams.get("siteId");
+  const query = QuerySchema.safeParse(Object.fromEntries(searchParams));
+  if (!query.success) {
+    return NextResponse.json(
+      { error: "Paramètres invalides", details: query.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const { statut, niveau, siteId: requestedSiteId } = query.data;
 
   const sessionSiteId = (session.user as { siteId?: string | null }).siteId ?? null;
   let activeSiteId: string | null = sessionSiteId;

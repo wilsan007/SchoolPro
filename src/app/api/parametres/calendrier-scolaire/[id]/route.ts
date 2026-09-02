@@ -3,6 +3,11 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
+import { z } from "zod";
+
+const ParamsSchema = z.object({
+  id: z.string().min(1),
+});
 
 export async function DELETE(
   _req: NextRequest,
@@ -10,10 +15,10 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
-  const { id } = await params;
+  const { id } = ParamsSchema.parse(await params);
 
   // Vérifier le périmètre : l'événement doit appartenir à une année du tenant.
   const evenement = await prisma.evenementCalendaire.findFirst({
@@ -25,7 +30,12 @@ export async function DELETE(
   });
   if (!evenement) return erreurJson("EVENEMENT_INTROUVABLE");
 
-  await prisma.evenementCalendaire.delete({ where: { id } });
+  await prisma.evenementCalendaire.deleteMany({
+    where: {
+      id,
+      annee: { tenantId: session.user.tenantId },
+    },
+  });
 
   return NextResponse.json({ success: true });
 }

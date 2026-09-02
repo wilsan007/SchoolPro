@@ -293,6 +293,7 @@ export default async function ParentPage({
       tenantId,
       assigneeAId: session!.user.id,
       statut: { in: ["A_FAIRE", "EN_COURS"] },
+      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
     },
     include: {
       assigneeA: { select: { id: true, name: true, email: true } },

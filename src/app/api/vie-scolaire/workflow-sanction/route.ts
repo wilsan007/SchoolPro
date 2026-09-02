@@ -29,9 +29,15 @@ export async function POST(req: NextRequest) {
 
     const { incidentId, action } = parsed.data;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     const incident = await prisma.incident.findFirst({
-      where: { id: incidentId, tenantId, ...siteFilterForModel("incident", session.user) },
+      where: {
+        id: incidentId,
+        tenantId,
+        ...siteFilterForModel("incident", session.user),
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+      },
       include: {
         eleve: { select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } } },
       },

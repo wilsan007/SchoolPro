@@ -75,11 +75,13 @@ export async function GET(
     if (denied) return denied;
 
     const { id } = await params;
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
     const seance = await prisma.seancePedagogique.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
       },
       include: {
         matiere: { select: { id: true, nom: true, code: true, couleur: true } },
@@ -165,11 +167,13 @@ export async function PATCH(
         }
       : {};
 
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
     const existing = await prisma.seancePedagogique.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
         ...scopeFilter,
       },
     });
@@ -228,8 +232,14 @@ export async function PATCH(
           competenceId: c.competenceId,
           niveau: c.niveau,
         })) ?? [];
-      // eslint-disable-next-line ecolpro/require-tenant-id -- seanceId is already tenant-verified above
-      const devoirsCount = await prisma.devoir.count({ where: { seanceId: id } });
+      const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+      const devoirsCount = await prisma.devoir.count({
+        where: {
+          seanceId: id,
+          tenantId: session.user.tenantId,
+          ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+        },
+      });
       // `void` et non `await` : la réponse HTTP ne doit pas attendre l'écriture
       // de l'événement. L'outbox garantit la livraison même si la fonction est
       // gelée aussitôt après.
@@ -299,11 +309,13 @@ export async function DELETE(
         }
       : {};
 
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
     const existing = await prisma.seancePedagogique.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
+        ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
         ...scopeFilter,
       },
     });

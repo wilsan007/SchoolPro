@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 const UpdateSchema = z.object({
   soin: z.string().optional().nullable(),
@@ -25,8 +26,13 @@ export async function GET(
   if (denied) return denied;
 
   const { id } = await params;
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const passage = await prisma.passageInfirmerie.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: {
+      id,
+      tenantId: session.user.tenantId,
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+    },
     include: {
       eleve: { select: { nom: true, prenom: true, classe: { select: { nom: true } } } },
       infirmier: { select: { name: true } },
@@ -51,11 +57,16 @@ export async function PATCH(
 
   try {
     const { id } = await params;
+    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
     const json = await request.json();
     const data = UpdateSchema.parse(json);
 
     const existing = await prisma.passageInfirmerie.findFirst({
-      where: { id, tenantId: session.user.tenantId },
+      where: {
+        id,
+        tenantId: session.user.tenantId,
+        ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+      },
       select: { id: true, retourCours: true, eleveId: true },
     });
     if (!existing) {
@@ -124,8 +135,13 @@ export async function DELETE(
   if (denied) return denied;
 
   const { id } = await params;
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const existing = await prisma.passageInfirmerie.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: {
+      id,
+      tenantId: session.user.tenantId,
+      ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
+    },
   });
   if (!existing) {
     return NextResponse.json({ error: "Passage introuvable" }, { status: 404 });

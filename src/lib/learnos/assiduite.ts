@@ -35,7 +35,7 @@
 import type { Jour } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
-import { anneeALaDate } from "@/lib/annee-scolaire";
+import { anneeALaDate, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /** Correspondance entre l'enum `Jour` et l'index de `Date.getDay()`. */
 export const INDEX_JOUR: Record<Jour, number> = {
@@ -157,11 +157,14 @@ export async function fenetreAssiduite(
   tenantId: string,
   claims: SessionSiteClaims,
   debut: Date,
-  fin: Date
+  fin: Date,
+  anneeCourante?: string | null
 ): Promise<FenetreAssiduite> {
+  // Libellé de l'année courante (ex. « 2025-2026 »), pour filtrer l'emploi du temps.
+  const anneeLibelle = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   // 1. Jours ouvrés — depuis l'emploi du temps.
   const creneaux = await prisma.emploiTemps.findMany({
-    where: { tenantId, ...siteFilterForModel("emploiTemps", claims) },
+    where: { tenantId, ...(anneeLibelle ? { annee: anneeLibelle } : {}), ...siteFilterForModel("emploiTemps", claims) },
     select: { jour: true },
     distinct: ["jour"],
   });
@@ -176,6 +179,7 @@ export async function fenetreAssiduite(
       where: {
         tenantId,
         date: { gte: debutObservation, lte: fin },
+        ...(anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {}),
         ...siteFilterForModel("absence", claims),
       },
       select: { date: true },

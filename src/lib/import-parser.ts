@@ -154,6 +154,80 @@ export function snapTimeToGrid(
 }
 
 // ------------------------------------------------------------
+// Snapping avec tolérance — préserve les heures proches d'un slot
+// ------------------------------------------------------------
+
+/** Tolérance en minutes : si l'écart avec le slot le plus proche est ≤ 5 min,
+ * on conserve l'heure originale au lieu de la déformer. */
+export const SNAP_TOLERANCE_MIN = 5;
+
+/**
+ * Aligne une heure sur les slots de la grille AVEC tolérance.
+ *
+ * Si l'écart entre l'heure originale et le slot de grille le plus proche
+ * est ≤ SNAP_TOLERANCE_MIN (5 min), on conserve l'heure originale.
+ * Sinon, on snappe (arrondi inférieur pour le début, supérieur pour la fin).
+ *
+ * @param time "HH:MM" (ou "8h", "8:00"… via normalizeHeure)
+ * @param stepMinutes pas de la grille (10 ou 30)
+ * @param direction "down" = arrondi inférieur (pour le début),
+ *                  "up" = arrondi supérieur (pour la fin)
+ * @param tolerance tolérance en minutes (défaut: SNAP_TOLERANCE_MIN)
+ * @returns { time: string, snapped: boolean, ecart: number }
+ */
+export function snapCreneauToGrid(
+  time: string,
+  stepMinutes: number,
+  direction: "down" | "up",
+  tolerance: number = SNAP_TOLERANCE_MIN,
+): { time: string; snapped: boolean; ecart: number } {
+  const normalized = normalizeHeure(time) ?? time;
+  const total = timeToMinutes(normalized);
+  const snapped =
+    direction === "down"
+      ? Math.floor(total / stepMinutes) * stepMinutes
+      : Math.ceil(total / stepMinutes) * stepMinutes;
+  const ecart = Math.abs(total - snapped);
+
+  // Si l'écart est dans la tolérance, on conserve l'heure originale.
+  if (ecart <= tolerance) {
+    return { time: normalized, snapped: false, ecart };
+  }
+
+  return { time: minutesToTime(snapped), snapped: true, ecart };
+}
+
+// ------------------------------------------------------------
+// Nettoyage des noms de matières — retire les annotations de durée
+// ------------------------------------------------------------
+
+/**
+ * Retire les annotations de durée d'un nom de matière.
+ *
+ *   "Lecture 40 min" → "Lecture"
+ *   "Math 30 ou 40 min" → "Math"
+ *   "Sciences 50 à 60 min" → "Sciences"
+ *   "Repos 15 ou 20" → "Repos"
+ *
+ * Gère : "40 min", "30 ou 40 min", "50 à 60 min", "15 ou 20"
+ */
+export function cleanMatiereName(name: string): string {
+  return name
+    .trim()
+    // Ordre important : les patterns les plus spécifiques d'abord,
+    // sinon "40 min" est retiré avant "30 ou 40 min" laissant "Math 30 ou".
+    // "30 ou 40 min", "30 ou 40min", "30 ou 40 minutes"
+    .replace(/\s*\d+\s+ou\s+\d+\s*(?:min|minutes?)\s*$/i, "")
+    // "50 à 60 min", "50 a 60 min", "50 à 60 minutes"
+    .replace(/\s*\d+\s*[àa]\s*\d+\s*(?:min|minutes?)\s*$/i, "")
+    // "15 ou 20" (sans "min")
+    .replace(/\s*\d+\s+ou\s+\d+\s*$/i, "")
+    // "40 min", "40min", "40 minutes" (en dernier, après les patterns composés)
+    .replace(/\s*\d+\s*(?:min|minutes?)\s*$/i, "")
+    .trim();
+}
+
+// ------------------------------------------------------------
 // Parsing d'une plage horaire de cellule grille : "08:00-09:00" / "8h-9h"
 // ------------------------------------------------------------
 
@@ -251,11 +325,13 @@ function parseListeFormat(rows: string[][]): RawCreneau[] {
     if (!matiereBrut) continue;
     const type = detectCellType(matiereBrut);
     if (type === "recreation") continue;
+    // Nettoyer le nom de matière des annotations de durée
+    const matiereClean = type === "evaluation" ? "Évaluation" : cleanMatiereName(matiereBrut);
     creneaux.push({
       jour,
       heureDebut: debut,
       heureFin: fin ?? "",
-      matiere: type === "evaluation" ? "Évaluation" : matiereBrut,
+      matiere: matiereClean,
       enseignant: idxEnseignant >= 0 ? (row[idxEnseignant]?.trim() || null) : null,
       salle: idxSalle >= 0 ? (row[idxSalle]?.trim() || null) : null,
       isEvaluation: type === "evaluation",
@@ -299,11 +375,13 @@ function parseGrilleFormat(rows: string[][]): RawCreneau[] {
       if (type === "recreation") continue;
       const { matiere, enseignant, salle } = splitCelluleGrille(cell);
       if (!matiere) continue;
+      // Nettoyer le nom de matière des annotations de durée ("Lecture 40 min" → "Lecture")
+      const matiereClean = type === "evaluation" ? "Évaluation" : cleanMatiereName(matiere);
       creneaux.push({
         jour,
         heureDebut: plage.debut,
         heureFin: plage.fin,
-        matiere: type === "evaluation" ? "Évaluation" : matiere,
+        matiere: matiereClean,
         enseignant,
         salle,
         isEvaluation: type === "evaluation",
@@ -524,13 +602,28 @@ export async function parseEmploiFile(
     }
   }
 
-  // Snapping à la grille si un pas est fourni.
+  // Snapping à la grille avec tolérance si un pas est fourni.
+  // Si l'écart avec le slot le plus proche est ≤ 5 min, on conserve l'heure
+  // originale (ex: 12:45 reste 12:45, pas déformé en 12:50).
   if (stepMinutes && creneaux.length > 0) {
-    creneaux = creneaux.map((c) => ({
-      ...c,
-      heureDebut: snapTimeToGrid(c.heureDebut, stepMinutes, "down"),
-      heureFin: c.heureFin ? snapTimeToGrid(c.heureFin, stepMinutes, "up") : c.heureFin,
-    }));
+    creneaux = creneaux.map((c) => {
+      const debutSnap = snapCreneauToGrid(c.heureDebut, stepMinutes, "down");
+      const finSnap = c.heureFin
+        ? snapCreneauToGrid(c.heureFin, stepMinutes, "up")
+        : null;
+      // Avertissement de snapping seulement si l'écart > tolérance
+      if (debutSnap.snapped) {
+        warnings.push(`Heure de début ${c.heureDebut} ajustée à ${debutSnap.time} (écart ${debutSnap.ecart} min).`);
+      }
+      if (finSnap?.snapped) {
+        warnings.push(`Heure de fin ${c.heureFin} ajustée à ${finSnap.time} (écart ${finSnap.ecart} min).`);
+      }
+      return {
+        ...c,
+        heureDebut: debutSnap.time,
+        heureFin: finSnap?.time ?? c.heureFin,
+      };
+    });
   }
 
   if (creneaux.length === 0 && bestFormat !== "inconnu") {

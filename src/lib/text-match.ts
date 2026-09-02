@@ -27,6 +27,30 @@ export function fuzzyFind<T extends { nom: string }>(candidates: T[], needle: st
 }
 
 /**
+ * Recherche floue STRICTE — évite les faux positifs.
+ *
+ * Contraintes :
+ *   - Needle ≥ 3 caractères (trop court = trop de bruit)
+ *   - Préfixe commun ≥ 5 caractères (évite "EM" ≠ "EMT", "Graphisme" ≠ "Écriture")
+ *   - Substring dans un sens ou l'autre (mais avec la contrainte de longueur)
+ *
+ * Utilisée pour le matching des matières à l'import d'emploi du temps,
+ * où un faux positif est pire qu'un non-match (ça crée une matière erronée).
+ */
+export function fuzzyFindStrict<T extends { nom: string }>(candidates: T[], needle: string): T[] {
+  const n = normalizeText(needle);
+  if (n.length < 3) return []; // needle trop court = trop de bruit
+  return candidates.filter((c) => {
+    const nc = normalizeText(c.nom);
+    // Substring : au moins un des deux contient l'autre
+    if (nc.includes(n) || n.includes(nc)) return true;
+    // Préfixe commun ≥ 5 caractères
+    const prefixLen = Math.min(n.length, nc.length);
+    return prefixLen >= 5 && n.slice(0, 5) === nc.slice(0, 5);
+  });
+}
+
+/**
  * Normalise une heure exprimée de façon souple par le modèle ("8h", "8h30",
  * "8:00", "08:00") vers le format strict "HH:MM" attendu par la base.
  */

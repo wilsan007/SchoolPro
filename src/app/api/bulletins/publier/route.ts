@@ -31,9 +31,9 @@ export async function POST(req: NextRequest) {
 
     const { classeId, periodeId } = parsed.data;
     const tenantId = session.user.tenantId;
+    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     if (isTeacherRole(session.user.role as Role)) {
-      const anneeCourante = await getAnneeCouranteLibelle(tenantId);
       const scope = await getTeacherScope(tenantId, session.user.id as string, session.user.role as Role, anneeCourante);
       if (scope.isRestricted && !scope.classeIds.includes(classeId)) {
         return NextResponse.json({ error: "Classe hors de votre périmètre" }, { status: 403 });
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         periodeId,
         eleveId: { in: eleveIds },
         isPublie: false,
+        ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
       },
       data: {
         isPublie: true,
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
           periodeId,
           eleveId: { in: eleveIds },
           isPublie: true,
+          ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
         },
         select: { id: true },
       });

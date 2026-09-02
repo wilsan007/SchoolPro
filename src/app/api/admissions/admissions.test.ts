@@ -25,6 +25,10 @@ vi.mock("@/lib/site-scope", () => ({
   requireSiteIdForCreate: vi.fn(() => null),
 }));
 
+vi.mock("@/lib/annee-scolaire", () => ({
+  getAnneeCouranteLibelle: vi.fn().mockResolvedValue(null),
+}));
+
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";

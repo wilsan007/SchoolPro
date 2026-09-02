@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { siteFilterForModel, siteIdForCreate } from "@/lib/site-scope";
 import { isTeacherRole, getTeacherScope } from "@/lib/teacher-classes";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 // ============================================================
 // SCHÉMAS DE VALIDATION
@@ -39,11 +40,13 @@ export async function getNiveauxForEnseignant(): Promise<string[]> {
   const scope = await getTeacherScope(session.user.tenantId, session.user.id, role as any);
   if (scope.classeIds.length === 0) return [];
 
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const classes = await prisma.classe.findMany({
     where: {
       id: { in: scope.classeIds },
       tenantId: session.user.tenantId,
       deletedAt: null,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { niveau: true },
@@ -208,10 +211,12 @@ export async function getClassesParNiveau() {
   const session = await auth();
   if (!session?.user?.tenantId) return {} as Record<string, { id: string; nom: string }[]>;
 
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
   const classes = await prisma.classe.findMany({
     where: {
       tenantId: session.user.tenantId,
       deletedAt: null,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true, nom: true, niveau: true },
@@ -319,11 +324,13 @@ export async function publierListePourNiveau(niveau: string) {
   }
 
   // 2. Récupérer toutes les classes de ce niveau
+  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const classes = await prisma.classe.findMany({
     where: {
       tenantId,
       niveau,
       deletedAt: null,
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
     select: { id: true, siteId: true },
