@@ -55,8 +55,12 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copier Prisma (schema + client généré déjà dans standalone)
+# Copier Prisma (schema + client généré)
+# Next.js standalone ne trace pas les binaires Prisma dans .pnpm — il faut
+# les copier manuellement sinon PrismaClientInitializationError au runtime.
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client ./node_modules/@prisma/client
 
 EXPOSE 3000
 
