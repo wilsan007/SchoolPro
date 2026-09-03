@@ -13,7 +13,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY eslint-rules ./eslint-rules
 
 # Augémenter la limite mémoire du heap Node.js pour le build Next.js
+# SKIP_TYPECHECK=true : le type checking est fait localement (pre-commit hook)
+# Évite l'OOM sur le builder Depot (2 GB RAM) pendant `tsc` dans `next build`
 ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV SKIP_TYPECHECK="true"
 
 # Installer les dépendances (frozen-lockfile = reproductible)
 RUN pnpm install --frozen-lockfile

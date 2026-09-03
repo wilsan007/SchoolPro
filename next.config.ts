@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Le type checking est désactivé pendant le build Docker pour éviter
+  // l'OOM sur le builder Fly.io/Depot (2 GB RAM). Il est déjà vérifié
+  // localement via `pnpm tsc --noEmit` et le pre-commit hook.
+  typescript: {
+    ignoreBuildErrors: process.env.SKIP_TYPECHECK === "true",
+  },
   /**
    * Paquets laissés à Node, jamais empaquetés par le bundler serveur.
    *
