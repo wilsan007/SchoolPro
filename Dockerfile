@@ -12,6 +12,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY eslint-rules ./eslint-rules
 
+# Augémenter la limite mémoire du heap Node.js pour le build Next.js
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Installer les dépendances (frozen-lockfile = reproductible)
 RUN pnpm install --frozen-lockfile
 
