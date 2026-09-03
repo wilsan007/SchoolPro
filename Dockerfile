@@ -26,6 +26,12 @@ COPY . .
 
 # Générer Prisma + build
 RUN pnpm prisma generate
+
+# DATABASE_URL factice nécessaire au build : Next.js collecte les données
+# de pages au build time et instancie PrismaClient, qui exige une URL non-vide.
+# La vraie URL est injectée au runtime via les secrets Fly.io.
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+ENV DIRECT_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 RUN pnpm build
 
 # ── Runner stage ─────────────────────────────────────────────
