@@ -34,3 +34,12 @@ playwright/.cache
 blob-report
 .turbo
 .next
+
+# Dossiers lourds non nécessaires au build
+.claude
+.codegraph
+.open-next
+pages-output
+.agents
+.gstack
+.devin
