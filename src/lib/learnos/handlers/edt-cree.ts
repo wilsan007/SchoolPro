@@ -135,6 +135,7 @@ export async function onEmploiDuTempsCree(event: DrainedEvent): Promise<void> {
       classeId: payload.classeId,
       matiereId: payload.matiereId,
       enseignantId: payload.enseignantId,
+      emploiTempsId: payload.emploiTempsId,
       date,
       dureePrevue: duree,
       semaine: s,

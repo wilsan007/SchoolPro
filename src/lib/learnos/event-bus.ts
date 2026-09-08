@@ -36,6 +36,8 @@ import { onCurriculumImported } from "@/lib/learnos/handlers/curriculum-imported
 import { onChapitreCreated } from "@/lib/learnos/handlers/chapitre-created";
 import { onCompetenceCreated } from "@/lib/learnos/handlers/competence-created";
 import { onEmploiDuTempsCree } from "@/lib/learnos/handlers/edt-cree";
+import { onEmploiDuTempsModifie } from "@/lib/learnos/handlers/edt-modifie";
+import { onEmploiDuTempsSupprime } from "@/lib/learnos/handlers/edt-supprime";
 
 export interface DrainedEvent {
   id: string;
@@ -79,6 +81,10 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "competence.created": [onCompetenceCreated],
   // Création d'un créneau EDT : génération des séances pédagogiques.
   "edt.cree": [onEmploiDuTempsCree],
+  // Modification d'un créneau EDT : on supprime les séances PLANIFIEE et on régénère.
+  "edt.modifie": [onEmploiDuTempsModifie],
+  // Suppression d'un créneau EDT : on supprime les séances PLANIFIEE associées.
+  "edt.supprime": [onEmploiDuTempsSupprime],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

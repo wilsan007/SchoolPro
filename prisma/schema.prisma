@@ -1650,6 +1650,7 @@ model EmploiTemps {
   annee      String
 
   remplacements RemplacementCours[]
+  seances     SeancePedagogique[]
 
   @@index([tenantId])
   @@index([classeId])
@@ -4993,6 +4994,10 @@ model SeancePedagogique {
   /// Planification de chapitre dont cette séance est l'exécution.
   planificationId String?
   planification   PlanificationChapitre? @relation(fields: [planificationId], references: [id], onDelete: SetNull)
+
+  /// Créneau d'emploi du temps qui a généré cette séance.
+  emploiTempsId String?
+  emploiTemps   EmploiTemps? @relation(fields: [emploiTempsId], references: [id], onDelete: SetNull)
 
   /// Date et heure prévues de la séance.
   date        DateTime

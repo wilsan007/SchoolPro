@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { publishEvent } from "@/lib/learnos/events";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,6 +29,26 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
     await prisma.emploiTemps.delete({ where: { id } });
+
+    await publishEvent({
+      tenantId,
+      siteId: null, // hérité du site de la classe par le handler
+      eventType: "edt.supprime",
+      aggregateType: "EmploiTemps",
+      aggregateId: id,
+      payload: {
+        emploiTempsId: existing.id,
+        classeId: existing.classeId,
+        matiereId: existing.matiereId,
+        enseignantId: existing.enseignantId,
+        jour: existing.jour,
+        heureDebut: existing.heureDebut,
+        heureFin: existing.heureFin,
+        salle: existing.salle,
+        annee: existing.annee,
+        periodeId: existing.periodeId,
+      },
+    });
 
     revalidatePath("/emploi-du-temps");
     return NextResponse.json({ success: true });
@@ -192,6 +213,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         matiere: { select: { nom: true, code: true, couleur: true } },
         classe: { select: { nom: true } },
         enseignant: { include: { user: { select: { name: true } } } },
+      },
+    });
+
+    await publishEvent({
+      tenantId,
+      siteId: null,
+      eventType: "edt.modifie",
+      aggregateType: "EmploiTemps",
+      aggregateId: id,
+      payload: {
+        emploiTempsId: updated.id,
+        classeId: updated.classeId,
+        matiereId: updated.matiereId,
+        enseignantId: updated.enseignantId,
+        jour: updated.jour,
+        heureDebut: updated.heureDebut,
+        heureFin: updated.heureFin,
+        salle: updated.salle,
+        annee: updated.annee,
+        periodeId: updated.periodeId,
       },
     });
 

@@ -47,6 +47,8 @@ export const LEARNOS_EVENT_TYPES = [
   "competence.created",
   // Emploi du temps.
   "edt.cree",
+  "edt.modifie",
+  "edt.supprime",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -123,8 +125,8 @@ export interface CompetenceCreatedPayload {
   chapitreId: string;
 }
 
-/** Instantané d'un créneau d'emploi du temps créé. */
-export interface EdtCreePayload {
+/** Base d'un créneau d'emploi du temps. */
+interface EdtSlotPayload {
   emploiTempsId: string;
   classeId: string;
   matiereId: string;
@@ -136,6 +138,15 @@ export interface EdtCreePayload {
   annee: string;
   periodeId: string | null;
 }
+
+/** Instantané d'un créneau d'emploi du temps créé. */
+export interface EdtCreePayload extends EdtSlotPayload {}
+
+/** Instantané d'un créneau d'emploi du temps modifié. */
+export interface EdtModifiePayload extends EdtSlotPayload {}
+
+/** Instantané d'un créneau d'emploi du temps supprimé. */
+export interface EdtSupprimePayload extends EdtSlotPayload {}
 
 export interface LearnosEventInput {
   tenantId: string;
