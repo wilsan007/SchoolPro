@@ -13,6 +13,7 @@ import {
 } from "@/lib/learnos/import-programme";
 import { estPdf } from "@/lib/ocr/pages";
 import { lireDocument } from "@/lib/ocr";
+import { publishEvent } from "@/lib/learnos/events";
 
 /**
  * Import d'un programme officiel.
@@ -241,6 +242,22 @@ export async function PUT(req: NextRequest) {
     matiere.siteId,
     parsed.data.chapitres
   );
+
+  // Déclencher la réaction différée : génération de la planification pédagogique.
+  // L'import reste rapide ; le calcul est drainé par le cron LearnosEvent.
+  await publishEvent({
+    tenantId,
+    siteId: matiere.siteId,
+    eventType: "curriculum.imported",
+    aggregateType: "Matiere",
+    aggregateId: matiere.id,
+    payload: {
+      matiereId: matiere.id,
+      niveau: parsed.data.chapitres[0]?.niveau ?? "",
+      chapitresCrees: resultat.chapitresCrees,
+      competencesCreees: resultat.competencesCreees,
+    },
+  });
 
   // Vérification de couverture : après l'import, on signale à l'enseignant
   // combien de couples compétence × palier sont sans question. C'est le

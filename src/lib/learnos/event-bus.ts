@@ -32,6 +32,7 @@ import {
   reinitialiserCaches,
 } from "@/lib/learnos/recommendation-engine";
 import { onSeanceCloturee } from "@/lib/learnos/boucle-cahier-journal";
+import { onCurriculumImported } from "@/lib/learnos/handlers/curriculum-imported";
 
 export interface DrainedEvent {
   id: string;
@@ -66,6 +67,9 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   // refléter la réalité du terrain. Le traitement est idempotent et ne lève
   // jamais — il peut donc être rejoué sans risque.
   "seance.cloturee": [onSeanceCloturee],
+  // L'import d'un programme génère la planification pédagogique initiale.
+  // Idempotent : les planifications déjà existantes pour l'année sont ignorées.
+  "curriculum.imported": [onCurriculumImported],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

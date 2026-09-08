@@ -41,6 +41,8 @@ export const LEARNOS_EVENT_TYPES = [
   "seance.cloturee",
   "devoir.enretard",
   "decalage.detecte",
+  // Gestion du curriculum et de la planification pédagogique.
+  "curriculum.imported",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -92,6 +94,14 @@ export interface DecalageDetectePayload {
   semainePrevue: number;
   semaineActuelle: number;
   niveauDecalage: string;
+}
+
+/** Instantané d'un import de programme : il déclenche la planification. */
+export interface CurriculumImportedPayload {
+  matiereId: string;
+  niveau: string;
+  chapitresCrees: number;
+  competencesCreees: number;
 }
 
 export interface LearnosEventInput {
