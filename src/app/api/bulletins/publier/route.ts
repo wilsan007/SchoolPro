@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { enregistrerHistoriqueBulletin } from "@/lib/bulletin-historique";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { publishEvent } from "@/lib/learnos/events";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
 
@@ -97,6 +98,20 @@ export async function POST(req: NextRequest) {
           select: { nom: true },
         });
         const periodeNom = periode?.nom ?? "la période";
+
+        await publishEvent({
+          tenantId,
+          siteId: null,
+          eventType: "bulletin.publie",
+          aggregateType: "Periode",
+          aggregateId: periodeId,
+          payload: {
+            classeId,
+            periodeId,
+            periodeNom,
+            anneeLibelle: anneeCourante ?? "",
+          },
+        });
 
         const elevesPublies = await prisma.eleve.findMany({
           where: { id: { in: eleveIds }, tenantId, ...siteFilterForModel("eleve", session.user) },

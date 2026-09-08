@@ -53,6 +53,8 @@ export const LEARNOS_EVENT_TYPES = [
   "facture.emise",
   // Périodes scolaires.
   "periode.cloturee",
+  // Bulletins.
+  "bulletin.publie",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -180,6 +182,14 @@ export interface PeriodeClotureePayload {
   anneeId: string;
   anneeLibelle: string;
   statut: string;
+}
+
+/** Instantané d'une publication de bulletins : alerte parents. */
+export interface BulletinPubliePayload {
+  classeId: string;
+  periodeId: string;
+  periodeNom: string;
+  anneeLibelle: string;
 }
 
 export interface LearnosEventInput {
