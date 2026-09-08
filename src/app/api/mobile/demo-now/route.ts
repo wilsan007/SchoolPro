@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
-import { peutDeplacerHorloge } from "@/lib/demo-now";
+import { peutDeplacerHorloge, DEMO_NOW_SCOPE_COOKIE } from "@/lib/demo-now";
 
 /**
  * Time Machine — date de démonstration, version mobile.
@@ -23,17 +23,20 @@ function dansUneSemaine(): Date {
   return d;
 }
 
-function poserCookies(date: string | null): Headers {
+function poserCookies(date: string | null, session: { id: string; tenantId: string | null }): Headers {
   const headers = new Headers();
   const expires = dansUneSemaine().toUTCString();
   const commun = `path=/; httpOnly; SameSite=Lax`;
+  const scope = encodeURIComponent(JSON.stringify([session.id, session.tenantId]));
 
   if (date === null) {
     headers.append("Set-Cookie", `demo_now_enabled=false; ${commun}; expires=${expires}`);
     headers.append("Set-Cookie", `demo_now=; ${commun}; expires=Thu, 01 Jan 1970 00:00:00 GMT`);
+    headers.append("Set-Cookie", `${DEMO_NOW_SCOPE_COOKIE}=; ${commun}; expires=Thu, 01 Jan 1970 00:00:00 GMT`);
   } else {
     headers.append("Set-Cookie", `demo_now_enabled=true; ${commun}; expires=${expires}`);
     headers.append("Set-Cookie", `demo_now=${encodeURIComponent(date)}; ${commun}; expires=${expires}`);
+    headers.append("Set-Cookie", `${DEMO_NOW_SCOPE_COOKIE}=${scope}; ${commun}; expires=${expires}`);
   }
   return headers;
 }
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(
     { autorise: true, enabled: true, date: d.toISOString(), realNow: new Date().toISOString() },
-    { headers: poserCookies(d.toISOString()) },
+    { headers: poserCookies(d.toISOString(), { id: user.id, tenantId: user.tenantId }) },
   );
 }
 
@@ -98,6 +101,6 @@ export async function DELETE(req: NextRequest) {
 
   return NextResponse.json(
     { autorise: true, enabled: false, date: null, realNow: new Date().toISOString() },
-    { headers: poserCookies(null) },
+    { headers: poserCookies(null, { id: user.id, tenantId: user.tenantId }) },
   );
 }

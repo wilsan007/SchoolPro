@@ -25,7 +25,7 @@ export async function onCandidatureAcceptee(event: DrainedEvent): Promise<void> 
         eleveId: payload.eleveId,
         parentId: payload.parentId,
         niveau: NiveauAlerteParent.INFO,
-        cle: "learnos.alertes.candidature.acceptee",
+        cle: "candidature.acceptee",
         params: {
           elevePrenom: payload.prenom,
           eleveNom: payload.nom,

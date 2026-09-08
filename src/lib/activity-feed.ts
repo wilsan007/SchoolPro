@@ -372,7 +372,8 @@ export async function getActivityFeed(
       where: {
         enregistreParId: { not: null },
         ...(filtreDate ? { dateSaisie: filtreDate } : {}),
-        facture: { tenantId, ...filtreFactureAnnee, ...siteFilterForModel("facture", claims) },
+        facture: { tenantId, ...filtreFactureAnnee },
+        ...siteFilterForModel("paiement", claims),
       },
       select: {
         id: true,
@@ -889,7 +890,11 @@ export async function getActivityFeed(
 
   if (idsInconnus.size > 0) {
     const acteurs = await prisma.user.findMany({
-      where: { id: { in: Array.from(idsInconnus) } },
+      where: {
+        id: { in: Array.from(idsInconnus) },
+        tenantId,
+        ...siteFilterForModel("user", claims),
+      },
       select: { id: true, name: true, role: true },
     });
     for (const u of acteurs) {

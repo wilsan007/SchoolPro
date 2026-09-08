@@ -341,10 +341,16 @@ export default async function DirectionPage() {
 
   // ── Tâches auto-générées pour la direction ──
   // Auto-sync silencieux : régénère les tâches depuis l'état du système.
+  // Non-bloquant : la sync fait 8+ requêtes DB séquentielles qui peuvent
+  // prendre 30-60s sur une base distante. On la lance en arrière-plan pour
+  // ne pas bloquer le rendu de la page. Les tâches seront à jour au prochain
+  // chargement (ou via le cron /api/cron/dispatch).
   try {
-    await synchroniserTachesAuto(tenantId, claims);
+    void synchroniserTachesAuto(tenantId, claims).catch((e) =>
+      console.error("[Direction page] Auto-sync tâches échoué:", e)
+    );
   } catch (e) {
-    console.error("[Direction page] Auto-sync tâches échoué:", e);
+    console.error("[Direction page] Auto-sync tâches (sync init):", e);
   }
 
   // La direction voit toutes les tâches du personnel (pas seulement les siennes).

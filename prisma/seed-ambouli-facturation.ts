@@ -45,7 +45,7 @@ export async function seedFacturation(
 
       for (const el of allEleves) {
         const niveauType = isLycee(el.niveau) ? "lycee" : "coll";
-        const tarifKey = `${niveauType === "lycee" ? "lycee" : "coll"}-${site}-${annee}`;
+        const tarifKey = `${niveauType === "lycee" ? "lycee" : "coll"}-${site === "ambouli" ? "AMB" : "ARH"}-${annee}`;
         const tarifId = ref.tarifs[tarifKey];
         const tarif = await prisma.tarifNiveau.findUnique({ where: { id: tarifId } });
         if (!tarif) continue;

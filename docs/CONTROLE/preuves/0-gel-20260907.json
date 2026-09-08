@@ -1,0 +1,33 @@
+{
+  "audit_date": "2026-09-07",
+  "status": "IN_PROGRESS",
+  "source_branch": "feat/rls-isolation-et-infra",
+  "source_head": "892a9a07fd51589e300ba52b9780317cbd6a11b6",
+  "tracked_worktree_snapshot": "be95c33cefdef51a8d47c0986a15a9d0427e1a00",
+  "snapshot_path": "/Users/awalehosman/Projects/SchoolPro/.audit-20260907",
+  "adaptation_0_1": "User explicitly approved isolated frozen copy instead of committing original worktree.",
+  "original_tracked_modified_files": 19,
+  "original_untracked_files": ["PLAN-CONTROLE-TOTAL.md", "src/lib/learnos/alerte-decalage.test.ts"],
+  "supplemental_test": {
+    "path": "src/lib/learnos/alerte-decalage.test.ts",
+    "source_git_blob_hash": "970944b6fa999c05df94fa9f6074609faadb9c92",
+    "snapshot_git_blob_hash": "970944b6fa999c05df94fa9f6074609faadb9c92"
+  },
+  "plan": {
+    "path": "/Users/awalehosman/Projects/SchoolPro/PLAN-CONTROLE-TOTAL.md",
+    "git_blob_hash": "a4cade4f7e51277b0c8beb270ce3768146571157",
+    "copied_to_snapshot": false
+  },
+  "tools": {"node": "v24.18.0", "pnpm": "11.21.0", "docker_engine": "29.5.3", "docker_platform": "linux/arm64", "codegraph_cli": "not found"},
+  "controls": {
+    "0.1": "OK_WITH_APPROVED_ADAPTATION: isolated snapshot captured; original tracked modifications preserved; snapshot tracked diff empty at end",
+    "0.2": "OK: source and snapshot SHAs recorded",
+    "0.4": "OK: frozen install and unchanged manifest/lockfile verified",
+    "0.5": "OK: Prisma Client 6.19.3 generated",
+    "0.6": "PARTIAL: empty local Docker lab schoolpro-audit-20260907 created on 127.0.0.1:51672; stopped after diagnostic checks; Ambouli copy not restored",
+    "0.7": "PARTIAL: guard accepted explicit local lab host and empty database; no seeded data integrity proof",
+    "0.8": "BLOCKED: demo backup and restore not tested; no business writes executed"
+  },
+  "safety": {"production_database_accessed": false, "secrets_copied": false, "business_workflows_executed": false, "production_deployed": false},
+  "scope_note": "Preparatory source review is not runtime proof. No claim that workflows or role/date combinations pass."
+}

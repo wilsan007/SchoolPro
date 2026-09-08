@@ -44,12 +44,45 @@ describe("filtreHorizon — faits constatés", () => {
 describe("filtreHorizon — événements planifiés", () => {
   // Un examen programmé en avril est un élément de calendrier : le masquer en
   // février viderait « prochain examen », l'écran même qu'il s'agit de montrer.
-  it.each(["Examen", "Evaluation", "SessionExamen", "Evenement", "Réunion"])(
+  it.each(["Examen", "SessionExamen", "Evenement", "Réunion"])(
     "laisse %s hors horizon",
     (modele) => {
       expect(filtreHorizon(modele, "findMany", FEVRIER)).toBeNull();
     }
   );
+});
+
+describe("filtreHorizon — Evaluation (hybride)", () => {
+  // L'évaluation est un hybride : PLANIFIE = calendrier (visible à l'avance),
+  // TERMINE = fait constaté (borné par la date). Sans cette nuance, une
+  // évaluation terminée en février était visible en octobre — la démonstration
+  // montrait des résultats qui n'avaient pas encore eu lieu.
+  it("exempte les évaluations PLANIFIE de la borne temporelle", () => {
+    const filtre = filtreHorizon("Evaluation", "findMany", FEVRIER);
+    expect(filtre).not.toBeNull();
+    // Le filtre doit contenir un OR avec l'exemption PLANIFIE
+    expect(filtre).toHaveProperty("OR");
+    const ou = (filtre as { OR: unknown[] }).OR;
+    expect(ou[0]).toEqual({ statut: "PLANIFIE" });
+  });
+
+  it("borne les évaluations TERMINE par leur date", () => {
+    const filtre = filtreHorizon("Evaluation", "findMany", FEVRIER);
+    expect(filtre).not.toBeNull();
+    const ou = (filtre as { OR: unknown[] }).OR;
+    // Le second élément du OR doit être la borne temporelle
+    expect(ou[1]).toEqual({ date: { lte: FEVRIER } });
+  });
+
+  it("borne aussi les évaluations avec un statut inconnu (fail-closed)", () => {
+    // Le filtre OR [PLANIFIE, date <= maintenant] ne laisse passer que
+    // PLANIFIE ou les dates passées. Un statut inconnu n'étant pas PLANIFIE,
+    // il doit être borné par la date.
+    const filtre = filtreHorizon("Evaluation", "findMany", FEVRIER);
+    const ou = (filtre as { OR: unknown[] }).OR;
+    // L'exemption ne couvre que statut = "PLANIFIE", pas les autres.
+    expect(ou[0]).not.toEqual({ statut: "TERMINE" });
+  });
 });
 
 describe("filtreHorizon — modèles structurels", () => {

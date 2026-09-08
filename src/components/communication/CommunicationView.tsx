@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate, timeAgo } from "@/lib/utils";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -268,6 +268,7 @@ function NotifCard({ notif, onSend, onDelete }: {
   onDelete: (id: string) => void;
 }) {
   const t = useTranslations("communication");
+  const locale = useLocale();
   const [expanded, setExpanded] = useState(false);
   const sConfig = STATUT_CONFIG[notif.statut];
   const cConfig = CANAL_CONFIG[notif.canal];
@@ -320,7 +321,7 @@ function NotifCard({ notif, onSend, onDelete }: {
               <div className="mt-2 flex flex-wrap gap-3 text-xs">
                 <span className="text-blue-600">{t("delivered", { count: notif.nbDelivres })}</span>
                 <span className="text-green-600">{t("read", { count: notif.nbLus, rate: tauxLecture })}</span>
-                <span className="text-gray-400">{notif.envoyeeAt ? timeAgo(notif.envoyeeAt) : ""}</span>
+                <span className="text-gray-400">{notif.envoyeeAt ? timeAgo(notif.envoyeeAt, locale) : ""}</span>
               </div>
             )}
 

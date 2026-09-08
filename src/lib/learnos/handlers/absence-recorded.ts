@@ -40,11 +40,13 @@ export async function onAbsenceRecorded(event: DrainedEvent): Promise<void> {
   const debut = annee.dateDebut;
   const fin = annee.dateFin;
 
-  const scope = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
-  const siteFilter = siteFilterForRelation(scope, "eleve");
+  // `eleve` possède `siteId` → filtre direct.
+  const eleveSiteFilter = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
+  // `absence` n'a pas `siteId` → filtre via la relation `eleve`.
+  const absenceSiteFilter = siteFilterForRelation("TENANT_ADMIN", siteId, [], "eleve", true);
 
   const eleve = await prisma.eleve.findFirst({
-    where: { id: payload.eleveId, tenantId, ...siteFilter },
+    where: { id: payload.eleveId, tenantId, ...eleveSiteFilter },
     select: {
       id: true,
       siteId: true,
@@ -59,7 +61,7 @@ export async function onAbsenceRecorded(event: DrainedEvent): Promise<void> {
   const count = await prisma.absence.count({
     where: {
       tenantId,
-      ...siteFilter,
+      ...absenceSiteFilter,
       eleveId: payload.eleveId,
       date: { gte: debut, lte: fin },
       motif: "INJUSTIFIE" as const,
@@ -78,7 +80,7 @@ export async function onAbsenceRecorded(event: DrainedEvent): Promise<void> {
     eleveId: payload.eleveId,
     parentId: ep.parentId,
     niveau,
-    cle: "learnos.alertes.absence.frequence",
+    cle: "absence.frequence",
     params: { count, semaine },
     empreinte: `absence-freq-${payload.eleveId}-${ep.parentId}-${semaine}`,
   }));

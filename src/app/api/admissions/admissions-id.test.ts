@@ -77,7 +77,10 @@ import {
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockCheckPermission = checkPermission as ReturnType<typeof vi.fn>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// `any` est requis ici : le mock Prisma est un objet de vi.fn() dont les
+// propriétés sont accédées dynamiquement (mockPrisma.candidature.findFirst,
+// mockPrisma.$transaction, etc.). Aucun type Prisma n'expose ces méthodes
+// comme des Mock — typer finement nécessiterait une usine à types.
 const mockPrisma = prisma as unknown as any;
 const fnPiecesRequisesPresentes = mockPiecesRequisesPresentes as ReturnType<typeof vi.fn>;
 const fnPiecesManquantes = mockPiecesManquantes as ReturnType<typeof vi.fn>;

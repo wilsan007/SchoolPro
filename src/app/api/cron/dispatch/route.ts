@@ -12,6 +12,10 @@ import { envoyerRelancesAutomatiques } from "@/lib/relances-auto";
 import { detecterDevoirsEnRetard } from "@/lib/learnos/devoirs-retard-check";
 import { synchroniserTachesAuto } from "@/lib/tache-engine";
 import { rappelerEcheancesTaches } from "@/lib/tache-rappels";
+import { verifierPredictions } from "@/lib/learnos/prediction-engine";
+import { calibrerSeuils } from "@/lib/learnos/calibration";
+import { getAnneeCourante } from "@/lib/annee-scolaire";
+import { analyserPatternsAbsence } from "@/lib/learnos/pattern-absence";
 
 /**
  * Cron unique — répartiteur des tâches planifiées.
@@ -134,6 +138,71 @@ const TACHES: Tache[] = [
     nom: "taches-rappels",
     heures: [6],
     executer: () => rappelerEcheancesTaches(),
+  },
+  {
+    // 3 h UTC = 6 h à Djibouti. Vérification des prédictions émises avant
+    // chaque chapitre : on compare la prédiction au masteryScore réel après
+    // traitement. C'est la boucle d'apprentissage du système — sans cette
+    // étape, le moteur ne sait pas s'il prédit bien ou mal, et les seuils
+    // ne se calibrent pas. Mensuelle : le 1er du mois à 3 h UTC.
+    nom: "learnos-verifier-predictions",
+    heures: [3],
+    executer: async () => {
+      // Tâche système : balaie tous les tenants.
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+      const tenants = await prisma.tenant.findMany({ select: { id: true } });
+      let totalVerifiees = 0;
+      let totalCorrectes = 0;
+      for (const t of tenants) {
+        const annee = await getAnneeCourante(t.id);
+        if (!annee) continue;
+        const claims = { role: "TENANT_ADMIN" as const };
+        const result = await verifierPredictions(t.id, claims, annee.id);
+        totalVerifiees += result.verifiees;
+        totalCorrectes += result.correctes;
+      }
+      return { tenants: tenants.length, verifiees: totalVerifiees, correctes: totalCorrectes };
+    },
+  },
+  {
+    // 4 h UTC = 7 h à Djibouti. Calibration des seuils de recommandation
+    // par niveau × matière selon l'historique vérifié. Sans cette étape,
+    // les seuils restent à leurs valeurs par défaut (SEUILS_PAR_DEFAUT)
+    // et le système ne s'adapte pas à la réalité du terrain.
+    // Mensuelle : le 1er du mois à 4 h UTC, après la vérification.
+    nom: "learnos-calibrer-seuils",
+    heures: [4],
+    executer: async () => {
+      // Tâche système : balaie tous les tenants.
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+      const tenants = await prisma.tenant.findMany({ select: { id: true } });
+      let totalCalibrations = 0;
+      for (const t of tenants) {
+        const claims = { role: "TENANT_ADMIN" as const };
+        const result = await calibrerSeuils(t.id, claims);
+        totalCalibrations += (result as { calibres?: number })?.calibres ?? 0;
+      }
+      return { tenants: tenants.length, calibrations: totalCalibrations };
+    },
+  },
+  {
+    // 5 h UTC = 8 h à Djibouti. Analyse des patterns d'absence récurrents :
+    // détecte les élèves qui s'absentent toujours le même jour, la même
+    // matière, ou la même période du mois. Hebdomadaire.
+    nom: "learnos-patterns-absence",
+    heures: [5],
+    executer: async () => {
+      // Tâche système : balaie tous les tenants.
+      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+      const tenants = await prisma.tenant.findMany({ select: { id: true } });
+      let totalPatterns = 0;
+      for (const t of tenants) {
+        const claims = { role: "TENANT_ADMIN" as const };
+        const result = await analyserPatternsAbsence(t.id, claims);
+        totalPatterns += result.patternsRecurrents;
+      }
+      return { tenants: tenants.length, patternsRecurrents: totalPatterns };
+    },
   },
 ];
 

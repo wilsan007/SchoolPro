@@ -9,7 +9,7 @@
     "syncErreur": "Erreur de synchronisation",
     "toutAJour": "Tout est à jour",
     "toutAJourDesc": "Aucune tâche en attente. Bon travail !",
-    "enRetard": "En retard",
+    "enRetard": "en retard",
     "aujourdhui": "Aujourd'hui",
     "cetteSemaine": "Cette semaine",
     "semaineProchaine": "Semaine prochaine",
@@ -38,7 +38,22 @@
     "tachesEnRetard": "Tâches en retard",
     "tachesAUjourdHui": "Tâches d'aujourd'hui",
     "nbEnRetard": "{count} en retard",
-    "nbAujourdhui": "{count} aujourd'hui"
+    "nbAujourdhui": "{count} aujourd'hui",
+    "buckets": {
+      "enRetard": "En retard",
+      "aujourdhui": "Aujourd'hui",
+      "semaine": "Cette semaine",
+      "semaineProchaine": "Semaine prochaine",
+      "plusTard": "Plus tard",
+      "sansEcheance": "Sans échéance"
+    },
+    "rel": {
+      "aujourdhui": "Aujourd'hui",
+      "demain": "Demain",
+      "hier": "Hier",
+      "dansJours": "Dans {count}j",
+      "ilYAJours": "Il y a {count}j"
+    }
   },
   "common": {
     "appName": "EcolPro",
@@ -221,7 +236,10 @@
     "taches": "Tâches",
     "veilleAssiduite": "Veille assiduité",
     "intelligence": "Intelligence",
-    "fournitures": "Fournitures"
+    "fournitures": "Fournitures",
+    "menu": "Menu",
+    "plus": "Plus",
+    "searchModules": "Rechercher un module…"
   },
   "maJournee": {
     "titre": "Ma journée",
@@ -350,7 +368,8 @@
     "deleteCancel": "Annuler",
     "deleteConfirm": "Confirmer la suppression",
     "studentDeleted": "Élève supprimé avec succès",
-    "deleteError": "Erreur lors de la suppression"
+    "deleteError": "Erreur lors de la suppression",
+    "dossierProgression": "Dossier de progression"
   },
   "eleves": {
     "title": "Gestion des Élèves",
@@ -635,7 +654,8 @@
     "successLocked": "{count} bulletin(s) verrouillé(s)",
     "successUnlocked": "{count} bulletin(s) déverrouillé(s)",
     "errVerrouillage": "Erreur lors du verrouillage",
-    "lockedAdminOnly": "Seul un administrateur peut déverrouiller les bulletins"
+    "lockedAdminOnly": "Seul un administrateur peut déverrouiller les bulletins",
+    "conseilAugmente": "Conseil augmenté"
   },
   "notes": {
     "title": "Notes & Évaluations",
@@ -836,7 +856,18 @@
     "mentionENCOURAGEMENTS": "Encouragements",
     "mentionSATISFAISANT": "Satisfaisant",
     "mentionEFFORTS": "Doit fournir des efforts",
-    "mentionINSUFFISANT": "Travail insuffisant"
+    "mentionINSUFFISANT": "Travail insuffisant",
+    "avert": "Avertissements",
+    "encourage": "Encouragements",
+    "felicite": "Félicitations",
+    "learnosCommentaireApplique": "Commentaire LEARNOS appliqué",
+    "learnosEleve": "Élève",
+    "learnosMatiere": "Matière",
+    "learnosSelectEleve": "Sélectionner un élève",
+    "learnosSelectMatiere": "Sélectionner une matière",
+    "nonRenseigne": "Non renseigné",
+    "passage": "Passages",
+    "redoub": "Redoublements"
   },
   "examens": {
     "title": "Examens & Évaluations",
@@ -900,7 +931,8 @@
     "days": "{count} jour(s)",
     "sessionsCount": "{count} session(s)",
     "matrixReportTitle": "Rapport de Classe Matriciel",
-    "matrixReportSubtitle": "Tableau récapitulatif des notes par classe et période"
+    "matrixReportSubtitle": "Tableau récapitulatif des notes par classe et période",
+    "classReport": "Rapport de classe"
   },
   "emploi": {
     "title": "Emploi du temps",
@@ -1046,7 +1078,11 @@
     "cat_primaire": "Primaire",
     "cat_college": "Collège",
     "cat_lycee": "Lycée",
-    "cat_autre": "Autre"
+    "cat_autre": "Autre",
+    "exportError": "Erreur lors de l'export",
+    "exportExcel": "Exporter Excel",
+    "exportPdf": "Exporter PDF",
+    "exportSuccess": "Export réussi"
   },
   "caisse": {
     "title": "Caisse",
@@ -1267,7 +1303,10 @@
     "exclusionLifted": "Exclusion levée",
     "printInvoice": "Aperçu / Imprimer",
     "error": "Erreur",
-    "newInvoiceSubtitle": "Créer une facture pour un élève"
+    "newInvoiceSubtitle": "Créer une facture pour un élève",
+    "actions": "Actions",
+    "class": "Classe",
+    "invoiceCount": "{count} facture(s)"
   },
   "communication": {
     "title": "Communication",
@@ -1441,7 +1480,24 @@
       "absences": "Absences répétées non justifiées",
       "travail": "Travail insuffisant",
       "autre": "Autre"
-    }
+    },
+    "aucunHistorique": "Aucun historique",
+    "aucunRetard": "Aucun retard",
+    "exclusionsEnCours": "Exclusions en cours",
+    "graviteMoyenne": "Gravité moyenne",
+    "historiqueDisciplinaire": "Historique disciplinaire",
+    "incidentsOuverts": "Incidents ouverts",
+    "incidentsResolus": "Incidents résolus",
+    "parEleve": "Par élève",
+    "parJour": "Par jour",
+    "retardsStats": "Statistiques des retards",
+    "timeline": "Chronologie",
+    "totalIncidents": "Total incidents",
+    "totalRetards": "Total retards",
+    "totalSanctions": "Total sanctions",
+    "workflowError": "Erreur lors de la validation",
+    "workflowSanction": "Workflow de sanction",
+    "workflowSuccess": "Sanction appliquée"
   },
   "rh": {
     "title": "Ressources Humaines",
@@ -1551,7 +1607,8 @@
     "congeStatusRefuse": "Refusé",
     "congeStatusEnCours": "En cours",
     "congeStatusTermine": "Terminé",
-    "congeStatusAnnule": "Annulé"
+    "congeStatusAnnule": "Annulé",
+    "recordedBy": "Enregistré par"
   },
   "analytics": {
     "title": "Statistiques",
@@ -1761,7 +1818,8 @@
     "etatBon": "Bon état",
     "etatUse": "Usé",
     "etatEndommage": "Endommagé",
-    "etatHorsService": "Hors service"
+    "etatHorsService": "Hors service",
+    "cancel": "Annuler"
   },
   "superAdmin": {
     "title": "Super Admin",
@@ -2028,7 +2086,11 @@
     "footerMessage": "Chaque destinataire pourra vous répondre.",
     "send": "Envoyer",
     "noClassesAvailable": "Aucune classe disponible pour votre périmètre.",
-    "niveauLabel": "Niveau {n}"
+    "niveauLabel": "Niveau {n}",
+    "dateSeparator": {
+      "aujourdhui": "Aujourd'hui",
+      "hier": "Hier"
+    }
   },
   "admissions": {
     "title": "Admissions",
@@ -2613,7 +2675,32 @@
     "staffCategory": "Personnel",
     "sitesAccessUpdated": "Accès sites mis à jour",
     "placeholderEmail": "prof@ecole.com",
-    "searchByNameOrEmail": "Rechercher par nom ou email..."
+    "searchByNameOrEmail": "Rechercher par nom ou email...",
+    "actions": "Actions",
+    "ajouterAffectation": "Ajouter une affectation",
+    "anneeArchivee": "Année archivée",
+    "anneeCloturee": "Année clôturée",
+    "anneeReouverte": "Année rouverte",
+    "annuler": "Annuler",
+    "archived": "Archivée",
+    "aucuneAffectation": "Aucune affectation",
+    "classe": "Classe",
+    "classePrincipale": "Classe principale",
+    "close": "Clôturer",
+    "closed": "Clôturée",
+    "confirmArchiver": "Archiver cette année ?",
+    "confirmCloturer": "Clôturer cette année ?",
+    "confirmReouvrir": "Rouvrir cette année ?",
+    "enseignant": "Enseignant",
+    "enseignantsAffectation": "Affectation enseignants",
+    "inactive": "Inactive",
+    "matiere": "Matière",
+    "nouvelleAffectation": "Nouvelle affectation",
+    "reopen": "Rouvrir",
+    "selectionnerClasse": "Sélectionner une classe",
+    "selectionnerEnseignant": "Sélectionner un enseignant",
+    "selectionnerMatiere": "Sélectionner une matière",
+    "supprimer": "Supprimer"
   },
   "appreciations": {
     "title": "Règles d'appréciation configurables",
@@ -3239,7 +3326,28 @@
       "repartirCompetences": "Répartir les compétences",
       "enregistrerCompetences": "Enregistrer",
       "competencesReparties": "{n} compétences réparties sur les semaines du chapitre.",
-      "competencesEnregistrees": "{n} compétences planifiées."
+      "competencesEnregistrees": "{n} compétences planifiées.",
+      "aReprendre": "À reprendre",
+      "actionsAMener": "Actions à mener",
+      "aucunProfil": "Aucun profil de compétence",
+      "aucunProfilAide": "Aucune compétence évaluée pour le moment.",
+      "aucuneAction": "Aucune action",
+      "aucuneEvaluation": "Aucune évaluation",
+      "bloquePar": "Bloqué par",
+      "derniereEvaluation": "Dernière évaluation",
+      "fiabilite": "Fiabilité: {pct}%",
+      "fiabiliteAide": "Indice de confiance du profil",
+      "maitrisees": "Compétences maîtrisées",
+      "nbEval": "{n} éval.",
+      "nonMesurables": "{n} non mesurables",
+      "ouvertures": "Ouvertures",
+      "pasAssez": "Pas assez d'évaluations ({n})",
+      "pctMaitrise": "{pct}% maîtrisé",
+      "pourAllerPlusLoin": "Pour aller plus loin",
+      "sansMatiere": "Sans matière",
+      "tendanceBaisse": "Tendance à la baisse",
+      "tendanceHausse": "Tendance à la hausse",
+      "tendanceStable": "Tendance stable"
     },
     "competencesEleve": {
       "aucunProfil": "Aucun profil de compétences",
@@ -3821,7 +3929,29 @@
     "alertes": {
       "absences": "⚠️ {n, plural, one {# absence injustifiée} other {# absences injustifiées}} pour {prenom} sur les {jours} derniers jours. Merci de nous contacter pour régulariser.",
       "parcoursArret": "🔔 Le parcours d’accompagnement de {prenom} en {matiere} est à l’arrêt depuis plusieurs semaines. Un point avec l’enseignant serait utile.",
-      "jalonAtteint": "🎉 Bonne nouvelle : {prenom} a validé l’étape « {competence} ». Le travail porte ses fruits."
+      "jalonAtteint": "🎉 Bonne nouvelle : {prenom} a validé l’étape « {competence} ». Le travail porte ses fruits.",
+      "absence": {
+        "frequence": "⚠️ {elevePrenom} {eleveNom} a cumulé {count} absences injustifiées cette semaine (semaine {semaine}). Merci de nous contacter pour régulariser."
+      },
+      "prediction": {
+        "difficulte": "📊 {elevePrenom} {eleveNom} est prédit(e) en difficulté sur « {competenceLibelle} » ({difficulte}, probabilité de réussite {probaReussite, number, percent}). Un accompagnement est conseillé."
+      },
+      "devoir": {
+        "enretard": "⏰ Le devoir « {titre} » en {matiereNom} pour {elevePrenom} {eleveNom} est en retard de {joursRetard} jour(s). Merci de vérifier.",
+        "corrige": "📝 Le devoir « {titre} » en {matiereNom} pour {elevePrenom} {eleveNom} a été corrigé. Consultez le résultat."
+      },
+      "evaluation": {
+        "publiee": "📋 Une évaluation en {matiereNom} ({intitule}) pour {elevePrenom} {eleveNom} a été publiée. Consultez le résultat."
+      },
+      "bulletin": {
+        "publie": "📄 Le bulletin de {periodeNom} pour {elevePrenom} {eleveNom} a été publié. Consultez-le sur l'application."
+      },
+      "incident": {
+        "signale": "🚨 Incident signalé pour {elevePrenom} {eleveNom} ({classeNom}) — Type : {type}, Gravité : {gravite}/5. {description}. Date : {date}."
+      },
+      "candidature": {
+        "acceptee": "✅ La candidature de {elevePrenom} {eleveNom} a été acceptée. Matricule : {matricule}, Classe : {classeNom}. Bienvenue !"
+      }
     },
     "preferences": {
       "titre": "Notifications",
@@ -3946,7 +4076,8 @@
       "regenerer": "Régénérer",
       "sauvegarder": "Sauvegarder",
       "sauvegarde": "Sauvegardé",
-      "avertissement": "L'IA propose, l'enseignant valide. Vérifiez avant de sauvegarder."
+      "avertissement": "L'IA propose, l'enseignant valide. Vérifiez avant de sauvegarder.",
+      "decisionLabel": "Décision"
     },
     "propositionsIa": {
       "titre": "Propositions IA à valider",
@@ -4215,7 +4346,10 @@
     "responseDate": "Date de réponse",
     "student": "Élève",
     "class": "Classe",
-    "matricule": "Matricule"
+    "matricule": "Matricule",
+    "archived": "Archivée",
+    "closed": "Clôturée",
+    "open": "Ouverte"
   },
   "echeancier": {
     "title": "Échéancier de paiement",
@@ -4402,7 +4536,10 @@
     "bloque": "Bloqué",
     "actif": "Actif",
     "statut": "Statut",
-    "aucuneFacture": "Aucune facture en souffrance"
+    "aucuneFacture": "Aucune facture en souffrance",
+    "export": "Exporter",
+    "exportError": "Erreur lors de l'export",
+    "exportSuccess": "Export réussi"
   },
   "exploitation": {
     "titre": "Exploitation du site",
@@ -4798,5 +4935,253 @@
     "ecartsPlanning": "Écarts de planning",
     "derive": "Dérive",
     "semaines": "semaine(s)"
+  },
+  "forgotPassword": {
+    "invalidEmail": "Adresse email invalide",
+    "error": "Une erreur est survenue. Vérifiez l'adresse et réessayez.",
+    "title": "Mot de passe oublié",
+    "subtitle": "Entrez votre adresse email pour recevoir un lien de réinitialisation.",
+    "success": "Si un compte existe pour cette adresse, un email de réinitialisation a été envoyé.",
+    "backToLogin": "Retour à la connexion",
+    "email": "Adresse email",
+    "emailPlaceholder": "vous@exemple.dj",
+    "sending": "Envoi en cours…",
+    "submit": "Envoyer le lien"
+  },
+  "verifyEmail": {
+    "verifying": "Vérification en cours…",
+    "title": "Email vérifié",
+    "success": "Votre adresse email a été vérifiée. Vous pouvez maintenant vous connecter.",
+    "loginNow": "Se connecter maintenant",
+    "resendSubmit": "Renvoyer l'email",
+    "backToLogin": "Retour à la connexion",
+    "resendTitle": "Renvoyer l'email de vérification",
+    "resendSuccess": "Un nouvel email de vérification a été envoyé.",
+    "subtitle": "Entrez votre adresse email pour recevoir un nouveau lien de vérification.",
+    "email": "Adresse email",
+    "emailPlaceholder": "vous@exemple.dj",
+    "sending": "Envoi en cours…",
+    "error": "Le lien de vérification est invalide ou a expiré."
+  },
+  "userPermissions": {
+    "title": "Permissions utilisateur",
+    "description": "Gérez les permissions individuelles accordées ou refusées à un utilisateur.",
+    "selectUser": "Sélectionner un utilisateur",
+    "permission": "Permission",
+    "mode": "Mode",
+    "grant": "Accorder",
+    "deny": "Refuser",
+    "add": "Ajouter",
+    "noPermissions": "Aucune permission personnalisée.",
+    "success": "Permission mise à jour",
+    "error": "Erreur lors de la mise à jour",
+    "confirmDelete": "Supprimer cette permission ?"
+  },
+  "mobileNav": {
+    "ariaLabel": "Navigation principale",
+    "home": "Accueil",
+    "children": "Enfants",
+    "messages": "Messages",
+    "billing": "Factures",
+    "profile": "Profil",
+    "courses": "Cours",
+    "grades": "Notes",
+    "schedule": "Emploi du temps",
+    "myClass": "Ma classe",
+    "students": "Élèves",
+    "attendance": "Absences",
+    "settings": "Paramètres",
+    "dashboard": "Tableau de bord"
+  },
+  "cahierJournal": {
+    "calendar": "Calendrier",
+    "semainePrecedente": "Semaine précédente",
+    "semaineSuivante": "Semaine suivante",
+    "genererSemaine": "Générer la semaine",
+    "genererSuccess": "{count} séance(s) générée(s)",
+    "genererErreur": "Erreur lors de la génération",
+    "aujourdhui": "Aujourd'hui",
+    "enRetard": "En retard",
+    "joursRetard": "{days} j de retard",
+    "seancesARemplir": "Séances à remplir",
+    "progressionSemaine": "Progression de la semaine",
+    "travailAFaire": "Travail à faire",
+    "autres": "autres",
+    "objectifs": "Objectifs",
+    "ajouterObjectif": "Ajouter un objectif…",
+    "activites": "Activités",
+    "dureeMin": "min",
+    "ajouterActivite": "Ajouter une activité…",
+    "supports": "Supports",
+    "ajouterSupport": "Joindre un fichier…",
+    "differentiation": "Différenciation",
+    "ajouterDifferentiation": "Ajouter une différenciation…",
+    "planLecon": "Plan de leçon",
+    "fichiers": "Fichiers",
+    "aucunFichier": "Aucun fichier",
+    "joindreFichier": "Joindre un fichier",
+    "telechargerFichier": "Télécharger",
+    "supprimerFichier": "Supprimer le fichier",
+    "fichierTropVolumineux": "Fichier trop volumineux (max 5 Mo)",
+    "tropDeFichiers": "Trop de fichiers (max 10)",
+    "typeFichierNonAutorise": "Type de fichier non autorisé",
+    "uploadError": "Erreur lors de l'envoi du fichier",
+    "deleteError": "Erreur lors de la suppression",
+    "commentaires": "Commentaires",
+    "aucunCommentaire": "Aucun commentaire",
+    "ajouterCommentaire": "Ajouter un commentaire",
+    "commentairePlaceholder": "Écrire un commentaire…",
+    "commentaireError": "Erreur lors de l'enregistrement du commentaire",
+    "confirmSupprimerCommentaire": "Supprimer ce commentaire ?",
+    "supprimerCommentaire": "Supprimer le commentaire",
+    "EXERCICE": "Exercice",
+    "LECTURE": "Lecture",
+    "REVISION": "Révision",
+    "PROJET": "Projet",
+    "AUTRE": "Autre",
+    "tableauBord": {
+      "titre": "Tableau de bord",
+      "aucunePrediction": "Aucune prédiction",
+      "prediction": "Prédiction",
+      "elevesEnDifficulte": "{count} élève(s) en difficulté",
+      "prerequisManquants": "Prérequis manquants",
+      "competencesPrevues": "Compétences prévues",
+      "patternHistorique": "Pattern historique",
+      "tauxEchec": "Taux d'échec: {pct}%",
+      "moyenneHistorique": "Moyenne: {avg}/20",
+      "planLecon": "Plan de leçon",
+      "accepter": "Accepter",
+      "modifier": "Modifier",
+      "refuser": "Refuser",
+      "aucunPlan": "Aucun plan",
+      "exercicesRemediation": "Exercices de remédiation",
+      "genererExercices": "Générer les exercices"
+    }
+  },
+  "dossierProgression": {
+    "title": "Dossier de progression",
+    "backToStudent": "Retour à l'élève",
+    "errLoad": "Erreur lors du chargement",
+    "statusMastered": "Maîtrisée",
+    "statusProficient": "Compétent",
+    "statusDeveloping": "En développement",
+    "statusEmerging": "Émergente",
+    "statusNeedsReview": "À réviser",
+    "statusUnknown": "Inconnue",
+    "synthCompetences": "Compétences",
+    "synthMaitrisees": "Maîtrisées",
+    "synthFragiles": "Fragiles",
+    "synthCritiques": "Critiques",
+    "synthInterventions": "Interventions actives",
+    "synthPlans": "Plans actifs",
+    "synthRecos": "Recommandations actives",
+    "competencesTitle": "Compétences",
+    "noCompetences": "Aucune compétence",
+    "evidencesTitle": "Preuves",
+    "noEvidences": "Aucune preuve",
+    "evidenceDate": "Date",
+    "evidenceType": "Type",
+    "evidenceCompetence": "Compétence",
+    "evidenceSignal": "Signal",
+    "evidenceConfidence": "Confiance",
+    "evidenceCount": "Nombre de preuves",
+    "interventionsTitle": "Interventions",
+    "noInterventions": "Aucune intervention",
+    "masteryBefore": "Avant",
+    "masteryAfter": "Après",
+    "plansTitle": "Plans",
+    "noPlans": "Aucun plan",
+    "planRemediation": "Remédiation",
+    "planApprofondissement": "Approfondissement",
+    "predictionsTitle": "Prédictions",
+    "noPredictions": "Aucune prédiction",
+    "predictionVerified": "Prédiction vérifiée",
+    "recommandationsTitle": "Recommandations",
+    "noRecommandations": "Aucune recommandation",
+    "recoResolved": "Résolue",
+    "journalTitle": "Journal"
+  },
+  "veilleAssiduite": {
+    "title": "Veille assiduité",
+    "subtitle": "Suivi des élèves à risque d'absentéisme",
+    "selectClass": "Sélectionner une classe",
+    "allClasses": "Toutes les classes",
+    "onlyWatch": "Afficher uniquement les élèves surveillés",
+    "synthTotal": "Élèves surveillés",
+    "synthVeille": "En veille active",
+    "synthAcceleration": "Absences en accélération",
+    "synthCritique": "Cas critiques",
+    "synthTauxMoyen": "Taux moyen",
+    "synthAbsMoyennes": "Absences moyennes",
+    "noStudents": "Aucun élève",
+    "noWatchStudents": "Aucun élève surveillé",
+    "errLoad": "Erreur lors du chargement",
+    "colStudent": "Élève",
+    "colClass": "Classe",
+    "colAbsences": "Absences",
+    "colInjustifiees": "Injustifiées",
+    "colRetards": "Retards",
+    "colTauxCourant": "Taux actuel",
+    "colTendance": "Tendance",
+    "colPattern": "Pattern",
+    "colStatus": "Statut",
+    "accelerating": "Absences en accélération",
+    "improving": "En amélioration",
+    "watch": "Surveiller",
+    "ok": "OK"
+  },
+  "conseilAugmente": {
+    "abs": "Abs",
+    "absencesTotal": "Total absences",
+    "assiduite": "Assiduité",
+    "classTitle": "Classe {classe}",
+    "compCritiques": "Comp. critiques",
+    "compFragiles": "Comp. fragiles",
+    "compMaitrisees": "Comp. maîtrisées",
+    "crit": "Crit",
+    "discipline": "Discipline",
+    "errLoad": "Erreur lors du chargement",
+    "frag": "Frag",
+    "grave": "Grave",
+    "inc": "Inc",
+    "incidentsTotal": "Total incidents",
+    "injust": "Injust",
+    "interventions": "Interventions",
+    "learnos": "LEARNOS",
+    "load": "Charger",
+    "matieresDetail": "Détail par matière",
+    "mentorat": "Mentorat",
+    "noMatieres": "Aucune matière en difficulté",
+    "noStudents": "Aucun élève",
+    "plans": "Plans",
+    "pred": "Pred",
+    "predictions": "Prédictions",
+    "recos": "Recos",
+    "ret": "Ret",
+    "sanct": "Sanct",
+    "selectClass": "Sélectionner une classe",
+    "selectPeriode": "Sélectionner une période",
+    "selectPrompt": "Sélectionnez une classe et une période pour générer le conseil augmenté.",
+    "signalsSynthesis": "Synthèse des signaux",
+    "subjectsInDifficulty": "Matières en difficulté"
+  },
+  "activityTimeline": {
+    "titre": "Activité récente",
+    "evenements": "{count} événement(s)",
+    "periodeRecent": "Dernière action",
+    "periodeAujourdhui": "Aujourd'hui",
+    "periodeSemaine": "Cette semaine",
+    "periodeMois": "Ce mois",
+    "aucuneActivite": "Aucune activité sur cette période.",
+    "maintenant": "à l'instant",
+    "ilYAMinutes": "il y a {count} min",
+    "ilYAHeures": "il y a {count}h",
+    "hier": "hier",
+    "ilYAJours": "il y a {count}j"
+  },
+  "absencesStats": {
+    "aujourdhui": "Aujourd'hui",
+    "cetteSemaine": "Cette semaine",
+    "nonJustifiees": "Non justifiées"
   }
 }

@@ -3,7 +3,7 @@
  *
  * En usage normal, `getDemoNow()` renvoie l'heure réelle. Pendant une démo,
  * l'utilisateur fixe une date via le modal Time Machine ; elle est stockée
- * dans deux cookies et toute l'application se comporte comme si on était à
+ * dans des cookies et toute l'application se comporte comme si on était à
  * cette date. Cela permet d'avancer dans le temps pour montrer l'évolution
  * des indicateurs, la vérification des prédictions et le recalibrage.
  *
@@ -14,7 +14,8 @@
  *   const maintenant = await getDemoNow();
  */
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { Role } from "@prisma/client";
 
 /**
@@ -50,6 +51,72 @@ export const DEMO_NOW_COOKIE = "demo_now";
 export const DEMO_NOW_ENABLED_COOKIE = "demo_now_enabled";
 
 /**
+ * Cookie liant la date de démo au compte et au tenant qui l'ont choisie.
+ *
+ * Sans ce lien, un `PARENT` dont le navigateur aurait conservé les cookies
+ * posés par un `TENANT_ADMIN` (session partagée, profil de navigateur, etc.)
+ * se verrait appliquer la date simulée bien que l'API lui réponde
+ * `autorise: false`. Le scope est un tableau JSON `[userId, tenantId]`.
+ */
+export const DEMO_NOW_SCOPE_COOKIE = "demo_now_scope";
+
+/**
+ * Verrou anti-récursion.
+ *
+ * La résolution de session (`auth()` ou `verifyMobileScope()`) peut elle-même
+ * déclencher du code qui appellerait `getDemoDate()` — typiquement via
+ * `getDemoNow()` dans un callback ou un middleware. Sans protection, cela
+ * créerait une boucle infinie. Ce `AsyncLocalStorage` marque l'appel en cours
+ * : tout appel imbriqué à `getDemoDate()` renvoie `null` immédiatement, sans
+ * tenter de résoudre la session à nouveau.
+ */
+const resolutionEnCours = new AsyncLocalStorage<boolean>();
+
+/**
+ * Périmètre de session minimal requis pour appliquer la date de démo.
+ */
+interface ScopeSession {
+  id: string;
+  tenantId: string | null;
+  role: string;
+}
+
+/**
+ * Résout la session en cours, en distinguant web et mobile.
+ *
+ * - Si un en-tête `Authorization: Bearer …` est présent, on utilise
+ *   `verifyMobileScope` (jeton mobile). Un jeton invalide échoue fermé : on ne
+ *   retombe pas sur la session web, car un client mobile n'en a pas.
+ * - Sinon, on utilise `auth()` (session web NextAuth).
+ *
+ * Les imports sont dynamiques pour casser le cycle de module :
+ * `@/lib/auth` importe Prisma, qui peut importer du code appelant
+ * `getDemoNow()` — d'où le risque de boucle.
+ */
+async function resoudreSession(): Promise<ScopeSession | null> {
+  const h = await headers();
+  const authHeader = h.get("authorization");
+
+  if (authHeader?.startsWith("Bearer ")) {
+    const { verifyMobileScope } = await import("@/lib/mobile-auth");
+    const { NextRequest } = await import("next/server");
+    const req = new NextRequest("http://localhost", { headers: h });
+    const user = await verifyMobileScope(req);
+    if (!user) return null;
+    return { id: user.id, tenantId: user.tenantId, role: user.role };
+  }
+
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  if (!session?.user) return null;
+  return {
+    id: session.user.id ?? "",
+    tenantId: session.user.tenantId ?? null,
+    role: session.user.role ?? "",
+  };
+}
+
+/**
  * Date de démonstration brute, ou `null` hors démo.
  *
  * Contrairement à `getDemoNow()`, ne retombe jamais sur `new Date()` : renvoie
@@ -60,8 +127,19 @@ export const DEMO_NOW_ENABLED_COOKIE = "demo_now_enabled";
  *
  * Ne lève jamais : hors contexte de requête (scripts, cron, tests),
  * `cookies()` échoue et l'on considère qu'il n'y a pas de démonstration.
+ *
+ * CONTRÔLE D'ACCÈS
+ * La date n'est appliquée que si la session en cours :
+ *   1. a le rôle `TENANT_ADMIN` (cf. `ROLES_HORLOGE`) ;
+ *   2. correspond au compte qui a posé le cookie (scope userId) ;
+ *   3. correspond au tenant qui a posé le cookie (scope tenantId).
+ * Un cookie résiduel chez un autre compte — ou un autre tenant — est ignoré.
  */
 export async function getDemoDate(): Promise<Date | null> {
+  // Anti-récursion : si on est déjà en train de résoudre la session pour un
+  // appel précédent, on ne re-déclenche pas la résolution.
+  if (resolutionEnCours.getStore() === true) return null;
+
   try {
     const cookieStore = await cookies();
     if (cookieStore.get(DEMO_NOW_ENABLED_COOKIE)?.value !== "true") {
@@ -71,8 +149,32 @@ export async function getDemoDate(): Promise<Date | null> {
     const iso = cookieStore.get(DEMO_NOW_COOKIE)?.value;
     if (!iso) return null;
 
+    const scopeRaw = cookieStore.get(DEMO_NOW_SCOPE_COOKIE)?.value;
+    if (!scopeRaw) return null;
+
+    let scope: [string, string];
+    try {
+      scope = JSON.parse(decodeURIComponent(scopeRaw));
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(scope) || scope.length < 2 || typeof scope[0] !== "string" || typeof scope[1] !== "string") {
+      return null;
+    }
+    const [scopeUserId, scopeTenantId] = scope;
+
     const d = new Date(decodeURIComponent(iso));
-    return isNaN(d.getTime()) ? null : d;
+    if (isNaN(d.getTime())) return null;
+
+    // Résoudre la session dans le contexte anti-récursion.
+    const session = await resolutionEnCours.run(true, () => resoudreSession());
+    if (!session) return null;
+
+    if (!peutDeplacerHorloge(session.role)) return null;
+    if (session.id !== scopeUserId) return null;
+    if (session.tenantId !== scopeTenantId) return null;
+
+    return d;
   } catch {
     return null;
   }

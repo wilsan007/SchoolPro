@@ -10,7 +10,7 @@
 import prisma from "@/lib/prisma";
 import type { DrainedEvent } from "@/lib/learnos/event-bus";
 import type { PredictionEmisePayload } from "@/lib/learnos/events";
-import { siteFilterFromSession, siteFilterForRelation, siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterFromSession, siteFilterForModel } from "@/lib/site-scope";
 import { NiveauAlerteParent } from "@prisma/client";
 
 const SEUILS: Record<string, NiveauAlerteParent> = {
@@ -25,8 +25,7 @@ export async function onPredictionEmise(event: DrainedEvent): Promise<void> {
   const alertables = payload.predictions.filter((p) => p.difficultePredite === "DIFFICILE" || p.difficultePredite === "CRITIQUE");
   if (alertables.length === 0) return;
 
-  const scope = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
-  const siteFilter = siteFilterForRelation(scope, "eleve");
+  const siteFilter = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
 
   const competenceIds = [...new Set(alertables.map((p) => p.competenceId))];
   const competences = await prisma.competence.findMany({
@@ -61,7 +60,7 @@ export async function onPredictionEmise(event: DrainedEvent): Promise<void> {
       eleveId: p.eleveId,
       parentId: ep.parentId,
       niveau,
-      cle: "learnos.alertes.prediction.difficulte",
+      cle: "prediction.difficulte",
       params: {
         chapitreId: payload.chapitreId,
         competenceLibelle,

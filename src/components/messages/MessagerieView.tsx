@@ -6,6 +6,7 @@ import {
   Megaphone, School, MessageSquare, Pin, Lock, Paperclip,
   Info, X, ArrowLeft, ArrowUp, Bell, BellOff, LogOut, Trash2,
 } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -83,15 +84,19 @@ const FILTER_CONFIG: Record<FilterTab, { label: string; icon: typeof MessageSqua
 const ANNOUNCEMENT_TYPES = ["CLASS_ANNOUNCEMENT", "ADMIN_BROADCAST"];
 const GROUP_TYPES = ["CLASS_DISCUSSION", "STAFF_GROUP", "FREE"];
 
-function dateSeparatorLabel(iso: string): string {
+function dateSeparatorLabel(
+  iso: string,
+  t: ReturnType<typeof useTranslations>,
+  locale: string,
+): string {
   const d = new Date(iso);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (d >= today) return "Aujourd'hui";
-  if (d >= yesterday) return "Hier";
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" });
+  if (d >= today) return t("dateSeparator.aujourdhui");
+  if (d >= yesterday) return t("dateSeparator.hier");
+  return d.toLocaleDateString(locale === "en" ? "en-US" : locale === "so" ? "so-SO" : "fr-FR", { day: "numeric", month: "long", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" });
 }
 
 function shouldShowSeparator(prev: string | null, curr: string): boolean {
@@ -100,6 +105,8 @@ function shouldShowSeparator(prev: string | null, curr: string): boolean {
 }
 
 export function MessagerieView({ userRole }: { userRole: string }) {
+  const t = useTranslations("messages");
+  const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConv, setActiveConv] = useState<Conversation | null>(null);
@@ -299,10 +306,11 @@ export function MessagerieView({ userRole }: { userRole: string }) {
   const formatTime = (iso: string) => {
     const d = new Date(iso);
     const now = new Date();
+    const loc = locale === "en" ? "en-US" : locale === "so" ? "so-SO" : "fr-FR";
     if (d.toDateString() === now.toDateString()) {
-      return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" });
     }
-    return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+    return d.toLocaleDateString(loc, { day: "2-digit", month: "short" });
   };
 
   const selectConvMobile = (conv: Conversation) => {
@@ -529,7 +537,7 @@ export function MessagerieView({ userRole }: { userRole: string }) {
                         <div className="flex items-center gap-2 my-4">
                           <div className="flex-1 h-px bg-border" />
                           <span className="text-[10px] text-muted-foreground px-2">
-                            {dateSeparatorLabel(msg.createdAt)}
+                            {dateSeparatorLabel(msg.createdAt, t, locale)}
                           </span>
                           <div className="flex-1 h-px bg-border" />
                         </div>

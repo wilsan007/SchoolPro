@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
         ...siteFilter,
         ...classeFilter,
         ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
-        date: { lte: maintenant },
+        // Horizon temporel : TERMINE = fait constaté (borné), PLANIFIE = calendrier (visible).
+        OR: [{ statut: "PLANIFIE" }, { date: { lte: maintenant } }],
       },
       include: {
         classe: { select: { nom: true, niveau: true } },

@@ -9,7 +9,7 @@
     "syncErreur": "Khalad isku xidh",
     "toutAJour": "Waa wanaagsan tahay",
     "toutAJourDesc": "Ma jiro hawl oo sugaya. Hawsha wanaagsan!",
-    "enRetard": "Daahsoon",
+    "enRetard": "daan",
     "aujourdhui": "Maanta",
     "cetteSemaine": "Toddobadan",
     "semaineProchaine": "Toddobada soo socota",
@@ -38,7 +38,22 @@
     "tachesEnRetard": "Hawlaha daahsoon",
     "tachesAUjourdHui": "Hawlaha maanta",
     "nbEnRetard": "{count} daahsoon",
-    "nbAujourdhui": "{count} maanta"
+    "nbAujourdhui": "{count} maanta",
+    "buckets": {
+      "enRetard": "Daan",
+      "aujourdhui": "Maanta",
+      "semaine": "Todobaadkan",
+      "semaineProchaine": "Todobaadka xiga",
+      "plusTard": "Dibedda",
+      "sansEcheance": "Maqan taariikhda"
+    },
+    "rel": {
+      "aujourdhui": "Maanta",
+      "demain": "Berri",
+      "hier": "Shalay",
+      "dansJours": "{count}d gudaha",
+      "ilYAJours": "{count}d ka hor"
+    }
   },
   "common": {
     "appName": "EcolPro",
@@ -121,7 +136,18 @@
     "selectSiteRequired": "Waa in aad doorataa goob ka hor abuurista walax. Dooro goob liiska hoose.",
     "siteSelectionRequired": "Doorashada goobta loo baahan yahay",
     "noSiteAvailable": "Goob lahayn. La xidhiidh maamulaha.",
-    "arabic": "Carabi"
+    "arabic": "Carabi",
+    "financialBlock": {
+      "allChildrenExcluded": "Dhamaan caruurtaada waa la xannibay sababtoo ah bixinta la'aanta. Fadlan xalli xaaladda xafiiska maamulka.",
+      "contactAdmin": "Hadii aad u malaynayso in ay khalad tahay, fadlan la xidhiidh xafiiska maamulka ee dugsigaaga.",
+      "partialExclusionMultiple": "Galgalka {count} ka mid ah caruurtaada waa la joojiyay sababtoo ah bixinta la'aanta. Caruurta kale way sii wadaan. Fadlan xalli xaaladda xafiiska maamulka.",
+      "partialExclusionSingle": "Galgalka mid ka mid ah caruurtaada waa la joojiyay sababtoo ah bixinta la'aanta. Caruurta kale way sii wadaan. Fadlan xalli xaaladda xafiiska maamulka.",
+      "signout": "Ka bax",
+      "studentExcluded": "Galgalkaaga waa la joojiyay. Fadlan la xidhiidh maamulka.",
+      "studentExcludedWithDate": "Galgalkaaga waa la joojiyay ilaa {date} sababtoo ah: {motif}. Fadlan xalli xaaladdaada xafiiska maamulka.",
+      "subtitle": "Galgalkaaga bogga waa la xannibay si ku meel gaar ah",
+      "title": "Galgalka waa la joojiyay"
+    }
   },
   "monEspace": {
     "maSemaine": "Toddobaadkayga",
@@ -134,7 +160,9 @@
     "salle": "Qol",
     "grilleCompetences": "Shaxda xirfadaha",
     "aucuneEvaluation": "Wax qiimeyn xirfad ah ma jiro",
-    "eleve": "Arday"
+    "eleve": "Arday",
+    "actionsATraiter": "Hawlaha la fuliyo",
+    "activiteRecente": "Howlaha dhawaan"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -206,7 +234,12 @@
     "taches": "Hawsha",
     "veilleAssiduite": "Kormeer joogitaanka",
     "intelligence": "Caqli",
-    "fournitures": "Bahalyada"
+    "fournitures": "Bahalyada",
+    "menu": "Liiska",
+    "plus": "Dheeri",
+    "searchModules": "Raadi module…",
+    "accueil": "Hoyga",
+    "systeme": "Nidaamka"
   },
   "maJournee": {
     "titre": "Maalintayda",
@@ -318,7 +351,25 @@
     "statutTRANSFERE": "Transfered",
     "statutDIPLOME": "Graduated",
     "statutEXCLU": "Excluded",
-    "statutABANDONNE": "Dropped"
+    "statutABANDONNE": "Dropped",
+    "dossierProgression": "Faylka habka",
+    "deleteCancel": "Jooji",
+    "deleteConfirm": "Xaqiiji tirtirka",
+    "deleteConfirmDescription": "Ma hubtaa in aad tirtirayso ardayga {name}?",
+    "deleteConfirmTitle": "Xaqiiji tirtirka",
+    "deleteError": "Khalad marka la tirtiraynayo",
+    "deleteSoftNote": "Xogta taariikhiga (calaamadaha, maqannada, faturadaha) waa la kaydin doonaa. Ardayga waxaa lagu calaamadeyn doonaa mid la dhaafay oo akoonkiisa waa la joojin doonaa.",
+    "deleteStudent": "Tirtir",
+    "exclusionAccessBlocked": "Galgalka bogga iyo natiijooyinka waa la xannibay ardaygan.",
+    "exclusionReason": "Sabab: {motif} — ilaa {date}",
+    "invoiceCount": "{count} faturad",
+    "overdue": "Daahfur",
+    "relancesSent": "{relances} waanu la diray ({retards} faturad oo daahfuran)",
+    "remainingToPay": "Hadhay lacag la bixin",
+    "studentDeleted": "Ardayga si guul leh ayaa la tirtiray",
+    "studentExcluded": "Arday la xannibay",
+    "totalBilled": "Tirada guud ee faturada",
+    "totalPaid": "Tirada la bixiyay"
   },
   "eleves": {
     "title": "Student Management",
@@ -603,7 +654,8 @@
     "successLocked": "{count} report card(s) locked",
     "successUnlocked": "{count} report card(s) unlocked",
     "errVerrouillage": "Khalad xidhista",
-    "lockedAdminOnly": "Only an administrator can unlock report cards"
+    "lockedAdminOnly": "Only an administrator can unlock report cards",
+    "conseilAugmente": "Gudiga kor u qaadist"
   },
   "notes": {
     "title": "Grades & Assessments",
@@ -804,7 +856,18 @@
     "mentionENCOURAGEMENTS": "Dhiirigelin",
     "mentionSATISFAISANT": "Qancin",
     "mentionEFFORTS": "Waa inuu dadaalo",
-    "mentionINSUFFISANT": "Shaqo aan ku filnayn"
+    "mentionINSUFFISANT": "Shaqo aan ku filnayn",
+    "avert": "Digniinyo",
+    "encourage": "Dhiirrigelinta",
+    "felicite": "Hambalyo",
+    "learnosCommentaireApplique": "Faallada LEARNOS waa la dhaqan geliyay",
+    "learnosEleve": "Ardayga",
+    "learnosMatiere": "Maadada",
+    "learnosSelectEleve": "Dooro arday",
+    "learnosSelectMatiere": "Dooro maado",
+    "nonRenseigne": "Lama sheegin",
+    "passage": "Gudbinta",
+    "redoub": "Soo laabashada"
   },
   "examens": {
     "title": "Exams & Assessments",
@@ -865,10 +928,11 @@
     "createExamBtn": "Create exam",
     "statusUpdated": "Status updated: {status}",
     "statusUpdateError": "Cannot change status",
-    "days": "{count} day(s)",
+    "days": "{count} maalmood",
     "sessionsCount": "{count} session(s)",
     "matrixReportTitle": "Warqadda Fasalka Matrix",
-    "matrixReportSubtitle": "Jadwal soo koobida dhibcaha fasal iyo muddo"
+    "matrixReportSubtitle": "Jadwal soo koobida dhibcaha fasal iyo muddo",
+    "classReport": "Warbixin fasal"
   },
   "emploi": {
     "title": "Timetable",
@@ -1014,7 +1078,11 @@
     "cat_primaire": "Primaire",
     "cat_college": "Collège",
     "cat_lycee": "Lycée",
-    "cat_autre": "Kale"
+    "cat_autre": "Kale",
+    "exportError": "Khalad marka la dhoofinayo",
+    "exportExcel": "Dhoofin Excel",
+    "exportPdf": "Dhoofin PDF",
+    "exportSuccess": "Dhoofinta waa la guuleystay"
   },
   "caisse": {
     "title": "Cash Register",
@@ -1199,7 +1267,46 @@
     "printReceipt": "Print receipt",
     "paymentRecordedPrintReceipt": "Payment recorded. Click to print the receipt.",
     "recordedBy": "Recorded by",
-    "newInvoiceSubtitle": "Abuur faturad arday"
+    "newInvoiceSubtitle": "Abuur faturad arday",
+    "actions": "Hawlaha",
+    "class": "Fasalka",
+    "invoiceCount": "{count} faturad",
+    "close": "Xidh",
+    "confirmLiftExclusion": "Ka qaad xannibiddan ardaygan?",
+    "currentExclusions": "Xannibo firfircoon",
+    "decidedBy": "Go'aamay",
+    "details": "Faahfaahin",
+    "detectOverdue": "Ogaado daahfurka",
+    "enterStudentId": "ID ardayga la xannibayo:",
+    "error": "Khalad",
+    "exclude": "Xannib",
+    "exclusionDefaultReason": "Bixinta la'aanta ricada iskuulka oo la soo celiyay",
+    "exclusionLifted": "Xannibka waa la qaaday",
+    "exclusionPrompt": "Sababta xannibidda {name}:",
+    "exclusions": "Xannibo",
+    "generate": "Abuur",
+    "generateMonthly": "Abuur bishooyinka",
+    "generateMonthlyTitle": "Abuurista otomaatiga ah ee bishooyinka",
+    "generationHint": "Faturadaha waxaa la abuurayaa dhamaan ardayda firfircoon ee leh qiimo la qeexay heerkooda. Faturadaha hore ee bishan waa la iska dhaafaa si otomaatig ah.",
+    "includeCanteen": "Ku dar kharashaadka cunista",
+    "includeTransport": "Ku dar kharashaadka gaadhi",
+    "invoicesGenerated": "{generated} faturad oo la abuuray, {skipped} oo la iska dhaafay (hore ayaa jiray ama qiimo la'aan)",
+    "level": "Heer.",
+    "lift": "Ka qaad",
+    "month": "Bisha",
+    "noExclusions": "Ma jiro xannib firfirfoon.",
+    "noOverdueInvoices": "Ma jiro faturad daahfuran.",
+    "none": "Ma jiro",
+    "number": "N°",
+    "overdueInvoices": "Faturadaha daahfuran",
+    "printInvoice": "Eeg / Daabac",
+    "reason": "Sababta",
+    "relanceSent": "Waanuc heerka {niveau} la diray ({canal})",
+    "remind": "Waanuc",
+    "reminders": "Waanuca",
+    "schoolYear": "Sannad dugsiyeedka",
+    "since": "Ilaa",
+    "studentExcluded": "Ardayga si guul leh ayaa la xannibay"
   },
   "communication": {
     "title": "Communication",
@@ -1373,7 +1480,24 @@
       "absences": "Repeated unjustified absences",
       "travail": "Insufficient work",
       "autre": "Other"
-    }
+    },
+    "aucunHistorique": "Ma jiro taariikh",
+    "aucunRetard": "Ma jiro daan",
+    "exclusionsEnCours": "Cidhibtimaad firfircoon",
+    "graviteMoyenne": "Halista celceliska",
+    "historiqueDisciplinaire": "Taariikhda caqliga",
+    "incidentsOuverts": "Dhacdooyin furan",
+    "incidentsResolus": "Dhacdooyin la xaliyay",
+    "parEleve": "Arday kasta",
+    "parJour": "Maalin kasta",
+    "retardsStats": "Tirakoob daanada",
+    "timeline": "Waqtiga",
+    "totalIncidents": "Tirada guud ee dhacdooyinka",
+    "totalRetards": "Tirada guud ee daanada",
+    "totalSanctions": "Tirada guud ee ciqaabaha",
+    "workflowError": "Khalad marka la xaqiijinayo",
+    "workflowSanction": "Habka ciqaabta",
+    "workflowSuccess": "Ciqaabta waa la dhaqan geliyay"
   },
   "rh": {
     "title": "Human Resources",
@@ -1469,7 +1593,7 @@
     "nbDays": "Number of days",
     "startDate": "Start date",
     "endDate": "End date",
-    "days": "days",
+    "days": "maalmood",
     "approvedBy": "Approved by",
     "congeAnnuel": "Annual leave",
     "congeMaladie": "Sick leave",
@@ -1483,7 +1607,8 @@
     "congeStatusRefuse": "Refused",
     "congeStatusEnCours": "In progress",
     "congeStatusTermine": "Completed",
-    "congeStatusAnnule": "Cancelled"
+    "congeStatusAnnule": "Cancelled",
+    "recordedBy": "Diiwaan geliye"
   },
   "analytics": {
     "title": "Statistics",
@@ -1584,7 +1709,15 @@
       "FILIERE_PROFESSIONNELLE": "Vocational path",
       "SOUTIEN_RENFORCE": "Reinforced support",
       "REDOUBLEMENT": "Repeating"
-    }
+    },
+    "economicalStream": "Dhacadda dhaqaalaha",
+    "filiereScores": "Tilmaamaha dhacadda",
+    "level": "Heerka",
+    "literaryStream": "Dhacadda suugaanta",
+    "preferredFiliere": "Dhacadda la rabo",
+    "preferredFiliereHint": "Laga xisaabiyay calaamadaha maaddo.",
+    "scientificStream": "Dhacadda sayniska",
+    "technologicalStream": "Dhacadda tiknoolajiyada"
   },
   "alumni": {
     "title": "Alumni",
@@ -1685,7 +1818,8 @@
     "etatBon": "Good condition",
     "etatUse": "Used",
     "etatEndommage": "Damaged",
-    "etatHorsService": "Out of service"
+    "etatHorsService": "Out of service",
+    "cancel": "Jooji"
   },
   "superAdmin": {
     "title": "Super Admin",
@@ -1952,7 +2086,11 @@
     "footerMessage": "Qaatay kastaa wuu kuu jawaabi karaa.",
     "send": "Dir",
     "noClassesAvailable": "Fasal lahayn ciladaada.",
-    "niveauLabel": "Heer {n}"
+    "niveauLabel": "Heer {n}",
+    "dateSeparator": {
+      "aujourdhui": "Maanta",
+      "hier": "Shalay"
+    }
   },
   "admissions": {
     "title": "Admissions",
@@ -2515,7 +2653,54 @@
     "staffCategory": "Shaqaalaha",
     "sitesAccessUpdated": "Gelitaanka goobyada waa la cusboonaysiiyay",
     "placeholderEmail": "macallin@dugsiga.com",
-    "searchByNameOrEmail": "Raadi magac ama email..."
+    "searchByNameOrEmail": "Raadi magac ama email...",
+    "actions": "Hawlaha",
+    "ajouterAffectation": "Ku dar qoondaynta",
+    "anneeArchivee": "Sannadka waa la kaydiyay",
+    "anneeCloturee": "Sannadka waa la xiray",
+    "anneeReouverte": "Sannadka waa la furay",
+    "annuler": "Jooji",
+    "archived": "La kaydiyay",
+    "aucuneAffectation": "Ma jiro qoondayn",
+    "classe": "Fasalka",
+    "classePrincipale": "Fasalka ugu muhiimsan",
+    "close": "Xidh",
+    "closed": "La xiray",
+    "confirmArchiver": "Kaydi sannadkan?",
+    "confirmCloturer": "Xidh sannadkan?",
+    "confirmReouvrir": "Dib u fur sannadkan?",
+    "enseignant": "Macallinka",
+    "enseignantsAffectation": "Qoondaynta macallimiinta",
+    "inactive": "Aan firfircoon",
+    "matiere": "Maadada",
+    "nouvelleAffectation": "Qoondayn cusub",
+    "reopen": "Dib u fur",
+    "selectionnerClasse": "Dooro fasal",
+    "selectionnerEnseignant": "Dooro macallin",
+    "selectionnerMatiere": "Dooro maado",
+    "supprimer": "Tirtir",
+    "addTarif": "Ku dar qiimo",
+    "addToTenant": "Ku dar dugsiga",
+    "addToTenantTitle": "Xidhiidh isticmaalaha dugsiga kale",
+    "canteenFee": "Kharashaadka cunista/bish (ixtiyaaci)",
+    "confirmDeleteTarif": "Tirtir qimahtan?",
+    "error": "Khalad",
+    "groupFinance": "Faturada",
+    "inscriptionFee": "Kharashaadka qorista (marka ugu horeysa)",
+    "monthlyFee": "Bisho (iskuul/bish)",
+    "months": "Bisho",
+    "nbMonths": "Tirada bishooyinka",
+    "newTarif": "Qiimo cusub",
+    "noTarifs": "Ma jiro qiimo la qeexay. Guji «Ku dar qiimo» si aad u bilaabto.",
+    "renewalFee": "Kharashaadka cusbooneysiinta (sannadle)",
+    "select": "— Dooro —",
+    "selectTenant": "Dugsi *",
+    "sites": "Goobo & Koorasyo",
+    "tarifCreated": "Qiimaha si guul leh ayaa la abuuray",
+    "tarifDeleted": "Qiimaha waa la tirtiray",
+    "tarifs": "Qiimaha heerka",
+    "tarifsDescription": "Qeex qiimaha heerka (bisho, kharashaadka qorista, cusbooneysiinta) si otomaatig ah loo abuuro faturadaha.",
+    "transportFee": "Kharashaadka gaadhi/bish (ixtiyaaci)"
   },
   "appreciations": {
     "title": "Configurable appreciation rules",
@@ -3141,7 +3326,28 @@
       "repartirCompetences": "Qaybi aqoonta",
       "enregistrerCompetences": "Kaydi",
       "competencesReparties": "{n} aqoonto qaybiyey toddobaadyada cutubka.",
-      "competencesEnregistrees": "{n} aqoonto la qorsheeyey."
+      "competencesEnregistrees": "{n} aqoonto la qorsheeyey.",
+      "aReprendre": "Dib u eeg",
+      "actionsAMener": "Hawlaha la sameeyo",
+      "aucunProfil": "Ma jiro profiil xirfad",
+      "aucunProfilAide": "Ma jiro xirfad la qiimeeyo hadda.",
+      "aucuneAction": "Ma jiro hawl",
+      "aucuneEvaluation": "Ma jiro qiimayn",
+      "bloquePar": "La xannibay",
+      "derniereEvaluation": "Qiimayntii ugu dambeysay",
+      "fiabilite": "Kalsoonida: {pct}%",
+      "fiabiliteAide": "Heerka kalsoonida profiilka",
+      "maitrisees": "Xirfadaha la xirfay",
+      "nbEval": "{n} qiimayn",
+      "nonMesurables": "{n} aan la cabbiri karin",
+      "ouvertures": "Furaha",
+      "pasAssez": "Qiimayn aan filna ({n})",
+      "pctMaitrise": "{pct}% la xirfay",
+      "pourAllerPlusLoin": "Si aad u sii socon",
+      "sansMatiere": "Maado la'aan",
+      "tendanceBaisse": "Hab hoos-u-dhaca",
+      "tendanceHausse": "Hab kor-u-qaad",
+      "tendanceStable": "Hab joogto"
     },
     "competencesEleve": {
       "aucunProfil": "Aucun profil de compétences",
@@ -3307,7 +3513,9 @@
       "dossiersEnCours": "Faylal socda",
       "dossiersCompletes": "Faylal buuxan",
       "dossiersValides": "Faylal la saxay",
-      "aucunSite": "Wax goob ah ma jiro la barbardhigo"
+      "aucunSite": "Wax goob ah ma jiro la barbardhigo",
+      "activiteRecente": "Howlaha dhawaan",
+      "retardsExecution": "Daahfurka fulinta"
     },
     "paliers": {
       "RESTITUTION": "Restitution",
@@ -3721,7 +3929,29 @@
     "alertes": {
       "absences": "⚠️ {n, plural, one {# absence injustifiée} other {# absences injustifiées}} pour {prenom} sur les {jours} derniers jours. Merci de nous contacter pour régulariser.",
       "parcoursArret": "🔔 Le parcours d’accompagnement de {prenom} en {matiere} est à l’arrêt depuis plusieurs semaines. Un point avec l’enseignant serait utile.",
-      "jalonAtteint": "🎉 Bonne nouvelle : {prenom} a validé l’étape « {competence} ». Le travail porte ses fruits."
+      "jalonAtteint": "🎉 Bonne nouvelle : {prenom} a validé l’étape « {competence} ». Le travail porte ses fruits.",
+      "absence": {
+        "frequence": "⚠️ {elevePrenom} {eleveNom} wuxuu leeyahay {count} maqan aan la fasixin toddobaadkan (todobaadka {semaine}). Fadlan nala soo xiriir si aad u xaliso."
+      },
+      "prediction": {
+        "difficulte": "📊 {elevePrenom} {eleveNom} waxaa la saadaaliyay inuu dhibaato kula kulmo « {competenceLibelle} » ({difficulte}, fursadda guusha {probaReussite, number, percent}). Taageero waa la taliyay."
+      },
+      "devoir": {
+        "enretard": "⏰ Shaqada « {titre} » ee {matiereNom} ee {elevePrenom} {eleveNom} waxay daahdaysay {joursRetard} maalmood. Fadlan hubi.",
+        "corrige": "📝 Shaqada « {titre} » ee {matiereNom} ee {elevePrenom} {eleveNom} waa la saxay. Eeg natiijada."
+      },
+      "evaluation": {
+        "publiee": "📋 Imtixaan {matiereNom} ({intitule}) ee {elevePrenom} {eleveNom} waa la daabacay. Eeg natiijada."
+      },
+      "bulletin": {
+        "publie": "📄 Warqadda {periodeNom} ee {elevePrenom} {eleveNom} waa la daabacay. Eeg app-ka."
+      },
+      "incident": {
+        "signale": "🚨 Dhacdo oo ku saabsan {elevePrenom} {eleveNom} ({classeNom}) — Nooca: {type}, Daran: {gravite}/5. {description}. Taariikhda: {date}."
+      },
+      "candidature": {
+        "acceptee": "✅ Codsiga {elevePrenom} {eleveNom} waa la aqbalay. Lambarka ardayga: {matricule}, Fasalka: {classeNom}. Soo dhawow!"
+      }
     },
     "preferences": {
       "titre": "Notifications",
@@ -3846,7 +4076,8 @@
       "regenerer": "Mar kale abuur",
       "sauvegarder": "Kaydi",
       "sauvegarde": "Waa la kaydiyay",
-      "avertissement": "AI waa soo jeediya, macallinku waa ansixiyaa. Hubi ka hor kaydinta."
+      "avertissement": "AI waa soo jeediya, macallinku waa ansixiyaa. Hubi ka hor kaydinta.",
+      "decisionLabel": "Go'aanka"
     },
     "propositionsIa": {
       "titre": "Soo jeediyaha AI ee la ansixinayo",
@@ -4115,7 +4346,10 @@
     "responseDate": "Taariikhda jawaabta",
     "student": "Arday",
     "class": "Fasal",
-    "matricule": "ID"
+    "matricule": "ID",
+    "archived": "La kaydiyay",
+    "closed": "La xiray",
+    "open": "La furay"
   },
   "echeancier": {
     "title": "Qorshaha bixinta",
@@ -4270,7 +4504,9 @@
     "elevesSansPhoto": "Ardayda sawir la'aanta ah",
     "parentsSansCompte": "Waaldiida akoon la'aanta ah",
     "rienATraiter": "Wax baahan ma jiro",
-    "traiter": "Maamul"
+    "traiter": "Maamul",
+    "actionsATraiter": "Hawlaha la fuliyo",
+    "activiteRecente": "Howlaha dhawaan"
   },
   "comptabilite": {
     "titre": "Xisaabta",
@@ -4300,7 +4536,10 @@
     "bloque": "La xannibay",
     "actif": "Falan",
     "statut": "Xaalad",
-    "aucuneFacture": "Wax fatur ah ma jiro"
+    "aucuneFacture": "Wax fatur ah ma jiro",
+    "export": "Dhoofin",
+    "exportError": "Khalad marka la dhoofinayo",
+    "exportSuccess": "Dhoofinta waa la guuleystay"
   },
   "exploitation": {
     "titre": "Hawl-galka goobta",
@@ -4426,7 +4665,9 @@
     "incidents": "Dhibaatooyin",
     "details": "Faahfaahin",
     "aucunParent": "Wax waalid ah ma jiro",
-    "eleve": "Arday"
+    "eleve": "Arday",
+    "actionsATraiter": "Hawlaha la fuliyo",
+    "activiteRecente": "Howlaha dhawaan"
   },
   "profil": {
     "title": "Bogagayga",
@@ -4694,5 +4935,253 @@
     "ecartsPlanning": "Farqiga qorshaha",
     "derive": "Leexasho",
     "semaines": "toddobaad"
+  },
+  "forgotPassword": {
+    "invalidEmail": "Ciwaanka emailka aan sax ahayn",
+    "error": "Khalad ayaa dhacay. Hubi cinwaanka oo isku day mar kale.",
+    "title": "Erayga sirta ah ee la ilmay",
+    "subtitle": "Geli ciwaanka emailkaaga si aad u helato xiriirinta dib-u-dejinta.",
+    "success": "Hadii akoon uu jiro cinwaankan, email dib-u-dejin ayaa la diray.",
+    "backToLogin": "Soo noqo gelitaanka",
+    "email": "Ciwaanka emailka",
+    "emailPlaceholder": "adiga@example.dj",
+    "sending": "Waxaa la dirayaa…",
+    "submit": "Dir xiriirinta"
+  },
+  "verifyEmail": {
+    "verifying": "Waxaa la xaqiijiyaa…",
+    "title": "Emailka waa la xaqiijiyay",
+    "success": "Ciwaanka emailkaaga waa la xaqiijiyay. Hadda waad soo geli kartaa.",
+    "loginNow": "Soo gal hadda",
+    "resendSubmit": "Dib u dir emailka",
+    "backToLogin": "Soo noqo gelitaanka",
+    "resendTitle": "Dib u dir emailka xaqiijinta",
+    "resendSuccess": "Email xaqiijin cusub ayaa la diray.",
+    "subtitle": "Geli ciwaanka emailkaaga si aad u helato xiriirinta xaqiijinta cusub.",
+    "email": "Ciwaanka emailka",
+    "emailPlaceholder": "adiga@example.dj",
+    "sending": "Waxaa la dirayaa…",
+    "error": "Xiriirinta xaqiijinta waa khalad ama waa dhammaaday."
+  },
+  "userPermissions": {
+    "title": "Ogolaanshaha isticmaalaha",
+    "description": "Maamul ogolaanshaha shakhsi ahaaneed ee la siiyay ama la diiday isticmaalaha.",
+    "selectUser": "Dooro isticmaalaha",
+    "permission": "Ogolaansho",
+    "mode": "Hab",
+    "grant": "Sii",
+    "deny": "Diid",
+    "add": "Ku dar",
+    "noPermissions": "Ma jiro ogolaansho gaar ah.",
+    "success": "Ogolaanshaha waa la cusbooneysiiyay",
+    "error": "Khalad marka la cusbooneysiiynayo ogolaanshaha",
+    "confirmDelete": "Tirtir ogolaanshahan?"
+  },
+  "mobileNav": {
+    "ariaLabel": "Daboolka ugu muhiimsan",
+    "home": "Hoyga",
+    "children": "Caruurta",
+    "messages": "Fariimaha",
+    "billing": "Bixinta",
+    "profile": "Profiilka",
+    "courses": "Koorsadayaasha",
+    "grades": "Calaamadaha",
+    "schedule": "Jadwalka",
+    "myClass": "Fasalkayga",
+    "students": "Ardayda",
+    "attendance": "Maqannada",
+    "settings": "Dejinta",
+    "dashboard": "Bogga goobta"
+  },
+  "cahierJournal": {
+    "calendar": "Jadwalka",
+    "semainePrecedente": "Todobaadyadii hore",
+    "semaineSuivante": "Todobaadka xigta",
+    "genererSemaine": "Abuur todobaadka",
+    "genererSuccess": "{count} kulan(s) oo la abuuray",
+    "genererErreur": "Khalad marka la abuuraynayo",
+    "aujourdhui": "Maanta",
+    "enRetard": "Daan ah",
+    "joursRetard": "{days} maalmood daan ah",
+    "seancesARemplir": "Kulanno la buuxinayo",
+    "progressionSemaine": "Habka todobaadka",
+    "travailAFaire": "Shaqo la sameeyo",
+    "autres": "kale",
+    "objectifs": "Hadhiyada",
+    "ajouterObjectif": "Ku dar hadhiyada…",
+    "activites": "Howlaha",
+    "dureeMin": "daqad",
+    "ajouterActivite": "Ku dar howl…",
+    "supports": "Aaladaha",
+    "ajouterSupport": "Ku lifiqaan fayl…",
+    "differentiation": "Kala duwanaansho",
+    "ajouterDifferentiation": "Ku dar kala duwanaansho…",
+    "planLecon": "Qorshaha darsiga",
+    "fichiers": "Faylasha",
+    "aucunFichier": "Ma jiro fayl",
+    "joindreFichier": "Ku lifiqaan fayl",
+    "telechargerFichier": "Soo deg",
+    "supprimerFichier": "Tirtir faylka",
+    "fichierTropVolumineux": "Faylka aad u weyn (ugu badan 5 MB)",
+    "tropDeFichiers": "Faylasha aad u badan (ugu badan 10)",
+    "typeFichierNonAutorise": "Nooca faylka lama oggola",
+    "uploadError": "Khalad marka la diraynayo faylka",
+    "deleteError": "Khalad marka la tirtiraynayo",
+    "commentaires": "Faallooyinka",
+    "aucunCommentaire": "Ma jiro faallo",
+    "ajouterCommentaire": "Ku dar faallo",
+    "commentairePlaceholder": "Qor faallo…",
+    "commentaireError": "Khalad marka la kaydinayo faallada",
+    "confirmSupprimerCommentaire": "Tirtir faalladan?",
+    "supprimerCommentaire": "Tirtir faallada",
+    "EXERCICE": "Tababarka",
+    "LECTURE": "Aqrinta",
+    "REVISION": "Dib-u-eegista",
+    "PROJET": "Mashruuca",
+    "AUTRE": "Kale",
+    "tableauBord": {
+      "titre": "Bogga goobta",
+      "aucunePrediction": "Ma jiro saadaal",
+      "prediction": "Saadaal",
+      "elevesEnDifficulte": "{count} arday oo dhibaato ku jira",
+      "prerequisManquants": "Horudhowr la'aanta",
+      "competencesPrevues": "Xirfadaha la qorsheeyay",
+      "patternHistorique": "Habka taariikhiga ah",
+      "tauxEchec": "Garaaca khasaaraha: {pct}%",
+      "moyenneHistorique": "Celle: {avg}/20",
+      "planLecon": "Qorshaha darsiga",
+      "accepter": "Qab",
+      "modifier": "Wax ka beddel",
+      "refuser": "Diid",
+      "aucunPlan": "Ma jiro qorsho",
+      "exercicesRemediation": "Tababarro hagaajinta",
+      "genererExercices": "Abuur tababarka"
+    }
+  },
+  "dossierProgression": {
+    "title": "Faylka habka",
+    "backToStudent": "Soo noqo ardayga",
+    "errLoad": "Khalad marka la soo degsanayo",
+    "statusMastered": "La xirfay",
+    "statusProficient": "Karti leh",
+    "statusDeveloping": "Horumarinaya",
+    "statusEmerging": "Bilaabmaya",
+    "statusNeedsReview": "Dib-u-eegis ayaa loo baahan yahay",
+    "statusUnknown": "Aan la aqoon",
+    "synthCompetences": "Xirfadaha",
+    "synthMaitrisees": "La xirfay",
+    "synthFragiles": "Liqs",
+    "synthCritiques": "Halis",
+    "synthInterventions": "Dhexgalka firfircoon",
+    "synthPlans": "Qorsho firfircoon",
+    "synthRecos": "Talooyin firfircoon",
+    "competencesTitle": "Xirfadaha",
+    "noCompetences": "Ma jiro xirfad",
+    "evidencesTitle": "Caddaynta",
+    "noEvidences": "Ma jiro caddayn",
+    "evidenceDate": "Taariikhda",
+    "evidenceType": "Nooca",
+    "evidenceCompetence": "Xirfadda",
+    "evidenceSignal": "Saddex",
+    "evidenceConfidence": "Kalsoonida",
+    "evidenceCount": "Tirada caddaynta",
+    "interventionsTitle": "Dhexgalka",
+    "noInterventions": "Ma jiro dhexgal",
+    "masteryBefore": "Ka hor",
+    "masteryAfter": "Ka dib",
+    "plansTitle": "Qorshooyinka",
+    "noPlans": "Ma jiro qorsho",
+    "planRemediation": "Hagaajinta",
+    "planApprofondissement": "Hoos-u-dhigista",
+    "predictionsTitle": "Saadaasha",
+    "noPredictions": "Ma jiro saadaal",
+    "predictionVerified": "Saadaal la xaqiijiyay",
+    "recommandationsTitle": "Talooyinka",
+    "noRecommandations": "Ma jiro talo",
+    "recoResolved": "La xalin",
+    "journalTitle": "Maalinta"
+  },
+  "veilleAssiduite": {
+    "title": "Daboolka maqannada",
+    "subtitle": "Kormeerka ardayda halista maqannada",
+    "selectClass": "Dooro fasal",
+    "allClasses": "Dhammaan fasalada",
+    "onlyWatch": "Tus ardayda kormeerka kaliya",
+    "synthTotal": "Ardayda kormeerka",
+    "synthVeille": "Kormeer firfircoon",
+    "synthAcceleration": "Maqannada sii kordhaya",
+    "synthCritique": "Kiisaska haliska ah",
+    "synthTauxMoyen": "Heerka celceliska",
+    "synthAbsMoyennes": "Celceliska maqannada",
+    "noStudents": "Ma jiro arday",
+    "noWatchStudents": "Ma jiro arday kormeerka",
+    "errLoad": "Khalad marka la soo degsanayo",
+    "colStudent": "Ardayga",
+    "colClass": "Fasalka",
+    "colAbsences": "Maaqnaanta",
+    "colInjustifiees": "Aan la falanqeyn",
+    "colRetards": "Daanada",
+    "colTauxCourant": "Heerka hadda",
+    "colTendance": "Habka",
+    "colPattern": "Habka",
+    "colStatus": "Xaaladda",
+    "accelerating": "Maaqnaanta sii kordhaysa",
+    "improving": "Hagaagaysa",
+    "watch": "Kormeer",
+    "ok": "OK"
+  },
+  "conseilAugmente": {
+    "abs": "Maq",
+    "absencesTotal": "Tirada guud ee maqannada",
+    "assiduite": "Mawqafka",
+    "classTitle": "Fasalka {classe}",
+    "compCritiques": "Xirfadaha halis",
+    "compFragiles": "Xirfadaha liqs",
+    "compMaitrisees": "Xirfadaha la xirfay",
+    "crit": "Halis",
+    "discipline": "Caqliga",
+    "errLoad": "Khalad marka la soo degsanayo",
+    "frag": "Liqs",
+    "grave": "Halisa",
+    "inc": "Dhac",
+    "incidentsTotal": "Tirada guud ee dhacdooyinka",
+    "injust": "Aan falanqeyn",
+    "interventions": "Dhexgalka",
+    "learnos": "LEARNOS",
+    "load": "Soo deg",
+    "matieresDetail": "Faahfaahad maaddo",
+    "mentorat": "Mashruuc",
+    "noMatieres": "Ma jiro maado halis",
+    "noStudents": "Ma jiro arday",
+    "plans": "Qorshooyinka",
+    "pred": "Saadaal",
+    "predictions": "Saadaasha",
+    "recos": "Talo",
+    "ret": "Daan",
+    "sanct": "Ciqaab",
+    "selectClass": "Dooro fasal",
+    "selectPeriode": "Dooro waqtiga",
+    "selectPrompt": "Dooro fasal iyo waqti si aad u abuurto gudiga kor u qaadistan.",
+    "signalsSynthesis": "Soo koobidda astaamaha",
+    "subjectsInDifficulty": "Maadooyin halis"
+  },
+  "activityTimeline": {
+    "titre": "Howlaha dhawaan",
+    "evenements": "{count} dhacdo",
+    "periodeRecent": "Howlaha ugu dambeysay",
+    "periodeAujourdhui": "Maanta",
+    "periodeSemaine": "Todobaadkan",
+    "periodeMois": "Bishan",
+    "aucuneActivite": "Ma jiro howl waqtigan.",
+    "maintenant": "hadda",
+    "ilYAMinutes": "{count} daqad ka hor",
+    "ilYAHeures": "{count} saac ka hor",
+    "hier": "shalay",
+    "ilYAJours": "{count} maalmood ka hor"
+  },
+  "absencesStats": {
+    "aujourdhui": "Maanta",
+    "cetteSemaine": "Todobaadkan",
+    "nonJustifiees": "Aan la falanqeyn"
   }
 }

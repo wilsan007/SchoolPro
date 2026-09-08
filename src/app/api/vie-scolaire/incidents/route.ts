@@ -7,6 +7,7 @@ import { siteFilterForModel, requireSiteIdForCreate } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
+import { publishEvent, type IncidentSignalePayload } from "@/lib/learnos/events";
 
 const CreateSchema = z.object({
   eleveId: z.string().min(1),
@@ -134,6 +135,27 @@ export async function POST(req: NextRequest) {
               statut: "ENVOYEE",
               envoyeeAt: new Date(),
             },
+          });
+
+          await publishEvent({
+            tenantId,
+            siteId: eleve.siteId ?? null,
+            eventType: "incident.signale",
+            aggregateType: "Incident",
+            aggregateId: incident.id,
+            payload: {
+              incidentId: incident.id,
+              eleveId,
+              parentIds: eleveAvecParents?.parents.map((ep) => ep.parent.id) ?? [],
+              siteId: eleve.siteId ?? null,
+              prenom: incident.eleve.prenom,
+              nom: incident.eleve.nom,
+              classeNom: incident.eleve.classe?.nom ?? null,
+              type,
+              gravite,
+              description,
+              date,
+            } satisfies IncidentSignalePayload,
           });
         }
       } catch (notifError) {

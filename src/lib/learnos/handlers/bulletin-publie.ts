@@ -10,15 +10,14 @@
 import prisma from "@/lib/prisma";
 import type { DrainedEvent } from "@/lib/learnos/event-bus";
 import type { BulletinPubliePayload } from "@/lib/learnos/events";
-import { siteFilterFromSession, siteFilterForRelation } from "@/lib/site-scope";
+import { siteFilterForRelation } from "@/lib/site-scope";
 import { NiveauAlerteParent } from "@prisma/client";
 
 export async function onBulletinPublie(event: DrainedEvent): Promise<void> {
   const payload = event.payload as BulletinPubliePayload;
   const { tenantId, siteId } = event;
 
-  const scope = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
-  const siteFilter = siteFilterForRelation(scope, "eleve");
+  const siteFilter = siteFilterForRelation("TENANT_ADMIN", siteId, [], "eleve", true);
 
   const bulletins = await prisma.bulletin.findMany({
     where: {
@@ -48,7 +47,7 @@ export async function onBulletinPublie(event: DrainedEvent): Promise<void> {
       eleveId: b.eleve.id,
       parentId: ep.parentId,
       niveau: NiveauAlerteParent.INFO,
-      cle: "learnos.alertes.bulletin.publie",
+      cle: "bulletin.publie",
       params: {
         periodeNom: payload.periodeNom,
         elevePrenom: b.eleve.prenom,

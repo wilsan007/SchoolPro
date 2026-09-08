@@ -50,11 +50,13 @@ export async function GET(req: NextRequest) {
   const bucket = searchParams.get("bucket");
 
   // Auto-sync : régénère les tâches depuis l'état du système avant lecture.
-  // Lazy sync silencieux — les erreurs ne bloquent pas la lecture.
+  // Non-bloquant : lancé en arrière-plan pour ne pas ralentir l'API mobile.
   try {
-    await synchroniserTachesAuto(user.tenantId, user);
+    void synchroniserTachesAuto(user.tenantId, user).catch((e) =>
+      console.error("[Mobile Taches GET] Auto-sync échoué:", e)
+    );
   } catch (e) {
-    console.error("[Mobile Taches GET] Auto-sync échoué:", e);
+    console.error("[Mobile Taches GET] Auto-sync (init):", e);
   }
 
   // Récupère les tâches de l'utilisateur (avec filtrage site et statut).

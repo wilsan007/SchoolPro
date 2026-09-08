@@ -1,0 +1,119 @@
+{
+  "date": "2026-09-07T19:30:00Z",
+  "phase": "corrections-post-audit",
+  "branche": "feat/rls-isolation-et-infra",
+  "verifications": {
+    "tsc": { "statut": "PASS", "commande": "pnpm tsc --noEmit", "exitCode": 0 },
+    "lint": {
+      "statut": "PASS",
+      "commande": "pnpm lint",
+      "exitCode": 0,
+      "warnings": 1,
+      "warningDetails": [
+        "src/components/layout/MobileLayout.tsx:192 — react-hooks/exhaustive-deps (préexistant, non lié aux corrections)"
+      ],
+      "errors": 0
+    },
+    "tests": {
+      "statut": "PASS",
+      "commande": "pnpm test",
+      "exitCode": 0,
+      "testFiles": 97,
+      "tests": 1757,
+      "duration": "64.52s"
+    },
+    "rls": {
+      "statut": "PASS",
+      "commande": "pnpm rls:check",
+      "exitCode": 0,
+      "resultat": "RLS à jour — 119 tables couvertes, 7 exclues"
+    }
+  },
+  "corrections": [
+    {
+      "id": "TM-1",
+      "titre": "Time Machine — retour d'erreur du formulaire",
+      "fichiers": [
+        "src/components/time-machine/TimeMachineModal.tsx"
+      ],
+      "tests": [
+        "src/components/time-machine/TimeMachineModal.test.tsx"
+      ],
+      "changements": [
+        "loadState : vérification res.ok avant res.json(), retour silencieux sur non-2xx",
+        "saveDate : vérification res.ok avant res.json(), toast.error sur non-2xx, pas de reload"
+      ],
+      "testsCount": 13,
+      "statut": "PASS"
+    },
+    {
+      "id": "TM-2",
+      "titre": "Time Machine — respect du rôle et du tenant lors de la lecture de la date",
+      "fichiers": [
+        "src/lib/demo-now.ts",
+        "src/app/api/demo-now/route.ts",
+        "src/app/api/mobile/demo-now/route.ts"
+      ],
+      "tests": [
+        "src/lib/demo-now-session.test.ts"
+      ],
+      "changements": [
+        "Ajout cookie demo_now_scope liant la date à [userId, tenantId]",
+        "getDemoDate() résout la session (web via auth() ou mobile via verifyMobileScope) et vérifie rôle TENANT_ADMIN + correspondance userId/tenantId",
+        "AsyncLocalStorage anti-récursion : les appels imbriqués à getDemoDate() pendant la résolution de session retournent null",
+        "Imports dynamiques de @/lib/auth et @/lib/mobile-auth pour casser le cycle de module",
+        "Échec fermé : toute erreur de résolution → null (retour à l'heure réelle)",
+        "Routes web et mobile posent le cookie de scope en httpOnly"
+      ],
+      "testsCount": 30,
+      "statut": "PASS"
+    },
+    {
+      "id": "RLS-1",
+      "titre": "Politiques RLS manquantes pour CampagneReinscription et InvitationReinscription",
+      "fichiers": [
+        "prisma/sql/rls/02-policies.sql"
+      ],
+      "changements": [
+        "pnpm rls:generate — ajout de 2 politiques tenant_matches(\"tenantId\")",
+        "Couverture passée de 117 à 119 tables",
+        "Aucune politique existante modifiée"
+      ],
+      "diff": "+28 lignes, -2 lignes (compteur de couverture)",
+      "statut": "PASS"
+    },
+    {
+      "id": "LINT-1",
+      "titre": "Erreurs lint — règle @typescript-eslint/no-explicit-any non définie",
+      "fichiers": [
+        "src/app/api/admissions/admissions-id.test.ts",
+        "src/app/api/facturation/paiement/paiement.test.ts"
+      ],
+      "changements": [
+        "Remplacement du commentaire eslint-disable (règle non définie) par un commentaire de justification écrit (conforme règle 4 AGENTS.md)"
+      ],
+      "statut": "PASS"
+    },
+    {
+      "id": "LINT-2",
+      "titre": "Requête Prisma sur user sans tenantId ni filtre de site",
+      "fichiers": [
+        "src/lib/activity-feed.ts"
+      ],
+      "changements": [
+        "Ajout de tenantId et siteFilterForModel(\"user\", claims) à la requête de résolution des acteurs (ligne 892)"
+      ],
+      "statut": "PASS"
+    }
+  ],
+  "limitations": [
+    "Aucune migration de base de production appliquée",
+    "Aucun seed de production exécuté",
+    "Aucun redéploiement effectué",
+    "Les workflows W-1 à W-15 restent à exécuter sur données réelles isolées",
+    "Le snapshot d'audit .audit-20260907 reste une référence en lecture seule",
+    "Les modifications préexistantes du worktree sont préservées"
+  ],
+  "nouveauxTests": 49,
+  "totalTests": 1757
+}

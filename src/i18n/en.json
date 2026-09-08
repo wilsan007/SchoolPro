@@ -9,7 +9,7 @@
     "syncErreur": "Sync error",
     "toutAJour": "All up to date",
     "toutAJourDesc": "No pending tasks. Great job!",
-    "enRetard": "Overdue",
+    "enRetard": "late",
     "aujourdhui": "Today",
     "cetteSemaine": "This week",
     "semaineProchaine": "Next week",
@@ -38,7 +38,22 @@
     "tachesEnRetard": "Overdue tasks",
     "tachesAUjourdHui": "Today's tasks",
     "nbEnRetard": "{count} overdue",
-    "nbAujourdhui": "{count} today"
+    "nbAujourdhui": "{count} today",
+    "buckets": {
+      "enRetard": "Late",
+      "aujourdhui": "Today",
+      "semaine": "This week",
+      "semaineProchaine": "Next week",
+      "plusTard": "Later",
+      "sansEcheance": "No due date"
+    },
+    "rel": {
+      "aujourdhui": "Today",
+      "demain": "Tomorrow",
+      "hier": "Yesterday",
+      "dansJours": "In {count}d",
+      "ilYAJours": "{count}d ago"
+    }
   },
   "common": {
     "appName": "EcolPro",
@@ -145,7 +160,9 @@
     "salle": "Room",
     "grilleCompetences": "Skills grid",
     "aucuneEvaluation": "No skill evaluation available",
-    "eleve": "Student"
+    "eleve": "Student",
+    "actionsATraiter": "Actions to process",
+    "activiteRecente": "Recent activity"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -217,7 +234,12 @@
     "taches": "Tasks",
     "veilleAssiduite": "Attendance watch",
     "intelligence": "Intelligence",
-    "fournitures": "Supplies"
+    "fournitures": "Supplies",
+    "menu": "Menu",
+    "plus": "More",
+    "searchModules": "Search a module…",
+    "accueil": "Home",
+    "systeme": "System"
   },
   "maJournee": {
     "titre": "My day",
@@ -346,7 +368,8 @@
     "deleteCancel": "Cancel",
     "deleteConfirm": "Confirm deletion",
     "studentDeleted": "Student deleted successfully",
-    "deleteError": "Error during deletion"
+    "deleteError": "Error during deletion",
+    "dossierProgression": "Progress record"
   },
   "eleves": {
     "title": "Student Management",
@@ -631,7 +654,8 @@
     "successLocked": "{count} report card(s) locked",
     "successUnlocked": "{count} report card(s) unlocked",
     "errVerrouillage": "Error while locking",
-    "lockedAdminOnly": "Only an administrator can unlock report cards"
+    "lockedAdminOnly": "Only an administrator can unlock report cards",
+    "conseilAugmente": "Augmented council"
   },
   "notes": {
     "title": "Grades & Assessments",
@@ -832,7 +856,18 @@
     "mentionENCOURAGEMENTS": "Encouragement",
     "mentionSATISFAISANT": "Satisfactory",
     "mentionEFFORTS": "Must make more effort",
-    "mentionINSUFFISANT": "Insufficient work"
+    "mentionINSUFFISANT": "Insufficient work",
+    "avert": "Warnings",
+    "encourage": "Encouragements",
+    "felicite": "Congratulations",
+    "learnosCommentaireApplique": "LEARNOS comment applied",
+    "learnosEleve": "Student",
+    "learnosMatiere": "Subject",
+    "learnosSelectEleve": "Select a student",
+    "learnosSelectMatiere": "Select a subject",
+    "nonRenseigne": "Not specified",
+    "passage": "Passing",
+    "redoub": "Repeating"
   },
   "examens": {
     "title": "Exams & Assessments",
@@ -896,7 +931,8 @@
     "days": "{count} day(s)",
     "sessionsCount": "{count} session(s)",
     "matrixReportTitle": "Class Matrix Report",
-    "matrixReportSubtitle": "Summary table of grades by class and period"
+    "matrixReportSubtitle": "Summary table of grades by class and period",
+    "classReport": "Class report"
   },
   "emploi": {
     "title": "Timetable",
@@ -1042,7 +1078,11 @@
     "cat_primaire": "Primary",
     "cat_college": "Middle school",
     "cat_lycee": "High school",
-    "cat_autre": "Other"
+    "cat_autre": "Other",
+    "exportError": "Error exporting",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "exportSuccess": "Export successful"
   },
   "caisse": {
     "title": "Cash Register",
@@ -1263,7 +1303,10 @@
     "exclusionLifted": "Exclusion lifted",
     "printInvoice": "Preview / Print",
     "error": "Error",
-    "newInvoiceSubtitle": "Create an invoice for a student"
+    "newInvoiceSubtitle": "Create an invoice for a student",
+    "actions": "Actions",
+    "class": "Class",
+    "invoiceCount": "{count} invoice(s)"
   },
   "communication": {
     "title": "Communication",
@@ -1437,7 +1480,24 @@
       "absences": "Repeated unjustified absences",
       "travail": "Insufficient work",
       "autre": "Other"
-    }
+    },
+    "aucunHistorique": "No history",
+    "aucunRetard": "No late arrivals",
+    "exclusionsEnCours": "Current exclusions",
+    "graviteMoyenne": "Average severity",
+    "historiqueDisciplinaire": "Disciplinary history",
+    "incidentsOuverts": "Open incidents",
+    "incidentsResolus": "Resolved incidents",
+    "parEleve": "By student",
+    "parJour": "By day",
+    "retardsStats": "Late arrival statistics",
+    "timeline": "Timeline",
+    "totalIncidents": "Total incidents",
+    "totalRetards": "Total late arrivals",
+    "totalSanctions": "Total sanctions",
+    "workflowError": "Error validating",
+    "workflowSanction": "Sanction workflow",
+    "workflowSuccess": "Sanction applied"
   },
   "rh": {
     "title": "Human Resources",
@@ -1547,7 +1607,8 @@
     "congeStatusRefuse": "Refused",
     "congeStatusEnCours": "In progress",
     "congeStatusTermine": "Completed",
-    "congeStatusAnnule": "Cancelled"
+    "congeStatusAnnule": "Cancelled",
+    "recordedBy": "Recorded by"
   },
   "analytics": {
     "title": "Analytics",
@@ -1648,7 +1709,15 @@
       "FILIERE_PROFESSIONNELLE": "Vocational path",
       "SOUTIEN_RENFORCE": "Reinforced support",
       "REDOUBLEMENT": "Repeating"
-    }
+    },
+    "economicalStream": "Economics stream",
+    "filiereScores": "Stream indicators",
+    "level": "Level",
+    "literaryStream": "Literary stream",
+    "preferredFiliere": "Preferred stream",
+    "preferredFiliereHint": "Calculated from subject grades.",
+    "scientificStream": "Scientific stream",
+    "technologicalStream": "Technological stream"
   },
   "alumni": {
     "title": "Alumni",
@@ -1749,7 +1818,8 @@
     "etatBon": "Good",
     "etatUse": "Worn",
     "etatEndommage": "Damaged",
-    "etatHorsService": "Out of service"
+    "etatHorsService": "Out of service",
+    "cancel": "Cancel"
   },
   "superAdmin": {
     "title": "Super Admin",
@@ -2016,7 +2086,11 @@
     "footerMessage": "Each recipient can reply to you.",
     "send": "Send",
     "noClassesAvailable": "No classes available for your scope.",
-    "niveauLabel": "Level {n}"
+    "niveauLabel": "Level {n}",
+    "dateSeparator": {
+      "aujourdhui": "Today",
+      "hier": "Yesterday"
+    }
   },
   "admissions": {
     "title": "Admissions",
@@ -2601,7 +2675,32 @@
     "staffCategory": "Staff",
     "sitesAccessUpdated": "Site access updated",
     "placeholderEmail": "teacher@school.com",
-    "searchByNameOrEmail": "Search by name or email..."
+    "searchByNameOrEmail": "Search by name or email...",
+    "actions": "Actions",
+    "ajouterAffectation": "Add assignment",
+    "anneeArchivee": "Year archived",
+    "anneeCloturee": "Year closed",
+    "anneeReouverte": "Year reopened",
+    "annuler": "Cancel",
+    "archived": "Archived",
+    "aucuneAffectation": "No assignment",
+    "classe": "Class",
+    "classePrincipale": "Main class",
+    "close": "Close",
+    "closed": "Closed",
+    "confirmArchiver": "Archive this year?",
+    "confirmCloturer": "Close this year?",
+    "confirmReouvrir": "Reopen this year?",
+    "enseignant": "Teacher",
+    "enseignantsAffectation": "Teacher assignments",
+    "inactive": "Inactive",
+    "matiere": "Subject",
+    "nouvelleAffectation": "New assignment",
+    "reopen": "Reopen",
+    "selectionnerClasse": "Select a class",
+    "selectionnerEnseignant": "Select a teacher",
+    "selectionnerMatiere": "Select a subject",
+    "supprimer": "Delete"
   },
   "appreciations": {
     "title": "Configurable grading rules",
@@ -3227,7 +3326,28 @@
       "repartirCompetences": "Distribute competences",
       "enregistrerCompetences": "Save",
       "competencesReparties": "{n} competences distributed over the chapter weeks.",
-      "competencesEnregistrees": "{n} competences scheduled."
+      "competencesEnregistrees": "{n} competences scheduled.",
+      "aReprendre": "To revisit",
+      "actionsAMener": "Actions to take",
+      "aucunProfil": "No skill profile",
+      "aucunProfilAide": "No skill assessed yet.",
+      "aucuneAction": "No action",
+      "aucuneEvaluation": "No assessment",
+      "bloquePar": "Blocked by",
+      "derniereEvaluation": "Last assessment",
+      "fiabilite": "Confidence: {pct}%",
+      "fiabiliteAide": "Profile confidence score",
+      "maitrisees": "Mastered skills",
+      "nbEval": "{n} eval.",
+      "nonMesurables": "{n} not measurable",
+      "ouvertures": "Openings",
+      "pasAssez": "Not enough assessments ({n})",
+      "pctMaitrise": "{pct}% mastered",
+      "pourAllerPlusLoin": "To go further",
+      "sansMatiere": "No subject",
+      "tendanceBaisse": "Downward trend",
+      "tendanceHausse": "Upward trend",
+      "tendanceStable": "Stable trend"
     },
     "competencesEleve": {
       "aucunProfil": "No competence profile",
@@ -3393,7 +3513,9 @@
       "dossiersEnCours": "Files in progress",
       "dossiersCompletes": "Complete files",
       "dossiersValides": "Validated files",
-      "aucunSite": "No site to compare"
+      "aucunSite": "No site to compare",
+      "activiteRecente": "Recent activity",
+      "retardsExecution": "Execution delays"
     },
     "paliers": {
       "RESTITUTION": "Recall",
@@ -3807,7 +3929,29 @@
     "alertes": {
       "absences": "⚠️ {n, plural, one {# unexcused absence} other {# unexcused absences}} for {prenom} over the last {jours} days. Please get in touch to regularise.",
       "parcoursArret": "🔔 {prenom}’s support plan in {matiere} has been stalled for several weeks. A word with the teacher would help.",
-      "jalonAtteint": "🎉 Good news: {prenom} has completed the step “{competence}”. The work is paying off."
+      "jalonAtteint": "🎉 Good news: {prenom} has completed the step “{competence}”. The work is paying off.",
+      "absence": {
+        "frequence": "⚠️ {elevePrenom} {eleveNom} has accumulated {count} unexcused absences this week (week {semaine}). Please contact us to regularise."
+      },
+      "prediction": {
+        "difficulte": "📊 {elevePrenom} {eleveNom} is predicted to struggle with “{competenceLibelle}” ({difficulte}, success probability {probaReussite, number, percent}). Support is recommended."
+      },
+      "devoir": {
+        "enretard": "⏰ The assignment “{titre}” in {matiereNom} for {elevePrenom} {eleveNom} is {joursRetard} day(s) overdue. Please check.",
+        "corrige": "📝 The assignment “{titre}” in {matiereNom} for {elevePrenom} {eleveNom} has been graded. Check the result."
+      },
+      "evaluation": {
+        "publiee": "📋 An assessment in {matiereNom} ({intitule}) for {elevePrenom} {eleveNom} has been published. Check the result."
+      },
+      "bulletin": {
+        "publie": "📄 The {periodeNom} report card for {elevePrenom} {eleveNom} has been published. View it on the app."
+      },
+      "incident": {
+        "signale": "🚨 Incident reported for {elevePrenom} {eleveNom} ({classeNom}) — Type: {type}, Severity: {gravite}/5. {description}. Date: {date}."
+      },
+      "candidature": {
+        "acceptee": "✅ The application for {elevePrenom} {eleveNom} has been accepted. Student ID: {matricule}, Class: {classeNom}. Welcome!"
+      }
     },
     "preferences": {
       "titre": "Notifications",
@@ -3932,7 +4076,8 @@
       "regenerer": "Regenerate",
       "sauvegarder": "Save",
       "sauvegarde": "Saved",
-      "avertissement": "AI proposes, teacher validates. Check before saving."
+      "avertissement": "AI proposes, teacher validates. Check before saving.",
+      "decisionLabel": "Decision"
     },
     "propositionsIa": {
       "titre": "AI proposals to validate",
@@ -4201,7 +4346,10 @@
     "responseDate": "Response date",
     "student": "Student",
     "class": "Class",
-    "matricule": "ID"
+    "matricule": "ID",
+    "archived": "Archived",
+    "closed": "Closed",
+    "open": "Open"
   },
   "echeancier": {
     "title": "Payment plan",
@@ -4356,7 +4504,9 @@
     "elevesSansPhoto": "Students without photo",
     "parentsSansCompte": "Parents without account",
     "rienATraiter": "Nothing to process — all up to date",
-    "traiter": "Process"
+    "traiter": "Process",
+    "actionsATraiter": "Actions to process",
+    "activiteRecente": "Recent activity"
   },
   "comptabilite": {
     "titre": "Accounting",
@@ -4386,7 +4536,10 @@
     "bloque": "Blocked",
     "actif": "Active",
     "statut": "Status",
-    "aucuneFacture": "No outstanding invoice"
+    "aucuneFacture": "No outstanding invoice",
+    "export": "Export",
+    "exportError": "Error exporting",
+    "exportSuccess": "Export successful"
   },
   "exploitation": {
     "titre": "Site operations",
@@ -4512,7 +4665,9 @@
     "incidents": "Incidents",
     "details": "Details",
     "aucunParent": "No parent linked",
-    "eleve": "Student"
+    "eleve": "Student",
+    "actionsATraiter": "Actions to process",
+    "activiteRecente": "Recent activity"
   },
   "profil": {
     "title": "My profile",
@@ -4780,5 +4935,253 @@
     "ecartsPlanning": "Planning gaps",
     "derive": "Drift",
     "semaines": "week(s)"
+  },
+  "forgotPassword": {
+    "invalidEmail": "Invalid email address",
+    "error": "An error occurred. Check the address and try again.",
+    "title": "Forgot password",
+    "subtitle": "Enter your email address to receive a reset link.",
+    "success": "If an account exists for this address, a reset email has been sent.",
+    "backToLogin": "Back to login",
+    "email": "Email address",
+    "emailPlaceholder": "you@example.dj",
+    "sending": "Sending…",
+    "submit": "Send link"
+  },
+  "verifyEmail": {
+    "verifying": "Verifying…",
+    "title": "Email verified",
+    "success": "Your email address has been verified. You can now log in.",
+    "loginNow": "Log in now",
+    "resendSubmit": "Resend email",
+    "backToLogin": "Back to login",
+    "resendTitle": "Resend verification email",
+    "resendSuccess": "A new verification email has been sent.",
+    "subtitle": "Enter your email address to receive a new verification link.",
+    "email": "Email address",
+    "emailPlaceholder": "you@example.dj",
+    "sending": "Sending…",
+    "error": "The verification link is invalid or has expired."
+  },
+  "userPermissions": {
+    "title": "User permissions",
+    "description": "Manage individual permissions granted or denied to a user.",
+    "selectUser": "Select a user",
+    "permission": "Permission",
+    "mode": "Mode",
+    "grant": "Grant",
+    "deny": "Deny",
+    "add": "Add",
+    "noPermissions": "No custom permissions.",
+    "success": "Permission updated",
+    "error": "Error updating permission",
+    "confirmDelete": "Delete this permission?"
+  },
+  "mobileNav": {
+    "ariaLabel": "Main navigation",
+    "home": "Home",
+    "children": "Children",
+    "messages": "Messages",
+    "billing": "Billing",
+    "profile": "Profile",
+    "courses": "Courses",
+    "grades": "Grades",
+    "schedule": "Schedule",
+    "myClass": "My class",
+    "students": "Students",
+    "attendance": "Attendance",
+    "settings": "Settings",
+    "dashboard": "Dashboard"
+  },
+  "cahierJournal": {
+    "calendar": "Calendar",
+    "semainePrecedente": "Previous week",
+    "semaineSuivante": "Next week",
+    "genererSemaine": "Generate week",
+    "genererSuccess": "{count} session(s) generated",
+    "genererErreur": "Error during generation",
+    "aujourdhui": "Today",
+    "enRetard": "Late",
+    "joursRetard": "{days} d late",
+    "seancesARemplir": "Sessions to fill",
+    "progressionSemaine": "Week progress",
+    "travailAFaire": "Homework",
+    "autres": "others",
+    "objectifs": "Objectives",
+    "ajouterObjectif": "Add an objective…",
+    "activites": "Activities",
+    "dureeMin": "min",
+    "ajouterActivite": "Add an activity…",
+    "supports": "Materials",
+    "ajouterSupport": "Attach a file…",
+    "differentiation": "Differentiation",
+    "ajouterDifferentiation": "Add differentiation…",
+    "planLecon": "Lesson plan",
+    "fichiers": "Files",
+    "aucunFichier": "No files",
+    "joindreFichier": "Attach a file",
+    "telechargerFichier": "Download",
+    "supprimerFichier": "Delete file",
+    "fichierTropVolumineux": "File too large (max 5 MB)",
+    "tropDeFichiers": "Too many files (max 10)",
+    "typeFichierNonAutorise": "File type not allowed",
+    "uploadError": "Error uploading file",
+    "deleteError": "Error deleting",
+    "commentaires": "Comments",
+    "aucunCommentaire": "No comments",
+    "ajouterCommentaire": "Add a comment",
+    "commentairePlaceholder": "Write a comment…",
+    "commentaireError": "Error saving comment",
+    "confirmSupprimerCommentaire": "Delete this comment?",
+    "supprimerCommentaire": "Delete comment",
+    "EXERCICE": "Exercise",
+    "LECTURE": "Reading",
+    "REVISION": "Review",
+    "PROJET": "Project",
+    "AUTRE": "Other",
+    "tableauBord": {
+      "titre": "Dashboard",
+      "aucunePrediction": "No prediction",
+      "prediction": "Prediction",
+      "elevesEnDifficulte": "{count} student(s) in difficulty",
+      "prerequisManquants": "Missing prerequisites",
+      "competencesPrevues": "Planned skills",
+      "patternHistorique": "Historical pattern",
+      "tauxEchec": "Failure rate: {pct}%",
+      "moyenneHistorique": "Average: {avg}/20",
+      "planLecon": "Lesson plan",
+      "accepter": "Accept",
+      "modifier": "Edit",
+      "refuser": "Reject",
+      "aucunPlan": "No plan",
+      "exercicesRemediation": "Remediation exercises",
+      "genererExercices": "Generate exercises"
+    }
+  },
+  "dossierProgression": {
+    "title": "Progress record",
+    "backToStudent": "Back to student",
+    "errLoad": "Error loading",
+    "statusMastered": "Mastered",
+    "statusProficient": "Proficient",
+    "statusDeveloping": "Developing",
+    "statusEmerging": "Emerging",
+    "statusNeedsReview": "Needs review",
+    "statusUnknown": "Unknown",
+    "synthCompetences": "Skills",
+    "synthMaitrisees": "Mastered",
+    "synthFragiles": "Fragile",
+    "synthCritiques": "Critical",
+    "synthInterventions": "Active interventions",
+    "synthPlans": "Active plans",
+    "synthRecos": "Active recommendations",
+    "competencesTitle": "Skills",
+    "noCompetences": "No skills",
+    "evidencesTitle": "Evidence",
+    "noEvidences": "No evidence",
+    "evidenceDate": "Date",
+    "evidenceType": "Type",
+    "evidenceCompetence": "Skill",
+    "evidenceSignal": "Signal",
+    "evidenceConfidence": "Confidence",
+    "evidenceCount": "Evidence count",
+    "interventionsTitle": "Interventions",
+    "noInterventions": "No interventions",
+    "masteryBefore": "Before",
+    "masteryAfter": "After",
+    "plansTitle": "Plans",
+    "noPlans": "No plans",
+    "planRemediation": "Remediation",
+    "planApprofondissement": "Enrichment",
+    "predictionsTitle": "Predictions",
+    "noPredictions": "No predictions",
+    "predictionVerified": "Prediction verified",
+    "recommandationsTitle": "Recommendations",
+    "noRecommandations": "No recommendations",
+    "recoResolved": "Resolved",
+    "journalTitle": "Journal"
+  },
+  "veilleAssiduite": {
+    "title": "Attendance watch",
+    "subtitle": "Tracking students at risk of absenteeism",
+    "selectClass": "Select a class",
+    "allClasses": "All classes",
+    "onlyWatch": "Show only watched students",
+    "synthTotal": "Watched students",
+    "synthVeille": "Active watch",
+    "synthAcceleration": "Accelerating absences",
+    "synthCritique": "Critical cases",
+    "synthTauxMoyen": "Average rate",
+    "synthAbsMoyennes": "Average absences",
+    "noStudents": "No students",
+    "noWatchStudents": "No watched students",
+    "errLoad": "Error loading",
+    "colStudent": "Student",
+    "colClass": "Class",
+    "colAbsences": "Absences",
+    "colInjustifiees": "Unjustified",
+    "colRetards": "Late arrivals",
+    "colTauxCourant": "Current rate",
+    "colTendance": "Trend",
+    "colPattern": "Pattern",
+    "colStatus": "Status",
+    "accelerating": "Accelerating absences",
+    "improving": "Improving",
+    "watch": "Watch",
+    "ok": "OK"
+  },
+  "conseilAugmente": {
+    "abs": "Abs",
+    "absencesTotal": "Total absences",
+    "assiduite": "Attendance",
+    "classTitle": "Class {classe}",
+    "compCritiques": "Critical skills",
+    "compFragiles": "Fragile skills",
+    "compMaitrisees": "Mastered skills",
+    "crit": "Crit",
+    "discipline": "Discipline",
+    "errLoad": "Error loading",
+    "frag": "Frag",
+    "grave": "Serious",
+    "inc": "Inc",
+    "incidentsTotal": "Total incidents",
+    "injust": "Unjust",
+    "interventions": "Interventions",
+    "learnos": "LEARNOS",
+    "load": "Load",
+    "matieresDetail": "Detail by subject",
+    "mentorat": "Mentoring",
+    "noMatieres": "No subjects in difficulty",
+    "noStudents": "No students",
+    "plans": "Plans",
+    "pred": "Pred",
+    "predictions": "Predictions",
+    "recos": "Recos",
+    "ret": "Late",
+    "sanct": "Sanc",
+    "selectClass": "Select a class",
+    "selectPeriode": "Select a period",
+    "selectPrompt": "Select a class and period to generate the augmented council.",
+    "signalsSynthesis": "Signal synthesis",
+    "subjectsInDifficulty": "Subjects in difficulty"
+  },
+  "activityTimeline": {
+    "titre": "Recent activity",
+    "evenements": "{count} event(s)",
+    "periodeRecent": "Last action",
+    "periodeAujourdhui": "Today",
+    "periodeSemaine": "This week",
+    "periodeMois": "This month",
+    "aucuneActivite": "No activity in this period.",
+    "maintenant": "just now",
+    "ilYAMinutes": "{count} min ago",
+    "ilYAHeures": "{count}h ago",
+    "hier": "yesterday",
+    "ilYAJours": "{count}d ago"
+  },
+  "absencesStats": {
+    "aujourdhui": "Today",
+    "cetteSemaine": "This week",
+    "nonJustifiees": "Unjustified"
   }
 }

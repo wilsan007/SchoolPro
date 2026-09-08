@@ -138,7 +138,7 @@ export default async function NotesPage({
       redirect("/notes");
     }
     evaluations = await prisma.evaluation.findMany({
-      where: { tenantId, ...evalFilter, classeId, matiereId, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}), date: { lte: maintenant } },
+      where: { tenantId, ...evalFilter, classeId, matiereId, ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}), OR: [{ statut: "PLANIFIE" }, { date: { lte: maintenant } }] },
       select: { id: true, titre: true, type: true },
       orderBy: { date: "desc" },
     });

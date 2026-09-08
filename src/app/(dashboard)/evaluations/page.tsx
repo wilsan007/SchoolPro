@@ -56,7 +56,11 @@ export default async function EvaluationsPage({
           ? { classeId: { in: hierarchieClasseIds } }
           : {}),
         ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
-        date: { lte: maintenant },
+        // Horizon temporel : les évaluations TERMINE sont des faits constatés
+        // (bornés par la date), les PLANIFIE restent visibles (calendrier).
+        // L'extension demo-horizon gère ce cas quand la Time Machine est active,
+        // mais en usage normal (sans Time Machine) il faut le filtre manuel.
+        OR: [{ statut: "PLANIFIE" }, { date: { lte: maintenant } }],
       },
       include: {
         classe: { select: { nom: true, niveau: true } },

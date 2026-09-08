@@ -34,12 +34,17 @@ export async function detecterDevoirsEnRetard(
   try {
     const maintenant = new Date();
 
-    const anneesCourantes = anneeCourante
-      ? [anneeCourante]
-      : (await prisma.anneesScolaires.findMany({
-          where: { isCurrent: true },
-          select: { libelle: true },
-        })).map((a) => a.libelle).filter(Boolean) as string[];
+    const tenants = await prisma.tenant.findMany({ select: { id: true } });
+    const anneesParTenant = await Promise.all(
+      tenants.map(async ({ id: tenantId }) => ({
+        tenantId,
+        annee: anneeCourante || await getAnneeCouranteLibelle(tenantId),
+      }))
+    );
+    const scopesAnnuels = anneesParTenant.flatMap(({ tenantId, annee }) =>
+      annee ? [{ tenantId, classe: { tenantId, annee } }] : []
+    );
+    if (scopesAnnuels.length === 0) return { count };
 
     // Tâche système : elle balaie délibérément tous les tenants, comme les
     // autres crons de l'application (cf. api/cron/dispatch, alertes-parent).
@@ -48,7 +53,7 @@ export async function detecterDevoirsEnRetard(
       where: {
         statut: { in: ["A_FAIRE", "EN_COURS"] },
         dateRendu: { lt: maintenant },
-        ...(anneesCourantes.length > 0 ? { classe: { annee: { in: anneesCourantes } } } : {}),
+        OR: scopesAnnuels,
       },
       select: {
         id: true,

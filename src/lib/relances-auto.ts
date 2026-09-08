@@ -115,7 +115,11 @@ export async function envoyerRelancesAutomatiques(): Promise<{
       if (emails.length > 0) {
         const sujet = `Relance n°${niveau} — Facture ${facture.numero}`;
         const html = `<p style="white-space: pre-wrap;">${message.replace(/</g, "&lt;")}</p>`;
-        await sendEmail(emails, sujet, html);
+        await sendEmail(emails, sujet, html, {
+          tenantId: tenant.id,
+          type: "relance",
+          resourceId: facture.id,
+        });
       }
 
       auditFire({

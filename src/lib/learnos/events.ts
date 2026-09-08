@@ -34,6 +34,9 @@ import prisma from "@/lib/prisma";
  */
 export const LEARNOS_EVENT_TYPES = [
   "note.recorded",
+  // Types réservés — non publiés actuellement. Conservés pour documenter
+  // l'intention : un futur câblage de la modification/suppression de note
+  // et de la complétion d'évaluation les activera sans casser le registre.
   "note.updated",
   "note.deleted",
   "absence.recorded",
@@ -64,6 +67,8 @@ export const LEARNOS_EVENT_TYPES = [
   "prediction.emise",
   // Admissions.
   "candidature.acceptee",
+  // Vie scolaire — incidents.
+  "incident.signale",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -252,6 +257,21 @@ export interface CandidatureAccepteePayload {
   nom: string;
   matricule: string;
   classeNom: string;
+}
+
+/** Instantané d'un incident signalé : alerte parents si incident grave. */
+export interface IncidentSignalePayload {
+  incidentId: string;
+  eleveId: string;
+  parentIds: string[];
+  siteId: string | null;
+  prenom: string;
+  nom: string;
+  classeNom: string | null;
+  type: string;
+  gravite: number;
+  description: string;
+  date: string;
 }
 
 export interface LearnosEventInput {

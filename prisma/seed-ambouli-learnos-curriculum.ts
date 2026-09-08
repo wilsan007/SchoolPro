@@ -391,17 +391,20 @@ export async function seedLearnosCurriculum(
           // Compétences
           for (let comp_i = 0; comp_i < cd.competences.length; comp_i++) {
             const compDef = cd.competences[comp_i];
+            // Le code compétence doit être unique par tenant : on le préfixe
+            // par le site pour éviter la collision entre Ambouli et Arhiba.
+            const codeComp = `${site === "ambouli" ? "AMB" : "ARH"}-${compDef.code}`;
             const comp = await prisma.competence.create({
               data: {
                 tenantId: ref.tenantId,
                 siteId: ref.sites[site],
                 chapitreId: chap.id,
-                code: compDef.code,
+                code: codeComp,
                 libelle: compDef.libelle,
                 ordre: comp_i + 1,
               },
             });
-            competences[compDef.code] = comp.id;
+            competences[codeComp] = comp.id;
             compCount++;
           }
         }
@@ -418,10 +421,10 @@ export async function seedLearnosCurriculum(
         for (const cd of chapitreDefs) {
           for (const compDef of cd.competences) {
             if (!compDef.prerequis) continue;
-            const compId = competences[compDef.code];
+            const compId = competences[`${siteCode}-${compDef.code}`];
             if (!compId) continue;
             for (const prereqCode of compDef.prerequis) {
-              const prereqId = competences[prereqCode];
+              const prereqId = competences[`${siteCode}-${prereqCode}`];
               if (!prereqId) continue;
               await prisma.competence.update({
                 where: { id: compId },
@@ -549,8 +552,9 @@ export async function seedLearnosCurriculum(
           if (!niveauCurriculum) continue;
           // Rattacher à 1-2 compétences du premier chapitre
           const comps = niveauCurriculum[0]?.competences || [];
+          const siteCode = site === "ambouli" ? "AMB" : "ARH";
           for (const compDef of comps.slice(0, 2)) {
-            const compId = competences[compDef.code];
+            const compId = competences[`${siteCode}-${compDef.code}`];
             if (!compId) continue;
             await prisma.evaluationCompetence.create({
               data: {

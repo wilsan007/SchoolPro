@@ -5,16 +5,20 @@
  * Variables d'environnement :
  *   RESEND_API_KEY=re_...
  *   EMAIL_FROM="EcolPro <noreply@ecolpro.app>"
+ *   RESEND_WEBHOOK_SECRET=whsec_... (pour vérifier les webhooks)
  *
  * Si la clé est absente, l'envoi est simulé (utile en dev / sandbox).
  */
 
 import { Resend } from "resend";
+import { journaliserEnvoiEmail, type EmailLogContext } from "./email-log";
 
 export interface EmailResult {
   success: boolean;
   sent: number;
   error?: string;
+  /** Map email → ID Resend, pour corrélation avec les webhooks (statut délivrance/bond). */
+  emailIds?: Record<string, string>;
 }
 
 const FROM = process.env.EMAIL_FROM ?? "EcolPro <noreply@ecolpro.app>";
@@ -23,11 +27,15 @@ const BATCH = 50; // limite Resend par appel
 /**
  * Envoie un email à une liste de destinataires (un email par destinataire,
  * en BCC implicite via envois individuels groupés par lots).
+ *
+ * @param ctx contexte optionnel pour journaliser l'envoi dans EmailLog
+ *            (tenantId, userId, type d'email, resourceId lié)
  */
 export async function sendEmail(
   to: string[],
   subject: string,
-  html: string
+  html: string,
+  ctx?: EmailLogContext,
 ): Promise<EmailResult> {
   const recipients = [...new Set(to.filter(Boolean))];
   if (recipients.length === 0) return { success: true, sent: 0 };
@@ -35,11 +43,14 @@ export async function sendEmail(
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.includes("xxxx")) {
     console.warn(`[Email] RESEND_API_KEY manquante — simulation (${recipients.length} destinataires)`);
+    // Journaliser même en simulation (statut PENDING, sans resendId)
+    await journaliserEnvoiEmail(recipients, subject, { success: true, sent: recipients.length }, ctx);
     return { success: true, sent: recipients.length };
   }
 
   const resend = new Resend(apiKey);
   let sent = 0;
+  const emailIds: Record<string, string> = {};
 
   try {
     for (let i = 0; i < recipients.length; i += BATCH) {
@@ -51,17 +62,37 @@ export async function sendEmail(
         subject,
         html,
       }));
-      const { error } = await resend.batch.send(payload);
+      const { data, error } = await resend.batch.send(payload);
       if (error) {
         console.error("[Email] Erreur lot Resend:", error);
-        return { success: false, sent, error: error.message };
+        const result = { success: false, sent, error: error.message };
+        await journaliserEnvoiEmail(recipients, subject, result, ctx);
+        return result;
       }
+      // Capturer les IDs Resend pour corrélation webhook.
+      // L'API batch retourne { data: [{ id: "..." }] } — un objet contenant
+      // un tableau, pas un tableau direct. Les deux formes sont gérées pour
+      // robustesse (selon la version du SDK / API).
+      const items: { id?: string }[] = Array.isArray(data)
+        ? data
+        : data && Array.isArray(data.data)
+          ? data.data
+          : [];
+      items.forEach((item, idx) => {
+        if (item.id && batch[idx]) {
+          emailIds[batch[idx]] = item.id;
+        }
+      });
       sent += batch.length;
     }
-    return { success: true, sent };
+    const result = { success: true, sent, emailIds };
+    await journaliserEnvoiEmail(recipients, subject, result, ctx);
+    return result;
   } catch (err) {
     console.error("[Email] Erreur envoi:", err);
-    return { success: false, sent, error: "Erreur réseau" };
+    const result = { success: false, sent, error: "Erreur réseau" };
+    await journaliserEnvoiEmail(recipients, subject, result, ctx);
+    return result;
   }
 }
 

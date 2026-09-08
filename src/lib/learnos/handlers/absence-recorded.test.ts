@@ -69,7 +69,7 @@ describe("onAbsenceRecorded", () => {
       eleveId: "eleve-1",
       parentId: "parent-1",
       niveau: NiveauAlerteParent.ATTENTION,
-      cle: "learnos.alertes.absence.frequence",
+      cle: "absence.frequence",
       empreinte: expect.stringContaining("absence-freq-eleve-1-parent-1"),
     });
     expect(mockPrisma.alerteParent.createMany.mock.calls[0][0].skipDuplicates).toBe(true);

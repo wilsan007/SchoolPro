@@ -1,20 +1,27 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Formate une date en français */
-export function formatDate(date: Date | string, fmt = "dd MMMM yyyy") {
-  return format(new Date(date), fmt, { locale: fr });
+/** Locale date-fns à utiliser selon la locale next-intl active. */
+function dateFnsLocale(locale?: string) {
+  if (locale === "en") return enUS;
+  // date-fns n'a pas de locale somalie — fallback français
+  return fr;
 }
 
-/** Temps relatif en français : "il y a 3 minutes" */
-export function timeAgo(date: Date | string) {
-  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
+/** Formate une date selon la locale active (fr par défaut). */
+export function formatDate(date: Date | string, fmt = "dd MMMM yyyy", locale?: string) {
+  return format(new Date(date), fmt, { locale: dateFnsLocale(locale) });
+}
+
+/** Temps relatif selon la locale active : "il y a 3 minutes" / "3 minutes ago". */
+export function timeAgo(date: Date | string, locale?: string) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: dateFnsLocale(locale) });
 }
 
 /** Génère un matricule unique */

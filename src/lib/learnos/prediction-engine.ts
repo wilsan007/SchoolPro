@@ -13,6 +13,8 @@
  *   3. Les patterns historiques (les élèves de ce niveau ont en moyenne X
  *      sur cette compétence)
  *   4. La tendance de l'élève (son score monte-t-il ou baisse-t-il ?)
+ *   5. L'assiduité récente (un élève souvent absent a moins de chances de
+ *      réussir, indépendamment de son niveau)
  *
  * LA BOUCLE D'APPRENTISSAGE
  * --------------------------
@@ -35,6 +37,7 @@
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { publishEvent } from "@/lib/learnos/events";
+import { tauxAssiduiteRecent } from "@/lib/learnos/pattern-absence";
 
 /** Seuil de tolérance pour qu'une prédiction soit considérée correcte. */
 const TOLERANCE_PREDICTION = 0.15;
@@ -57,6 +60,7 @@ export interface PredictionEleve {
     prerequis: number;
     patternHistorique: number | null;
     tendance: number;
+    assiduite: number;
   };
 }
 
@@ -162,8 +166,22 @@ export async function predirePourChapitre(
   // 5. Émettre une prédiction par élève × compétence.
   const predictions: PredictionEleve[] = [];
 
+  // Pré-charger le taux d'assiduité de chaque élève (un appel par élève,
+  // mis en cache pour la durée de la fonction). Un élève absent régulièrement
+  // voit sa probabilité de réussite abaissée, indépendamment de son niveau.
+  const assiduiteCache = new Map<string, number>();
+  for (const eleve of eleves) {
+    try {
+      assiduiteCache.set(eleve.id, await tauxAssiduiteRecent(tenantId, eleve.id));
+    } catch {
+      // En cas d'erreur (base indisponible, etc.), on suppose assiduité neutre.
+      assiduiteCache.set(eleve.id, 1);
+    }
+  }
+
   for (const eleve of eleves) {
     const profilsEleve = profilIndex.get(eleve.id) ?? new Map();
+    const assiduite = assiduiteCache.get(eleve.id) ?? 1;
 
     for (const comp of chapitre.competences) {
       const profil = profilsEleve.get(comp.id);
@@ -179,20 +197,24 @@ export async function predirePourChapitre(
       }
 
       // Calculer la probabilité de réussite.
+      // 5 facteurs : profil (35%) + prérequis (25%) + pattern (20%)
+      //             + tendance (10%) + assiduité (10%)
       const facteurs = {
         profil: masteryAvant ?? 0.5, // Inconnu → neutre
         prerequis: 1 - Math.min(prerequisManquants / Math.max(comp.prerequis.length, 1), 1) * 0.4,
         patternHistorique: patternIndex.get(comp.id)?.masteryMoyenne ?? null,
         tendance: tendance === "UP" ? 0.05 : tendance === "DOWN" ? -0.05 : 0,
+        assiduite,
       };
 
-      // Pondération : profil (40%) + prérequis (30%) + pattern (20%) + tendance (10%)
-      let proba = facteurs.profil * 0.4 + facteurs.prerequis * 0.3;
+      // Pondération : profil (35%) + prérequis (25%) + pattern (20%) + assiduité (10%) + tendance (10%)
+      let proba = facteurs.profil * 0.35 + facteurs.prerequis * 0.25;
       if (facteurs.patternHistorique !== null) {
         proba += facteurs.patternHistorique * 0.2;
       } else {
         proba += facteurs.profil * 0.2; // Sans historique, le profil pèse plus
       }
+      proba += facteurs.assiduite * 0.1;
       proba += facteurs.tendance;
       proba = Math.max(0, Math.min(1, proba));
 

@@ -101,3 +101,5 @@ tests/e2e/debug-*.spec.ts
 # Artifacts d'audit générés temporairement
 AUDIT-PERIMETRE.json
 .env*
+.audit-20260907/
+docs/CONTROLE/preuves/couverture-20260907/

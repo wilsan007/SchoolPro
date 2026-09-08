@@ -59,9 +59,12 @@ describe("GET /api/demo-now", () => {
 });
 
 describe("POST /api/demo-now", () => {
+  // Date de preset valide (cf. src/lib/demo-presets.ts).
+  const PRESET_VALIDE = "2026-01-15T10:00:00.000Z";
+
   it("accepte une date de l'administrateur du tenant", async () => {
     session.valeur = { user: { role: "TENANT_ADMIN" } };
-    const res = await POST(requete({ date: "2026-02-15T10:00:00.000Z" }));
+    const res = await POST(requete({ date: PRESET_VALIDE }));
     expect(res.status).toBe(200);
     // Les cookies doivent être httpOnly, sans quoi la restriction se
     // contournerait en écrivant `document.cookie`.
@@ -73,20 +76,26 @@ describe("POST /api/demo-now", () => {
     "refuse %s avec un 403",
     async (role) => {
       session.valeur = { user: { role } };
-      const res = await POST(requete({ date: "2026-02-15T10:00:00.000Z" }));
+      const res = await POST(requete({ date: PRESET_VALIDE }));
       expect(res.status).toBe(403);
     }
   );
 
   it("refuse un visiteur non authentifié", async () => {
     session.valeur = null;
-    const res = await POST(requete({ date: "2026-02-15T10:00:00.000Z" }));
+    const res = await POST(requete({ date: PRESET_VALIDE }));
     expect(res.status).toBe(403);
   });
 
   it("rejette une date invalide, même pour un compte autorisé", async () => {
     session.valeur = { user: { role: "TENANT_ADMIN" } };
     const res = await POST(requete({ date: "pas-une-date" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("rejette une date non-preset, même pour un compte autorisé", async () => {
+    session.valeur = { user: { role: "TENANT_ADMIN" } };
+    const res = await POST(requete({ date: "2026-02-15T10:00:00.000Z" }));
     expect(res.status).toBe(400);
   });
 });

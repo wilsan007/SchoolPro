@@ -12,6 +12,7 @@
  *   npx tsx scripts/combler-banque.ts --dry-run                → diagnostic seul
  *   npx tsx scripts/combler-banque.ts --delai=3000             → délai entre appels (ms)
  *   npx tsx scripts/combler-banque.ts --nombre-par-trou=3      → 3 questions par trou
+ *   npx tsx scripts/combler-banque.ts --tenant=cite-scolaire-ambouli → un tenant
  *
  * Le script est **reprenable** : à chaque lancement il re-détecte les trous
  * restants et ne génère que ce qui manque. Le cache IA (24 h) fait qu'un
@@ -57,6 +58,7 @@ interface Args {
   dryRun?: boolean;
   delai?: number;
   nombreParTrou?: number;
+  tenant?: string;
 }
 
 function parseArgs(): Args {
@@ -69,6 +71,7 @@ function parseArgs(): Args {
     else if (k === "dry-run") args.dryRun = true;
     else if (k === "delai") args.delai = parseInt(v, 10);
     else if (k === "nombre-par-trou") args.nombreParTrou = parseInt(v, 10);
+    else if (k === "tenant") args.tenant = v;
   }
   return args;
 }
@@ -94,8 +97,17 @@ async function main() {
   }
   console.log(`Tenants disponibles : ${tenants.map((t) => t.slug).join(", ")}`);
 
-  // On traite tous les tenants qui ont un curriculum.
-  for (const tenant of tenants) {
+  // On traite tous les tenants qui ont un curriculum, sauf filtre --tenant.
+  const aTraiter = args.tenant
+    ? tenants.filter((t) => t.slug === args.tenant || t.id === args.tenant)
+    : tenants;
+  if (args.tenant && aTraiter.length === 0) {
+    console.log(`Aucun tenant trouvé pour --tenant=${args.tenant}`);
+    console.log(`Tenants disponibles : ${tenants.map((t) => t.slug).join(", ")}`);
+    return;
+  }
+
+  for (const tenant of aTraiter) {
     await comblerTenant(tenant.id, tenant.slug, args, delai, nombreParTrou);
   }
 

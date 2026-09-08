@@ -134,7 +134,7 @@ export function GenerateurCommentairesBulletin({
             {resultat.propositionDecision && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("decision")}
+                  {t("decisionLabel")}
                 </label>
                 <p className="text-sm font-medium">
                   {decisionsLabels[resultat.propositionDecision] ?? resultat.propositionDecision}

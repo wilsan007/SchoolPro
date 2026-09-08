@@ -197,7 +197,7 @@ export default async function DashboardPage() {
       total: data.totalEleves,
       icon: "users" as const,
       color: "azure" as const,
-      change: "+3",
+      change: anneeCourante ?? "—",
       changePositive: true,
     },
     {

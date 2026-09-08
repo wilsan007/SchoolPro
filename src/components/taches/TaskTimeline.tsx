@@ -15,6 +15,7 @@ import {
   Clock,
   ArrowRight,
 } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -105,6 +106,8 @@ export function TaskTimeline({
   compact = false,
   title,
 }: Props) {
+  const t = useTranslations("taches");
+  const locale = useLocale();
   const [taches, setTaches] = useState(initial);
   const [isPending, startTransition] = useTransition();
   const [syncing, setSyncing] = useState(false);
@@ -189,12 +192,12 @@ export function TaskTimeline({
           )}
           {enRetard > 0 && (
             <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
-              {enRetard} en retard
+              {enRetard} {t("enRetard")}
             </Badge>
           )}
           {aujourdhui > 0 && (
             <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
-              {aujourdhui} {"aujourd'hui"}
+              {aujourdhui} {t("rel.aujourdhui")}
             </Badge>
           )}
           <div className="flex-1" />
@@ -238,7 +241,7 @@ export function TaskTimeline({
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               )}
               <span className={cn("text-sm font-medium", colors.text)}>
-                {colors.label}
+                {t(colors.labelKey)}
               </span>
               <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", colors.bg, colors.text)}>
                 {items.length}
@@ -248,13 +251,15 @@ export function TaskTimeline({
             {/* Tâches du bucket */}
             {!isCollapsed && (
               <div className={cn("space-y-1.5", compact ? "" : "ml-2")}>
-                {items.map((t) => (
+                {items.map((task) => (
                   <TaskCard
-                    key={t.id}
-                    tache={t}
+                    key={task.id}
+                    tache={task}
                     onChangerStatut={changerStatut}
                     disabled={isPending}
                     compact={compact}
+                    t={t}
+                    locale={locale}
                   />
                 ))}
               </div>
@@ -290,11 +295,15 @@ function TaskCard({
   onChangerStatut,
   disabled,
   compact,
+  t,
+  locale,
 }: {
   tache: TacheData;
   onChangerStatut: (id: string, statut: string) => void;
   disabled: boolean;
   compact: boolean;
+  t: ReturnType<typeof useTranslations>;
+  locale: string;
 }) {
   const enRetard =
     tache.statut !== "FAIT" &&
@@ -337,7 +346,7 @@ function TaskCard({
           </Badge>
           {isAuto && (
             <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-violet-50 text-violet-600 border-violet-200">
-              Auto
+              {t("auto")}
             </Badge>
           )}
           {tache.classe && (
@@ -366,8 +375,8 @@ function TaskCard({
           {tache.echeance && (
             <span className={cn("flex items-center gap-0.5", enRetard && "text-red-500 font-medium")}>
               <Calendar className="w-3 h-3" />
-              {formatDateShort(tache.echeance)}
-              {enRetard && " · en retard"}
+              {formatDateShort(tache.echeance, t, locale)}
+              {enRetard && ` · ${t("enRetard")}`}
             </span>
           )}
         </div>
@@ -402,16 +411,20 @@ function TaskCard({
   );
 }
 
-function formatDateShort(iso: string): string {
+function formatDateShort(
+  iso: string,
+  t: ReturnType<typeof useTranslations>,
+  locale: string,
+): string {
   const d = new Date(iso);
   const now = new Date();
   const diffJours = Math.floor((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diffJours === 0) return "Aujourd'hui";
-  if (diffJours === 1) return "Demain";
-  if (diffJours === -1) return "Hier";
-  if (diffJours > 0 && diffJours <= 7) return `Dans ${diffJours}j`;
-  if (diffJours < 0 && diffJours >= -7) return `Il y a ${Math.abs(diffJours)}j`;
+  if (diffJours === 0) return t("rel.aujourdhui");
+  if (diffJours === 1) return t("rel.demain");
+  if (diffJours === -1) return t("rel.hier");
+  if (diffJours > 0 && diffJours <= 7) return t("rel.dansJours", { count: diffJours });
+  if (diffJours < 0 && diffJours >= -7) return t("rel.ilYAJours", { count: Math.abs(diffJours) });
 
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return d.toLocaleDateString(locale === "en" ? "en-US" : locale === "so" ? "so-SO" : "fr-FR", { day: "numeric", month: "short" });
 }

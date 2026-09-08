@@ -146,16 +146,27 @@ export async function PATCH(
         niveauTarif = classeForNiveau.niveau;
       }
 
-      // c) Recherche du tarif (site-spécifique prioritaire, fallback partagé)
+      // c) Recherche du tarif : priorité au tarif spécifique au site, fallback partagé.
+      // On ne peut pas utiliser `orderBy: { siteId: "desc" }` car sur Postgres,
+      // DESC trie les NULL en premier (NULLS FIRST par défaut) — le tarif
+      // partagé (siteId: null) serait retourné avant le tarif spécifique.
+      // On fait deux requêtes : d'abord le spécifique, puis le partagé.
       const tarif = await prisma.tarifNiveau.findFirst({
         where: {
           tenantId,
           niveau: niveauTarif,
           annee: candidature.annee,
           actif: true,
-          OR: [{ siteId: candidature.siteId ?? null }, { siteId: null }],
+          siteId: candidature.siteId ?? null,
         },
-        orderBy: { siteId: "desc" }, // privilégier le tarif spécifique au site
+      }) ?? await prisma.tarifNiveau.findFirst({
+        where: {
+          tenantId,
+          niveau: niveauTarif,
+          annee: candidature.annee,
+          actif: true,
+          siteId: null,
+        },
       });
 
       // d) Garde-fou tarif : blocage hard si tarif manquant ou montant ≤ 0

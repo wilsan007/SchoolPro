@@ -282,10 +282,14 @@ export default async function ParentPage({
   };
 
   // --- Tâches auto-générées pour le parent (factures en retard, réinscription…) ---
+  // Non-bloquant : la sync fait plusieurs requêtes DB qui peuvent être lentes
+  // sur une base distante. Lancée en arrière-plan pour ne pas bloquer la page.
   try {
-    await synchroniserTachesAuto(tenantId, session!.user);
+    void synchroniserTachesAuto(tenantId, session!.user).catch((e) =>
+      console.error("[Parent page] Auto-sync tâches échoué:", e)
+    );
   } catch (e) {
-    console.error("[Parent page] Auto-sync tâches échoué:", e);
+    console.error("[Parent page] Auto-sync tâches (init):", e);
   }
 
   const mesTachesParent = await prisma.tache.findMany({

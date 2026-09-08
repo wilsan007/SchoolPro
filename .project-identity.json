@@ -42,8 +42,12 @@
       "cahier_textes",
       "cahier_texte_commentaires",
       "enseignant_affectations",
-      "enseignant_matieres",
-      "user_permissions"
+      "enseignant_matieres"
+    ],
+    "_note_user_permissions": [
+      "user_permissions a été retiré de marqueurs_interdits le 2026-09-08 :",
+      "SchoolPro a désormais un modèle UserPermission (@@map user_permissions).",
+      "Cette table n'est plus un marqueur fiable d'EcolPro."
     ],
     "hotes_autorises": [
       "127.0.0.1",

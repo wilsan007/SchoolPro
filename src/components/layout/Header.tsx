@@ -260,7 +260,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
                         <p className="text-sm font-medium truncate">{n.titre}</p>
                         <p className="text-xs text-muted-foreground line-clamp-2">{n.contenu}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-muted-foreground">{timeAgo(n.createdAt)}</span>
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(n.createdAt, locale)}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{n.canal}</span>
                         </div>
                       </div>

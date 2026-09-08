@@ -113,6 +113,7 @@ réécrire la logique.
 pnpm verify          # lint + tsc + tests + prisma validate + audit
 pnpm verify:quick    # tsc + lint seulement (rapide)
 pnpm test:coverage   # couverture de code
+node scripts/i18n-audit.mjs  # audit i18n : clés manquantes fr/en/so
 ```
 
 Le pre-commit hook (installer avec `node scripts/install-hooks.mjs`) exécute

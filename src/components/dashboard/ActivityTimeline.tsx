@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -65,12 +66,14 @@ type ActivityType =
 
 type PeriodeKey = "aujourdhui" | "semaine" | "mois" | "recent";
 
-const PERIODES: { key: PeriodeKey; label: string }[] = [
-  { key: "recent", label: "Dernière action" },
-  { key: "aujourdhui", label: "Aujourd'hui" },
-  { key: "semaine", label: "Cette semaine" },
-  { key: "mois", label: "Ce mois" },
-];
+const PERIODES: PeriodeKey[] = ["recent", "aujourdhui", "semaine", "mois"];
+
+const PERIODE_LABEL_KEY: Record<PeriodeKey, string> = {
+  recent: "periodeRecent",
+  aujourdhui: "periodeAujourdhui",
+  semaine: "periodeSemaine",
+  mois: "periodeMois",
+};
 
 const CONFIG_TYPE: Record<
   ActivityType,
@@ -99,7 +102,11 @@ const CONFIG_TYPE: Record<
   audit: { icone: Activity, couleur: "text-slate-500", bg: "bg-slate-500/10" },
 };
 
-function formatTempsRelatif(dateStr: string): string {
+function formatTempsRelatif(
+  dateStr: string,
+  t: ReturnType<typeof useTranslations>,
+  locale: string,
+): string {
   const date = new Date(dateStr);
   const maintenant = new Date();
   const diff = maintenant.getTime() - date.getTime();
@@ -107,16 +114,16 @@ function formatTempsRelatif(dateStr: string): string {
   const heures = Math.floor(diff / 3_600_000);
   const jours = Math.floor(diff / 86_400_000);
 
-  if (minutes < 1) return "à l'instant";
-  if (minutes < 60) return `il y a ${minutes} min`;
-  if (heures < 24) return `il y a ${heures}h`;
-  if (jours === 1) return "hier";
-  if (jours < 7) return `il y a ${jours}j`;
-  return date.toLocaleDateString("fr", { day: "2-digit", month: "short" });
+  if (minutes < 1) return t("maintenant");
+  if (minutes < 60) return t("ilYAMinutes", { count: minutes });
+  if (heures < 24) return t("ilYAHeures", { count: heures });
+  if (jours === 1) return t("hier");
+  if (jours < 7) return t("ilYAJours", { count: jours });
+  return date.toLocaleDateString(locale === "en" ? "en-US" : locale === "so" ? "so-SO" : "fr-FR", { day: "2-digit", month: "short" });
 }
 
-function formatHeure(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" });
+function formatHeure(dateStr: string, locale: string): string {
+  return new Date(dateStr).toLocaleTimeString(locale === "en" ? "en-US" : locale === "so" ? "so-SO" : "fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
 /**
@@ -132,6 +139,8 @@ export function ActivityTimeline({
 }: {
   itemsParPeriode: Record<PeriodeKey, ActivityItemData[]>;
 }) {
+  const t = useTranslations("activityTimeline");
+  const locale = useLocale();
   const [periode, setPeriode] = useState<PeriodeKey>("recent");
 
   const items = useMemo(
@@ -145,23 +154,23 @@ export function ActivityTimeline({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b bg-muted/30">
         <div className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-muted-foreground" />
-          <h3 className="font-semibold">Activité récente</h3>
+          <h3 className="font-semibold">{t("titre")}</h3>
           {items.length > 0 && (
             <span className="text-xs text-muted-foreground">
-              {items.length} événement{items.length > 1 ? "s" : ""}
+              {t("evenements", { count: items.length })}
             </span>
           )}
         </div>
         <div className="flex flex-wrap gap-1">
           {PERIODES.map((p) => (
             <Button
-              key={p.key}
+              key={p}
               size="sm"
-              variant={periode === p.key ? "default" : "ghost"}
+              variant={periode === p ? "default" : "ghost"}
               className="h-8 px-3 text-xs rounded-xl"
-              onClick={() => setPeriode(p.key)}
+              onClick={() => setPeriode(p)}
             >
-              {p.label}
+              {t(PERIODE_LABEL_KEY[p])}
             </Button>
           ))}
         </div>
@@ -172,7 +181,7 @@ export function ActivityTimeline({
         <div className="py-10 text-center">
           <Activity className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
-            Aucune activité sur cette période.
+            {t("aucuneActivite")}
           </p>
         </div>
       ) : (
@@ -196,7 +205,7 @@ export function ActivityTimeline({
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="text-sm font-medium truncate">{item.titre}</p>
                     <span className="text-xs text-muted-foreground flex-shrink-0 tabular-nums">
-                      {formatTempsRelatif(item.date)}
+                      {formatTempsRelatif(item.date, t, locale)}
                     </span>
                   </div>
                   {item.description && (
@@ -211,7 +220,7 @@ export function ActivityTimeline({
                       </span>
                     )}
                     <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                      {formatHeure(item.date)}
+                      {formatHeure(item.date, locale)}
                     </span>
                   </div>
                 </div>

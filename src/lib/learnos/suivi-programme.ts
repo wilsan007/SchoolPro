@@ -153,8 +153,14 @@ export async function tableauSuiviProgramme(
 
 /**
  * Pour chaque combinaison classe × matière, compte les chapitres qui
- * auraient dû être terminés (semaineFin ≤ semaine) et ceux qui le sont
- * réellement (statut TRAITE).
+ * auraient dû être terminés (semaineFin ≤ semaine) ou qui sont en cours
+ * (semaineDebut ≤ semaine ≤ semaineFin), et ceux qui le sont réellement
+ * (statut TRAITE).
+ *
+ * Les chapitres en cours sont inclus dans « prévu » : un chapitre en cours
+ * non traité compte comme un écart. Sans cela, tant qu'aucun chapitre n'a
+ * atteint sa semaine de fin, la couverture est vide (0%) alors que des
+ * chapitres sont enseignés depuis des semaines sans aucune trace.
  */
 async function calculerCouverture(
   tenantId: string,
@@ -166,11 +172,12 @@ async function calculerCouverture(
     where: {
       tenantId,
       anneeId,
-      semaineFin: { lte: semaine },
+      semaineDebut: { lte: semaine }, // commencé (dû ou en cours)
       ...siteFilterForModel("planificationChapitre", claims),
     },
     select: {
       statut: true,
+      semaineFin: true,
       classeId: true,
       classe: { select: { id: true, nom: true } },
       chapitre: {
@@ -180,6 +187,11 @@ async function calculerCouverture(
       },
     },
   });
+
+  // Ne garder que les chapitres dus (fin passée) ou en cours (semaine dans le span).
+  const pertinents = planifications.filter(
+    (p) => p.semaineFin <= semaine || (p.semaineFin >= semaine),
+  );
 
   // Agréger par (classeId, matiereId).
   const map = new Map<
@@ -194,7 +206,7 @@ async function calculerCouverture(
     }
   >();
 
-  for (const plan of planifications) {
+  for (const plan of pertinents) {
     const classeId = plan.classeId ?? "__sans_classe__";
     const classeNom = plan.classe?.nom ?? "—";
     const matiereId = plan.chapitre.matiere.id;

@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-07",
+  "decision": "NO_GO_INTERMEDIAIRE",
+  "audit_complete": false,
+  "source_head": "892a9a07fd51589e300ba52b9780317cbd6a11b6",
+  "snapshot": "be95c33cefdef51a8d47c0986a15a9d0427e1a00",
+  "snapshot_directory": "/Users/awalehosman/Projects/SchoolPro/.audit-20260907",
+  "method": "Preparatory review and local diagnostic tests only. Plan phase prerequisites not all satisfied. No production access, no workflow writes, no seed, no deploy, no application fix.",
+  "controls": [
+    {"id":"0.1","status":"OK_WITH_APPROVED_ADAPTATION","result":"Tracked dirty tree captured via git stash create without changing original working tree; detached worktree created; supplemental untracked test copied with matching blob hashes."},
+    {"id":"0.2","status":"OK","evidence":"0-gel-20260907.json"},
+    {"id":"0.4","status":"OK","command":"env -i HOME=... PATH=... TMPDIR=... CI=true pnpm install --frozen-lockfile","exit_code":0,"result":"pnpm 11.21.0; 875 packages; 34.2 seconds; manifest and lockfile unchanged after Prisma generation."},
+    {"id":"0.5","status":"OK","command":"pnpm exec prisma generate","exit_code":0,"result":"Prisma Client 6.19.3 generated; no DB accessed."},
+    {"id":"0.6","status":"PARTIEL","result":"Fresh isolated Docker PostgreSQL 17 lab, schoolpro-audit-20260907, localhost:51672, DB schoolpro_audit, 0 public tables. No demo database copy identified/restored; no RLS proof with this owner role."},
+    {"id":"0.7","status":"PARTIEL","command":"pnpm guard:db","exit_code":0,"result":"Explicit local audit URL; host allowed; empty database allowed for first initialization. Does not establish integrity of an Ambouli dataset."},
+    {"id":"0.8","status":"BLOQUE","result":"No demo dump or restoration verified. No business data written."},
+    {"id":"1.2","status":"OK","command":"pnpm exec tsc --noEmit --incremental false","exit_code":0,"environment":"Node 24.18.0 macOS arm64; not production Node 22 Linux."},
+    {"id":"1.3","status":"ECHEC","command":"pnpm exec eslint src --ext .js,.mjs,.cjs,.jsx,.ts,.mts,.cts,.tsx --no-eslintrc --config .eslintrc.json","exit_code":1,"error_count":6,"evidence":"eslint-20260907.json","caveat":"Initial pnpm lint also encountered parent config/plugin conflict due nested audit directory. Explicit config isolation preserves all rules; not identical to Next lint wrapper."},
+    {"id":"1.10","status":"OK","command":"pnpm exec prisma validate","exit_code":0},
+    {"id":"1.11","status":"ECHEC","command":"pnpm rls:check","exit_code":1,"result":"Les politiques RLS ne correspondent plus au schéma Prisma. campagne_reinscription and invitation_reinscription absent from versioned prisma/sql/rls/02-policies.sql."},
+    {"id":"1.12","status":"OK","command":"pnpm audit --prod","exit_code":0,"result":"No known vulnerabilities found; registry result at test time, not a complete security assessment."},
+    {"id":"2.1","status":"OK_WITH_ENV_PREREQUISITE","command":"pnpm exec vitest run --maxWorkers=2 --reporter=default --reporter=json --outputFile=...","files_passed":94,"tests_passed":1708,"tests_failed":0,"duration_seconds":93.28,"environment":"Clean environment plus DATABASE_URL and DIRECT_URL pointing to dummy localhost port 1, not the lab or production.","evidence":"unitaires-20260907-env-test.json","caveat":"Two earlier clean-env runs without URLs failed to load 13 test files with PrismaClientConstructorValidationError; 1444 executed assertions passed but overall status was failure."},
+    {"id":"2.2","status":"OK_LIMITED_SCOPE","files_passed":94,"tests_passed":1708,"duration_seconds":98.81,"coverage":{"statements":74.7,"branches":63.08,"functions":72.54,"lines":76.47},"configured_files":8,"evidence":"couverture-20260907-tests.json","coverage_directory":"couverture-20260907","caveat":"Extra diagnostic probe excluded; baseline was discovered before additional role probe file existed. These percentages do not cover all SchoolPro code."},
+    {"id":"2.8","status":"PARTIEL","result":"Baseline passed with dummy URLs, and again with coverage. Three identical successful runs were not performed."},
+    {"id":"7-probes","status":"ECHEC","tests_total":101,"tests_passed":97,"tests_failed":4,"evidence":"time-machine-contre-tests-20260907.json","caveat":"Local component tests in jsdom and API function tests with mocked sessions/cookies/rate limiter. Not gstack/browser E2E, no actual database data assertions."}
+  ],
+  "findings": [
+    {"id":"A-001","severity":"S1_PLAN_GATE","status":"OPEN","title":"Versioned RLS policy coverage incomplete","evidence_level":"Static check executed plus source review","references":["prisma/schema.prisma:760-832","prisma/sql/rls/02-policies.sql","prisma/migrations/20260826000000_campagne_reinscription/migration.sql:8-69"],"impact":"Isolation cannot be certified for re-enrollment tables from versioned artifacts.","caveat":"Actual production pg_policies and data access not inspected; no claim of a demonstrated production leak."},
+    {"id":"A-002","severity":"S2","status":"OPEN","title":"Time Machine shows success after API rejects date change","evidence_level":"Reproduced on real component with mocked HTTP replies","references":["src/components/time-machine/TimeMachineModal.tsx:67-89","src/test/audit-time-machine-errors.test.tsx"],"reproduction":"Open modal, choose October 2025, apply. Reply to POST with JSON error and status 403, 429, or 500. toast.success(dateDesactivee) called, toast.error not called. Positive HTTP 200 control passed.","evidence":"time-machine-contre-tests-20260907.json"},
+    {"id":"A-003","severity":"S2_SECURITY_REVIEW_REQUIRED","status":"OPEN","title":"Clock API state and server helper disagree for PARENT with existing demo cookie","evidence_level":"Reproduced in local function test with simulated PARENT session and cookies","references":["src/lib/demo-now.ts:64-88","src/app/api/demo-now/route.ts:65-79","src/test/audit-time-machine-roles.test.ts"],"result":"GET returns autorise=false enabled=false date=null; getDemoDate returns 2025-10-15T10:00:00.000Z from same mocked cookies.","caveat":"Browser login/role-switch behavior and resulting DB payload still need reproduction. Not proof of cross-tenant leakage."},
+    {"id":"A-004","severity":"S2","status":"OPEN","title":"Existing E2E suite does not prove completion of several workflows","evidence_level":"Preparatory source review","references":["tests/e2e/absences.spec.ts:22-30","tests/e2e/admissions-workflow.spec.ts","tests/e2e/bulletins-workflow.spec.ts","tests/e2e/taches-workflow.spec.ts"],"result":"Absence test never submits the call. Several suites only check screens, buttons, or accept empty state. Real writes and final business results remain unverified."},
+    {"id":"A-005","severity":"S2","status":"OPEN","title":"ESLint validation fails with six errors","evidence":"eslint-20260907.json","references":["src/app/api/admissions/admissions-id.test.ts:80","src/app/api/facturation/paiement/paiement.test.ts:45","src/lib/activity-feed.ts:371,891","src/lib/learnos/devoirs-retard-check.ts:39"],"caveat":"Payment query already filters site through facture relation; cron intentionally spans tenants. Alerts require semantic review, not automatic classification as data leaks. Two errors are undefined @typescript-eslint/no-explicit-any rule references."},
+    {"id":"A-006","severity":"S3","status":"OPEN","title":"Unit tests depend on database URL variables even without DB queries","evidence":"unitaires-20260907-run2.json","result":"13 files fail initialization without URLs. Dummy URLs let all 1708 tests pass without a database service."},
+    {"id":"A-007","severity":"S3","status":"OPEN","title":"Coverage constrained to eight files","references":["vitest.config.ts:15-24"],"result":"Coverage thresholds satisfied only within configured subset, excluding Time Machine and most business modules."},
+    {"id":"A-008","severity":"S2_REVIEW_CANDIDATE","status":"UNCONFIRMED_RUNTIME","title":"Task due dates may use wall clock instead of demo clock","references":["src/lib/tache-engine.ts:55-59"],"result":"echeanceDepuisRetard uses new Date(); divergence requires isolated workflow reproduction."},
+    {"id":"A-009","severity":"S2_COVERAGE_GAP","status":"OPEN","title":"Delay classification test duplicates implementation instead of importing it","references":["src/lib/learnos/alerte-decalage.test.ts:11-35"],"result":"Nine passing tests do not prove the production classification function or its database inputs."}
+  ],
+  "role_date_contract": {
+    "roles":16,
+    "dates":["2025-10-15","2026-01-15","2026-03-15","2026-06-15","2026-08-16","2026-10-15"],
+    "combinations":96,
+    "api_post_authorization_passed":96,
+    "expected":"Only TENANT_ADMIN may set clock, other roles rejected with 403 and no Set-Cookie.",
+    "actual_screen_data_verified":0,
+    "timezone_note":"Probe dates use explicit UTC. UI presets are datetime-local; timezone equivalence not validated."
+  },
+  "not_executed":["Ambouli backup/restore and volume checks","Actual PostgreSQL RLS isolation suite","W-1 through W-15 end-to-end business workflows","Browser/gstack sessions","Role/site/year isolation with real data","96 role/date screen datasets","Build Docker/Next production and rollout","External notification delivery","Mobile native tests","Production and CI status"],
+  "next_gate":"Do not certify dependent phases while RLS/lint and confirmed Time Machine defects remain open. Corrections are a separate explicitly approved task; restore an identified Ambouli copy before data-writing workflows."
+}

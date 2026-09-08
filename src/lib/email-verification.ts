@@ -81,5 +81,7 @@ export async function envoyerEmailVerification(
     "Vérification de votre adresse email",
     `Cliquez sur le lien suivant pour vérifier votre adresse email :\n\n${lien}\n\nCe lien expire dans 24 heures. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`
   );
-  await sendEmail([normalized], "Vérification de votre adresse email", html);
+  await sendEmail([normalized], "Vérification de votre adresse email", html, {
+    type: "verification_email",
+  });
 }

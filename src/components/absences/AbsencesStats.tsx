@@ -1,4 +1,5 @@
 import { AlertTriangle, Calendar, CalendarDays } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface AbsencesStatsProps {
   auJourdhui: number;
@@ -7,9 +8,10 @@ interface AbsencesStatsProps {
 }
 
 export function AbsencesStats({ auJourdhui, semaine, nonJustifiees }: AbsencesStatsProps) {
+  const t = useTranslations("absencesStats");
   const items = [
     {
-      label: "Aujourd'hui",
+      labelKey: "aujourdhui" as const,
       value: auJourdhui,
       icon: Calendar,
       pastille: "pastille-azure",
@@ -19,7 +21,7 @@ export function AbsencesStats({ auJourdhui, semaine, nonJustifiees }: AbsencesSt
       text: "text-vif-azure",
     },
     {
-      label: "Cette semaine",
+      labelKey: "cetteSemaine" as const,
       value: semaine,
       icon: CalendarDays,
       pastille: "pastille-violet",
@@ -29,7 +31,7 @@ export function AbsencesStats({ auJourdhui, semaine, nonJustifiees }: AbsencesSt
       text: "text-vif-violet",
     },
     {
-      label: "Non justifiées",
+      labelKey: "nonJustifiees" as const,
       value: nonJustifiees,
       icon: AlertTriangle,
       pastille: "pastille-rose",
@@ -44,7 +46,7 @@ export function AbsencesStats({ auJourdhui, semaine, nonJustifiees }: AbsencesSt
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {items.map((item) => (
         <div
-          key={item.label}
+          key={item.labelKey}
           className={`relative rounded-[18px] border border-border bg-card p-4 shadow-sm transition-all duration-300 ${item.border} ${item.tint} ${item.halo}`}
         >
           <div className="flex items-center gap-3">
@@ -53,7 +55,7 @@ export function AbsencesStats({ auJourdhui, semaine, nonJustifiees }: AbsencesSt
             </div>
             <div className="min-w-0">
               <p className={`text-2xl font-bold font-data ${item.text}`}>{item.value}</p>
-              <p className="text-xs text-muted-foreground font-medium">{item.label}</p>
+              <p className="text-xs text-muted-foreground font-medium">{t(item.labelKey)}</p>
             </div>
           </div>
         </div>

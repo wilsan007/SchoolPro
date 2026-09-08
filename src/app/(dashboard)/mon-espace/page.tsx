@@ -94,10 +94,13 @@ export default async function MonEspacePage() {
   // 0. Tâches auto-générées (timeline par bucket temporel)
   // --------------------------------------------------------------
   // Auto-sync silencieux : régénère les tâches depuis l'état du système.
+  // Non-bloquant : lancé en arrière-plan pour ne pas ralentir la page.
   try {
-    await synchroniserTachesAuto(tenantId, claims);
+    void synchroniserTachesAuto(tenantId, claims).catch((e) =>
+      console.error("[Mon espace] Auto-sync tâches échoué:", e)
+    );
   } catch (e) {
-    console.error("[Mon espace] Auto-sync tâches échoué:", e);
+    console.error("[Mon espace] Auto-sync tâches (init):", e);
   }
 
   const mesTaches = await prisma.tache.findMany({

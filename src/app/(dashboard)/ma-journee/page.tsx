@@ -144,6 +144,8 @@ export default async function MaJourneePage({
         classeId: choisi.classeId,
         ...siteFilterForModel("evaluation", claims),
         ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+        // Horizon temporel : TERMINE = fait constaté (borné), PLANIFIE = calendrier (visible).
+        OR: [{ statut: "PLANIFIE" }, { date: { lte: now } }],
       },
       include: {
         matiere: { select: { nom: true, couleur: true } },

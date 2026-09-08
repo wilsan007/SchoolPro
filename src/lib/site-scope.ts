@@ -442,6 +442,10 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // Le journal d'audit est transverse : il trace aussi les actions menées
   // hors périmètre de site (connexion, changement de tenant).
   auditLog: "tenant",
+  // Journal des emails transactionnels (Resend) : transverse au tenant.
+  // Un email n'appartient pas à un site — il est envoyé à un destinataire
+  // dans le contexte d'un établissement, pas d'un campus.
+  emailLog: "tenant",
   // Cache technique d'appels LLM — aucune donnée nominative, aucune notion de site.
   aiCache: "tenant",
   account: "tenant",
@@ -550,6 +554,10 @@ const SHARED_NULL_MODELS = new Set([
   "rubriqueEvaluation",
   // Journal technique des décisions IA : transverse au tenant.
   "aiDecisionLog",
+  // Journal des emails transactionnels (Resend) : transverse au tenant.
+  // Un email n'appartient pas à un site — il est envoyé à un destinataire
+  // dans le contexte d'un établissement, pas d'un campus.
+  "emailLog",
 ]);
 
 /**

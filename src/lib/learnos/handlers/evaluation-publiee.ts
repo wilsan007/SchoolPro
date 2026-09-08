@@ -10,15 +10,14 @@
 import prisma from "@/lib/prisma";
 import type { DrainedEvent } from "@/lib/learnos/event-bus";
 import type { EvaluationPublieePayload } from "@/lib/learnos/events";
-import { siteFilterFromSession, siteFilterForRelation } from "@/lib/site-scope";
+import { siteFilterFromSession } from "@/lib/site-scope";
 import { NiveauAlerteParent } from "@prisma/client";
 
 export async function onEvaluationPubliee(event: DrainedEvent): Promise<void> {
   const payload = event.payload as EvaluationPublieePayload;
   const { tenantId, siteId } = event;
 
-  const scope = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
-  const siteFilter = siteFilterForRelation(scope, "eleve");
+  const siteFilter = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
 
   const eleves = await prisma.eleve.findMany({
     where: {
@@ -42,7 +41,7 @@ export async function onEvaluationPubliee(event: DrainedEvent): Promise<void> {
       eleveId: eleve.id,
       parentId: ep.parentId,
       niveau: NiveauAlerteParent.INFO,
-      cle: "learnos.alertes.evaluation.publiee",
+      cle: "evaluation.publiee",
       params: {
         matiereNom: payload.matiereNom,
         intitule: payload.intitule,

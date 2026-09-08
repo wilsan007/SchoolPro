@@ -50,15 +50,31 @@ import { Prisma } from "@prisma/client";
  *    calendrier : il est légitimement visible en février, et le masquer viderait
  *    « prochain examen » et « prochaines évaluations » — l'horizon rendrait
  *    impossible ce que ces écrans doivent justement montrer.
- *    Ne sont donc PAS bornés : Examen, SessionExamen, Evaluation, Evenement,
+ *    Ne sont donc PAS bornés : Examen, SessionExamen, Evenement,
  *    EvenementCalendaire, Réunion, SeanceMentorat, EntretienConseiller,
  *    RemplacementCours, CongePersonnel.
+ *
+ *    EXCEPTION — Evaluation : une évaluation est un hybride. Tant qu'elle est
+ *    PLANIFIEE, c'est un élément de calendrier (visible à l'avance). Dès qu'elle
+ *    passe à TERMINE, c'est un fait constaté : une évaluation terminée en
+ *    février ne doit pas être connue en octobre, sinon la démonstration montre
+ *    des résultats qui n'existent pas encore. Le champ `exempt` encode cette
+ *    nuance : les lignes PLANIFIEES échappent à la borne, les autres sont
+ *    bornées par `date`.
  *
  * `nullable` marque les champs optionnels : sur ceux-là, la borne doit laisser
  * passer les lignes à `null`, sinon un `lte` les écarte silencieusement (un
  * bulletin non publié disparaîtrait au lieu d'être simplement non publié).
+ *
+ * `exempt` marque un filtre d'exemption : les lignes qui le satisfont échappent
+ * à la borne temporelle. Utile pour les modèles hybrides (fait constaté /
+ * événement planifié) dont le statut détermine la nature.
  */
-const HORIZON: Record<string, { champ: string; nullable?: boolean }> = {
+const HORIZON: Record<string, {
+  champ: string;
+  nullable?: boolean;
+  exempt?: Record<string, unknown>;
+}> = {
   // Vie scolaire — faits constatés.
   Note: { champ: "date" },
   Absence: { champ: "date" },
@@ -93,6 +109,12 @@ const HORIZON: Record<string, { champ: string; nullable?: boolean }> = {
   PredictionDifficulte: { champ: "emiseLe" },
   KpiSnapshot: { champ: "periode" },
   AlerteParent: { champ: "envoyeeLe", nullable: true },
+
+  // Évaluation — hybride fait constaté / événement planifié.
+  // PLANIFIE : élément de calendrier, visible à l'avance (exempt de borne).
+  // TERMINE : fait constaté, borné par la date (invisible dans le futur).
+  // Fail-closed : tout statut autre que PLANIFIE est borné.
+  Evaluation: { champ: "date", exempt: { statut: "PLANIFIE" } },
 };
 
 /**
@@ -128,9 +150,18 @@ export function filtreHorizon(
   const regle = model ? HORIZON[model] : undefined;
   if (!regle || !LECTURES.has(operation)) return null;
 
-  return regle.nullable
+  const borne: Record<string, unknown> = regle.nullable
     ? { OR: [{ [regle.champ]: { lte: date } }, { [regle.champ]: null }] }
     : { [regle.champ]: { lte: date } };
+
+  // `exempt` : les lignes satisfaisant ce filtre échappent à la borne
+  // temporelle (ex: Evaluation PLANIFIE reste visible dans le futur).
+  // La borne s'applique à tout le reste — fail-closed.
+  if (regle.exempt) {
+    return { OR: [regle.exempt, borne] };
+  }
+
+  return borne;
 }
 
 /**

@@ -45,8 +45,10 @@ import { onBulletinPublie } from "@/lib/learnos/handlers/bulletin-publie";
 import { onEvaluationPubliee } from "@/lib/learnos/handlers/evaluation-publiee";
 import { onDevoirCorrige } from "@/lib/learnos/handlers/devoir-corrige";
 import { onKpiRecalculer } from "@/lib/learnos/handlers/kpi-recalculer";
+import { onDevoirEnRetard } from "@/lib/learnos/handlers/devoir-enretard";
 import { onPredictionEmise } from "@/lib/learnos/handlers/prediction-emise";
 import { onCandidatureAcceptee } from "@/lib/learnos/handlers/candidature-acceptee";
+import { onIncidentSignale } from "@/lib/learnos/handlers/incident-signale";
 
 export interface DrainedEvent {
   id: string;
@@ -107,10 +109,14 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "devoir.corrige": [onDevoirCorrige],
   // Intelligence pédagogique : KPI snapshots.
   "kpi.recalculer": [onKpiRecalculer],
+  // Cahier de textes : devoirs en retard (détectés par le cron).
+  "devoir.enretard": [onDevoirEnRetard],
   // Prédictions : alerte les parents dès difficultés détectées.
   "prediction.emise": [onPredictionEmise],
   // Admissions.
   "candidature.acceptee": [onCandidatureAcceptee],
+  // Vie scolaire : incidents.
+  "incident.signale": [onIncidentSignale],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

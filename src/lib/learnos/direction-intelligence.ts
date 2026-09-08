@@ -173,7 +173,7 @@ export async function calculerISP(
           anneeId: annee.id,
           ...siteFilterForModel("planificationChapitre", claims),
         },
-        select: { statut: true, semaineFin: true },
+        select: { statut: true, semaineDebut: true, semaineFin: true },
       })
     : [];
 
@@ -188,8 +188,17 @@ export async function calculerISP(
   const semaineCourante = annee
     ? semaineScolaire(maintenant, annee.dateDebut)
     : 0;
+  // Un chapitre est en décalage si sa semaine de fin est passée sans être
+  // TRAITE, OU s'il est en cours (semaineDebut ≤ S ≤ semaineFin) sans être
+  // TRAITE ni EN_COURS — un chapitre PREVU en pleine période d'enseignement
+  // est un décalage, pas une planification normale.
   const enDecalage = planifs.filter(
-    (p) => p.statut !== "TRAITE" && p.semaineFin < semaineCourante
+    (p) =>
+      p.statut !== "TRAITE" &&
+      (p.semaineFin < semaineCourante ||
+        (p.semaineDebut <= semaineCourante &&
+          p.semaineFin >= semaineCourante &&
+          p.statut === "PREVU"))
   ).length;
   const tauxDecalage = total > 0 ? enDecalage / total : 0;
 

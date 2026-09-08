@@ -147,7 +147,7 @@ export async function kpisDirection(
               anneeId,
               ...siteFilterForModel("planificationChapitre", claims),
             },
-            select: { statut: true, semaineFin: true },
+            select: { statut: true, semaineDebut: true, semaineFin: true },
           })
         : Promise.resolve([]),
 
@@ -207,14 +207,25 @@ export async function kpisDirection(
   // l'année et ne signalerait rien.
   // En période estivale (année pas encore commencée), il n'y a ni
   // planification ni enseignement : la couverture est N/A (0), pas 100%.
+  //
+  // DEFAULT 100% : uniquement quand AUCUN chapitre n'est en cours. Si des
+  // chapitres sont en cours (semaineDebut ≤ S ≤ semaineFin) mais aucun n'est
+  // marqué TRAITE, la couverture est 0%, pas 100% — le programme a démarré
+  // mais rien n'a été traité. Le défaut 100% couvre uniquement le cas légitime
+  // du tout début d'année où aucun chapitre n'a encore commencé.
   const semaine = annee ? semaineScolaire(maintenant, annee.dateDebut) : 0;
   const dus = planifs.filter((p) => p.semaineFin <= semaine);
   const traites = dus.filter((p) => p.statut === "TRAITE").length;
+  const enCours = planifs.filter(
+    (p) => p.semaineDebut <= semaine && p.semaineFin >= semaine
+  ).length;
   const couverture = anneePasEncoreCommencee
     ? 0  // Année pas encore commencée : N/A, pas 100%
     : dus.length > 0
       ? Math.round((traites / dus.length) * 100)
-      : 100;  // Début d'année normal : aucun chapitre dû encore → 100%
+      : enCours > 0
+        ? 0  // Chapitres en cours mais aucun dû : 0% si rien n'est traité
+        : 100;  // Début d'année normal : aucun chapitre dû ni en cours → 100%
 
   return [
     construireKpi("couvertureProgramme", couverture, "pourcentage", "hautEstBon", 80,

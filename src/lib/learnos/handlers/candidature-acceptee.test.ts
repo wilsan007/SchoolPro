@@ -30,7 +30,7 @@ function event() {
     payload: {
       candidatureId: "cand-1",
       eleveId: "eleve-1",
-      parentId: "parent-1",
+      parentId: "parent-1" as string | null,
       siteId: "site-1",
       prenom: "John",
       nom: "Doe",

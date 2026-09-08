@@ -128,6 +128,9 @@ model Tenant {
   exclusionsEleve       ExclusionEleve[]
   progressionsEleves    ProgressionEleve[]
 
+  // Journal des emails transactionnels (Resend)
+  emailLogs             EmailLog[]
+
   // INFIRMERIE
   passagesInfirmerie PassageInfirmerie[]
   fichesSanitaires   FicheSanitaire[]
@@ -1087,6 +1090,10 @@ model User {
   candidaturesCrees     Candidature[]           @relation("CandidatureCreePar")
   candidaturesValidees  Candidature[]           @relation("CandidatureValidePar")
   inscriptionHistorique InscriptionHistorique[] @relation("InscriptionHistoriqueAuteur")
+
+  // Journal des emails transactionnels (Resend) — trace l'envoi et le statut
+  // de délivrance (DELIVERED / BOUNCED / FAILED) mis à jour par le webhook.
+  emailsEnvoyes EmailLog[] @relation("EmailLogEnvoyePar")
 
   @@index([tenantId])
   @@index([siteId])
@@ -2342,6 +2349,68 @@ model Relance {
   @@index([tenantId])
   @@index([factureId])
   @@map("relances")
+}
+
+// ============================================================
+// JOURNAL DES EMAILS TRANSACTIONNELS (Resend)
+// ============================================================
+//
+// Trace chaque email envoyé via Resend : destinataire, sujet, statut,
+// ID Resend (pour corrélation webhook), erreurs, horodatage de
+// délivrance / rebond / ouverture.
+//
+// Le statut est initialisé à "ENVOYE" puis mis à jour par le webhook
+// /api/webhooks/resend (email.delivered / bounced / failed / complained / opened).
+
+model EmailLog {
+  id       String @id @default(cuid())
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  // Destinataire (email normalisé en minuscules)
+  to      String
+  subject String
+
+  // ID Resend retourné par l'API batch — permet de corréler avec les webhooks
+  resendId String? @unique
+
+  // Statut de l'email
+  //   PENDING   : envoyé à Resend, en attente de confirmation de délivrance
+  //   DELIVERED  : délivré au destinataire (webhook email.delivered)
+  //   BOUNCED    : rebondi (adresse invalide, boîte pleine, etc.)
+  //   FAILED     : échec d'envoi (erreur Resend ou réseau)
+  //   COMPLAINED : le destinataire a signalé comme spam
+  //   OPENED     : le destinataire a ouvert l'email (tracking pixel)
+  //   DELIVERY_DELAYED : délivrance retardée par le fournisseur
+  statut String @default("PENDING")
+
+  // Erreur éventuelle (message Resend ou réseau)
+  erreur String?
+
+  // Horodatage des événements webhook
+  deliveredAt DateTime?
+  bouncedAt   DateTime?
+  openedAt    DateTime?
+  complainedAt DateTime?
+
+  // Contexte de l'envoi (optionnel) : type d'email, ID de ressource liée
+  type String? // "verification_email", "notification", "relance", etc.
+  resourceId String? // ID de la notification/facture/relance liée
+
+  // Utilisateur qui a déclenché l'envoi (optionnel — les envois système
+  // comme les relances auto n'ont pas d'utilisateur)
+  envoyeParId String?
+  envoyePar   User?  @relation("EmailLogEnvoyePar", fields: [envoyeParId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([resendId])
+  @@index([to])
+  @@index([statut])
+  @@index([createdAt])
+  @@map("email_logs")
 }
 
 // ============================================================
@@ -4309,6 +4378,12 @@ model Question {
   /// Barème de l'item. Sert de `maxScore` à la preuve produite en retour.
   bareme Float @default(1)
 
+  /// Langue de l'énoncé : "fr" (français), "so" (somali), "en" (anglais).
+  /// Détermine la langue dans laquelle l'exercice est rédigé et servi à l'élève.
+  /// Le tirage filtre par langue pour ne servir que des exercices que l'élève
+  /// comprend — une question somali ne doit pas atteindre un élève francophone.
+  langue String @default("fr")
+
   /// "humain" | "ia" — une question générée n'a pas la même valeur probante
   /// qu'une question écrite par l'enseignant tant que personne ne l'a relue.
   origine String @default("humain")
@@ -4337,8 +4412,9 @@ model Question {
   @@index([tenantId])
   @@index([country])
   @@index([siteId])
-  /// Sert le tirage : les questions actives d'une compétence, à un palier donné.
-  @@index([competenceId, palier, actif])
+  /// Sert le tirage : les questions actives d'une compétence, à un palier donné,
+  /// dans la langue de l'élève.
+  @@index([competenceId, palier, actif, langue])
   @@map("learnos_questions")
 }
 

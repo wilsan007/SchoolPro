@@ -95,10 +95,10 @@ describe("calculerISP", () => {
     });
     // 4 planifs : 3 traités, 1 en décalage (semaineFin < semaineCourante=10).
     mockPrisma.planificationChapitre.findMany.mockResolvedValue([
-      { statut: "TRAITE", semaineFin: 5 },
-      { statut: "TRAITE", semaineFin: 6 },
-      { statut: "TRAITE", semaineFin: 7 },
-      { statut: "PLANIFIE", semaineFin: 3 }, // en décalage (3 < 10)
+      { statut: "TRAITE", semaineDebut: 1, semaineFin: 5 },
+      { statut: "TRAITE", semaineDebut: 1, semaineFin: 6 },
+      { statut: "TRAITE", semaineDebut: 1, semaineFin: 7 },
+      { statut: "PLANIFIE", semaineDebut: 1, semaineFin: 3 }, // en décalage (3 < 10)
     ]);
     mockPrisma.studentLearningProfile.aggregate.mockResolvedValue({
       _avg: { masteryScore: 0.7 },
@@ -247,8 +247,8 @@ describe("tableauIntelligenceDirecteur", () => {
     });
     // ISP : quelques planifs et mastery.
     mockPrisma.planificationChapitre.findMany.mockResolvedValue([
-      { statut: "TRAITE", semaineFin: 5 },
-      { statut: "TRAITE", semaineFin: 6 },
+      { statut: "TRAITE", semaineDebut: 1, semaineFin: 5 },
+      { statut: "TRAITE", semaineDebut: 1, semaineFin: 6 },
     ]);
     mockPrisma.studentLearningProfile.aggregate.mockResolvedValue({
       _avg: { masteryScore: 0.6 },
@@ -498,8 +498,8 @@ describe("Time Machine — propagation de la date simulée", () => {
       dateFin: new Date("2026-06-30"),
     });
     mockPrisma.planificationChapitre.findMany.mockResolvedValue([
-      { statut: "TRAITE", semaineFin: 5 },
-      { statut: "PREVU", semaineFin: 10 },
+      { statut: "TRAITE", semaineDebut: 1, semaineFin: 5 },
+      { statut: "PREVU", semaineDebut: 1, semaineFin: 10 },
     ]);
     mockPrisma.studentLearningProfile.aggregate.mockResolvedValue({
       _avg: { masteryScore: 0.5 },
@@ -511,5 +511,35 @@ describe("Time Machine — propagation de la date simulée", () => {
 
     // semaineScolaire doit avoir été appelé avec la date simulée.
     expect(semaineScolaire).toHaveBeenCalledWith(simul, debutAnnee);
+  });
+
+  it("ISP détecte les chapitres PREVU en cours comme décalage", async () => {
+    // Bug : un chapitre PREVU dont la semaine de début est passée mais dont la
+    // semaine de fin ne l'est pas n'était pas compté comme décalage. Pourtant,
+    // un chapitre prévu en semaine 1 qui n'est ni TRAITE ni EN_COURS en
+    // semaine 7 est en décalage — il aurait dû commencer.
+    mockPrisma.anneesScolaires.findFirst.mockResolvedValue({
+      id: "annee1",
+      dateDebut: new Date("2025-09-01"),
+      dateFin: new Date("2026-06-30"),
+    });
+    // semaineScolaire mocké = 10.
+    // 2 chapitres : span 1-22 (en cours), statut PREVU → décalage.
+    mockPrisma.planificationChapitre.findMany.mockResolvedValue([
+      { statut: "PREVU", semaineDebut: 1, semaineFin: 22 },
+      { statut: "PREVU", semaineDebut: 1, semaineFin: 22 },
+    ]);
+    mockPrisma.studentLearningProfile.aggregate.mockResolvedValue({
+      _avg: { masteryScore: 0.5 },
+      _count: 10,
+    });
+    mockPrisma.predictionDifficulte.count.mockResolvedValue(5);
+
+    const result = await calculerISP("tenant1", {} as any);
+
+    // couvertureProgramme = 0/2 = 0 (aucun TRAITE)
+    expect(result.composantes.couvertureProgramme).toBe(0);
+    // tauxDecalage = 2/2 = 1 (tous en décalage : PREVU en cours)
+    expect(result.composantes.tauxDecalage).toBe(1);
   });
 });

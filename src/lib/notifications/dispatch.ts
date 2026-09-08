@@ -168,7 +168,11 @@ export async function dispatchNotification(
     case "EMAIL": {
       nbDestinataires = emails.length;
       const html = renderNotificationEmail(ecoleNom, notif.titre, notif.contenu);
-      const r = await sendEmail(emails, `[${ecoleNom}] ${notif.titre}`, html);
+      const r = await sendEmail(emails, `[${ecoleNom}] ${notif.titre}`, html, {
+        tenantId: notif.tenantId,
+        type: "notification",
+        resourceId: notif.id,
+      });
       nbDelivres = r.sent;
       success = r.success;
       break;

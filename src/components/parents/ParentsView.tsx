@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn, getInitials, calculerMoyenne, timeAgo } from "@/lib/utils";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { FournituresClasse } from "@/components/fournitures/FournituresClasse";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -163,6 +163,7 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
 
 function ParentCard({ parent }: { parent: ParentData }) {
   const t = useTranslations("parents");
+  const locale = useLocale();
   const [expanded, setExpanded] = useState(true);
   const actif = isENTActif(parent.user?.lastLoginAt ?? null);
   const totalAbsences = parent.eleves.reduce(
@@ -233,7 +234,7 @@ function ParentCard({ parent }: { parent: ParentData }) {
             {/* Dernière connexion */}
             {parent.user?.lastLoginAt && (
               <p className="text-xs text-gray-400 mt-1">
-                {t("pvLastLogin", { time: timeAgo(parent.user.lastLoginAt) })}
+                {t("pvLastLogin", { time: timeAgo(parent.user.lastLoginAt, locale) })}
               </p>
             )}
           </div>

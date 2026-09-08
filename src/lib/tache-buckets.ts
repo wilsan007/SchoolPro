@@ -33,49 +33,49 @@ export const BUCKET_ORDER: BucketTache[] = [
 /** Couleurs sémantiques par bucket (pour les badges et en-têtes). */
 export const BUCKET_COLORS: Record<
   BucketTache,
-  { border: string; bg: string; text: string; dot: string; label: string }
+  { border: string; bg: string; text: string; dot: string; labelKey: string }
 > = {
   EN_RETARD: {
     border: "border-l-red-500",
     bg: "bg-red-500/5",
     text: "text-red-700 dark:text-red-400",
     dot: "bg-red-500",
-    label: "En retard",
+    labelKey: "taches.buckets.enRetard",
   },
   AUJOURDHUI: {
     border: "border-l-orange-500",
     bg: "bg-orange-500/5",
     text: "text-orange-700 dark:text-orange-400",
     dot: "bg-orange-500",
-    label: "Aujourd'hui",
+    labelKey: "taches.buckets.aujourdhui",
   },
   SEMAINE: {
     border: "border-l-amber-500",
     bg: "bg-amber-500/5",
     text: "text-amber-700 dark:text-amber-400",
     dot: "bg-amber-500",
-    label: "Cette semaine",
+    labelKey: "taches.buckets.semaine",
   },
   SEMAINE_PROCHAINE: {
     border: "border-l-sky-500",
     bg: "bg-sky-500/5",
     text: "text-sky-700 dark:text-sky-400",
     dot: "bg-sky-500",
-    label: "Semaine prochaine",
+    labelKey: "taches.buckets.semaineProchaine",
   },
   PLUS_TARD: {
     border: "border-l-slate-400",
     bg: "bg-slate-400/5",
     text: "text-slate-600 dark:text-slate-400",
     dot: "bg-slate-400",
-    label: "Plus tard",
+    labelKey: "taches.buckets.plusTard",
   },
   SANS_ECHEANCE: {
     border: "border-l-slate-300",
     bg: "bg-slate-300/5",
     text: "text-slate-500 dark:text-slate-500",
     dot: "bg-slate-300",
-    label: "Sans échéance",
+    labelKey: "taches.buckets.sansEcheance",
   },
 };
 

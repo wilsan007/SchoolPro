@@ -23,10 +23,13 @@ export default async function TachesPage() {
 
   // Auto-sync silencieux : régénère les tâches depuis l'état du système.
   // Erreurs non bloquantes — la page affiche les tâches existantes.
+  // Non-bloquant : lancé en arrière-plan pour ne pas ralentir la page.
   try {
-    await synchroniserTachesAuto(tenantId, session.user);
+    void synchroniserTachesAuto(tenantId, session.user).catch((e) =>
+      console.error("[Taches page] Auto-sync échoué:", e)
+    );
   } catch (e) {
-    console.error("[Taches page] Auto-sync échoué:", e);
+    console.error("[Taches page] Auto-sync (init):", e);
   }
 
   // Les enseignants voient leurs tâches ; la direction voit toutes les tâches.
