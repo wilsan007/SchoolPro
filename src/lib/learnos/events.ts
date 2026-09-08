@@ -45,6 +45,8 @@ export const LEARNOS_EVENT_TYPES = [
   "curriculum.imported",
   "chapitre.created",
   "competence.created",
+  // Emploi du temps.
+  "edt.cree",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -119,6 +121,20 @@ export interface ChapitreCreatedPayload {
 export interface CompetenceCreatedPayload {
   competenceId: string;
   chapitreId: string;
+}
+
+/** Instantané d'un créneau d'emploi du temps créé. */
+export interface EdtCreePayload {
+  emploiTempsId: string;
+  classeId: string;
+  matiereId: string;
+  enseignantId: string | null;
+  jour: string;
+  heureDebut: string;
+  heureFin: string;
+  salle: string | null;
+  annee: string;
+  periodeId: string | null;
 }
 
 export interface LearnosEventInput {

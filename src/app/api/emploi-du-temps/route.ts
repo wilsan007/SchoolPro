@@ -6,6 +6,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, siteFilterForRelation, isRelationScopedRole } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { publishEvent } from "@/lib/learnos/events";
 import type { Jour } from "@prisma/client";
 
 const CreateSchema = z.object({
@@ -201,6 +202,26 @@ export async function POST(req: NextRequest) {
         matiere: { select: { nom: true, code: true, couleur: true } },
         classe: { select: { nom: true } },
         enseignant: { include: { user: { select: { name: true } } } },
+      },
+    });
+
+    await publishEvent({
+      tenantId,
+      siteId: null, // hérité de la classe dans le handler
+      eventType: "edt.cree",
+      aggregateType: "EmploiTemps",
+      aggregateId: creneau.id,
+      payload: {
+        emploiTempsId: creneau.id,
+        classeId,
+        matiereId,
+        enseignantId: enseignantId || null,
+        jour,
+        heureDebut,
+        heureFin,
+        salle: salle ?? null,
+        annee,
+        periodeId: periodeIdValue,
       },
     });
 
