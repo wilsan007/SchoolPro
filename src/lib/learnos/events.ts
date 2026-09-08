@@ -61,6 +61,7 @@ export const LEARNOS_EVENT_TYPES = [
   "devoir.corrige",
   // Intelligence pédagogique.
   "kpi.recalculer",
+  "prediction.emise",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -225,6 +226,18 @@ export interface KpiRecalculerPayload {
   patternsMisAJour: number;
   echantillonTotal: number;
   correlationsCrees: number;
+}
+
+/** Instantané d'un lot de prédictions émises : alerte les cas critiques. */
+export interface PredictionEmisePayload {
+  chapitreId: string;
+  anneeId: string;
+  predictions: {
+    eleveId: string;
+    competenceId: string;
+    difficultePredite: string;
+    probaReussite: number;
+  }[];
 }
 
 export interface LearnosEventInput {

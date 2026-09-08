@@ -34,6 +34,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
+import { publishEvent } from "@/lib/learnos/events";
 
 /** Seuil de tolérance pour qu'une prédiction soit considérée correcte. */
 const TOLERANCE_PREDICTION = 0.15;
@@ -228,6 +229,25 @@ export async function predirePourChapitre(
         confidenceAvant: p.confidenceAvant,
         prerequisManquants: p.prerequisManquants,
       })),
+    });
+
+    // 6bis. Publier l'événement pour le traitement des alertes.
+    await publishEvent({
+      tenantId,
+      siteId: claims.siteId ?? null,
+      eventType: "prediction.emise",
+      aggregateType: "Chapitre",
+      aggregateId: chapitreId,
+      payload: {
+        chapitreId,
+        anneeId,
+        predictions: predictions.map((p) => ({
+          eleveId: p.eleveId,
+          competenceId: p.competenceId,
+          difficultePredite: p.difficultePredite,
+          probaReussite: p.probaReussite,
+        })),
+      },
     });
   }
 
