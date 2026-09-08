@@ -49,6 +49,8 @@ export const LEARNOS_EVENT_TYPES = [
   "edt.cree",
   "edt.modifie",
   "edt.supprime",
+  // Facturation.
+  "facture.emise",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -157,6 +159,18 @@ export interface EdtModifiePayload extends EdtSlotPayload {}
 
 /** Instantané d'un créneau d'emploi du temps supprimé. */
 export interface EdtSupprimePayload extends EdtSlotPayload {}
+
+/** Instantané d'une facture émise : génère l'échéancier par défaut. */
+export interface FactureEmisePayload {
+  factureId: string;
+  eleveId: string;
+  montant: number;
+  devise: string;
+  echeance: string | null;
+  nbEcheances?: number;
+  intervalleJours?: number;
+  datePremiereEcheance?: string;
+}
 
 export interface LearnosEventInput {
   tenantId: string;

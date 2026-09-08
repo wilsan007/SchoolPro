@@ -39,6 +39,7 @@ import { onEmploiDuTempsCree } from "@/lib/learnos/handlers/edt-cree";
 import { onEmploiDuTempsModifie } from "@/lib/learnos/handlers/edt-modifie";
 import { onEmploiDuTempsSupprime } from "@/lib/learnos/handlers/edt-supprime";
 import { onAbsenceRecorded } from "@/lib/learnos/handlers/absence-recorded";
+import { onFactureEmise } from "@/lib/learnos/handlers/facture-emise";
 
 export interface DrainedEvent {
   id: string;
@@ -87,6 +88,8 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "edt.modifie": [onEmploiDuTempsModifie],
   // Suppression d'un créneau EDT : on supprime les séances PLANIFIEE associées.
   "edt.supprime": [onEmploiDuTempsSupprime],
+  // Facturation.
+  "facture.emise": [onFactureEmise],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

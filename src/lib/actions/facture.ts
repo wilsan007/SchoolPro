@@ -6,6 +6,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { PAYMENT_METHOD_IDS } from "@/lib/payment-methods";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
 import { anneeActiveId, getContexteAnnees } from "@/lib/annee-scolaire";
+import { publishEvent } from "@/lib/learnos/events";
 import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
 import type { TypeFacture } from "@prisma/client";
@@ -221,6 +222,21 @@ export async function createFacture(data: FactureFormData) {
       type,
       mois: TYPES_MENSUELS.has(type) ? mois : null,
       createdById: session.user.id,
+    },
+  });
+
+  await publishEvent({
+    tenantId,
+    siteId: factureSiteId,
+    eventType: "facture.emise",
+    aggregateType: "Facture",
+    aggregateId: facture.id,
+    payload: {
+      factureId: facture.id,
+      eleveId: values.eleveId,
+      montant: facture.montant,
+      devise: facture.devise,
+      echeance: values.echeance ?? null,
     },
   });
 
