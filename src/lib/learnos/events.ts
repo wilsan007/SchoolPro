@@ -62,6 +62,8 @@ export const LEARNOS_EVENT_TYPES = [
   // Intelligence pédagogique.
   "kpi.recalculer",
   "prediction.emise",
+  // Admissions.
+  "candidature.acceptee",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -238,6 +240,18 @@ export interface PredictionEmisePayload {
     difficultePredite: string;
     probaReussite: number;
   }[];
+}
+
+/** Instantané d'une candidature finalisée en inscription : alerte parent. */
+export interface CandidatureAccepteePayload {
+  candidatureId: string;
+  eleveId: string;
+  parentId: string | null;
+  siteId: string | null;
+  prenom: string;
+  nom: string;
+  matricule: string;
+  classeNom: string;
 }
 
 export interface LearnosEventInput {

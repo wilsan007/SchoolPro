@@ -46,6 +46,7 @@ import { onEvaluationPubliee } from "@/lib/learnos/handlers/evaluation-publiee";
 import { onDevoirCorrige } from "@/lib/learnos/handlers/devoir-corrige";
 import { onKpiRecalculer } from "@/lib/learnos/handlers/kpi-recalculer";
 import { onPredictionEmise } from "@/lib/learnos/handlers/prediction-emise";
+import { onCandidatureAcceptee } from "@/lib/learnos/handlers/candidature-acceptee";
 
 export interface DrainedEvent {
   id: string;
@@ -108,6 +109,8 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "kpi.recalculer": [onKpiRecalculer],
   // Prédictions : alerte les parents dès difficultés détectées.
   "prediction.emise": [onPredictionEmise],
+  // Admissions.
+  "candidature.acceptee": [onCandidatureAcceptee],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

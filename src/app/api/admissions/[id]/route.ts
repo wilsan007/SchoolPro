@@ -9,6 +9,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { notifyDirection } from "@/lib/notifications/notify-direction";
 import { revalidateTag } from "next/cache";
 import { moisScolariteDefaut, isMoisScolariteValide, formatMoisScolarite } from "@/lib/admissions/mois-scolarite";
+import { publishEvent, type CandidatureAccepteePayload } from "@/lib/learnos/events";
 import {
   PIECES_OBLIGATOIRES,
   fusionnerDocuments,
@@ -533,6 +534,24 @@ export async function PATCH(
               statut: "ENVOYEE",
               envoyeeAt: new Date(),
             },
+          });
+
+          await publishEvent({
+            tenantId,
+            siteId: result.eleve.siteId,
+            eventType: "candidature.acceptee",
+            aggregateType: "Candidature",
+            aggregateId: candidature.id,
+            payload: {
+              candidatureId: candidature.id,
+              eleveId: result.eleve.id,
+              parentId: result.parentId,
+              siteId: result.eleve.siteId,
+              prenom: candidature.prenom,
+              nom: candidature.nom,
+              matricule: result.matricule,
+              classeNom: candidature.classeVoulue,
+            } satisfies CandidatureAccepteePayload,
           });
         } catch (notifError) {
           console.error("[API/admissions] Notification parent échouée:", notifError);
