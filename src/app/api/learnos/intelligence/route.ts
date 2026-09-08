@@ -14,6 +14,7 @@ import {
 } from "@/lib/learnos/pattern-analyzer";
 import { predirePourChapitre, verifierPredictions } from "@/lib/learnos/prediction-engine";
 import { calibrerSeuils } from "@/lib/learnos/calibration";
+import { publishEvent, type KpiRecalculerPayload } from "@/lib/learnos/events";
 
 /**
  * Tableau de bord d'intelligence pédagogique.
@@ -174,6 +175,30 @@ export async function POST(req: NextRequest) {
 
   if (action === "calibrer" || action === "complet") {
     resultats.calibration = await calibrerSeuils(tenantId, session.user);
+  }
+
+  const patternsResult = resultats.patterns as
+    | { patternsCrees: number; patternsMisAJour: number; echantillonTotal: number }
+    | undefined;
+  const correlationsResult = resultats.correlations as
+    | { correlationsCrees: number }
+    | undefined;
+
+  if (patternsResult || correlationsResult) {
+    await publishEvent({
+      tenantId,
+      siteId: null,
+      eventType: "kpi.recalculer",
+      aggregateType: "Tenant",
+      aggregateId: tenantId,
+      payload: {
+        perimetre: action,
+        patternsCrees: patternsResult?.patternsCrees ?? 0,
+        patternsMisAJour: patternsResult?.patternsMisAJour ?? 0,
+        echantillonTotal: patternsResult?.echantillonTotal ?? 0,
+        correlationsCrees: correlationsResult?.correlationsCrees ?? 0,
+      } satisfies KpiRecalculerPayload,
+    });
   }
 
   return NextResponse.json({ action, resultats });

@@ -59,6 +59,8 @@ export const LEARNOS_EVENT_TYPES = [
   "evaluation.publiee",
   // Cahier de textes.
   "devoir.corrige",
+  // Intelligence pédagogique.
+  "kpi.recalculer",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -214,6 +216,15 @@ export interface DevoirCorrigePayload {
   matiereId: string;
   matiereNom: string;
   titre: string;
+}
+
+/** Instantané d'un recalcul KPI : stocke les snapshots. */
+export interface KpiRecalculerPayload {
+  perimetre: string;
+  patternsCrees: number;
+  patternsMisAJour: number;
+  echantillonTotal: number;
+  correlationsCrees: number;
 }
 
 export interface LearnosEventInput {
