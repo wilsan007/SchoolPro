@@ -70,6 +70,16 @@ export interface NoteRecordedPayload {
   saisieParId: string | null;
 }
 
+/** Instantané d'une absence au moment de l'appel. */
+export interface AbsenceRecordedPayload {
+  absenceId: string;
+  eleveId: string;
+  classeId: string;
+  date: string;
+  isRetard: boolean;
+  motif: string;
+}
+
 /** Instantané d'une séance au moment où elle est clôturée (EFFECTUEE). */
 export interface SeanceClotureePayload {
   seanceId: string;

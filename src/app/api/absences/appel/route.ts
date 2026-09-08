@@ -12,6 +12,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { revalidateTag } from "next/cache";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
+import { publishEvents } from "@/lib/learnos/events";
 
 const AppelSchema = z.object({
   classeId: z.string().min(1),
@@ -95,7 +96,26 @@ export async function POST(req: NextRequest) {
         })
       );
 
-    await prisma.$transaction(operations);
+    const absences = await prisma.$transaction(operations);
+
+    // Publier les événements LEARNOS en lot.
+    await publishEvents(
+      absences.map((absence) => ({
+        tenantId,
+        siteId: null,
+        eventType: "absence.recorded" as const,
+        aggregateType: "Absence",
+        aggregateId: absence.id,
+        payload: {
+          absenceId: absence.id,
+          eleveId: absence.eleveId,
+          classeId,
+          date: absence.date.toISOString(),
+          isRetard: absence.isRetard,
+          motif: absence.motif,
+        },
+      }))
+    );
 
     // Compter les absents
     const absentsCount = Object.values(presences).filter((p) => p === "absent").length;

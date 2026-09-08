@@ -38,6 +38,7 @@ import { onCompetenceCreated } from "@/lib/learnos/handlers/competence-created";
 import { onEmploiDuTempsCree } from "@/lib/learnos/handlers/edt-cree";
 import { onEmploiDuTempsModifie } from "@/lib/learnos/handlers/edt-modifie";
 import { onEmploiDuTempsSupprime } from "@/lib/learnos/handlers/edt-supprime";
+import { onAbsenceRecorded } from "@/lib/learnos/handlers/absence-recorded";
 
 export interface DrainedEvent {
   id: string;
@@ -62,6 +63,7 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   // L'ordre compte : le jumeau agrège les preuves que le moteur vient d'écrire.
   // C'est la raison pour laquelle les traitements s'exécutent en séquence et
   // non en parallèle (voir `drainEvents`).
+  "absence.recorded": [onAbsenceRecorded],
   "note.recorded": [
     ingererNoteCommePreuve,
     recalculerProfilsApresPreuve,
