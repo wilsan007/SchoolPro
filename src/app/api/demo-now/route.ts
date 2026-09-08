@@ -6,8 +6,10 @@ import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import {
   DEMO_NOW_COOKIE,
   DEMO_NOW_ENABLED_COOKIE,
+  DEMO_NOW_SCOPE_COOKIE,
   peutDeplacerHorloge,
 } from "@/lib/demo-now";
+import { isDemoPreset, DEMO_PRESETS } from "@/lib/demo-presets";
 
 /**
  * API de la date de démonstration (Time Machine).
@@ -24,6 +26,7 @@ import {
  */
 
 const bodySchema = z.object({
+  /** La date doit être un des presets de snapshot. */
   date: z.string().datetime().nullable(),
 });
 
@@ -40,11 +43,17 @@ function dansUneSemaine(): Date {
  * Sans cela, la restriction par rôle ne vaudrait rien : n'importe quel compte
  * pourrait écrire `document.cookie` et se placer à la date de son choix. Aucun
  * code client ne lit ces cookies — l'état passe par le GET ci-dessous.
+ *
+ * Le cookie `demo_now_scope` lie la date au couple `[userId, tenantId]` du
+ * compte qui l'a posée : `getDemoDate()` refusera de l'appliquer pour tout
+ * autre compte ou tout autre tenant, même si le navigateur conserve les
+ * cookies d'une session précédente.
  */
-function poserCookies(date: string | null): Headers {
+function poserCookies(date: string | null, session: { id: string; tenantId: string | null }): Headers {
   const headers = new Headers();
   const expires = dansUneSemaine().toUTCString();
   const commun = `path=/; httpOnly; SameSite=Lax`;
+  const scope = encodeURIComponent(JSON.stringify([session.id, session.tenantId]));
 
   if (date === null) {
     headers.append("Set-Cookie", `${DEMO_NOW_ENABLED_COOKIE}=false; ${commun}; expires=${expires}`);
@@ -52,11 +61,19 @@ function poserCookies(date: string | null): Headers {
       "Set-Cookie",
       `${DEMO_NOW_COOKIE}=; ${commun}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
     );
+    headers.append(
+      "Set-Cookie",
+      `${DEMO_NOW_SCOPE_COOKIE}=; ${commun}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+    );
   } else {
     headers.append("Set-Cookie", `${DEMO_NOW_ENABLED_COOKIE}=true; ${commun}; expires=${expires}`);
     headers.append(
       "Set-Cookie",
       `${DEMO_NOW_COOKIE}=${encodeURIComponent(date)}; ${commun}; expires=${expires}`
+    );
+    headers.append(
+      "Set-Cookie",
+      `${DEMO_NOW_SCOPE_COOKIE}=${scope}; ${commun}; expires=${expires}`
     );
   }
   return headers;
@@ -143,9 +160,21 @@ export async function POST(req: NextRequest) {
     }
 
     const { date } = parsed.data;
+
+    if (date !== null && !isDemoPreset(date)) {
+      return NextResponse.json(
+        {
+          error: "PRESET_NON_AUTORISE",
+          message: "La Time Machine ne peut se placer que sur un snapshot de démonstration pré-calculé.",
+          presets: DEMO_PRESETS,
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { autorise: true, enabled: date !== null, date, realNow: new Date().toISOString() },
-      { headers: poserCookies(date) }
+      { headers: poserCookies(date, { id: session.user.id ?? "", tenantId: session.user.tenantId ?? null }) }
     );
   } catch {
     return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
@@ -174,6 +203,6 @@ export async function DELETE() {
 
   return NextResponse.json(
     { autorise: true, enabled: false, date: null, realNow: new Date().toISOString() },
-    { headers: poserCookies(null) }
+    { headers: poserCookies(null, { id: session.user.id ?? "", tenantId: session.user.tenantId ?? null }) }
   );
 }

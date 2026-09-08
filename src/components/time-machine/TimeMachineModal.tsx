@@ -10,11 +10,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar, Clock, RotateCcw, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { DEMO_PRESETS } from "@/lib/demo-presets";
 
 interface TimeMachineModalProps {
   open: boolean;
@@ -24,36 +24,29 @@ interface TimeMachineModalProps {
 /**
  * Time Machine — modal pour fixer la date "maintenant" de la démo.
  *
- * Permet de:
- *  - Choisir une date précise
- *  - Utiliser des presets (octobre 2025, janvier 2026, août 2026, etc.)
- *  - Désactiver le mode démo (retour à la vraie heure)
- *  - Avancer/reculer de 30 jours
- *
- * La date est stockée dans un cookie et lue par `getDemoNow()`.
+ * La Time Machine n'est PAS un simulateur : chaque preset pointe sur un
+ * snapshot de données déjà calculé en amont (seed). On n'affiche que le
+ * résultat, on ne recalcule pas.
  */
 export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) {
   const t = useTranslations("timeMachine");
   const [enabled, setEnabled] = useState(false);
-  const [dateStr, setDateStr] = useState("");
-  const [realNow, setRealNow] = useState("");
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const findPresetByDate = (date: string | null) =>
+    DEMO_PRESETS.find((p) => p.date === date)?.id ?? null;
+
+  const selectedPreset = DEMO_PRESETS.find((p) => p.id === selectedPresetId);
 
   // Charger l'état actuel
   const loadState = useCallback(async () => {
     try {
       const res = await fetch("/api/demo-now");
+      if (!res.ok) return;
       const data = await res.json();
       setEnabled(data.enabled);
-      setRealNow(data.realNow);
-      if (data.enabled && data.date) {
-        // Formater pour l'input datetime-local: "YYYY-MM-DDTHH:MM"
-        const d = new Date(data.date);
-        const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-        setDateStr(local.toISOString().slice(0, 16));
-      } else {
-        setDateStr("");
-      }
+      setSelectedPresetId(findPresetByDate(data.enabled ? data.date : null));
     } catch {
       // Erreur silencieuse
     }
@@ -63,16 +56,16 @@ export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) 
     if (open) loadState();
   }, [open, loadState]);
 
-  // Sauvegarder la date
+  // Sauvegarder le preset
   const saveDate = async (date: string | null) => {
     setLoading(true);
     try {
-      const iso = date ? new Date(date).toISOString() : null;
       const res = await fetch("/api/demo-now", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: iso }),
+        body: JSON.stringify({ date }),
       });
+      if (!res.ok) throw new Error("demo-now-save-failed");
       const data = await res.json();
       setEnabled(data.enabled);
       if (data.enabled) {
@@ -80,60 +73,12 @@ export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) 
       } else {
         toast.success(t("dateDesactivee"));
       }
-      // Recharger la page pour que tous les composants utilisent la nouvelle date
       setTimeout(() => window.location.reload(), 500);
     } catch {
       toast.error(t("erreur"));
     } finally {
       setLoading(false);
     }
-  };
-
-  // Presets de dates clés pour la démo
-  const presets = [
-    {
-      label: t("presetOctobre2025"),
-      description: t("presetOctobre2025Desc"),
-      date: "2025-10-15T10:00",
-    },
-    {
-      label: t("presetJanvier2026"),
-      description: t("presetJanvier2026Desc"),
-      date: "2026-01-15T10:00",
-    },
-    {
-      label: t("presetMars2026"),
-      description: t("presetMars2026Desc"),
-      date: "2026-03-15T10:00",
-    },
-    {
-      label: t("presetJuin2026"),
-      description: t("presetJuin2026Desc"),
-      date: "2026-06-15T10:00",
-    },
-    {
-      label: t("presetAout2026"),
-      description: t("presetAout2026Desc"),
-      date: "2026-08-16T10:00",
-    },
-    {
-      label: t("presetOctobre2026"),
-      description: t("presetOctobre2026Desc"),
-      date: "2026-10-15T10:00",
-    },
-  ];
-
-  // Avancer/reculer de N jours
-  const shiftDays = (days: number) => {
-    let base: Date;
-    if (dateStr) {
-      base = new Date(dateStr);
-    } else {
-      base = new Date(realNow || Date.now());
-    }
-    base.setDate(base.getDate() + days);
-    const local = new Date(base.getTime() - base.getTimezoneOffset() * 60000);
-    setDateStr(local.toISOString().slice(0, 16));
   };
 
   return (
@@ -155,18 +100,10 @@ export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) 
               {enabled ? t("modeDemo") : t("modeReel")}
             </span>
           </div>
-          {enabled && dateStr && (
+          {enabled && selectedPreset && (
             <div className="mt-1 flex items-center gap-1 text-blue-600 dark:text-blue-400">
               <Calendar className="h-3 w-3" />
-              <span className="font-medium">
-                {new Date(dateStr).toLocaleDateString("fr-FR", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+              <span className="font-medium">{t(selectedPreset.label)}</span>
             </div>
           )}
         </div>
@@ -177,48 +114,18 @@ export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) 
             {t("presets")}
           </Label>
           <div className="grid grid-cols-2 gap-2">
-            {presets.map((preset) => (
+            {DEMO_PRESETS.map((preset) => (
               <button
-                key={preset.date}
-                onClick={() => setDateStr(preset.date)}
+                key={preset.id}
+                onClick={() => setSelectedPresetId(preset.id)}
                 className={`flex flex-col items-start rounded-lg border p-2 text-left text-xs transition-colors hover:bg-accent ${
-                  dateStr === preset.date ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : ""
+                  selectedPresetId === preset.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : ""
                 }`}
               >
-                <span className="font-medium">{preset.label}</span>
-                <span className="text-muted-foreground">{preset.description}</span>
+                <span className="font-medium">{t(preset.label)}</span>
+                <span className="text-muted-foreground">{t(preset.description)}</span>
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* Date personnalisée */}
-        <div className="space-y-2">
-          <Label htmlFor="demo-date">{t("datePersonnalisee")}</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="demo-date"
-              type="datetime-local"
-              value={dateStr}
-              onChange={(e) => setDateStr(e.target.value)}
-              className="flex-1"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => shiftDays(-30)}
-              disabled={loading}
-            >
-              -30{t("jours")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => shiftDays(30)}
-              disabled={loading}
-            >
-              +30{t("jours")}
-            </Button>
           </div>
         </div>
 
@@ -242,8 +149,8 @@ export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) 
             {t("annuler")}
           </Button>
           <Button
-            onClick={() => saveDate(dateStr)}
-            disabled={loading || !dateStr}
+            onClick={() => saveDate(selectedPreset?.date ?? null)}
+            disabled={loading || !selectedPreset}
           >
             {loading ? t("chargement") : (
               <>
