@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
+import { publishEvent } from "@/lib/learnos/events";
 
 const BodySchema = z.object({
   periodeId: z.string().min(1),
@@ -41,7 +42,24 @@ export async function PUT(req: NextRequest) {
       annee: { tenantId: session.user.tenantId },
     },
     data,
+    include: { annee: { select: { id: true, libelle: true } } },
   });
+
+  if (periode.annee) {
+    await publishEvent({
+      tenantId: session.user.tenantId,
+      siteId: null,
+      eventType: "periode.cloturee",
+      aggregateType: "Periode",
+      aggregateId: periode.id,
+      payload: {
+        periodeId: periode.id,
+        anneeId: periode.annee.id,
+        anneeLibelle: periode.annee.libelle,
+        statut: periode.statut,
+      },
+    });
+  }
 
   return NextResponse.json(periode);
 }

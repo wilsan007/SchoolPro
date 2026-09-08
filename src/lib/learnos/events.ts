@@ -51,6 +51,8 @@ export const LEARNOS_EVENT_TYPES = [
   "edt.supprime",
   // Facturation.
   "facture.emise",
+  // Périodes scolaires.
+  "periode.cloturee",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -170,6 +172,14 @@ export interface FactureEmisePayload {
   nbEcheances?: number;
   intervalleJours?: number;
   datePremiereEcheance?: string;
+}
+
+/** Instantané d'une période clôturée : pré-génère les bulletins. */
+export interface PeriodeClotureePayload {
+  periodeId: string;
+  anneeId: string;
+  anneeLibelle: string;
+  statut: string;
 }
 
 export interface LearnosEventInput {
