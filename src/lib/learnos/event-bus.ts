@@ -33,6 +33,8 @@ import {
 } from "@/lib/learnos/recommendation-engine";
 import { onSeanceCloturee } from "@/lib/learnos/boucle-cahier-journal";
 import { onCurriculumImported } from "@/lib/learnos/handlers/curriculum-imported";
+import { onChapitreCreated } from "@/lib/learnos/handlers/chapitre-created";
+import { onCompetenceCreated } from "@/lib/learnos/handlers/competence-created";
 
 export interface DrainedEvent {
   id: string;
@@ -70,6 +72,10 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   // L'import d'un programme génère la planification pédagogique initiale.
   // Idempotent : les planifications déjà existantes pour l'année sont ignorées.
   "curriculum.imported": [onCurriculumImported],
+  // Création manuelle d'un chapitre : planification du chapitre et de ses compétences.
+  "chapitre.created": [onChapitreCreated],
+  // Création manuelle d'une compétence : planification liée au chapitre.
+  "competence.created": [onCompetenceCreated],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

@@ -43,6 +43,8 @@ export const LEARNOS_EVENT_TYPES = [
   "decalage.detecte",
   // Gestion du curriculum et de la planification pédagogique.
   "curriculum.imported",
+  "chapitre.created",
+  "competence.created",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -102,6 +104,21 @@ export interface CurriculumImportedPayload {
   niveau: string;
   chapitresCrees: number;
   competencesCreees: number;
+}
+
+/** Instantané d'un chapitre créé manuellement. */
+export interface ChapitreCreatedPayload {
+  chapitreId: string;
+  matiereId: string;
+  niveau: string;
+  ordre: number;
+  competencesCreees: number;
+}
+
+/** Instantané d'une compétence créée manuellement. */
+export interface CompetenceCreatedPayload {
+  competenceId: string;
+  chapitreId: string;
 }
 
 export interface LearnosEventInput {

@@ -7,6 +7,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { validerPrerequis } from "@/lib/learnos/curriculum";
 import { revalidatePath } from "next/cache";
+import { publishEvent } from "@/lib/learnos/events";
 
 /**
  * Compétences du curriculum (LEARNOS).
@@ -83,6 +84,18 @@ export async function POST(req: NextRequest) {
       prerequis: { connect: prerequisValides.ids.map((id) => ({ id })) },
     },
     include: { prerequis: { select: { id: true, code: true, libelle: true } } },
+  });
+
+  await publishEvent({
+    tenantId,
+    siteId: chapitre.siteId,
+    eventType: "competence.created",
+    aggregateType: "Competence",
+    aggregateId: competence.id,
+    payload: {
+      competenceId: competence.id,
+      chapitreId,
+    },
   });
 
   revalidatePath("/curriculum");

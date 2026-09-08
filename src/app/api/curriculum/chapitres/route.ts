@@ -6,6 +6,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidatePath } from "next/cache";
+import { publishEvent } from "@/lib/learnos/events";
 
 /**
  * Chapitres du curriculum (LEARNOS).
@@ -101,6 +102,21 @@ export async function POST(req: NextRequest) {
       ordre: ordre ?? 0,
     },
     include: { competences: true },
+  });
+
+  await publishEvent({
+    tenantId,
+    siteId: matiere.siteId,
+    eventType: "chapitre.created",
+    aggregateType: "Chapitre",
+    aggregateId: chapitre.id,
+    payload: {
+      chapitreId: chapitre.id,
+      matiereId,
+      niveau,
+      ordre: chapitre.ordre,
+      competencesCreees: chapitre.competences.length,
+    },
   });
 
   revalidatePath("/curriculum");
