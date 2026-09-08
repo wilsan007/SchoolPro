@@ -11,6 +11,7 @@ import {
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import { publishEvent } from "@/lib/learnos/events";
 import type { Role } from "@prisma/client";
 
 const CreateDevoirSchema = z.object({
@@ -258,6 +259,21 @@ export async function PATCH(req: NextRequest) {
     } catch (notifError) {
       console.error("[API/devoirs] Notification échouée:", notifError);
     }
+
+    await publishEvent({
+      tenantId: session.user.tenantId,
+      siteId: null,
+      eventType: "devoir.corrige",
+      aggregateType: "Devoir",
+      aggregateId: updated.id,
+      payload: {
+        devoirId: updated.id,
+        classeId: existing.classeId,
+        matiereId: updated.matiereId,
+        matiereNom: updated.matiere.nom,
+        titre: updated.titre,
+      },
+    });
   }
 
   return NextResponse.json({

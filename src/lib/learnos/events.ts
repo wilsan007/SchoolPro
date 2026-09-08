@@ -57,6 +57,8 @@ export const LEARNOS_EVENT_TYPES = [
   "bulletin.publie",
   // Évaluations.
   "evaluation.publiee",
+  // Cahier de textes.
+  "devoir.corrige",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -203,6 +205,15 @@ export interface EvaluationPublieePayload {
   periodeId: string | null;
   intitule: string | null;
   eleveIds: string[];
+}
+
+/** Instantané d'un devoir corrigé : alerte parents. */
+export interface DevoirCorrigePayload {
+  devoirId: string;
+  classeId: string;
+  matiereId: string;
+  matiereNom: string;
+  titre: string;
 }
 
 export interface LearnosEventInput {
