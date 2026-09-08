@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
-import { publishEvents, type NoteRecordedPayload } from "@/lib/learnos/events";
+import { publishEvents, publishEvent, type NoteRecordedPayload, type EvaluationPublieePayload } from "@/lib/learnos/events";
 import { revalidateTag } from "next/cache";
 import { getDemoNow } from "@/lib/demo-now";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
@@ -294,6 +294,25 @@ export async function POST(req: NextRequest) {
             envoyeeAt: new Date(),
           },
         });
+
+        if (created[0].evaluationId) {
+          await publishEvent({
+            tenantId,
+            siteId: null,
+            eventType: "evaluation.publiee",
+            aggregateType: "Evaluation",
+            aggregateId: created[0].evaluationId,
+            payload: {
+              evaluationId: created[0].evaluationId,
+              classeId: created[0].classeId,
+              matiereId: created[0].matiereId,
+              matiereNom: matiere?.nom ?? "",
+              periodeId: created[0].periodeId,
+              intitule: created[0].intitule ?? null,
+              eleveIds: created.map((note) => note.eleveId),
+            } satisfies EvaluationPublieePayload,
+          });
+        }
       } catch (notifError) {
         console.error("[API/notes] Notification échouée:", notifError);
       }

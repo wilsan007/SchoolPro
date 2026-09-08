@@ -55,6 +55,8 @@ export const LEARNOS_EVENT_TYPES = [
   "periode.cloturee",
   // Bulletins.
   "bulletin.publie",
+  // Évaluations.
+  "evaluation.publiee",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -190,6 +192,17 @@ export interface BulletinPubliePayload {
   periodeId: string;
   periodeNom: string;
   anneeLibelle: string;
+}
+
+/** Instantané d'une évaluation publiée : alerte parents. */
+export interface EvaluationPublieePayload {
+  evaluationId: string;
+  classeId: string;
+  matiereId: string;
+  matiereNom: string;
+  periodeId: string | null;
+  intitule: string | null;
+  eleveIds: string[];
 }
 
 export interface LearnosEventInput {

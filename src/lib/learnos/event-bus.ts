@@ -42,6 +42,7 @@ import { onAbsenceRecorded } from "@/lib/learnos/handlers/absence-recorded";
 import { onFactureEmise } from "@/lib/learnos/handlers/facture-emise";
 import { onPeriodeCloturee } from "@/lib/learnos/handlers/periode-cloturee";
 import { onBulletinPublie } from "@/lib/learnos/handlers/bulletin-publie";
+import { onEvaluationPubliee } from "@/lib/learnos/handlers/evaluation-publiee";
 
 export interface DrainedEvent {
   id: string;
@@ -96,6 +97,8 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "periode.cloturee": [onPeriodeCloturee],
   // Bulletins.
   "bulletin.publie": [onBulletinPublie],
+  // Évaluations.
+  "evaluation.publiee": [onEvaluationPubliee],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */
