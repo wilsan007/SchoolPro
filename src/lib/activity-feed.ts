@@ -151,7 +151,9 @@ export async function getActivityFeed(
 ): Promise<ActivityItem[]> {
   const debut = debutPeriode(periode, now);
   const limite = periode === "recent" ? 15 : 50;
-  const filtreDate = debut ? { gte: debut } : undefined;
+  // Borne supérieure : respecte la Time Machine — aucun événement
+  // postérieur à `now` ne doit apparaître dans l'activité récente.
+  const filtreDate = debut ? { gte: debut, lte: now } : { lte: now };
 
   let annee: AnneeFeed;
   if (
