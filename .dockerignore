@@ -43,3 +43,6 @@ pages-output
 .agents
 .gstack
 .devin
+.audit-*
+docs/CONTROLE
+PLAN-CONTROLE-TOTAL.md
