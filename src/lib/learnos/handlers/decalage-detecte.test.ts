@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { DecalageDetectePayload } from "@/lib/learnos/events";
 
 vi.mock("@/lib/prisma", () => ({
   default: {
@@ -38,7 +39,16 @@ beforeEach(() => {
   mockPrisma.classe.findFirst.mockResolvedValue({ nom: "Terminale A" });
 });
 
-function event(aggregateId = "plan-1-s5") {
+function event(aggregateId = "plan-1-s5"): {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  eventType: "decalage.detecte";
+  aggregateType: string;
+  aggregateId: string;
+  payload: DecalageDetectePayload;
+  occurredAt: Date;
+} {
   return {
     id: "ev1",
     tenantId: "tenant-1",

@@ -9,7 +9,7 @@ const globalForPrisma = globalThis as unknown as {
 
 /**
  * Ajoute (ou met à jour) `connection_limit` et `pool_timeout` dans la
- * query string d'une URL Postgres. Utilisé pour borner le client de fond
+ * query string d'une URL Postgres. Utilisé pour borner les clients
  * afin de ne pas épuiser le pool session Supabase (15 connexions max).
  */
 function withConnectionLimit(url: string | undefined, limit: number): string | undefined {
@@ -44,15 +44,25 @@ function withConnectionLimit(url: string | undefined, limit: number): string | u
  *   — Background : `DIRECT_URL` (mode session) plafonné à 3 connexions —
  *     séquentiel, peu concurrent, garde les prepared statements.
  *
+ * PLAFOND DE CONNEXIONS (prod Fly.io)
+ *   Le pool session Supabase est limité à 15 connexions. Le client applicatif
+ *   utilise le pooler transaction (port 6543) avec un `connection_limit=7`
+ *   pour éviter d'épuiser ce pool quand plusieurs machines tournent.
+ *
  * Sur un VPS (PostgreSQL local), on passera en mode session direct sans
  * pgbouncer : plus de limite de connexions, prepared statements actifs.
  */
 const useDirectInDev =
   process.env.NODE_ENV !== "production" &&
   process.env.PRISMA_DEV_DIRECT === "true";
-const appDbUrl = useDirectInDev
-  ? process.env.DIRECT_URL ?? process.env.DATABASE_URL
-  : process.env.DATABASE_URL;
+const appDbUrl = withConnectionLimit(
+  useDirectInDev
+    ? process.env.DIRECT_URL ?? process.env.DATABASE_URL
+    : process.env.DATABASE_URL,
+  // En prod : 7 connexions max par machine (pooler transaction, port 6543).
+  // En dev : 5 suffit pour un seul dev server.
+  process.env.NODE_ENV === "production" ? 7 : 5,
+);
 
 export const prisma =
   globalForPrisma.prisma ??
@@ -90,20 +100,31 @@ export default prisma;
  * épuiser le pool (EMAXCONNSESSION) quand l'app et les scripts tournent en
  * parallèle, on borne ce client à 3 connexions via `connection_limit=3` et
  * un `pool_timeout=30` pour attendre une place plutôt que de planter.
+ *
+ * INSTANCIATION PARESSEUSE
+ * Ce client n'est instancié qu'au premier accès, pas au chargement du module.
+ * Évite d'ouvrir 3 connexions session inutilisées sur chaque machine Fly.io
+ * (le client n'est actuellement importé nulle part — garder pour usage futur).
  */
-const backgroundDbUrl = withConnectionLimit(
-  process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-  3,
-);
-export const prismaBackground =
-  globalForPrisma.prismaBackground ??
-  withRlsExtension(
+let _prismaBackground: PrismaClient | undefined;
+export function getPrismaBackground(): PrismaClient {
+  if (_prismaBackground) return _prismaBackground;
+  if (process.env.NODE_ENV !== "production" && globalForPrisma.prismaBackground) {
+    _prismaBackground = globalForPrisma.prismaBackground;
+    return _prismaBackground;
+  }
+  const backgroundDbUrl = withConnectionLimit(
+    process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+    3,
+  );
+  _prismaBackground = withRlsExtension(
     new PrismaClient({
       log: ["error"],
       datasources: { db: { url: backgroundDbUrl } },
     })
   );
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prismaBackground = prismaBackground;
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prismaBackground = _prismaBackground;
+  }
+  return _prismaBackground;
 }
