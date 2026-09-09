@@ -49,6 +49,7 @@ import { onDevoirEnRetard } from "@/lib/learnos/handlers/devoir-enretard";
 import { onPredictionEmise } from "@/lib/learnos/handlers/prediction-emise";
 import { onCandidatureAcceptee } from "@/lib/learnos/handlers/candidature-acceptee";
 import { onIncidentSignale } from "@/lib/learnos/handlers/incident-signale";
+import { onDecalageDetecte } from "@/lib/learnos/handlers/decalage-detecte";
 
 export interface DrainedEvent {
   id: string;
@@ -117,6 +118,8 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "candidature.acceptee": [onCandidatureAcceptee],
   // Vie scolaire : incidents.
   "incident.signale": [onIncidentSignale],
+  // Cahier-journal : décalage entre planification et réalité.
+  "decalage.detecte": [onDecalageDetecte],
 };
 
 /** Au-delà, l'événement est abandonné : inutile de réessayer indéfiniment. */

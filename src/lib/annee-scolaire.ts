@@ -184,11 +184,14 @@ export async function anneeALaDate(tenantId: string, date: Date) {
 
   // Trou estival entre deux années.
   // L'année isCurrent (à venir) est l'année active pour la préparation :
-  // inscriptions, emplois du temps, dossiers. On la retourne en priorité.
+  // inscriptions, emplois du temps, dossiers. On la retourne en priorité,
+  // MAIS uniquement si elle n'est pas déjà terminée (dateFin >= date).
+  // Sinon, une année isCurrent obssolete (non clôturée) ferait remonter
+  // des données d'une année écoulée comme si elle était en cours.
   const courante = await getAnneeCourante(tenantId);
-  if (courante) return courante;
+  if (courante && courante.dateFin >= date) return courante;
 
-  // Pas d'année isCurrent : prendre l'année la plus récente dont la fin est passée.
+  // Pas d'année isCurrent à venir : prendre l'année la plus récente dont la fin est passée.
   const derniereTerminee = await prisma.anneesScolaires.findFirst({
     where: { tenantId, dateFin: { lt: date } },
     orderBy: { dateFin: "desc" },
@@ -239,11 +242,13 @@ export async function anneeActive(tenantId: string) {
     });
     if (contenante) return contenante;
 
-    // Trou estival : retourner l'année isCurrent si elle n'a pas encore commencé
+    // Trou estival : retourner l'année isCurrent si elle n'est pas déjà terminée.
+    // Même garde-fou que dans anneeALaDate : une année isCurrent obsolète
+    // (non clôturée) ne doit pas être traitée comme l'année active.
     const courante = await getAnneeCourante(tenantId);
-    if (courante) return courante;
+    if (courante && courante.dateFin >= demoDate) return courante;
 
-    // Sinon, dernière termininée
+    // Sinon, dernière terminée
     return anneeALaDate(tenantId, demoDate);
   }
   return getAnneeCourante(tenantId);

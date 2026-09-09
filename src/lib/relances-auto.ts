@@ -10,6 +10,7 @@ import prisma from "@/lib/prisma";
 import { auditFire } from "@/lib/audit";
 import { sendEmail } from "@/lib/notifications/email";
 import { anneeActiveId } from "@/lib/annee-scolaire";
+import { getDemoNow } from "@/lib/demo-now";
 
 const MAX_NIVEAU = 3;
 
@@ -48,7 +49,7 @@ export async function envoyerRelancesAutomatiques(): Promise<{
 }> {
   const details: Record<string, number> = { "1": 0, "2": 0, "3": 0 };
   let total = 0;
-  const maintenant = new Date();
+  const maintenant = await getDemoNow();
 
   // Tâche système : elle balaie délibérément tous les tenants.
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter

@@ -73,11 +73,12 @@ const getCachedTeacherDelays = unstable_cache(
     maintenantKey: string,
     anneeId: string | null,
     anneeDateDebut: string | null,
+    anneeDateFin: string | null,
     anneeLibelle: string | null
   ) => {
     void _key;
     const anneePasse = anneeId && anneeDateDebut && anneeLibelle
-      ? { id: anneeId, dateDebut: new Date(anneeDateDebut), libelle: anneeLibelle }
+      ? { id: anneeId, dateDebut: new Date(anneeDateDebut), dateFin: anneeDateFin ? new Date(anneeDateFin) : undefined, libelle: anneeLibelle }
       : null;
     return getTeacherDelays(tenantId, claims, new Date(maintenantKey), anneePasse);
   },
@@ -334,7 +335,7 @@ export default async function DirectionPage() {
       annee?.dateDebut?.toISOString() ?? null,
       annee?.dateFin?.toISOString() ?? null
     ),
-    getCachedTeacherDelays(cacheKey, tenantId, claims, maintenant.toISOString(), anneeId ?? null, annee?.dateDebut?.toISOString() ?? null, anneeLibelle),
+    getCachedTeacherDelays(cacheKey, tenantId, claims, maintenant.toISOString(), anneeId ?? null, annee?.dateDebut?.toISOString() ?? null, annee?.dateFin?.toISOString() ?? null, anneeLibelle),
   ]);
 
   // Reconvertir les dates ISO du cache en Date pour le serialiser.

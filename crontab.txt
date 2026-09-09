@@ -1,0 +1,20 @@
+# SchoolPro / LEARNOS — Crontab pour supercronic (Fly.io)
+# ========================================================
+# Les tâches planifiées sont invoquées via HTTP sur l'endpoint interne.
+# CRON_SECRET est injecté via les secrets Fly.io.
+#
+# Heures UTC. Djibouti = UTC+3.
+
+# Drainage LEARNOS + tâches horaires — toutes les 5 minutes.
+# `learnos-events` (heures: null) tourne à chaque appel.
+# Les autres tâches ne tournent qu'à leur heure prévue (filtre dans la route).
+*/5 * * * * curl -fsS -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/cron/dispatch >/dev/null 2>&1
+
+# Notifications planifiées — toutes les 5 minutes.
+*/5 * * * * curl -fsS -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/cron/dispatch-scheduled >/dev/null 2>&1
+
+# Purge des sites supprimés — quotidien à 3h UTC.
+0 3 * * * curl -fsS -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/cron/purge-sites >/dev/null 2>&1
+
+# Purge des logs d'audit — quotidien à 4h UTC.
+0 4 * * * curl -fsS -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/cron/purge-audit-logs >/dev/null 2>&1

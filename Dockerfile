@@ -45,10 +45,18 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# OpenSSL nécessaire pour Prisma au runtime
+# OpenSSL + curl nécessaires au runtime (Prisma + appels cron internes via supercronic)
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y openssl && \
+    apt-get install --no-install-recommends -y openssl curl && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# supercronic : ordonnanceur cron pour conteneurs (pas de syslog, pas de fork zombie).
+# Permet d'exécuter les tâches planifiées (drainage LEARNOS, alertes, relances, etc.)
+# directement dans le conteneur Fly.io, sans dépendre d'un ordonnanceur externe.
+ARG SUPERCRONIC_VERSION=v0.2.30
+RUN curl -fsSLo /usr/local/bin/supercronic \
+    "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-amd64" && \
+    chmod +x /usr/local/bin/supercronic
 
 # Copier le build standalone (inclut node_modules minimal + server.js)
 COPY --from=builder /app/.next/standalone ./
@@ -62,6 +70,11 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client ./node_modules/@prisma/client
 
+# Crontab + point d'entrée (lance supercronic + serveur Next.js)
+COPY crontab.txt ./crontab.txt
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
+
 EXPOSE 3000
 
-CMD [ "node", "server.js" ]
+CMD [ "./docker-entrypoint.sh" ]

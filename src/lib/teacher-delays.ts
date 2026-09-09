@@ -50,7 +50,7 @@ export async function getTeacherDelays(
   maintenant: Date = new Date(),
   // Passer l'année déjà résolue évite une requête DB redondante
   // quand l'appelant (ex: page direction) l'a déjà calculée.
-  anneePasse?: { id: string; dateDebut: Date; libelle: string } | null
+  anneePasse?: { id: string; dateDebut: Date; dateFin?: Date; libelle: string } | null
 ): Promise<ThemeRetard[]> {
   // Année active au sens chronologique : pendant l'été, c'est la dernière
   // année terminée. Sans ce filtre, les retards cumulent toutes les années.
@@ -58,6 +58,15 @@ export async function getTeacherDelays(
   const anneeId = annee?.id;
   const anneeLibelle = annee?.libelle ?? null;
   const fenetreDebut = annee?.dateDebut;
+
+  // Garde-fou : si l'année résolue est déjà terminée (dateFin < maintenant),
+  // on ne montre aucun retard. Les évaluations non notées d'une année
+  // écoulée sont un problème historique, pas une action courante.
+  // Sans ce check, un tenant sans année N+1 (isCurrent obsolète) affiche
+  // tous les retards de l'année précédente indéfiniment.
+  if (annee?.dateFin && annee.dateFin < maintenant) {
+    return [];
+  }
 
   // ── Requêtes en parallèle ──────────────────────────────────────
 

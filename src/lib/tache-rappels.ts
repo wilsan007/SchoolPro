@@ -10,6 +10,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { getDemoNow } from "@/lib/demo-now";
 
 const PALIERS = [
   { jours: 3, label: "J-3" },
@@ -18,7 +19,7 @@ const PALIERS = [
 
 export async function rappelerEcheancesTaches(): Promise<{ count: number }> {
   let count = 0;
-  const maintenant = new Date();
+  const maintenant = await getDemoNow();
 
   try {
     // Récupérer toutes les tâches non terminées avec échéance dans les 3 prochains jours.

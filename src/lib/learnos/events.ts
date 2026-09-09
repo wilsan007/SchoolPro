@@ -291,9 +291,9 @@ export interface LearnosEventInput {
  * Enregistre un fait observé, sans jamais interrompre l'appelant.
  *
  * Ne pas `await` sur le chemin critique si la latence compte : l'appel est
- * bref, mais un `void publishEvent(...)` reste possible. Préférer malgré tout
- * l'`await` — sur Vercel, une promesse non attendue peut être perdue au gel de
- * la fonction, ce qui est précisément ce que l'outbox cherche à éviter.
+ * bref. Cependant, **il faut `await`** — sur Fly.io comme sur Vercel, une
+ * promesse non attendue peut être perdue au gel de la fonction, ce qui est
+ * précisément ce que l'outbox cherche à éviter.
  */
 export async function publishEvent(input: LearnosEventInput): Promise<void> {
   await publishEvents([input]);

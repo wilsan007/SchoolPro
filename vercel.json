@@ -8,15 +8,19 @@
   "crons": [
     {
       "path": "/api/cron/dispatch-scheduled",
-      "schedule": "0 0 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/purge-sites",
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/purge-audit-logs",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/dispatch",
-      "schedule": "0 2 * * *"
+      "schedule": "*/5 * * * *"
     }
   ],
   "env": {

@@ -240,10 +240,10 @@ export async function PATCH(
           ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
         },
       });
-      // `void` et non `await` : la réponse HTTP ne doit pas attendre l'écriture
-      // de l'événement. L'outbox garantit la livraison même si la fonction est
-      // gelée aussitôt après.
-      void publishEvent({
+      // `await` et non `void` : sur Fly.io (et Vercel), une promesse non
+      // attendue peut être perdue au gel de la fonction. L'outbox garantit
+      // la livraison, mais seulement si l'INSERT est réellement exécuté.
+      await publishEvent({
         tenantId: session.user.tenantId,
         siteId: updated.siteId ?? null,
         eventType: "seance.cloturee",

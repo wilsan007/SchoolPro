@@ -9,7 +9,7 @@ import { dispatchNotification } from "@/lib/notifications/dispatch";
  * Protégé par CRON_SECRET : `Authorization: Bearer <CRON_SECRET>`.
  * Vercel Cron envoie automatiquement ce header si CRON_SECRET est défini.
  *
- * Planifié toutes les 5 min via vercel.json.
+ * Planifié toutes les 5 min via vercel.json ou supercronic (Fly.io).
  */
 async function handler(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
