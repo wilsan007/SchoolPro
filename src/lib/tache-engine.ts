@@ -52,8 +52,8 @@ export interface SyncResult {
 // ── Helpers ────────────────────────────────────────────────────
 
 /** Échéance par défaut : J+3 pour les retards critiques, J+7 pour le reste. */
-function echeanceDepuisRetard(jours: number): Date {
-  const d = new Date();
+function echeanceDepuisRetard(jours: number, maintenant: Date): Date {
+  const d = new Date(maintenant);
   d.setDate(d.getDate() + jours);
   d.setHours(23, 59, 59, 0);
   return d;
@@ -66,7 +66,8 @@ function echeanceDepuisRetard(jours: number): Date {
 async function syncLot(
   tenantId: string,
   sources: SourceTache[],
-  anneeLibelle: string | null
+  anneeLibelle: string | null,
+  maintenant: Date,
 ): Promise<{ created: number; closed: number }> {
   let created = 0;
   let closed = 0;
@@ -91,7 +92,7 @@ async function syncLot(
         },
         data: {
           statut: "FAIT",
-          dateFaite: new Date(),
+          dateFaite: maintenant,
         },
       });
       closed = result.count;
@@ -169,7 +170,7 @@ async function syncLot(
       },
       data: {
         statut: "FAIT",
-        dateFaite: new Date(),
+        dateFaite: maintenant,
       },
     });
     closed = result.count;
@@ -270,7 +271,7 @@ async function scannerEvaluationsSansNotes(
       description: `${ev.classe?.nom ?? "?"} · ${ev.matiere?.nom ?? "?"} — évaluation du ${ev.date.toLocaleDateString("fr-FR")}`,
       type: "saisie_notes",
       priorite: joursRetard > 7 ? "HAUTE" : "NORMALE",
-      echeance: echeanceDepuisRetard(1), // demain
+      echeance: echeanceDepuisRetard(1, maintenant), // demain
       classeId: ev.classeId,
       matiereId: ev.matiereId,
     });
@@ -317,7 +318,7 @@ async function scannerSeancesAValider(
       description: `Séance planifiée le ${s.date.toLocaleDateString("fr-FR")} — marquer comme effectuée`,
       type: "validation_seance",
       priorite: "NORMALE" as PrioriteTache,
-      echeance: echeanceDepuisRetard(2),
+      echeance: echeanceDepuisRetard(2, maintenant),
     }));
 }
 
@@ -327,7 +328,7 @@ async function scannerSeancesAValider(
 async function scannerDevoirsACorriger(
   tenantId: string,
   claims: SessionSiteClaims,
-  _maintenant: Date,
+  maintenant: Date,
   anneeLibelle: string | null
 ): Promise<SourceTache[]> {
   const devoirs = await prisma.devoir.findMany({
@@ -358,7 +359,7 @@ async function scannerDevoirsACorriger(
       description: `${d.classe?.nom ?? "?"} — rendu le ${d.dateRendu?.toLocaleDateString("fr-FR") ?? "?"}`,
       type: "correction_devoirs",
       priorite: "NORMALE" as PrioriteTache,
-      echeance: echeanceDepuisRetard(3),
+      echeance: echeanceDepuisRetard(3, maintenant),
     }));
 }
 
@@ -368,7 +369,7 @@ async function scannerDevoirsACorriger(
 async function scannerBulletinsAPublier(
   tenantId: string,
   claims: SessionSiteClaims,
-  _maintenant: Date,
+  maintenant: Date,
   anneeId: string | null
 ): Promise<SourceTache[]> {
   const bulletins = await prisma.bulletin.findMany({
@@ -418,7 +419,7 @@ async function scannerBulletinsAPublier(
       description: `${b.eleve.classe?.nom ?? "?"} · ${b.periode?.nom ?? ""}`,
       type: "remise_bulletins",
       priorite: "HAUTE" as PrioriteTache,
-      echeance: echeanceDepuisRetard(2),
+      echeance: echeanceDepuisRetard(2, maintenant),
     }));
 }
 
@@ -480,7 +481,7 @@ async function scannerIncidentsATraiter(
       description: `${i.eleve.classe?.nom ?? "?"} · ${i.type} (gravité ${i.gravite}) — ${i.date.toLocaleDateString("fr-FR")}`,
       type: "traitement_incident",
       priorite: (i.gravite >= 3 ? "URGENTE" : "HAUTE") as PrioriteTache,
-      echeance: echeanceDepuisRetard(1),
+      echeance: echeanceDepuisRetard(1, maintenant),
     }));
 }
 
@@ -540,7 +541,7 @@ async function scannerAbsencesAJustifier(
       description: `${a.eleve.classe?.nom ?? "?"} — absent le ${a.date.toLocaleDateString("fr-FR")}`,
       type: "justification_absence",
       priorite: "NORMALE" as PrioriteTache,
-      echeance: echeanceDepuisRetard(3),
+      echeance: echeanceDepuisRetard(3, maintenant),
     }));
 }
 
@@ -551,7 +552,7 @@ async function scannerAbsencesAJustifier(
 async function scannerFacturesEnRetard(
   tenantId: string,
   claims: SessionSiteClaims,
-  _maintenant: Date,
+  maintenant: Date,
   anneeLibelle: string | null
 ): Promise<SourceTache[]> {
   const factures = await prisma.facture.findMany({
@@ -595,7 +596,7 @@ async function scannerFacturesEnRetard(
     description: `Facture ${f.numero} · ${f.montant} DJF · échéance ${f.echeance?.toLocaleDateString("fr-FR") ?? "—"}`,
     type: "relance_facture",
     priorite: "HAUTE" as PrioriteTache,
-    echeance: echeanceDepuisRetard(1),
+    echeance: echeanceDepuisRetard(1, maintenant),
   }));
 }
 
@@ -605,7 +606,7 @@ async function scannerFacturesEnRetard(
 async function scannerReinscriptionsEnAttente(
   tenantId: string,
   _claims: SessionSiteClaims,
-  _maintenant: Date
+  maintenant: Date
 ): Promise<SourceTache[]> {
   const invitations = await prisma.invitationReinscription.findMany({
     where: {
@@ -656,7 +657,7 @@ async function scannerReinscriptionsEnAttente(
       description: `Campagne ${inv.campagne?.libelle ?? ""} — année ${inv.campagne?.anneeCible ?? ""}`,
       type: "reinscription",
       priorite: "HAUTE" as PrioriteTache,
-      echeance: echeanceDepuisRetard(7),
+      echeance: echeanceDepuisRetard(7, maintenant),
     });
   }
 
@@ -712,7 +713,7 @@ export async function synchroniserTachesAuto(
   const toutesSources = [...batch1.flat(), ...batch2.flat(), ...batch3.flat()];
 
   // Synchroniser en un seul appel (le moteur gère l'idempotence).
-  const result = await syncLot(tenantId, toutesSources, anneeLibelle);
+  const result = await syncLot(tenantId, toutesSources, anneeLibelle, maintenant);
 
   return {
     created: result.created,
