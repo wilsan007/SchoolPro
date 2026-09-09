@@ -299,6 +299,107 @@ const EXEMPLE_FORMAT: Partial<Record<FormatQuestion, string>> = {
 }`,
 };
 
+/**
+ * Exemples en somali pour chaque format.
+ *
+ * Même rôle que `EXEMPLE_FORMAT` : donner au modèle un motif à imiter. Le
+ * contenu est rédigé en somali avec un contexte djiboutien, pour ancrer la
+ * génération dans la culture de l'élève plutôt que dans une traduction.
+ */
+const EXEMPLE_FORMAT_SOMALI: Partial<Record<FormatQuestion, string>> = {
+  SAISIE_COURTE: `{
+  "questions": [{
+    "enonce": "3/4 ee 20 xisaabi.",
+    "structure": { "etapes": [{
+      "enonce": "3/4 ee 20 waa immisa?",
+      "format": "SAISIE_COURTE",
+      "reponse": "15",
+      "indice": "Hore u qaybi 4, kadibna ku dhufo 3.",
+      "points": 1
+    }] }
+  }]
+}`,
+  CHOIX_UNIQUE: `{
+  "questions": [{
+    "enonce": "Iskudarka firakhshaanaha (fractions)",
+    "structure": { "etapes": [{
+      "enonce": "Si aad u dhufato 1/3 iyo 1/4, maxaan hore loo sameeyaa?",
+      "format": "CHOIX_UNIQUE",
+      "options": [
+        { "id": "a", "texte": "Waxaan dhigaynaa firakhshaanaha isku mid (common denominator) ah" },
+        { "id": "b", "texte": "Waxaan isku darinaynaa tirooyinka kor iyo hoose", "erreur": "CONCEPTUAL_ERROR" },
+        { "id": "c", "texte": "Waxaan ku dhufaynaa labada firakhshaan", "erreur": "PROCEDURAL_ERROR" }
+      ],
+      "reponse": "a",
+      "points": 1
+    }] }
+  }]
+}`,
+  ETAPES_GUIDEES: `{
+  "questions": [{
+    "enonce": "Xisaabi 1/3 + 1/4.",
+    "structure": { "etapes": [
+      {
+        "enonce": "Waa kee isku-magacaabaha (common denominator) ee aad doortaa?",
+        "format": "SAISIE_COURTE",
+        "reponse": "12",
+        "indice": "Ku dhufo labada magacaabaha hoose.",
+        "points": 1
+      },
+      {
+        "enonce": "Tirooyinka kor (numerators) waxay noqdaan immisa?",
+        "format": "CHOIX_UNIQUE",
+        "options": [
+          { "id": "a", "texte": "4 iyo 3" },
+          { "id": "b", "texte": "1 iyo 1", "erreur": "CONCEPTUAL_ERROR" },
+          { "id": "c", "texte": "3 iyo 4", "erreur": "CALCULATION_ERROR" }
+        ],
+        "reponse": "a",
+        "points": 1
+      },
+      {
+        "enonce": "Waa immisa natiijada, qaab a/b ah?",
+        "format": "SAISIE_COURTE",
+        "reponse": "7/12",
+        "points": 1
+      }
+    ] }
+  }]
+}`,
+  REMISE_EN_ORDRE: `{
+  "questions": [{
+    "enonce": "Si saxda ah u rog tillaabaha xisaabinta 1/3 + 1/4.",
+    "structure": { "etapes": [{
+      "enonce": "Ku rog tillaabahan si saxda ah.",
+      "format": "REMISE_EN_ORDRE",
+      "options": [
+        { "id": "e1", "texte": "Raadi isku-magacaabe (common denominator)" },
+        { "id": "e2", "texte": "Dib-u-dhig labada firakhshaan oo isku-magacaabe ah" },
+        { "id": "e3", "texte": "Isku dar tirooyinka kor (numerators)" },
+        { "id": "e4", "texte": "Sahmi natiijada haddii suurtogal tahay" }
+      ],
+      "reponse": "e1|e2|e3|e4",
+      "points": 1
+    }] }
+  }]
+}`,
+  APPARIEMENT: `{
+  "questions": [{
+    "enonce": "Ku xidh firakhshaan kasta oo dhigaysa tirakooban (décimale) ka.",
+    "structure": { "etapes": [{
+      "enonce": "U dhig firakhshaan kasta tirakooban saxda ah.",
+      "format": "APPARIEMENT",
+      "paires": [
+        { "id": "p1", "gauche": "1/2", "droite": "0,5" },
+        { "id": "p2", "gauche": "1/4", "droite": "0,25" },
+        { "id": "p3", "gauche": "3/5", "droite": "0,6" }
+      ],
+      "points": 1
+    }] }
+  }]
+}`,
+};
+
 /** Règles propres à chaque format, en complément de l'exemple. */
 const CONSIGNE_FORMAT: Partial<Record<FormatQuestion, string>> = {
   SAISIE_COURTE: 'UNE seule étape, "format": "SAISIE_COURTE".',
@@ -339,6 +440,52 @@ Règles impératives :
 - "indice" oriente sans donner la réponse. Il est facultatif.
 - Pas de LaTeX, pas de Markdown : du texte brut lisible par un collégien.`;
 
+/**
+ * Consigne système pour la génération native en somali.
+ *
+ * Les instructions structurelles (format JSON, champs obligatoires, types
+ * d'erreurs) restent en français : le modèle les comprend mieux ainsi, et la
+ * précision du format est critique. Seul le CONTENU des exercices (énoncés,
+ * propositions, indices) est rédigé en somali — nativement, pas traduit.
+ *
+ * Le contexte culturel est explicite : Djibouti, école, vie quotidienne
+ * djiboutienne. Sans cela, un modèle formé majoritairement sur des données
+ * occidentales produirait des situations déconnectées (neige, boulangerie)
+ * qui parlent moins à un élève de la Cité Ambouli.
+ */
+const CONSIGNE_SYSTEME_SOMALI = `Tu rédiges des exercices scolaires pour une banque de questions, EN LANGUE SOMALIE.
+
+Tu réponds UNIQUEMENT par un objet JSON valide, sans texte autour, sans balises de code,
+sans commentaire. Tu imites EXACTEMENT la forme de l'exemple qu'on te donne.
+
+Règles impératives :
+- Le champ "reponse" est OBLIGATOIRE sur chaque étape, sauf pour le format APPARIEMENT.
+  Une étape sans "reponse" est un exercice insoluble : elle sera rejetée.
+- "reponse" doit être EXACTEMENT comparable : un nombre, un mot, ou un identifiant
+  d'option. Jamais une phrase, jamais une explication, jamais une unité.
+- Sur un CHOIX_UNIQUE, la BONNE proposition n'a PAS de champ "erreur". Chaque MAUVAISE
+  proposition en porte un, qui dit quelle méprise elle révèle, pris dans :
+  CONCEPTUAL_ERROR (la notion est mal comprise), PROCEDURAL_ERROR (la méthode est mal
+  appliquée), CALCULATION_ERROR (erreur de calcul), READING_ERROR (l'énoncé a été mal
+  lu), MISSING_PREREQUISITE (un acquis antérieur manque). Un distracteur doit
+  correspondre à une erreur que des élèves font réellement.
+- "options" seulement pour CHOIX_UNIQUE et REMISE_EN_ORDRE ; "paires" seulement pour
+  APPARIEMENT. N'ajoute jamais "options" à une étape SAISIE_COURTE.
+- "indice" oriente sans donner la réponse. Il est facultatif.
+- Pas de LaTeX, pas de Markdown : du texte brut lisible par un collégien.
+
+LANGUE ET CONTEXTE :
+- Rédige TOUS les contenus (enonce, texte des options, indice, paires) en somali.
+  Les noms des champs JSON et les valeurs techniques (format, erreur, id) restent
+  tels quels : seuls les contenus pédagogiques sont en somali.
+- Utilise des contextes culturellement pertinents pour des élèves somaliens :
+  vie quotidienne en Somalie (marché, chameaux, shillings somaliens, école, famille,
+  pêche, désert, mosquée). Évite les références occidentales (neige, boulangerie,
+  euros).
+- Les nombres restent en chiffres arabes (0-9), pas en mots somalis.
+- Si un terme mathématique n'a pas d'équivalent direct en somali, utilise le terme
+  ANGLAIS entre parenthèses après le mot somali (ex: "isugeyn (addition)").`;
+
 export interface DemandeGeneration {
   competenceId: string;
   palier: PalierExercice;
@@ -346,6 +493,18 @@ export interface DemandeGeneration {
   nombre: number;
   /** Barème de chaque question produite. */
   bareme?: number;
+  /**
+   * Langue de rédaction des énoncés : "fr" (français) ou "so" (somali).
+   *
+   * La génération est **native**, pas traduite : le modèle rédige directement
+   * dans la langue cible, avec un contexte culturellement approprié. Traduire un
+   * énoncé français vers le somali altère la compréhension — les termes
+   * mathématiques n'ont pas toujours d'équivalent, et le contexte culturel
+   * (baguette, gâteau) ne parle pas à un élève djiboutien.
+   *
+   * Défaut : "fr" (rétro-compatible avec les questions existantes).
+   */
+  langue?: "fr" | "so";
 }
 
 export interface ResultatGeneration {
@@ -524,12 +683,25 @@ export async function genererQuestions(
   // reproduise pas. Sans cela, régénérer sur la même compétence renvoie les
   // mêmes exercices, et le sélecteur — qui évite de resservir une question déjà
   // vue — se retrouve sans candidat.
+  //
+  // Le filtre par langue est essentiel : les énoncés français à éviter ne
+  // concernent pas la génération somalie, et inversement.
+  const langue = demande.langue ?? "fr";
   const existantes = await prisma.question.findMany({
-    where: { tenantId, competenceId: competence.id, ...siteFilterForModel("question", claims) },
+    where: {
+      tenantId,
+      competenceId: competence.id,
+      langue,
+      ...siteFilterForModel("question", claims),
+    },
     select: { enonce: true },
     orderBy: { createdAt: "desc" },
     take: 10,
   });
+
+  // Sélection des consignes et exemples selon la langue.
+  const systeme = langue === "so" ? CONSIGNE_SYSTEME_SOMALI : CONSIGNE_SYSTEME;
+  const exemples = langue === "so" ? EXEMPLE_FORMAT_SOMALI : EXEMPLE_FORMAT;
 
   const consigneUtilisateur = [
     `Matière : ${competence.chapitre?.matiere.nom ?? "non précisée"}`,
@@ -543,7 +715,7 @@ export async function genererQuestions(
     `Format imposé : ${CONSIGNE_FORMAT[demande.format]}`,
     "",
     "Imite EXACTEMENT la forme de cet exemple, en changeant seulement le contenu :",
-    EXEMPLE_FORMAT[demande.format] ?? "",
+    exemples[demande.format] ?? "",
     existantes.length > 0
       ? `\nÉnoncés DÉJÀ en banque, à ne pas reproduire :\n${existantes
           .map((q) => `- ${q.enonce}`)
@@ -553,18 +725,29 @@ export async function genererQuestions(
     .filter(Boolean)
     .join("\n");
 
+  // Pour le somali, on force le fournisseur GLM (OpenRouter) avec un modèle
+  // frontier : les petits modèles (llama-3.1-8b de Groq, gemma2:2b d'Ollama)
+  // ne maîtrisent pas le somali — une langue sous-ressourcie. Sans ce verrou,
+  // le routeur essaierait Groq d'abord et renverrait du somali dégradé.
+  //
+  // Le modèle est configurable via AI_MODEL_SOMALI pour permettre de tester
+  // différents modèles (Claude, GPT-4o) sans modifier le code.
+  const estSomali = langue === "so";
+  const modeleSomali = process.env.AI_MODEL_SOMALI ?? "anthropic/claude-3.5-sonnet";
+
   const resultat = await routeAi(
     {
       complexity: "complex",
-      promptVersion: VERSION_PROMPT,
+      promptVersion: estSomali ? `${VERSION_PROMPT}-so` : VERSION_PROMPT,
       action: "question.generate",
       tenantId,
       siteId: competence.siteId,
       inputRef: competence.id,
       actorId,
+      ...(estSomali ? { forceProvider: "glm" } : {}),
     },
     [
-      { role: "system", content: CONSIGNE_SYSTEME },
+      { role: "system", content: systeme },
       { role: "user", content: consigneUtilisateur },
     ],
     {
@@ -578,6 +761,8 @@ export async function genererQuestions(
       // plus coûteux du module — observé avec un plafond fixe à 2000 sur des
       // étapes guidées par ailleurs valides.
       maxTokens: 1200 + nombre * 900,
+      // Forcer le modèle frontier pour le somali.
+      ...(estSomali ? { model: modeleSomali } : {}),
     }
   );
 
@@ -613,6 +798,7 @@ export async function genererQuestions(
         structure: q.structure as unknown as Prisma.InputJsonValue,
         bareme: demande.bareme ?? q.structure.etapes.reduce((s, e) => s + e.points, 0),
         origine: "ia",
+        langue,
         actif: true,
       },
       select: { id: true, enonce: true },

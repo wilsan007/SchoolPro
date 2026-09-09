@@ -13,6 +13,7 @@
  *   npx tsx scripts/combler-banque.ts --delai=3000             → délai entre appels (ms)
  *   npx tsx scripts/combler-banque.ts --nombre-par-trou=3      → 3 questions par trou
  *   npx tsx scripts/combler-banque.ts --tenant=cite-scolaire-ambouli → un tenant
+ *   npx tsx scripts/combler-banque.ts --langue=so              → générer en somali (Claude/GPT-4o)
  *
  * Le script est **reprenable** : à chaque lancement il re-détecte les trous
  * restants et ne génère que ce qui manque. Le cache IA (24 h) fait qu'un
@@ -59,6 +60,7 @@ interface Args {
   delai?: number;
   nombreParTrou?: number;
   tenant?: string;
+  langue?: "fr" | "so";
 }
 
 function parseArgs(): Args {
@@ -72,6 +74,7 @@ function parseArgs(): Args {
     else if (k === "delai") args.delai = parseInt(v, 10);
     else if (k === "nombre-par-trou") args.nombreParTrou = parseInt(v, 10);
     else if (k === "tenant") args.tenant = v;
+    else if (k === "langue") args.langue = v as "fr" | "so";
   }
   return args;
 }
@@ -87,6 +90,7 @@ async function main() {
 
   console.log("\n" + "═".repeat(70));
   console.log("  Comblement de la banque de questions LEARNOS");
+  console.log(`  Langue : ${args.langue ?? "fr"}${args.langue === "so" ? " (modèle frontier via OpenRouter)" : ""}`);
   console.log("═".repeat(70));
 
   // 1. Trouver le tenant.
@@ -148,13 +152,16 @@ async function comblerTenant(
 
   console.log(`  ${chapitres.length} chapitres, ${competenceIds.length} compétences`);
 
-  // 3. Compter les questions existantes par compétence × palier.
+  // 3. Compter les questions existantes par compétence × palier, dans la
+  //    langue demandée : un trou en somali n'est pas un trou en français.
+  const langue = args.langue ?? "fr";
   const comptes = await prisma.question.groupBy({
     by: ["competenceId", "palier"],
     where: {
       tenantId,
       actif: true,
       competenceId: { in: competenceIds },
+      langue,
     },
     _count: { _all: true },
   });
@@ -225,6 +232,7 @@ async function comblerTenant(
           palier: trou.palier,
           format: FORMAT_PAR_DEFAUT,
           nombre: nombreParTrou,
+          langue,
         },
         "script-combler-banque"
       );

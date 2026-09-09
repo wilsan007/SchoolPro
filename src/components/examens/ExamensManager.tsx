@@ -15,6 +15,7 @@ import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { useLibelleNiveau } from "@/lib/niveau-context";
 import { ClassSelector } from "@/components/sites/ClassSelector";
+import { DrillDownNavigator, type DrillDownItem } from "@/components/classes/DrillDownNavigator";
 import type { SiteColor } from "@/lib/site-colors";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 
@@ -572,7 +573,7 @@ function DeliberationPanel({ examId }: { examId: string }) {
 export function ExamensManager({
   examens: initial,
   classes,
-  hierarchie: _hierarchie,
+  hierarchie,
   matieres,
   siteColors,
   canWrite = false,
@@ -667,15 +668,17 @@ export function ExamensManager({
         </div>
       </div>
 
-      {/* Filtre par classes coloré */}
-      <ClassSelector
-        classes={classes}
-        siteColors={siteColors}
-        selectedId={selectedClasseId}
-        onSelect={setSelectedClasseId}
-      />
+      {/* Filtre par classes coloré (seulement si pas de drill-down) */}
+      {!hierarchie && (
+        <ClassSelector
+          classes={classes}
+          siteColors={siteColors}
+          selectedId={selectedClasseId}
+          onSelect={setSelectedClasseId}
+        />
+      )}
 
-      {/* Liste */}
+      {/* Liste — drill-down hiérarchique si hierarchie disponible, sinon liste plate */}
       {displayed.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
@@ -690,6 +693,29 @@ export function ExamensManager({
             )}
           </CardContent>
         </Card>
+      ) : hierarchie ? (
+        <DrillDownNavigator<Examen & DrillDownItem>
+          hierarchie={hierarchie}
+          items={displayed.map((exam) => ({
+            ...exam,
+            id: exam.id,
+            classeNom: exam.sessions[0]?.niveau ?? null,
+            matiereNom: exam.sessions[0]?.matiereNom ?? null,
+            niveau: exam.sessions[0]?.niveau ?? null,
+          }))}
+          renderItems={(filteredExams) => (
+            <div className="space-y-4">
+              {filteredExams.map((exam) => (
+                <ExamenCard
+                  key={exam.id}
+                  examen={exam}
+                  matieres={matieres}
+                  onUpdate={updateExamen}
+                />
+              ))}
+            </div>
+          )}
+        />
       ) : (
         <div className="space-y-4">
           {displayed.map((exam) => (

@@ -68,6 +68,17 @@ export interface AiTask {
    * reste la bonne règle (LEARNOS §36).
    */
   interactif?: boolean;
+  /**
+   * Force un fournisseur spécifique, en court-circuitant la chaîne par coût.
+   *
+   * Nécessaire pour les tâches qui exigent un modèle précis non disponible chez
+   * les fournisseurs moins chers : la génération en somali, par exemple, exige
+   * un modèle frontier (Claude, GPT-4o) accessible uniquement via OpenRouter
+   * (fournisseur `glm`). Sans ce verrou, le routeur essaierait Groq d'abord —
+   * dont le modèle par défaut (llama-3.1-8b) ne maîtrise pas le somali — et
+   * renverrait une réponse de mauvaise qualité sans basculer.
+   */
+  forceProvider?: string;
 }
 
 /** Durée de vie du cache. Une génération identique reste servie 24 h. */
@@ -90,13 +101,15 @@ const PROVIDERS: AiProvider[] = [ollamaProvider, groqProvider, glmProvider].sort
 function candidates(
   needsTools: boolean,
   needsVision = false,
-  interactif = false
+  interactif = false,
+  forceProvider?: string
 ): AiProvider[] {
   const utilisables = PROVIDERS.filter(
     (p) =>
       p.isAvailable() &&
       (!needsTools || p.supportsTools) &&
-      (!needsVision || p.visionModelId() !== null)
+      (!needsVision || p.visionModelId() !== null) &&
+      (!forceProvider || p.name === forceProvider)
   );
 
   if (!interactif) return utilisables;
@@ -132,6 +145,7 @@ function cacheKey(
     temperature: options?.temperature ?? null,
     maxTokens: options?.maxTokens ?? null,
     tools: options?.tools ?? null,
+    model: options?.model ?? null,
   });
   return createHash("sha256").update(material).digest("hex");
 }
@@ -233,7 +247,7 @@ export async function routeAi(
 
   const needsTools = Boolean(options?.tools?.length);
   const needsVision = messages.some(contientImage);
-  const chain = candidates(needsTools, needsVision, task.interactif);
+  const chain = candidates(needsTools, needsVision, task.interactif, task.forceProvider);
 
   if (chain.length === 0) {
     throw new AiAllProvidersFailedError(
@@ -304,5 +318,5 @@ export async function routeAi(
 
 /** Exposé pour les tests et le diagnostic : quels fournisseurs sont utilisables ? */
 export function availableProviders(needsTools = false, needsVision = false): string[] {
-  return candidates(needsTools, needsVision).map((p) => p.name);
+  return candidates(needsTools, needsVision, false, undefined).map((p) => p.name);
 }

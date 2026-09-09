@@ -4593,7 +4593,8 @@
     "selectionnerClasse": "Fasal dooro",
     "toutesCategories": "Dhammaan qaybaha",
     "tousNiveaux": "Dhammaan heerarka",
-    "toutesClasses": "Dhammaan fasasyada"
+    "toutesClasses": "Dhammaan fasasyada",
+    "classes": "fasalada"
   },
   "maMatiere": {
     "titre": "Maaddadayda",
@@ -5183,5 +5184,13 @@
     "aujourdhui": "Maanta",
     "cetteSemaine": "Todobaadkan",
     "nonJustifiees": "Aan la falanqeyn"
+  },
+  "drillDown": {
+    "overview": "Dooddaha",
+    "back": "Dib u noqo",
+    "items": "walax",
+    "allItemsInCategory": "Dhamaan walxaha kategorigan",
+    "allItemsInClass": "Dhamaan walxaha fasalkan",
+    "noItems": "Walax la muujiyo ma jiro"
   }
 }

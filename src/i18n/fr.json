@@ -4593,7 +4593,8 @@
     "selectionnerClasse": "Sélectionner une classe",
     "toutesCategories": "Toutes les catégories",
     "tousNiveaux": "Tous les niveaux",
-    "toutesClasses": "Toutes les classes"
+    "toutesClasses": "Toutes les classes",
+    "classes": "classes"
   },
   "maMatiere": {
     "titre": "Ma matière",
@@ -5183,5 +5184,13 @@
     "aujourdhui": "Aujourd'hui",
     "cetteSemaine": "Cette semaine",
     "nonJustifiees": "Non justifiées"
+  },
+  "drillDown": {
+    "overview": "Vue d'ensemble",
+    "back": "Retour",
+    "items": "éléments",
+    "allItemsInCategory": "Tous les éléments de cette catégorie",
+    "allItemsInClass": "Tous les éléments de cette classe",
+    "noItems": "Aucun élément à afficher"
   }
 }

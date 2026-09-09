@@ -12,6 +12,8 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
+import { CouvertureRemplacementsView } from "@/components/couverture/CouvertureRemplacementsView";
 import type { Jour, StatutRemplacement } from "@prisma/client";
 import { getDemoNow } from "@/lib/demo-now";
 
@@ -32,6 +34,11 @@ export default async function CouverturePage() {
   const tenantId = session!.user.tenantId!;
   const claims = session!.user;
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
+
+  // Hiérarchie des classes pour le drill-down des remplacements.
+  const hierarchie = await getClassesHierarchie(tenantId, claims, {
+    anneeCourante,
+  });
 
   // — Bornes du jour courant (selon la date simulée) —
   const now = await getDemoNow();
@@ -214,42 +221,17 @@ export default async function CouverturePage() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm min-w-[640px]">
-                    <thead>
-                      <tr className="border-b text-left text-muted-foreground">
-                        <th className="px-4 py-3 font-medium">{t("classe")}</th>
-                        <th className="px-4 py-3 font-medium">{t("matiere")}</th>
-                        <th className="px-4 py-3 font-medium">{t("absent")}</th>
-                        <th className="px-4 py-3 font-medium">{t("remplacant")}</th>
-                        <th className="px-4 py-3 font-medium">{t("statut")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {remplacements.map((r) => (
-                        <tr key={r.id} className="border-b last:border-0">
-                          <td className="px-4 py-3">{r.classe.nom}</td>
-                          <td className="px-4 py-3">{r.matiere.nom}</td>
-                          <td className="px-4 py-3">
-                            {r.enseignantAbsent?.user.name ?? "—"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {r.enseignantRemplacant?.user.name ?? "—"}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                              {r.statut}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <CouvertureRemplacementsView
+              remplacements={remplacements.map((r) => ({
+                id: r.id,
+                classeNom: r.classe.nom,
+                matiereNom: r.matiere.nom,
+                enseignantAbsentNom: r.enseignantAbsent?.user.name ?? null,
+                enseignantRemplacantNom: r.enseignantRemplacant?.user.name ?? null,
+                statut: r.statut,
+              }))}
+              hierarchie={hierarchie}
+            />
           )}
         </div>
       </div>

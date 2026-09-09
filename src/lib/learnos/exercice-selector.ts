@@ -322,6 +322,14 @@ export interface OptionsSelection {
   aujourdHui?: Date;
   /** Fenêtre d'anticipation, en semaines. */
   fenetre?: number;
+  /**
+   * Langue des exercices à servir : "fr" (français) ou "so" (somali).
+   *
+   * Le tirage ne pioche que dans les questions de cette langue — une question
+   * somali ne doit pas atteindre un élève francophone, et inversement. Défaut
+   * "fr" pour la rétro-compatibilité avec les questions existantes.
+   */
+  langue?: string;
 }
 
 /**
@@ -634,6 +642,7 @@ export async function composerFeuille(
       tenantId,
       actif: true,
       competenceId: { in: cibles.map((c) => c.competenceId) },
+      langue: options.langue ?? "fr",
       ...(options.autoCorrigeableUniquement
         ? { format: { in: [...FORMATS_AUTO_CORRIGEABLES] } }
         : {}),

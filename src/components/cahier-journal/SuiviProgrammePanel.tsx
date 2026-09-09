@@ -15,6 +15,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { MobileCard, MobileList, MobileEmptyState } from "@/components/mobile/MobileUI";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { DrillDownNavigator, type DrillDownItem } from "@/components/classes/DrillDownNavigator";
 
 // ──────────────────────────────────────────────────────────────
 // Types (miroir de ResultatSuivi côté serveur)
@@ -94,10 +96,13 @@ function couleurTexte(taux: number): string {
 interface SuiviProgrammePanelProps {
   /** Semaine initiale à afficher (défaut: 1). */
   semaineInitiale?: number;
+  /** Hiérarchie des classes pour le drill-down (optionnel). */
+  hierarchie?: ClassesHierarchie;
 }
 
 export function SuiviProgrammePanel({
   semaineInitiale = 1,
+  hierarchie,
 }: SuiviProgrammePanelProps) {
   const t = useTranslations("suiviProgramme");
   const [semaine, setSemaine] = useState(semaineInitiale);
@@ -180,10 +185,18 @@ export function SuiviProgrammePanel({
       {data && !loading && (
         <>
           {/* ── 1. Couverture du programme ──────────────────────── */}
-          <SectionCouverture couverture={data.couverture} />
+          {hierarchie ? (
+            <SectionCouvertureHierarchique couverture={data.couverture} hierarchie={hierarchie} />
+          ) : (
+            <SectionCouverture couverture={data.couverture} />
+          )}
 
           {/* ── 2. Décalages détectés ───────────────────────────── */}
-          <SectionDecalages decalages={data.decalages} />
+          {hierarchie ? (
+            <SectionDecalagesHierarchique decalages={data.decalages} hierarchie={hierarchie} />
+          ) : (
+            <SectionDecalages decalages={data.decalages} />
+          )}
 
           {/* ── 3. Tenue du cahier journal ──────────────────────── */}
           <SectionTenueCahier tenueCahier={data.tenueCahier} />
@@ -500,4 +513,178 @@ export function SuiviProgrammePanel({
       </div>
     );
   }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Sous-composants hiérarchiques (avec DrillDownNavigator)
+// ──────────────────────────────────────────────────────────────
+
+function SectionCouvertureHierarchique({
+  couverture,
+  hierarchie,
+}: {
+  couverture: LigneCouverture[];
+  hierarchie: ClassesHierarchie;
+}) {
+  const t = useTranslations("suiviProgramme");
+
+  const items: DrillDownItem[] = couverture.map((c) => ({
+    id: `${c.classeId}-${c.matiereId}`,
+    classeNom: c.classeNom,
+    matiereNom: c.matiereNom,
+  }));
+
+  return (
+    <div className="rounded-lg border bg-card shadow-sm">
+      <div className="flex items-center gap-2 border-b px-4 py-3">
+        <BookOpen className="h-5 w-5 text-blue-500" />
+        <h3 className="text-sm font-semibold">{t("couverture")}</h3>
+      </div>
+      <div className="p-4">
+        <DrillDownNavigator<LigneCouverture & DrillDownItem>
+          hierarchie={hierarchie}
+          items={couverture as (LigneCouverture & DrillDownItem)[]}
+          groupByMatiere
+          renderItems={(filtered) => (
+            <div className="space-y-2">
+              {/* Table desktop */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="px-4 py-2 font-medium">{t("classe")}</th>
+                      <th className="px-4 py-2 font-medium">{t("matiere")}</th>
+                      <th className="px-4 py-2 text-center font-medium">{t("prevu")}</th>
+                      <th className="px-4 py-2 text-center font-medium">{t("realise")}</th>
+                      <th className="px-4 py-2 text-center font-medium">{t("ecart")}</th>
+                      <th className="px-4 py-2 font-medium">{t("taux")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((c, i) => (
+                      <tr key={`${c.classeId}-${c.matiereId}`} className={cn("border-b", i % 2 === 1 && "bg-muted/30")}>
+                        <td className="px-4 py-2">{c.classeNom}</td>
+                        <td className="px-4 py-2">{c.matiereNom}</td>
+                        <td className="px-4 py-2 text-center tabular-nums">{c.prevu}</td>
+                        <td className="px-4 py-2 text-center tabular-nums">{c.traite}</td>
+                        <td className="px-4 py-2 text-center tabular-nums">
+                          {c.ecart > 0 ? (
+                            <span className="text-red-600 dark:text-red-400">{c.ecart}</span>
+                          ) : (
+                            <span className="text-emerald-600 dark:text-emerald-400">0</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className={cn("h-full rounded-full transition-all", couleurBarre(c.taux))}
+                                style={{ width: `${Math.round(c.taux * 100)}%` }}
+                              />
+                            </div>
+                            <span className={cn("text-xs font-semibold tabular-nums", couleurTexte(c.taux))}>
+                              {Math.round(c.taux * 100)} %
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Cards mobile */}
+              <div className="md:hidden">
+                <MobileList>
+                  {filtered.map((c) => (
+                    <MobileCard key={`${c.classeId}-${c.matiereId}`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{c.classeNom}</p>
+                          <p className="text-xs text-muted-foreground">{c.matiereNom}</p>
+                        </div>
+                        <span className={cn("text-sm font-bold tabular-nums", couleurTexte(c.taux))}>
+                          {Math.round(c.taux * 100)} %
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn("h-full rounded-full", couleurBarre(c.taux))}
+                          style={{ width: `${Math.round(c.taux * 100)}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                        <span>{t("prevu")}: {c.prevu}</span>
+                        <span>{t("realise")}: {c.traite}</span>
+                        <span>{t("ecart")}: {c.ecart}</span>
+                      </div>
+                    </MobileCard>
+                  ))}
+                </MobileList>
+              </div>
+            </div>
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SectionDecalagesHierarchique({
+  decalages,
+  hierarchie,
+}: {
+  decalages: LigneDecalage[];
+  hierarchie: ClassesHierarchie;
+}) {
+  const t = useTranslations("suiviProgramme");
+
+  return (
+    <div className="rounded-lg border bg-card shadow-sm">
+      <div className="flex items-center gap-2 border-b px-4 py-3">
+        <AlertTriangle className="h-5 w-5 text-amber-500" />
+        <h3 className="text-sm font-semibold">{t("decalages")}</h3>
+        {decalages.length > 0 && (
+          <Badge variant="destructive">{decalages.length}</Badge>
+        )}
+      </div>
+      <div className="p-4">
+        <DrillDownNavigator<LigneDecalage & DrillDownItem>
+          hierarchie={hierarchie}
+          items={decalages.map((d, i) => ({
+            ...d,
+            id: `${i}`,
+            classeNom: d.classeNom,
+            matiereNom: d.matiereNom,
+          }))}
+          groupByMatiere
+          emptyLabel={t("decalages")}
+          renderItems={(filtered) => (
+            <div className="divide-y">
+              {filtered.map((d, i) => {
+                const isDecalage = d.niveauDecalage === "DECALAGE";
+                const borderColor = isDecalage ? "border-l-red-500" : "border-l-orange-500";
+                return (
+                  <div key={i} className={cn("border-l-4 px-4 py-3", borderColor)}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{d.chapitreNom}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {d.matiereNom}
+                          {d.classeNom ? ` · ${d.classeNom}` : ""}
+                        </p>
+                      </div>
+                      <Badge variant={isDecalage ? "destructive" : "warning"}>
+                        {d.niveauDecalage}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{d.explication}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        />
+      </div>
+    </div>
+  );
 }

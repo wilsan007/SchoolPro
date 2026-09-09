@@ -228,7 +228,7 @@ export default async function CahierJournalPage() {
             <h2 className="mb-3 text-lg font-semibold text-foreground">
               Suivi du programme
             </h2>
-            <SuiviProgrammePanel semaineInitiale={semaineCourante} />
+            <SuiviProgrammePanel semaineInitiale={semaineCourante} hierarchie={hierarchie} />
           </div>
         )}
       </div>

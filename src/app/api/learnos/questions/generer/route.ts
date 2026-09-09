@@ -18,6 +18,7 @@ const Schema = z.object({
     "APPARIEMENT",
   ]),
   nombre: z.number().int().min(1).max(5).default(3),
+  langue: z.enum(["fr", "so"]).default("fr"),
 });
 
 /**

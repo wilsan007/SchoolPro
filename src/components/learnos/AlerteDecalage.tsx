@@ -19,6 +19,8 @@ import {
   PenLine,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { DrillDownNavigator, type DrillDownItem } from "@/components/classes/DrillDownNavigator";
 
 // ──────────────────────────────────────────────────────────────
 // Types (miroir de alerte-decalage.ts)
@@ -107,7 +109,7 @@ const CONFIG_NIVEAU: Record<
 // Composant principal
 // ──────────────────────────────────────────────────────────────
 
-export function AlerteDecalage() {
+export function AlerteDecalage({ hierarchie }: { hierarchie?: ClassesHierarchie } = {}) {
   const t = useTranslations("learnos.alerteDecalage");
   const [data, setData] = useState<ResultatAlerteDecalage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -274,6 +276,94 @@ export function AlerteDecalage() {
 
       {/* ── Détail par chapitre ── */}
       {expanded && (
+        hierarchie ? (
+          <DrillDownNavigator<ChapitrePrevu & DrillDownItem>
+            hierarchie={hierarchie}
+            items={data.chapitres.map((c) => ({
+              ...c,
+              id: c.planificationId,
+              classeNom: c.classeNom,
+              matiereNom: c.matiereNom,
+              niveau: c.niveau,
+            }))}
+            groupByMatiere
+            emptyLabel={t("aucunChapitrePrevu", { semaine: data.semaine })}
+            renderItems={(filtered) => (
+              <div className="space-y-2">
+                {filtered
+                  .sort((a, b) => {
+                    const ordre: Record<NiveauDecalage, number> = {
+                      DECALAGE: 0,
+                      DECLARE_SEUL: 1,
+                      REALISE_NON_DECLARE: 2,
+                      ALIGNE: 3,
+                    };
+                    return ordre[a.niveauDecalage] - ordre[b.niveauDecalage];
+                  })
+                  .map((chap) => {
+                    const config = CONFIG_NIVEAU[chap.niveauDecalage];
+                    const Icon = config.icon;
+                    return (
+                      <Card key={chap.planificationId} className={`border-l-4 ${config.borderColor}`}>
+                        <CardContent className="space-y-2 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Icon className={`h-4 w-4 ${config.color}`} />
+                            <span className="font-medium">{chap.chapitreNom}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {chap.matiereNom}
+                            </Badge>
+                            {chap.classeNom && (
+                              <Badge variant="secondary" className="text-xs">
+                                {chap.classeNom}
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {t("semaines", { debut: chap.semaineDebut, fin: chap.semaineFin })}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            <SignalBadge
+                              icon={BookOpen}
+                              label={t("statutPlan")}
+                              value={chap.statutPlan}
+                              active={chap.declareTraite}
+                            />
+                            <SignalBadge
+                              icon={ClipboardList}
+                              label={t("devoirs")}
+                              value={chap.devoirsDonnes.toString()}
+                              active={chap.devoirsDonnes > 0}
+                            />
+                            <SignalBadge
+                              icon={GraduationCap}
+                              label={t("preuves")}
+                              value={chap.preuvesEleves.toString()}
+                              active={chap.preuvesEleves > 0}
+                            />
+                            <SignalBadge
+                              icon={PenLine}
+                              label={t("notes")}
+                              value={chap.notesSaisies.toString()}
+                              active={chap.notesSaisies > 0}
+                            />
+                            <SignalBadge
+                              icon={ClipboardList}
+                              label={t("exercices")}
+                              value={chap.exercicesAssignes.toString()}
+                              active={chap.exercicesAssignes > 0}
+                            />
+                          </div>
+                          <p className={`text-sm ${config.color}`}>
+                            {chap.explication}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+              </div>
+            )}
+          />
+        ) : (
         <div className="space-y-2">
           {data.chapitres
             .sort((a, b) => {
@@ -352,6 +442,7 @@ export function AlerteDecalage() {
               );
             })}
         </div>
+        )
       )}
     </div>
   );

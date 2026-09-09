@@ -4593,7 +4593,8 @@
     "selectionnerClasse": "Select a class",
     "toutesCategories": "All categories",
     "tousNiveaux": "All levels",
-    "toutesClasses": "All classes"
+    "toutesClasses": "All classes",
+    "classes": "classes"
   },
   "maMatiere": {
     "titre": "My subject",
@@ -5183,5 +5184,13 @@
     "aujourdhui": "Today",
     "cetteSemaine": "This week",
     "nonJustifiees": "Unjustified"
+  },
+  "drillDown": {
+    "overview": "Overview",
+    "back": "Back",
+    "items": "items",
+    "allItemsInCategory": "All items in this category",
+    "allItemsInClass": "All items in this class",
+    "noItems": "No items to display"
   }
 }

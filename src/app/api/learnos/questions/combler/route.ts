@@ -42,6 +42,8 @@ const Schema = z.object({
   max: z.number().int().min(1).max(50).default(20),
   /** Nombre de questions par trou (défaut 2). */
   nombreParTrou: z.number().int().min(1).max(5).default(2),
+  /** Langue de génération : "fr" (français) ou "so" (somali). Défaut "fr". */
+  langue: z.enum(["fr", "so"]).default("fr"),
 });
 
 export async function POST(req: Request) {
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
   }
 
   const tenantId = session.user.tenantId;
-  const { matiereId, niveau, max, nombreParTrou } = parsed.data;
+  const { matiereId, niveau, max, nombreParTrou, langue } = parsed.data;
 
   // 1. Charger les compétences du curriculum filtré.
   const chapitres = await prisma.chapitre.findMany({
@@ -75,13 +77,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ trous: [], creees: 0, echecs: 0 });
   }
 
-  // 2. Compter les questions existantes par compétence × palier.
+  // 2. Compter les questions existantes par compétence × palier, dans la
+  //    langue demandée : un trou en somali n'est pas un trou en français.
   const comptes = await prisma.question.groupBy({
     by: ["competenceId", "palier"],
     where: {
       tenantId,
       actif: true,
       competenceId: { in: competenceIds },
+      langue,
       ...siteFilterForModel("question", session.user),
     },
     _count: { _all: true },
@@ -122,6 +126,7 @@ export async function POST(req: Request) {
           palier: trou.palier,
           format: FORMAT_PAR_DEFAUT,
           nombre: nombreParTrou,
+          langue,
         },
         session.user.id
       );

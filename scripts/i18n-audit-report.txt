@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-08T21:01:03.863Z
+SchoolPro i18n audit — 2026-09-09T14:23:33.359Z
 
 Referenced keys missing from fr.json: 0
 
@@ -10,7 +10,7 @@ en.json extra keys (not in fr.json): 0
 
 so.json extra keys (not in fr.json): 0
 
-Dynamic template-literal t() calls (manual review): 212
+Dynamic template-literal t() calls (manual review): 214
   src/app/(dashboard)/parametres/audit/page.tsx:62  `/api/audit?${params.toString()}`
   src/app/(dashboard)/test-telegram/page.tsx:36  `${data.chats.length} chat(s) trouvé(s)`
   src/components/absences/AbsencesList.tsx:114  `${absence.eleve.prenom} ${absence.eleve.nom}`
@@ -51,12 +51,14 @@ Dynamic template-literal t() calls (manual review): 212
   src/components/cahier-journal/CahierJournalView.tsx:1834  `/api/cahier-journal/seances/${seance.id}/fichiers`
   src/components/cahier-journal/CahierJournalView.tsx:1944  `/api/cahier-journal/seances/${seance.id}/commentaires`
   src/components/cahier-journal/CahierJournalView.tsx:1968  `/api/cahier-journal/seances/${seance.id}/commentaires`
-  src/components/cahier-journal/SuiviProgrammePanel.tsx:112  `/api/cahier-journal/suivi-programme?semaine=${s}`
+  src/components/cahier-journal/SuiviProgrammePanel.tsx:117  `/api/cahier-journal/suivi-programme?semaine=${s}`
   src/components/cahier-journal/TableauBordPanel.tsx:80  `/api/cahier-journal/tableau-bord/${seanceId}`
   src/components/caisse/GestionCaisse.tsx:181  `/api/remises-caisse/${remiseId}/confirmer`
   src/components/classes/CascadeClassFilter.tsx:145  `categorie_${cat.label}`
   src/components/classes/ClassGroupedSelect.tsx:74  `categorie_${cat.label}`
   src/components/classes/ClassTreeSelector.tsx:179  `categorie_${cat.label}`
+  src/components/classes/DrillDownNavigator.tsx:252  `categorie_${hierarchie.find((c) => c.categorie === selectedCat)?.label}`
+  src/components/classes/DrillDownNavigator.tsx:309  `categorie_${cat.label}`
   src/components/communication/CommunicationView.tsx:393  `/api/communication/${id}`
   src/components/communication/CommunicationView.tsx:410  `/api/communication/${id}`
   src/components/comparateur/ComparateurView.tsx:178  `HTTP ${r.status}`
@@ -108,9 +110,9 @@ Dynamic template-literal t() calls (manual review): 212
   src/components/evaluations/CompetencesEvaluation.tsx:54  `/api/curriculum/evaluations/${evaluationId}/competences`
   src/components/evaluations/CompetencesEvaluation.tsx:86  `/api/curriculum/evaluations/${evaluationId}/competences`
   src/components/evaluations/GrilleSaisie.tsx:55  `/api/evaluations/${evaluation.id}/notes`
-  src/components/examens/ExamensManager.tsx:199  `/api/examens/${examId}/sessions`
-  src/components/examens/ExamensManager.tsx:319  `/api/examens/${examen.id}`
-  src/components/examens/ExamensManager.tsx:527  `/api/examens/${examId}/deliberation`
+  src/components/examens/ExamensManager.tsx:200  `/api/examens/${examId}/sessions`
+  src/components/examens/ExamensManager.tsx:320  `/api/examens/${examen.id}`
+  src/components/examens/ExamensManager.tsx:528  `/api/examens/${examId}/deliberation`
   src/components/examens/RapportClasseTable.tsx:51  `/api/bulletins/rapport-classe?classeId=${classeId}&periodeId=${periodeId}`
   src/components/facturation/FactureForm.tsx:124  `/api/facturation/existing?eleveId=${eleveId}`
   src/components/facturation/FactureForm.tsx:194  `/api/facturation/tarif?classeId=${classeId}&type=${type}${mois ? `

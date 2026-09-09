@@ -21,6 +21,7 @@ import { synchroniserTachesAuto } from "@/lib/tache-engine";
 import { Card, CardContent, CardHeader, CardTitle, AccentCard } from "@/components/ui/card";
 import { FileText, AlertTriangle, ShieldAlert, UserX } from "lucide-react";
 import { unstable_cache } from "next/cache";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 
 // ── Cache pour les données below-the-fold ────────────────────────────
 // L'activity feed (10 requêtes) et les retards enseignants (6 requêtes)
@@ -112,6 +113,11 @@ export default async function DirectionPage() {
     kpisDirection(tenantId, claims, maintenant),
     anneeId ? alertesAnticipees(tenantId, anneeId, claims, maintenant) : Promise.resolve([]),
   ]);
+
+  // Hiérarchie des classes pour le drill-down AlerteDecalage.
+  const hierarchie = await getClassesHierarchie(tenantId, session!.user, {
+    anneeCourante: annee?.libelle ?? null,
+  });
 
   const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
     items.map((i) => ({
@@ -426,7 +432,7 @@ export default async function DirectionPage() {
             Apparaît uniquement pour PRINCIPAL, TENANT_ADMIN, SUPER_ADMIN —
             la garde de page filtre déjà les autres rôles. */}
         <section className="space-y-3">
-          <AlerteDecalage />
+          <AlerteDecalage hierarchie={hierarchie} />
         </section>
 
         {/* ── File de validation ──────────────────────────────────── */}

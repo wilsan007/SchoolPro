@@ -68,11 +68,16 @@ export const glmProvider: AiProvider = {
 
     let result: Awaited<ReturnType<typeof generateChat>>;
     try {
+      // Pour les appels texte, `options?.model` permet de cibler un modèle
+      // spécifique sur OpenRouter (ex: Claude, GPT-4o pour le somali). Sans
+      // cette option, `generateChat` retombe sur `GLM_MODEL` par défaut.
+      // Pour les appels vision, le modèle vision configuré l'emporte toujours.
+      const modelPourAppel = avecImage ? modelVision : options?.model;
       result = await generateChat(messages as ChatMessage[], {
         temperature: options?.temperature,
         maxTokens: options?.maxTokens,
         tools: options?.tools as ToolDefinition[] | undefined,
-        ...(avecImage ? { model: modelVision } : {}),
+        ...(modelPourAppel ? { model: modelPourAppel } : {}),
       });
     } catch (error) {
       // GLM est le dernier fournisseur essayé : convertir en indisponibilité
@@ -86,7 +91,7 @@ export const glmProvider: AiProvider = {
       throw new AiUnavailableError(`glm : ${reason}`, "glm");
     }
 
-    const model = (avecImage ? modelVision : process.env.GLM_MODEL) ?? "unknown";
+    const model = (avecImage ? modelVision : options?.model ?? process.env.GLM_MODEL) ?? "unknown";
 
     return {
       content: result.content,
