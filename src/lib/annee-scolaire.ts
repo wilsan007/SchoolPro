@@ -28,6 +28,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { applyRlsContext } from "@/lib/prisma-rls";
 import { getDemoDate, getDemoNow } from "@/lib/demo-now";
 import type { AnneesScolaires } from "@prisma/client";
 
@@ -357,6 +358,7 @@ export async function cloturerAnnee(
   userId: string
 ): Promise<AnneesScolaires> {
   return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     const annee = await tx.anneesScolaires.findUniqueOrThrow({
       where: { id: anneeId },
     });
@@ -393,6 +395,7 @@ export async function reouvrirAnnee(
   _userId: string
 ): Promise<AnneesScolaires> {
   return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     const annee = await tx.anneesScolaires.findUniqueOrThrow({
       where: { id: anneeId },
     });
@@ -435,6 +438,7 @@ export async function archiverAnnee(
   userId: string
 ): Promise<AnneesScolaires> {
   return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     const annee = await tx.anneesScolaires.findUniqueOrThrow({
       where: { id: anneeId },
     });
@@ -466,6 +470,7 @@ export async function definirAnneeCourante(
   tenantId: string
 ): Promise<AnneesScolaires> {
   return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     await tx.anneesScolaires.updateMany({
       where: { tenantId, isCurrent: true },
       data: { isCurrent: false },

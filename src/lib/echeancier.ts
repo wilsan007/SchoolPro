@@ -7,6 +7,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { applyRlsContext } from "@/lib/prisma-rls";
 import type { EcheancePaiement, Echeancier } from "@prisma/client";
 
 export type StatutEcheance = "EN_ATTENTE" | "PAYEE" | "EN_RETARD" | "ANNULEE";
@@ -66,6 +67,7 @@ export async function creerEcheancier(
   }
 
   return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     // Créer l'échéancier
     const echeancier = await tx.echeancier.create({
       data: {
@@ -113,6 +115,7 @@ export async function marquerEcheancePayee(
   paiementId: string
 ): Promise<EcheancePaiement> {
   return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     const echeance = await tx.echeancePaiement.update({
       where: { id: echeanceId },
       data: {
@@ -207,6 +210,7 @@ export async function getEcheancesEnRetard(tenantId: string) {
  */
 export async function annulerEcheancier(echeancierId: string): Promise<Echeancier> {
   return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     await tx.echeancePaiement.updateMany({
       where: {
         echeancierId,

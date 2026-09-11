@@ -16,6 +16,7 @@ import { verifierPredictions } from "@/lib/learnos/prediction-engine";
 import { calibrerSeuils } from "@/lib/learnos/calibration";
 import { getAnneeCourante } from "@/lib/annee-scolaire";
 import { analyserPatternsAbsence } from "@/lib/learnos/pattern-absence";
+import { withSystemContext } from "@/lib/rls-context";
 
 /**
  * Cron unique — répartiteur des tâches planifiées.
@@ -37,6 +38,13 @@ interface Tache {
   nom: string;
   /** Heures UTC d'exécution. `null` = à chaque passage. */
   heures: number[] | null;
+  /**
+   * AUT-H1 (audit v2) : durée d'idempotence en secondes. Si une exécution
+   * existe déjà dans cette fenêtre, la tâche est sautée. Par défaut 3600 (1 h)
+   * pour les tâches horaires, 86400 (24 h) pour les tâches quotidiennes.
+   * `null` = pas d'idempotence (ex: learnos-events qui tourne à chaque passage).
+   */
+  idempotenceSec?: number;
   executer: () => Promise<unknown>;
 }
 
@@ -53,6 +61,7 @@ const TACHES: Tache[] = [
     // une action, et elle exige une photographie quotidienne.
     nom: "learnos-kpi",
     heures: [1],
+    idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : elle balaie délibérément tous les tenants.
       // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
@@ -71,6 +80,7 @@ const TACHES: Tache[] = [
     // un parcours resterait actif toute l'année sans qu'on se demande s'il sert.
     nom: "learnos-revue-plans",
     heures: [2],
+    idempotenceSec: 3600,
     executer: async () => ({ passesEnRevue: await passerEnRevueLesPlansEchus() }),
   },
   {
@@ -82,6 +92,7 @@ const TACHES: Tache[] = [
     // serait lue comme une urgence qu'elle n'est pas.
     nom: "learnos-alertes-parent",
     heures: [6],
+    idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : elle balaie délibérément tous les tenants.
       // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
@@ -97,8 +108,13 @@ const TACHES: Tache[] = [
     // 8 h UTC = 11 h à Djibouti. Les relances partent en milieu de matinée,
     // pas en pleine nuit : un rappel de facture à 3 h du matin s'apparente
     // à une urgence qu'elle n'est pas.
+    //
+    // DÉSACTIVÉ (AUT-C1) — le cron tourne toutes les 5 min, ce qui envoyait
+    // 12 relances par facture et par jour. La tâche sera réactivée après
+    // MET-4 (délais entre niveaux + idempotence par @@unique) et AUT-1
+    // (planification exacte avec TacheCronExecution).
     nom: "relances-auto",
-    heures: [8],
+    heures: [],
     executer: () => envoyerRelancesAutomatiques(),
   },
   {
@@ -108,6 +124,7 @@ const TACHES: Tache[] = [
     // répète pas : un événement par devoir, vérifié par idempotence.
     nom: "devoirs-retard-check",
     heures: [9],
+    idempotenceSec: 3600,
     executer: () => detecterDevoirsEnRetard(),
   },
   {
@@ -117,6 +134,7 @@ const TACHES: Tache[] = [
     // et crée/ferme les tâches correspondantes pour chaque tenant.
     nom: "taches-auto-sync",
     heures: [7],
+    idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
       // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
@@ -137,6 +155,7 @@ const TACHES: Tache[] = [
     // Idempotent : une notification par palier par tâche.
     nom: "taches-rappels",
     heures: [6],
+    idempotenceSec: 3600,
     executer: () => rappelerEcheancesTaches(),
   },
   {
@@ -147,6 +166,7 @@ const TACHES: Tache[] = [
     // ne se calibrent pas. Mensuelle : le 1er du mois à 3 h UTC.
     nom: "learnos-verifier-predictions",
     heures: [3],
+    idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
       // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
@@ -172,6 +192,7 @@ const TACHES: Tache[] = [
     // Mensuelle : le 1er du mois à 4 h UTC, après la vérification.
     nom: "learnos-calibrer-seuils",
     heures: [4],
+    idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
       // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
@@ -191,6 +212,7 @@ const TACHES: Tache[] = [
     // matière, ou la même période du mois. Hebdomadaire.
     nom: "learnos-patterns-absence",
     heures: [5],
+    idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
       // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
@@ -209,6 +231,36 @@ const TACHES: Tache[] = [
 const QuerySchema = z.object({
   force: z.string().min(1).optional(),
 });
+
+/**
+ * AUT-H1 (audit v2) — Vérifie si une tâche a déjà été exécutée dans sa fenêtre
+ * d'idempotence. Si oui, retourne `true` (sauter). Sinon, enregistre l'exécution
+ * et retourne `false` (exécuter).
+ *
+ * La fenêtre est arrondie au début de la période (ex: 6 h UTC pour une fenêtre
+ * d'1 h à 6 h). L'enregistrement est atomique via `upsert` + `@@unique`.
+ */
+async function dejaExecutee(
+  nom: string,
+  idempotenceSec: number
+): Promise<boolean> {
+  const now = Date.now();
+  const fenetreMs = idempotenceSec * 1000;
+  const fenetre = new Date(now - (now % fenetreMs));
+
+  try {
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- cron global, pas de tenant
+    await prisma.tacheCronExecution.upsert({
+      where: { nom_fenetre: { nom, fenetre } },
+      create: { nom, fenetre, resultat: { skipped: false } },
+      update: {}, // no-op : si l'enregistrement existe déjà, on ne fait rien
+    });
+    return false; // pas d'enregistrement existant → exécuter
+  } catch {
+    // L'upsert échoue si l'enregistrement existe déjà (race condition) → sauter.
+    return true;
+  }
+}
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -234,8 +286,18 @@ export async function GET(req: NextRequest) {
   const resultats: Record<string, unknown> = {};
 
   for (const tache of aExecuter) {
+    // AUT-H1 : idempotence. Les tâches `force`es bypass l'idempotence.
+    if (!forcee && tache.idempotenceSec) {
+      const skip = await dejaExecutee(tache.nom, tache.idempotenceSec);
+      if (skip) {
+        resultats[tache.nom] = { skipped: true, reason: "already_executed_in_window" };
+        continue;
+      }
+    }
+
     try {
-      resultats[tache.nom] = await tache.executer();
+      // ISO-4 : envelopper chaque tâche cron dans un contexte système RLS.
+      resultats[tache.nom] = await withSystemContext(`cron:${tache.nom}`, () => tache.executer());
     } catch (error) {
       // Une tâche en échec ne doit pas empêcher les suivantes : le répartiteur
       // rend compte de chacune séparément plutôt que d'abandonner le passage.

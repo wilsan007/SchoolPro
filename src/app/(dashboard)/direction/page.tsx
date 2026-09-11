@@ -20,71 +20,12 @@ import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
 import { synchroniserTachesAuto } from "@/lib/tache-engine";
 import { Card, CardContent, CardHeader, CardTitle, AccentCard } from "@/components/ui/card";
 import { FileText, AlertTriangle, ShieldAlert, UserX } from "lucide-react";
-import { unstable_cache } from "next/cache";
 import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 
-// ── Cache pour les données below-the-fold ────────────────────────────
-// L'activity feed (10 requêtes) et les retards enseignants (6 requêtes)
-// sont coûteux et changent peu d'une minute à l'autre. On les met en cache
-// 60s avec unstable_cache, clés par tenant + rôle + site + date simulée.
-// Les Date sont sérialisées en ISO pour le cache et reconverties au retour.
-
-type FeedCacheKey = string;
-
-const getCachedActivityFeed = unstable_cache(
-  async (
-    _key: FeedCacheKey,
-    tenantId: string,
-    claims: SessionSiteClaims,
-    maintenantKey: string,
-    anneeId: string | null,
-    anneeLibelle: string | null,
-    anneeDateDebut: string | null,
-    anneeDateFin: string | null
-  ) => {
-    void _key;
-    const result = await getActivityFeedAllPeriodes(
-      tenantId,
-      claims,
-      new Date(maintenantKey),
-      anneeId,
-      anneeLibelle,
-      anneeDateDebut ? new Date(anneeDateDebut) : null,
-      anneeDateFin ? new Date(anneeDateFin) : null
-    );
-    // Sérialiser les Date en ISO pour que le cache puisse stocker du JSON.
-    const serialized = {
-      recent: result.recent.map((i) => ({ ...i, date: i.date.toISOString() })),
-      aujourdhui: result.aujourdhui.map((i) => ({ ...i, date: i.date.toISOString() })),
-      semaine: result.semaine.map((i) => ({ ...i, date: i.date.toISOString() })),
-      mois: result.mois.map((i) => ({ ...i, date: i.date.toISOString() })),
-    };
-    return serialized;
-  },
-  ["direction-activity-feed"],
-  { revalidate: 60, tags: ["direction-activity-feed"] }
-);
-
-const getCachedTeacherDelays = unstable_cache(
-  async (
-    _key: FeedCacheKey,
-    tenantId: string,
-    claims: SessionSiteClaims,
-    maintenantKey: string,
-    anneeId: string | null,
-    anneeDateDebut: string | null,
-    anneeDateFin: string | null,
-    anneeLibelle: string | null
-  ) => {
-    void _key;
-    const anneePasse = anneeId && anneeDateDebut && anneeLibelle
-      ? { id: anneeId, dateDebut: new Date(anneeDateDebut), dateFin: anneeDateFin ? new Date(anneeDateFin) : undefined, libelle: anneeLibelle }
-      : null;
-    return getTeacherDelays(tenantId, claims, new Date(maintenantKey), anneePasse);
-  },
-  ["direction-teacher-delays"],
-  { revalidate: 60, tags: ["direction-teacher-delays"] }
-);
+// ── Activity feed et retards enseignants ────────────────────────────
+// Pas d'unstable_cache : l'extension Prisma demo-horizon appelle cookies()
+// ce que Next.js 15 interdit dans unstable_cache. Les requêtes sont filtrées
+// par `maintenant` passé en paramètre — le cache n'apportait rien.
 
 /**
  * Espace de pilotage — direction et chef d'établissement.
@@ -109,16 +50,15 @@ export default async function DirectionPage() {
   const anneeId = annee?.id;
   const fenetreDebut = annee?.dateDebut;
   // Batch 1 (critical, needed for first paint) — kpisDirection (5 requêtes)
-  // + alertesAnticipees (3 requêtes) = 8 requêtes concurrentes max.
-  const [kpis, alertes] = await Promise.all([
-    kpisDirection(tenantId, claims, maintenant),
+  // + alertesAnticipees (3 requêtes) + getClassesHierarchie (1 requête)
+  // = 9 requêtes concurrentes max, sous le plafond de 10 connexions.
+  const [kpis, alertes, hierarchie] = await Promise.all([
+    kpisDirection(tenantId, claims, maintenant, annee?.libelle ?? null),
     anneeId ? alertesAnticipees(tenantId, anneeId, claims, maintenant) : Promise.resolve([]),
+    getClassesHierarchie(tenantId, session!.user, {
+      anneeCourante: annee?.libelle ?? null,
+    }),
   ]);
-
-  // Hiérarchie des classes pour le drill-down AlerteDecalage.
-  const hierarchie = await getClassesHierarchie(tenantId, session!.user, {
-    anneeCourante: annee?.libelle ?? null,
-  });
 
   const serialiser = (items: ActivityItem[]): ActivityItemData[] =>
     items.map((i) => ({
@@ -136,8 +76,8 @@ export default async function DirectionPage() {
   // ──────────────────────────────────────────────────────────────
   const peutComparerSites = isTenantWideRole(role) && !claims.siteId;
 
-  let comparateur: { id: string; nom: string; code: string | null; effectif: number; absences: number; facturesRetard: number }[] = [];
-  if (peutComparerSites) {
+  async function chargerComparateur(): Promise<{ id: string; nom: string; code: string | null; effectif: number; absences: number; facturesRetard: number }[]> {
+    if (!peutComparerSites) return [];
     const sites = await prisma.site.findMany({
       where: { tenantId, actif: true },
       select: { id: true, nom: true, code: true },
@@ -219,7 +159,7 @@ export default async function DirectionPage() {
     const effectifMap = new Map(effectifs.map((e) => [e.siteId, e._count]));
     const factureMap = new Map(facturesParSite.map((f) => [f.siteId, f._count]));
 
-    comparateur = sites.map((site) => ({
+    return sites.map((site) => ({
       id: site.id,
       nom: site.nom,
       code: site.code,
@@ -234,8 +174,8 @@ export default async function DirectionPage() {
   // ──────────────────────────────────────────────────────────────
   const peutVoirFileValidation = role === "TENANT_ADMIN" || role === "SUPER_ADMIN" || role === "PRINCIPAL";
 
-  let fileValidation: { bulletins: number; factures: number; incidents: number; remplacements: number; inscriptionsIncomplets: number; inscriptionsEnCours: number; inscriptionsCompletes: number; inscriptionsValides: number } | null = null;
-  if (peutVoirFileValidation) {
+  async function chargerFileValidation() {
+    if (!peutVoirFileValidation) return null;
     const [bulletins, factures, incidents, remplacements, inscriptionsParStatut] = await Promise.all([
       // Bulletin n'a pas de champ `statut` ni d'enum StatutBulletin :
       // `isPublie: false` correspond à « en attente de validation ».
@@ -304,7 +244,7 @@ export default async function DirectionPage() {
     const inscriptionsMap = Object.fromEntries(
       inscriptionsParStatut.map((s) => [s.dossierStatut, s._count])
     );
-    fileValidation = {
+    return {
       bulletins,
       factures,
       incidents,
@@ -313,37 +253,58 @@ export default async function DirectionPage() {
       inscriptionsEnCours: inscriptionsMap["EN_COURS"] ?? 0,
       inscriptionsCompletes: inscriptionsMap["COMPLETE"] ?? 0,
       inscriptionsValides: inscriptionsMap["VALIDE"] ?? 0,
-    };
+    } as const;
   }
 
-  // Batch 2 (below the fold) — séquentiel pour rester sous la limite du pool.
-  // getActivityFeedAllPeriodes (10 requêtes) puis getTeacherDelays (6 requêtes).
-  // En parallèle, on dépasserait les 15 connexions du mode session Supabase.
+  // Batch 2 (below the fold) — tout en parallèle.
+  // Prisma gère le queueing : les requêtes en surplus attendent une
+  // connexion disponible. Sur une base distante à 400 ms, lancer
+  // tout en parallèle est plus rapide que des batches séquentiels
+  // car le pool peut traiter 5 requêtes simultanément.
   // On passe anneeId/anneeLibelle déjà résolus pour éviter 2-3 requêtes DB redondantes.
-  // Les deux appels sont mis en cache (60s) car ils sont coûteux (16 requêtes)
-  // et changent peu d'une minute à l'autre.
   const anneeLibelle = annee?.libelle ?? null;
-  const cacheKey = [tenantId, claims.role, claims.siteId ?? "all", maintenant.toISOString()].join(":");
-  const [feedCache, retards] = await Promise.all([
-    getCachedActivityFeed(
-      cacheKey,
+  const [feedResult, retards, comparateur, fileValidation, tachesDirection] = await Promise.all([
+    getActivityFeedAllPeriodes(
       tenantId,
       claims,
-      maintenant.toISOString(),
-      anneeId ?? null,
+      maintenant,
+      anneeId,
       anneeLibelle,
-      annee?.dateDebut?.toISOString() ?? null,
-      annee?.dateFin?.toISOString() ?? null
+      annee?.dateDebut ?? null,
+      annee?.dateFin ?? null
     ),
-    getCachedTeacherDelays(cacheKey, tenantId, claims, maintenant.toISOString(), anneeId ?? null, annee?.dateDebut?.toISOString() ?? null, annee?.dateFin?.toISOString() ?? null, anneeLibelle),
+    getTeacherDelays(tenantId, claims, maintenant, annee
+      ? { id: annee.id, dateDebut: annee.dateDebut, dateFin: annee.dateFin ?? undefined, libelle: annee.libelle }
+      : null),
+    chargerComparateur(),
+    chargerFileValidation(),
+    prisma.tache.findMany({
+      where: {
+        tenantId,
+        statut: { in: ["A_FAIRE", "EN_COURS"] },
+        ...siteFilterForModel("tache", claims),
+        ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+      },
+      include: {
+        assigneeA: { select: { id: true, name: true, email: true } },
+        creePar: { select: { id: true, name: true } },
+        classe: { select: { id: true, nom: true } },
+        matiere: { select: { id: true, nom: true } },
+      },
+      orderBy: [
+        { echeance: "asc" },
+        { priorite: "desc" },
+        { createdAt: "desc" },
+      ],
+      take: 200,
+    }),
   ]);
 
-  // Reconvertir les dates ISO du cache en Date pour le serialiser.
   const itemsParPeriode = {
-    recent: serialiser(feedCache.recent.map((i) => ({ ...i, date: new Date(i.date) }))),
-    aujourdhui: serialiser(feedCache.aujourdhui.map((i) => ({ ...i, date: new Date(i.date) }))),
-    semaine: serialiser(feedCache.semaine.map((i) => ({ ...i, date: new Date(i.date) }))),
-    mois: serialiser(feedCache.mois.map((i) => ({ ...i, date: new Date(i.date) }))),
+    recent: serialiser(feedResult.recent),
+    aujourdhui: serialiser(feedResult.aujourdhui),
+    semaine: serialiser(feedResult.semaine),
+    mois: serialiser(feedResult.mois),
   };
 
   // ── Tâches auto-générées pour la direction ──
@@ -361,27 +322,7 @@ export default async function DirectionPage() {
   }
 
   // La direction voit toutes les tâches du personnel (pas seulement les siennes).
-  const tachesDirection = await prisma.tache.findMany({
-    where: {
-      tenantId,
-      statut: { in: ["A_FAIRE", "EN_COURS"] },
-      ...siteFilterForModel("tache", claims),
-      ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
-    },
-    include: {
-      assigneeA: { select: { id: true, name: true, email: true } },
-      creePar: { select: { id: true, name: true } },
-      classe: { select: { id: true, nom: true } },
-      matiere: { select: { id: true, nom: true } },
-    },
-    orderBy: [
-      { echeance: "asc" },
-      { priorite: "desc" },
-      { createdAt: "desc" },
-    ],
-    take: 200,
-  });
-
+  // tachesDirection est déjà chargé dans le batch 2 (Promise.all ci-dessus).
   const tachesDirectionSerialisees: TacheData[] = tachesDirection.map((t) => ({
     id: t.id,
     titre: t.titre,

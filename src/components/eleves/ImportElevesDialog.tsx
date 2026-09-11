@@ -337,7 +337,7 @@ export function ImportElevesDialog({
                 className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
                 onClick={() => fileRef.current?.click()}
               >
-                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={choisirFichier} />
+                <input ref={fileRef} type="file" aria-label="Importer des élèves" accept=".xlsx,.xls" className="hidden" onChange={choisirFichier} />
                 {file ? (
                   <div className="flex items-center justify-center gap-2 text-sm">
                     <FileSpreadsheet className="h-5 w-5 text-green-600" />
@@ -517,6 +517,7 @@ export function ImportElevesDialog({
                   <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-amber-900 dark:text-amber-300">
                     <input
                       type="checkbox"
+                      aria-label="Fichier d'import"
                       checked={datesConfirmees}
                       onChange={(e) => setDatesConfirmees(e.target.checked)}
                       className="rounded"
@@ -539,6 +540,7 @@ export function ImportElevesDialog({
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
                   <input
                     type="checkbox"
+                    aria-label="Année scolaire"
                     checked={seulementProblemes}
                     onChange={(e) => setSeulementProblemes(e.target.checked)}
                     className="rounded"

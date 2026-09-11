@@ -220,11 +220,11 @@ export function FacturationActions({ currentYear = "2025-2026", userRole }: { cu
             </div>
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={genCantine} onChange={(e) => setGenCantine(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <input type="checkbox" aria-label="Recherche facture" checked={genCantine} onChange={(e) => setGenCantine(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
                 <span className="text-sm">{t("includeCanteen")}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={genTransport} onChange={(e) => setGenTransport(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <input type="checkbox" aria-label="Filtrer par statut" checked={genTransport} onChange={(e) => setGenTransport(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
                 <span className="text-sm">{t("includeTransport")}</span>
               </label>
             </div>

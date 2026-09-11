@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import {
   siteFilterForModel,
+  isRelationScopedRole,
   mergeFilters,
 } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
@@ -36,6 +37,13 @@ export async function GET(req: NextRequest) {
   }
   const denied = checkPermission(session.user.role, "absences:read");
   if (denied) return denied;
+
+  // ISO-H1 (audit v2) : la veille assiduité est un outil du personnel. Les
+  // familles (PARENT/STUDENT) ont `absences:read` pour leur enfant, pas pour
+  // la surveillance globale du tenant.
+  if (isRelationScopedRole(session.user.role)) {
+    return erreurJson("ACCES_REFUSE");
+  }
 
   const { searchParams } = new URL(req.url);
   const classeId = searchParams.get("classeId") ?? undefined;

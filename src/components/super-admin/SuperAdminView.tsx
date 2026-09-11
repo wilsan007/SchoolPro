@@ -220,6 +220,7 @@ export function SuperAdminView() {
         <div className="relative flex-1 min-w-0 sm:min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
+            aria-label="Rechercher"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
@@ -345,7 +346,7 @@ export function SuperAdminView() {
               <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{t("schoolInfo")}</p>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">{t("schoolName")}</label>
-                <input value={form.name} onChange={(e) => f("name", e.target.value)}
+                <input aria-label={t("schoolName")} value={form.name} onChange={(e) => f("name", e.target.value)}
                   placeholder={t("placeholderSchoolName")}
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
               </div>
@@ -353,7 +354,7 @@ export function SuperAdminView() {
                 <label className="text-xs font-medium text-gray-600 mb-1 block">{t("slug")}</label>
                 <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/30">
                   <span className="px-3 py-2 text-sm text-gray-400 bg-gray-50 border-r border-gray-200">ecolpro.app/</span>
-                  <input value={form.slug} onChange={(e) => f("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                  <input aria-label={t("slug")} value={form.slug} onChange={(e) => f("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
                     placeholder={t("placeholderSlug")}
                     className="flex-1 px-3 py-2 text-sm focus:outline-none" />
                 </div>
@@ -361,7 +362,7 @@ export function SuperAdminView() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">{t("email")}</label>
-                  <input type="email" value={form.email} onChange={(e) => f("email", e.target.value)}
+                  <input type="email" aria-label={t("email")} value={form.email} onChange={(e) => f("email", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
                 </div>
                 <div>
@@ -377,12 +378,12 @@ export function SuperAdminView() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">{t("city")}</label>
-                  <input value={form.city} onChange={(e) => f("city", e.target.value)}
+                  <input aria-label={t("city")} value={form.city} onChange={(e) => f("city", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">{t("countryIso")}</label>
-                  <input value={form.country} onChange={(e) => f("country", e.target.value)}
+                  <input aria-label={t("countryIso")} value={form.country} onChange={(e) => f("country", e.target.value)}
                     placeholder="SN"
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
                 </div>
@@ -391,18 +392,18 @@ export function SuperAdminView() {
               <p className="text-xs text-gray-500 font-medium uppercase tracking-wider pt-2">{t("adminAccount")}</p>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">{t("adminName")}</label>
-                <input value={form.adminName} onChange={(e) => f("adminName", e.target.value)}
+                <input aria-label={t("adminName")} value={form.adminName} onChange={(e) => f("adminName", e.target.value)}
                   placeholder={t("placeholderAdminName")}
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">{t("adminEmail")}</label>
-                <input type="email" value={form.adminEmail} onChange={(e) => f("adminEmail", e.target.value)}
+                <input type="email" aria-label={t("adminEmail")} value={form.adminEmail} onChange={(e) => f("adminEmail", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">{t("adminPassword")}</label>
-                <input type="password" value={form.adminPassword} onChange={(e) => f("adminPassword", e.target.value)}
+                <input type="password" aria-label={t("adminPassword")} value={form.adminPassword} onChange={(e) => f("adminPassword", e.target.value)}
                   placeholder={t("passwordHint")}
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
               </div>

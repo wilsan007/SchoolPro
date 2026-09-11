@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -18,6 +19,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (!existing) return NextResponse.json({ error: "Salle introuvable" }, { status: 404 });
 
     await prisma.salle.delete({ where: { id } });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "salle:delete",
+      verdict: "ALLOWED",
+      resource: "salle",
+      resourceId: id,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/salles DELETE]", error);

@@ -117,6 +117,7 @@ export function GenerationComptesParentsForm({ classes, hierarchie }: { classes:
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
+                aria-label="Générer des comptes parents"
                 checked={useCustomPassword}
                 onChange={(e) => setUseCustomPassword(e.target.checked)}
                 className="rounded border-input"
@@ -127,6 +128,7 @@ export function GenerationComptesParentsForm({ classes, hierarchie }: { classes:
             {useCustomPassword && (
               <Input
                 type="text"
+                aria-label={t("genAccountsCustomPassword")}
                 placeholder={t("genAccountsPasswordPlaceholder")}
                 value={customPassword}
                 onChange={(e) => setCustomPassword(e.target.value)}

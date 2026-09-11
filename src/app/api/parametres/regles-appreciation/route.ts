@@ -4,6 +4,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
 import { ContexteAppreciation } from "@prisma/client";
+import { auditFire } from "@/lib/audit";
 
 const RegleSchema = z.object({
   contexte: z.nativeEnum(ContexteAppreciation),
@@ -104,6 +105,15 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.reglesAppreciation.delete({
     where: { id: parsed.data.id, tenantId: session.user.tenantId },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "regles-appreciation:delete",
+    verdict: "ALLOWED",
+    resource: "reglesAppreciation",
+    resourceId: parsed.data.id,
   });
 
   return NextResponse.json({ success: true });

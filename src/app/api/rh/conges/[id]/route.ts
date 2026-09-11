@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-filter";
+import { auditFire } from "@/lib/audit";
 
 const ActionSchema = z.object({
   action: z.enum(["APPROUVE", "REFUSE", "ANNULE"]),
@@ -43,6 +44,16 @@ export async function PATCH(
       approuveAt: new Date(),
       commentaire: commentaire || conge.commentaire,
     },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "rh-conge:update",
+    verdict: "ALLOWED",
+    resource: "congePersonnel",
+    resourceId: id,
+    metadata: { action },
   });
 
   if (action === "APPROUVE" && conge.type === "ANNUEL") {

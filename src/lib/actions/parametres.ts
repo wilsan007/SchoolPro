@@ -18,6 +18,7 @@ import type { Role } from "@prisma/client";
 import { normaliserEmail } from "@/lib/email";
 import { generateRandomPassword } from "@/lib/security/password";
 import { auditFire } from "@/lib/audit";
+import { applyRlsContext } from "@/lib/prisma-rls";
 
 // ============================================================
 // ÉTABLISSEMENT
@@ -358,18 +359,29 @@ export async function deleteUser(userId: string) {
   });
   if (!user) throw new Error("Utilisateur non trouvé");
 
-  // Supprimer les enregistrements liés pour éviter les violations de clés étrangères
-  await prisma.enseignant.deleteMany({ where: { userId, tenantId: session.user.tenantId } }).catch(() => {});
-  await prisma.parent.deleteMany({ where: { userId, tenantId: session.user.tenantId } }).catch(() => {});
-  await prisma.userSite.deleteMany({ where: { userId } }).catch(() => {});
-  // Le compte lui-même est supprimé juste après : ses adhésions doivent toutes
-  // partir, y compris celles d'autres établissements, sinon la clé étrangère
-  // bloque la suppression. L'appartenance au tenant appelant vient d'être
-  // vérifiée ci-dessus.
-  // LIMITE ASSUMÉE : un compte partagé entre plusieurs établissements perd
-  // aussi ses accès aux autres, puisque la ligne User disparaît.
-  // eslint-disable-next-line ecolpro/require-tenant-id
-  await prisma.userTenant.deleteMany({ where: { userId } }).catch(() => {});
+  // MET-H7 (audit v2) : la suppression définitive détruit des données financières
+  // (RemiseCaisse.caissier → Cascade) et des comptes d'autres établissements
+  // (userTenant.deleteMany sans filtre tenantId). On désactive le compte et
+  // on ne supprime que l'adhésion au tenant courant.
+  // La suppression définitive est une opération séparée, réservée à SUPER_ADMIN
+  // avec une procédure de purge documentée.
+
+  // 1. Désactiver le compte (soft delete) — préserve les données financières.
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: false },
+  });
+
+  // 2. Supprimer uniquement l'adhésion au tenant courant, pas les autres.
+  // eslint-disable-next-line ecolpro/require-tenant-id -- tenantId explicite ci-dessous
+  await prisma.userTenant.deleteMany({
+    where: { userId, tenantId: session.user.tenantId },
+  }).catch(() => {});
+
+  // 3. Supprimer les affectations de site du tenant courant uniquement.
+  await prisma.userSite.deleteMany({
+    where: { userId, site: { tenantId: session.user.tenantId } },
+  }).catch(() => {});
 
   auditFire({
     tenantId: session.user.tenantId,
@@ -378,10 +390,8 @@ export async function deleteUser(userId: string) {
     verdict: "ALLOWED",
     resource: "user",
     resourceId: userId,
-    metadata: { deletedEmail: user.email },
+    metadata: { deletedEmail: user.email, softDelete: true },
   });
-
-  await prisma.user.delete({ where: { id: userId } });
 
   revalidatePath("/parametres");
   return { success: true };
@@ -552,6 +562,7 @@ export async function deleteClasse(
 
     // Déplacer les élèves + créer l'historique en une transaction
     await prisma.$transaction(async (tx) => {
+      await applyRlsContext(tx);
       const eleves = await tx.eleve.findMany({
         where: { classeId, deletedAt: null },
         select: { id: true },
@@ -583,6 +594,7 @@ export async function deleteClasse(
   if (hasActiveStudents && strategy === "remove") {
     // Détacher les élèves (classeId = null) puis supprimer la classe
     await prisma.$transaction(async (tx) => {
+      await applyRlsContext(tx);
       const eleves = await tx.eleve.findMany({
         where: { classeId, deletedAt: null },
         select: { id: true },
@@ -830,6 +842,7 @@ export async function transferClasse(classeId: string, targetSiteId: string) {
 
   // Transaction : transférer la classe ET tous ses élèves vers le nouveau site
   await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     await tx.classe.update({
       where: { id: classeId },
       data: { siteId: targetSiteId },
@@ -900,6 +913,7 @@ export async function mergeClasses(sourceIds: string[], targetClasseId: string) 
   }
 
   await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     for (const sourceId of sourceIds) {
       const eleves = await tx.eleve.findMany({
         where: { classeId: sourceId, deletedAt: null },
@@ -971,6 +985,7 @@ export async function splitClasse(
   if (!source) throw new Error("Classe source introuvable");
 
   await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     for (const nc of newClasses) {
       // Créer la nouvelle classe avec les mêmes propriétés que la source
       const created = await tx.classe.create({
@@ -2135,6 +2150,7 @@ export async function executePromotion(
   });
 
   await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     for (const classe of classes) {
       const nvSuivant = await niveauSuivant(classe.niveau);
 
@@ -2322,6 +2338,7 @@ export async function mergeEleves(
   if (!merge) throw new Error("Élève à fusionner introuvable");
 
   await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     // Migrer toutes les relations de l'élève fusionné vers l'élève conservé
     // Notes
     await tx.note.updateMany({ where: { eleveId: mergeId }, data: { eleveId: keepId } });

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { peutDeplacerHorloge, DEMO_NOW_SCOPE_COOKIE } from "@/lib/demo-now";
+
+const demoNowSchema = z.object({
+  date: z.string().min(1, "Date requise"),
+});
 
 /**
  * Time Machine — date de démonstration, version mobile.
@@ -76,11 +81,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
-  if (!body?.date || typeof body.date !== "string") {
+  const parsed = demoNowSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json({ error: "Date invalide" }, { status: 400 });
   }
 
-  const d = new Date(body.date);
+  const d = new Date(parsed.data.date);
   if (isNaN(d.getTime())) {
     return NextResponse.json({ error: "Date invalide" }, { status: 400 });
   }

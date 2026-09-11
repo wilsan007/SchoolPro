@@ -136,7 +136,7 @@ export function TransfertClasseForm({ classes, hierarchie }: { classes: ClasseSi
                   {sourceClasse.eleves.map((e) => (
                     <tr key={e.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => toggleEleve(e.id)}>
                       <td className="px-3 py-2 border-b">
-                        <input type="checkbox" checked={selected.has(e.id)} readOnly className="rounded" />
+                        <input type="checkbox" aria-label="Transfert de classe" checked={selected.has(e.id)} readOnly className="rounded" />
                       </td>
                       <td className="px-3 py-2 border-b">{e.matricule}</td>
                       <td className="px-3 py-2 border-b font-medium">{e.nom} {e.prenom}</td>

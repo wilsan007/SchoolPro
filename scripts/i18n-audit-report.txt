@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-09T14:23:33.359Z
+SchoolPro i18n audit — 2026-09-11T23:04:46.693Z
 
 Referenced keys missing from fr.json: 0
 
@@ -15,10 +15,10 @@ Dynamic template-literal t() calls (manual review): 214
   src/app/(dashboard)/test-telegram/page.tsx:36  `${data.chats.length} chat(s) trouvé(s)`
   src/components/absences/AbsencesList.tsx:114  `${absence.eleve.prenom} ${absence.eleve.nom}`
   src/components/absences/AppelInterface.tsx:220  `${eleve.prenom} ${eleve.nom}`
-  src/components/admissions/AdmissionsView.tsx:592  `/api/admissions/${candidature.id}`
-  src/components/admissions/AdmissionsView.tsx:625  `/api/admissions/${candidature.id}`
-  src/components/admissions/AdmissionsView.tsx:653  `/api/admissions/${candidature.id}`
-  src/components/admissions/AdmissionsView.tsx:675  `/api/admissions/${candidature.id}`
+  src/components/admissions/AdmissionsView.tsx:594  `/api/admissions/${candidature.id}`
+  src/components/admissions/AdmissionsView.tsx:627  `/api/admissions/${candidature.id}`
+  src/components/admissions/AdmissionsView.tsx:655  `/api/admissions/${candidature.id}`
+  src/components/admissions/AdmissionsView.tsx:677  `/api/admissions/${candidature.id}`
   src/components/ai/AiChatWidget.tsx:171  `days.${action.jour}`
   src/components/ai/AiChatWidget.tsx:299  `days.${action.jour}`
   src/components/ai/AiChatWidget.tsx:353  `days.${c.jour}`
@@ -44,13 +44,13 @@ Dynamic template-literal t() calls (manual review): 214
   src/components/bulletins/ConseilDeClasse.tsx:65  `/api/bulletins/matrice?classeId=${classeId}&periodeId=${periodeId}`
   src/components/cahier-journal/CahierJournalView.tsx:267  `/api/cahier-journal/seances/${expandedSeance}`
   src/components/cahier-journal/CahierJournalView.tsx:1072  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1165  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1280  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1404  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1798  `/api/cahier-journal/seances/${seance.id}/fichiers`
-  src/components/cahier-journal/CahierJournalView.tsx:1834  `/api/cahier-journal/seances/${seance.id}/fichiers`
-  src/components/cahier-journal/CahierJournalView.tsx:1944  `/api/cahier-journal/seances/${seance.id}/commentaires`
-  src/components/cahier-journal/CahierJournalView.tsx:1968  `/api/cahier-journal/seances/${seance.id}/commentaires`
+  src/components/cahier-journal/CahierJournalView.tsx:1166  `/api/cahier-journal/seances/${seance.id}`
+  src/components/cahier-journal/CahierJournalView.tsx:1284  `/api/cahier-journal/seances/${seance.id}`
+  src/components/cahier-journal/CahierJournalView.tsx:1411  `/api/cahier-journal/seances/${seance.id}`
+  src/components/cahier-journal/CahierJournalView.tsx:1810  `/api/cahier-journal/seances/${seance.id}/fichiers`
+  src/components/cahier-journal/CahierJournalView.tsx:1846  `/api/cahier-journal/seances/${seance.id}/fichiers`
+  src/components/cahier-journal/CahierJournalView.tsx:1957  `/api/cahier-journal/seances/${seance.id}/commentaires`
+  src/components/cahier-journal/CahierJournalView.tsx:1981  `/api/cahier-journal/seances/${seance.id}/commentaires`
   src/components/cahier-journal/SuiviProgrammePanel.tsx:117  `/api/cahier-journal/suivi-programme?semaine=${s}`
   src/components/cahier-journal/TableauBordPanel.tsx:80  `/api/cahier-journal/tableau-bord/${seanceId}`
   src/components/caisse/GestionCaisse.tsx:181  `/api/remises-caisse/${remiseId}/confirmer`
@@ -59,8 +59,8 @@ Dynamic template-literal t() calls (manual review): 214
   src/components/classes/ClassTreeSelector.tsx:179  `categorie_${cat.label}`
   src/components/classes/DrillDownNavigator.tsx:252  `categorie_${hierarchie.find((c) => c.categorie === selectedCat)?.label}`
   src/components/classes/DrillDownNavigator.tsx:309  `categorie_${cat.label}`
-  src/components/communication/CommunicationView.tsx:393  `/api/communication/${id}`
-  src/components/communication/CommunicationView.tsx:410  `/api/communication/${id}`
+  src/components/communication/CommunicationView.tsx:395  `/api/communication/${id}`
+  src/components/communication/CommunicationView.tsx:412  `/api/communication/${id}`
   src/components/comparateur/ComparateurView.tsx:178  `HTTP ${r.status}`
   src/components/comparateur/ComparateurView.tsx:328  `/api/learnos/direction-intelligence?${params.toString()}`
   src/components/comparateur/ComparateurView.tsx:329  `HTTP ${r.status}`
@@ -79,9 +79,9 @@ Dynamic template-literal t() calls (manual review): 214
   src/components/dossier-progression/DossierProgressionView.tsx:263  `/api/dossier-progression?eleveId=${eleveId}`
   src/components/eleves/CartesScolairesForm.tsx:34  `/api/eleves/cartes-scolaires?classeId=${classeId}`
   src/components/eleves/DispenseMatiereManager.tsx:76  `/api/eleves/dispenses?id=${id}`
-  src/components/eleves/EleveDetailView.tsx:352  `${eleve.prenom} ${eleve.nom}`
-  src/components/eleves/EleveDetailView.tsx:367  `statut${eleve.statut}`
-  src/components/eleves/EleveDetailView.tsx:367  `statut${eleve.statut}`
+  src/components/eleves/EleveDetailView.tsx:356  `${eleve.prenom} ${eleve.nom}`
+  src/components/eleves/EleveDetailView.tsx:371  `statut${eleve.statut}`
+  src/components/eleves/EleveDetailView.tsx:371  `statut${eleve.statut}`
   src/components/eleves/EleveForm.tsx:173  `/eleves/${result.id}`
   src/components/eleves/ElevesActions.tsx:43  `/api/eleves?${params.toString()}`
   src/components/eleves/ElevesTable.tsx:90  `?${params.toString()}`
@@ -106,13 +106,13 @@ Dynamic template-literal t() calls (manual review): 214
   src/components/emploi-du-temps/SmartSuggestPanel.tsx:244  `/api/emploi-du-temps/suggest?${params}`
   src/components/emploi-du-temps/SmartSuggestPanel.tsx:275  `days.${s.jour}`
   src/components/emploi-du-temps/SmartSuggestPanel.tsx:476  `days.${key}`
-  src/components/emploi-du-temps/SmartSuggestPanel.tsx:827  `days.${s.jour}`
+  src/components/emploi-du-temps/SmartSuggestPanel.tsx:829  `days.${s.jour}`
   src/components/evaluations/CompetencesEvaluation.tsx:54  `/api/curriculum/evaluations/${evaluationId}/competences`
   src/components/evaluations/CompetencesEvaluation.tsx:86  `/api/curriculum/evaluations/${evaluationId}/competences`
   src/components/evaluations/GrilleSaisie.tsx:55  `/api/evaluations/${evaluation.id}/notes`
-  src/components/examens/ExamensManager.tsx:200  `/api/examens/${examId}/sessions`
-  src/components/examens/ExamensManager.tsx:320  `/api/examens/${examen.id}`
-  src/components/examens/ExamensManager.tsx:528  `/api/examens/${examId}/deliberation`
+  src/components/examens/ExamensManager.tsx:203  `/api/examens/${examId}/sessions`
+  src/components/examens/ExamensManager.tsx:328  `/api/examens/${examen.id}`
+  src/components/examens/ExamensManager.tsx:536  `/api/examens/${examId}/deliberation`
   src/components/examens/RapportClasseTable.tsx:51  `/api/bulletins/rapport-classe?classeId=${classeId}&periodeId=${periodeId}`
   src/components/facturation/FactureForm.tsx:124  `/api/facturation/existing?eleveId=${eleveId}`
   src/components/facturation/FactureForm.tsx:194  `/api/facturation/tarif?classeId=${classeId}&type=${type}${mois ? `
@@ -126,10 +126,10 @@ Dynamic template-literal t() calls (manual review): 214
   src/components/learnos/BanqueQuestions.tsx:203  `/api/learnos/questions/${id}`
   src/components/learnos/BanqueQuestions.tsx:262  `palier${p}`
   src/components/learnos/BanqueQuestions.tsx:267  `format${f}`
-  src/components/learnos/BanqueQuestions.tsx:318  `palier${q.palier}`
-  src/components/learnos/BanqueQuestions.tsx:319  `format${q.format}`
-  src/components/learnos/BanqueQuestions.tsx:415  `palier${p}`
-  src/components/learnos/BanqueQuestions.tsx:424  `format${f}`
+  src/components/learnos/BanqueQuestions.tsx:319  `palier${q.palier}`
+  src/components/learnos/BanqueQuestions.tsx:320  `format${q.format}`
+  src/components/learnos/BanqueQuestions.tsx:417  `palier${p}`
+  src/components/learnos/BanqueQuestions.tsx:426  `format${f}`
   src/components/learnos/CompetencesClasse.tsx:182  `/api/learnos/classes/${classeId}/competences`
   src/components/learnos/CompetencesClasse.tsx:199  `${p.eleveId}:${p.competenceId}`
   src/components/learnos/CompetencesClasse.tsx:249  `${el.id}:${comp.id}`
@@ -193,7 +193,7 @@ Dynamic template-literal t() calls (manual review): 214
   src/components/reinscription/CampagneReinscriptionWizard.tsx:410  `statut.${campagneActive.statut.toLowerCase()}`
   src/components/reinscription/CampagneReinscriptionWizard.tsx:474  `${etapeConfig.key}.title`
   src/components/reinscription/CampagneReinscriptionWizard.tsx:504  `${ETAPES[etape - 1].key}.title`
-  src/components/reinscription/ParentReinscriptionClient.tsx:42  `/api/reinscription/invitation/${invitationId}`
+  src/components/reinscription/ParentReinscriptionClient.tsx:46  `/api/reinscription/invitation/${invitationId ?? "token"}${query}`
   src/components/reinscription/PromotionPreview.tsx:225  `step3.${decision}`
   src/components/reinscription/SuiviReinscriptions.tsx:112  `statutInv.${statut.toLowerCase()}`
   src/components/reinscription/SuiviReinscriptions.tsx:176  `statutInv.${inv.statut.toLowerCase()}`

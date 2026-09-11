@@ -355,6 +355,7 @@ export function ImportEmploiModal({ open, onClose, hierarchie, creneauxParClasse
                       <input
                         ref={inputRef}
                         type="file"
+                        aria-label="Importer un fichier d'emploi du temps"
                         accept=".xlsx,.csv,.txt,.docx,.doc"
                         className="hidden"
                         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}

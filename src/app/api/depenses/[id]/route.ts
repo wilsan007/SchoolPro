@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   budgetId: z.string().optional().nullable(),
@@ -170,6 +171,15 @@ export async function PATCH(
       },
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "depense:update",
+      verdict: "ALLOWED",
+      resource: "depense",
+      resourceId: id,
+    });
+
     // Recalculer le budget concerné (nouveau et/ou ancien).
     const budgetsToRecalc = new Set<string>();
     if (depense.budgetId) budgetsToRecalc.add(depense.budgetId);
@@ -214,6 +224,15 @@ export async function DELETE(
   const budgetId = existing.budgetId;
 
   await prisma.depense.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "depense:delete",
+    verdict: "ALLOWED",
+    resource: "depense",
+    resourceId: id,
+  });
 
   // Recalculer le budget parent.
   if (budgetId) {

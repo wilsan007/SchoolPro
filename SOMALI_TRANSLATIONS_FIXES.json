@@ -1,0 +1,197 @@
+{
+  "_metadata": {
+    "description": "Corrections et ajouts pour les traductions somali (so.json)",
+    "date": "2026-09-11",
+    "priority": "1 - Appliquer immédiatement",
+    "applied_by": "Audit i18n v1"
+  },
+
+  "SECTION_1_CORRECTIONS_CRITIQUES": {
+    "description": "Erreurs à corriger dans so.json (typos et grammaire)",
+    "priority": "🔴 IMMÉDIATE"
+  },
+
+  "learnos": {
+    "kpi": {
+      "elevesARisque": {
+        "current": "Ardayda khatarrrka ah",
+        "corrected": "Ardayda khatarka ah",
+        "error_type": "TYPO",
+        "explanation": "Triple 'r' au lieu de double 'r' — simple erreur de frappe"
+      }
+    },
+    "erreurs": {
+      "NON_AUTORISE": {
+        "current": "Ma tida leedahay inaad…",
+        "corrected": "Lama oggolaanin…",
+        "error_type": "GRAMMAIRE",
+        "explanation": "Meilleure expression somali pour 'non autorisé' — plus idiomatique et naturelle"
+      }
+    },
+
+    "SECTION_2_AMÉLIORATIONS_STYLE": {
+      "description": "Termes à améliorer pour meilleure UX somali (optionnel mais recommandé)",
+      "priority": "🟡 HAUTE"
+    },
+
+    "commun": {
+      "chargement": {
+        "current": "Soo dejinta…",
+        "recommended": "Ballaa jira…",
+        "error_type": "STYLE",
+        "explanation": "Moins formel, plus naturel dans l'interface UI somali",
+        "priority": "HAUTE"
+      }
+    },
+
+    "planification": {
+      "repartirAuto": {
+        "current": "Qaybi xubnahan",
+        "recommended": "Qaybi maaddada",
+        "error_type": "CLARTÉ",
+        "explanation": "'xubnahan' est faible; 'maaddada' (la matière) est plus explicite et naturel",
+        "priority": "HAUTE"
+      }
+    },
+
+    "curriculum": {
+      "prerequis": {
+        "current": "Horuloojeedyada",
+        "recommended": "Horuloojeedyo",
+        "error_type": "LONGUEUR",
+        "explanation": "Même sens, mais forme plus courte et plus idiomatique pour UI",
+        "priority": "BASSE (cosmétique)"
+      }
+    },
+
+    "bot": {
+      "menu": {
+        "current": "Subax wanaag 👋 Wayd ii weydiin kartaa…",
+        "recommended": "Salaam 👋 Waxaad ii weydiin kartaa…",
+        "error_type": "UNIVERSAL",
+        "explanation": "'Salaam' est universel (n'importe l'heure), contrairement à 'Subax wanaag' (matin)",
+        "priority": "MOYENNE"
+      }
+    }
+  },
+
+  "SECTION_3_CLÉS_MANQUANTES": {
+    "description": "Clés complètement absentes de so.json — À ajouter",
+    "priority": "🔴 IMMÉDIATE"
+  },
+
+  "conseilAugmente": {
+    "mentoratType": {
+      "ACADEMIQUE": {
+        "fr": "Académique",
+        "en": "Academic",
+        "so": "Académi oo Waxbarashad",
+        "explanation_so": "Academic + Enseignement — Plus explicite pour contexte éducatif somali",
+        "is_missing": true
+      },
+      "PROFESSIONNEL": {
+        "fr": "Professionnel",
+        "en": "Professional",
+        "so": "Xirfad ee Shaqada",
+        "explanation_so": "Compétence/métier + Travail — Standard pour 'professionnel' en somali",
+        "is_missing": true
+      },
+      "PERSONNEL": {
+        "fr": "Personnel",
+        "en": "Personal",
+        "so": "Shaqsiis eed loo tixraaco",
+        "explanation_so": "Personnel désigné — Plus naturel et explicite que simplement 'Shakhsi'",
+        "is_missing": true
+      }
+    }
+  },
+
+  "SECTION_4_RÉFÉRENCE_TERMINOLOGIE": {
+    "description": "Guide de traduction somali — Termes exacts et plus utilisés",
+    "note": "À utiliser pour toutes les traductions futures"
+  },
+
+  "VERBES_COURANTS": {
+    "Créer": { "so": "Abuur", "usage": "Standard", "frequency": "Très courant" },
+    "Enregistrer": { "so": "Kaydi", "usage": "Standard", "frequency": "Très courant" },
+    "Supprimer": { "so": "Tirtir", "usage": "Standard (ou Tiire)", "frequency": "Très courant" },
+    "Modifier": { "so": "Wax ka beddel", "usage": "Standard", "frequency": "Courant" },
+    "Annuler": { "so": "Jooji", "usage": "Standard", "frequency": "Très courant" },
+    "Confirmer": { "so": "Ansiin", "usage": "Standard", "frequency": "Courant" },
+    "Valider": { "so": "Ansixi", "usage": "Standard", "frequency": "Courant" },
+    "Publier": { "so": "Daabac", "usage": "Standard", "frequency": "Courant" },
+    "Générer": { "so": "Abuur / Abuuri", "usage": "Standard", "frequency": "Courant" },
+    "Charger/Télécharger": { "so": "Ku darso", "usage": "Standard", "frequency": "Courant" }
+  },
+
+  "TERMES_ÉDUCATIFS": {
+    "Curriculum": { "so": "Barnaamijka", "usage": "Standard", "note": "Programme d'études" },
+    "Chapitres": { "so": "Cutubyada", "usage": "Pluriel standard", "note": "Sing: Cutubo" },
+    "Compétences": { "so": "Awoodaha", "usage": "Pluriel standard", "note": "Sing: Awood" },
+    "Prérequis": { "so": "Horuloojeedyo", "usage": "Standard (plus court)", "note": "Alt: Horuloojeedyada" },
+    "Classe": { "so": "Fasal", "usage": "Standard", "note": "Établissement scolaire" },
+    "Élève": { "so": "Arday", "usage": "Singulier standard", "note": "Pluriel: Ardayda" },
+    "Matière": { "so": "Maaddo", "usage": "Singulier standard", "note": "Pluriel: Maaddooyinka" },
+    "Note/Évaluation": { "so": "Qiimeyn", "usage": "Plus précis", "note": "Alt: Marka (simple)" },
+    "Absence": { "so": "Maqnaanshaha", "usage": "Standard", "note": "État d'absence" },
+    "Incident": { "so": "Dhacdad", "usage": "Standard", "note": "Événement/problème" },
+    "Sanction": { "so": "Kaas", "usage": "Standard (discipline)", "note": "Alt: Ujeeddo" },
+    "Recommandation": { "so": "Talooyin", "usage": "Standard", "note": "Pluriel de 'Taalo'" },
+    "Progression": { "so": "Waa sii socda", "usage": "Expression idiomatique", "note": "En cours/progression" },
+    "Risque": { "so": "Khatarka", "usage": "Standard", "note": "Danger/menace" }
+  },
+
+  "EXPRESSIONS_COURANTES": {
+    "Succès": { "so": "Guuley", "usage": "Notifications positives", "frequency": "Très courant" },
+    "Erreur": { "so": "Khalad", "usage": "Messages d'erreur", "frequency": "Très courant" },
+    "Avertissement": { "so": "Digniin", "usage": "Alertes de vigilance", "frequency": "Courant" },
+    "Information": { "so": "Macluumaad", "usage": "Infos neutres", "frequency": "Courant" },
+    "Pas de résultat": { "so": "Natiijo la'aan", "usage": "Listes vides", "frequency": "Courant" },
+    "Pas de données": { "so": "Ma jiro tiro", "usage": "États vides (données)", "frequency": "Courant" },
+    "Non autorisé": { "so": "Lama oggolaanin…", "usage": "Erreurs d'accès/permissions", "frequency": "Courant" },
+    "Bonjour": { "so": "Salaam", "usage": "Accueils/bots", "frequency": "Très courant" },
+    "Chargement en cours": { "so": "Ballaa jira…", "usage": "Loading states", "frequency": "Très courant" }
+  },
+
+  "PLURIELS_ET_DÉCLINAISONS": {
+    "note": "Le somali utilise des marqueurs grammaticaux pour les pluriels — essentiels à respecter",
+    "exemples": {
+      "arday → ardayda": { "marker": "-da (collectif)", "meaning": "élève → les élèves" },
+      "cutubo → cutubyada": { "marker": "-da (pluriel)", "meaning": "chapitre → chapitres" },
+      "awood → awoodaha": { "marker": "-ha (pluriel)", "meaning": "compétence → compétences" },
+      "maaddo → maaddooyinka": { "marker": "-yinka (pluriel)", "meaning": "matière → matières" }
+    },
+    "règle_d_or": "Préférer le pluriel naturel avec marqueur plutôt que la forme neutre (sauf clés génériques)"
+  },
+
+  "PUNCTUATION_CONVENTIONS": {
+    "ellipsis": "Utilisé pour les états en cours (Ballaa jira…, Jooji…)",
+    "exclamation": "Conservé dans messages positifs (Guuley!, Yay!)",
+    "question": "Conservé dans confirmations (Aad shegaysaa?, Wax ku qabta?)"
+  },
+
+  "APPLICATION_CHECKLIST": {
+    "phase_1_critical": [
+      "✓ Corriger typo 'khatarrrka' → 'khatarka'",
+      "✓ Corriger grammaire 'Ma tida leedahay' → 'Lama oggolaanin'",
+      "✓ Ajouter 3 clés 'conseilAugmente.mentoratType.*'"
+    ],
+    "phase_2_recommended": [
+      "○ Changer 'Soo dejinta' → 'Ballaa jira' (commun.chargement)",
+      "○ Changer 'Qaybi xubnahan' → 'Qaybi maaddada' (planification.repartirAuto)",
+      "○ Changer 'Subax wanaag' → 'Salaam' (bot.menu)"
+    ],
+    "phase_3_future": [
+      "□ Traduire namespace learnos.* (~350 clés)",
+      "□ Utiliser guide terminologie pour cohérence",
+      "□ Valider avec locuteur natif"
+    ]
+  },
+
+  "VALIDATION_COMMANDS": {
+    "check_typo": "jq '.learnos.kpi.elevesARisque' src/i18n/so.json",
+    "check_missing": "jq '.conseilAugmente.mentoratType // \"ABSENT\"' src/i18n/so.json",
+    "run_audit": "node scripts/i18n-audit.mjs",
+    "test_i18n": "pnpm test -- --grep 'i18n'"
+  }
+}

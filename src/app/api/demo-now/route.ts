@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
@@ -7,6 +6,7 @@ import {
   DEMO_NOW_COOKIE,
   DEMO_NOW_ENABLED_COOKIE,
   DEMO_NOW_SCOPE_COOKIE,
+  getDemoDate,
   peutDeplacerHorloge,
 } from "@/lib/demo-now";
 import { isDemoPreset, DEMO_PRESETS } from "@/lib/demo-presets";
@@ -109,23 +109,20 @@ export async function GET() {
     );
   }
 
-  const cookieStore = await cookies();
-  const enabled = cookieStore.get(DEMO_NOW_ENABLED_COOKIE)?.value;
-  const iso = cookieStore.get(DEMO_NOW_COOKIE)?.value;
+  // Utiliser getDemoDate() qui vérifie le scope [userId, tenantId] contre la
+  // session en cours. Sans cela, l'UI afficherait une date que le serveur ignore
+  // silencieusement — l'utilisateur croirait être à mars 2026 alors que tous les
+  // calculs utilisent la date réelle.
+  const demoDate = await getDemoDate();
 
-  if (enabled !== "true" || !iso) {
-    return NextResponse.json({ autorise: true, enabled: false, date: null, realNow });
-  }
-
-  const d = new Date(decodeURIComponent(iso));
-  if (isNaN(d.getTime())) {
+  if (!demoDate) {
     return NextResponse.json({ autorise: true, enabled: false, date: null, realNow });
   }
 
   return NextResponse.json({
     autorise: true,
     enabled: true,
-    date: d.toISOString(),
+    date: demoDate.toISOString(),
     realNow,
   });
 }

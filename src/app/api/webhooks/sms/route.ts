@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyWebhookSecret } from "@/lib/webhooks";
 import { erreurJson } from "@/lib/erreurs-api";
+import { withSystemContext } from "@/lib/rls-context";
 
 /** Sanitise une valeur pour les logs : retire les caractères de contrôle. */
 function sanitizeForLog(value: string): string {
@@ -45,11 +46,13 @@ export async function POST(request: NextRequest) {
       // recherche est inter-tenants/inter-sites par nécessité.
       // Limite connue : si deux établissements enregistrent le même numéro,
       // le message est rattaché arbitrairement au premier trouvé.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
-      const parent = await prisma.parent.findFirst({
-        where: { phone: body.from },
-        include: { tenant: true },
-      });
+      const parent = await withSystemContext("webhook:sms-incoming", () =>
+        // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+        prisma.parent.findFirst({
+          where: { phone: body.from },
+          include: { tenant: true },
+        })
+      );
 
       if (parent) {
         // Créer une notification interne pour le suivi

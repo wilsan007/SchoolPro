@@ -107,6 +107,7 @@ export default function TestWhatsAppPage() {
           <div>
             <label className="text-sm font-medium block mb-1">Numéro de téléphone (format international)</label>
             <Input
+              aria-label="Numéro de téléphone (format international)"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="ex: 253779876543 ou +253779876543"
@@ -119,11 +120,11 @@ export default function TestWhatsAppPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium block mb-1">Nom de l&apos;élève</label>
-              <Input value={eleveNom} onChange={(e) => setEleveNom(e.target.value)} />
+              <Input aria-label="Nom de l'élève" value={eleveNom} onChange={(e) => setEleveNom(e.target.value)} />
             </div>
             <div>
               <label className="text-sm font-medium block mb-1">Nom de l&apos;école</label>
-              <Input value={ecoleNom} onChange={(e) => setEcoleNom(e.target.value)} />
+              <Input aria-label="Nom de l'école" value={ecoleNom} onChange={(e) => setEcoleNom(e.target.value)} />
             </div>
           </div>
         </CardContent>

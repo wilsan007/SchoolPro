@@ -311,6 +311,7 @@ function CreateTacheForm({
       <div className="flex gap-2 flex-wrap">
         <input
           type="text"
+          aria-label="Titre de la tâche"
           placeholder="Titre de la tâche…"
           value={titre}
           onChange={(e) => setTitre(e.target.value)}
@@ -342,6 +343,7 @@ function CreateTacheForm({
         </select>
         <input
           type="date"
+          aria-label="Échéance de la tâche"
           value={echeance}
           onChange={(e) => setEcheance(e.target.value)}
           className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"

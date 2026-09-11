@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import Stripe from "stripe";
 import { revalidateTag } from "next/cache";
+import { withSystemContext } from "@/lib/rls-context";
+import { auditFire } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -29,52 +31,64 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const { factureId, tenantId } = session.metadata ?? {};
+    await withSystemContext("webhook:stripe", async () => {
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const { factureId, tenantId } = session.metadata ?? {};
 
-        if (!factureId || !tenantId) break;
+          if (!factureId || !tenantId) break;
 
-        // eslint-disable-next-line ecolpro/require-site-filter -- webhook Stripe externe sans session utilisateur, tenantId provient des metadata Stripe
-        const facture = await prisma.facture.findFirst({
-          where: { id: factureId, tenantId },
-          include: { paiements: true },
-        });
-        if (!facture) break;
+          // eslint-disable-next-line ecolpro/require-site-filter -- webhook Stripe externe sans session utilisateur, tenantId provient des metadata Stripe
+          const facture = await prisma.facture.findFirst({
+            where: { id: factureId, tenantId },
+            include: { paiements: true },
+          });
+          if (!facture) break;
 
-        const amount = (session.amount_total ?? 0) / 100;
+          const amount = (session.amount_total ?? 0) / 100;
 
-        // Create payment record
-        await prisma.paiement.create({
-          data: {
-            factureId,
-            montant: amount,
-            devise: facture.devise,
-            methode: "carte",
-            reference: session.payment_intent?.toString() ?? session.id,
-          },
-        });
+          // Create payment record
+          await prisma.paiement.create({
+            data: {
+              factureId,
+              montant: amount,
+              devise: facture.devise,
+              methode: "carte",
+              reference: session.payment_intent?.toString() ?? session.id,
+            },
+          });
 
-        // Update invoice status
-        const totalPaye =
-          facture.paiements.reduce((sum, p) => sum + p.montant, 0) + amount;
-        const newStatut = totalPaye >= facture.montant ? "PAYEE" : facture.statut;
+          // Update invoice status
+          const totalPaye =
+            facture.paiements.reduce((sum, p) => sum + p.montant, 0) + amount;
+          const newStatut = totalPaye >= facture.montant ? "PAYEE" : facture.statut;
 
-        await prisma.facture.update({
-          where: { id: factureId },
-          data: { statut: newStatut as never },
-        });
+          await prisma.facture.update({
+            where: { id: factureId },
+            data: { statut: newStatut as never },
+          });
 
-        revalidateTag("dashboard-data");
+          auditFire({
+            tenantId,
+            userId: null,
+            action: "stripe:payment",
+            verdict: "ALLOWED",
+            resource: "facture",
+            resourceId: factureId,
+            metadata: { amount, method: "carte" },
+          });
 
-        console.log(`[Stripe] Paiement enregistré pour facture ${facture.numero}: ${amount}`);
-        break;
+          revalidateTag("dashboard-data");
+
+          console.log(`[Stripe] Paiement enregistré pour facture ${facture.numero}: ${amount}`);
+          break;
+        }
+
+        default:
+          break;
       }
-
-      default:
-        break;
-    }
+    });
 
     return NextResponse.json({ received: true });
   } catch (error) {

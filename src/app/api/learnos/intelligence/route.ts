@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
@@ -15,6 +16,12 @@ import {
 import { predirePourChapitre, verifierPredictions } from "@/lib/learnos/prediction-engine";
 import { calibrerSeuils } from "@/lib/learnos/calibration";
 import { publishEvent, type KpiRecalculerPayload } from "@/lib/learnos/events";
+
+const intelligenceSchema = z.object({
+  action: z.enum(["analyser", "correlations", "predire", "verifier", "calibrer", "complet"]).optional(),
+  chapitreId: z.string().optional(),
+  anneeId: z.string().optional(),
+});
 
 /**
  * Tableau de bord d'intelligence pédagogique.
@@ -143,37 +150,38 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
-  const body = (await req.json().catch(() => ({}))) as {
-    action?: string;
-    chapitreId?: string;
-    anneeId?: string;
-  };
+  const body = (await req.json().catch(() => ({})));
+  const parsed = intelligenceSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Données invalides" }, { status: 400 });
+  }
+  const { action, chapitreId, anneeId } = parsed.data;
 
-  const action = body.action ?? "complet";
+  const actionStr = action ?? "complet";
   const resultats: Record<string, unknown> = {};
 
-  if (action === "analyser" || action === "complet") {
+  if (actionStr === "analyser" || actionStr === "complet") {
     resultats.patterns = await analyserPatterns(tenantId, session.user);
   }
 
-  if (action === "correlations" || action === "complet") {
+  if (actionStr === "correlations" || actionStr === "complet") {
     resultats.correlations = await detecterCorrelations(tenantId, session.user);
   }
 
-  if (action === "predire" && body.chapitreId && body.anneeId) {
+  if (actionStr === "predire" && chapitreId && anneeId) {
     resultats.predictions = await predirePourChapitre(
       tenantId,
       session.user,
-      body.chapitreId,
-      body.anneeId
+      chapitreId,
+      anneeId
     );
   }
 
-  if (action === "verifier" && body.anneeId) {
-    resultats.verification = await verifierPredictions(tenantId, session.user, body.anneeId);
+  if (actionStr === "verifier" && anneeId) {
+    resultats.verification = await verifierPredictions(tenantId, session.user, anneeId);
   }
 
-  if (action === "calibrer" || action === "complet") {
+  if (actionStr === "calibrer" || actionStr === "complet") {
     resultats.calibration = await calibrerSeuils(tenantId, session.user);
   }
 
@@ -192,7 +200,7 @@ export async function POST(req: NextRequest) {
       aggregateType: "Tenant",
       aggregateId: tenantId,
       payload: {
-        perimetre: action,
+        perimetre: actionStr,
         patternsCrees: patternsResult?.patternsCrees ?? 0,
         patternsMisAJour: patternsResult?.patternsMisAJour ?? 0,
         echantillonTotal: patternsResult?.echantillonTotal ?? 0,

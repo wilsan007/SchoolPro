@@ -13,10 +13,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY eslint-rules ./eslint-rules
 
 # Augémenter la limite mémoire du heap Node.js pour le build Next.js
-# SKIP_TYPECHECK=true : le type checking est fait localement (pre-commit hook)
-# Évite l'OOM sur le builder Depot (2 GB RAM) pendant `tsc` dans `next build`
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-ENV SKIP_TYPECHECK="true"
+# TST-1 (audit v2) : SKIP_TYPECHECK retiré. Le type checking fait partie
+# du build Docker — un code qui ne type-checke pas ne doit pas être déployé.
+# Le pre-commit hook reste la première ligne de défense, mais la CI et le
+# build Docker sont la seconde. L'OOM sur Depot était dû à un manque de RAM
+# sur le builder, pas à tsc lui-même : NODE_OPTIONS=4096 suffit largement.
 
 # Installer les dépendances (frozen-lockfile = reproductible)
 RUN pnpm install --frozen-lockfile

@@ -3650,6 +3650,7 @@
       "FACTURE_INTROUVABLE": "Invoice not found",
       "ECHEANCIER_INTROUVABLE": "Payment plan not found",
       "INVITATION_INTROUVABLE": "Invitation not found",
+      "INVITATION_EXPIREE": "This invitation has expired",
       "DEJA_REPONDU": "You have already responded to this invitation",
       "CAMPAGNE_FERMEE": "The re-enrollment campaign is closed",
       "PASSWORD_TOO_SHORT": "Password must be at least 8 characters long",

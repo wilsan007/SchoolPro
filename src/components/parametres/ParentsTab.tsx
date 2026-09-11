@@ -390,12 +390,14 @@ export function ParentsTab({
                         {editingPhone === p.id ? (
                           <div className="flex flex-col gap-1">
                             <Input
+                              aria-label={t("phone")}
                               placeholder={t("phone")}
                               value={phoneForm.phone}
                               onChange={(e) => setPhoneForm({ ...phoneForm, phone: e.target.value })}
                               className="h-8 text-xs w-32"
                             />
                             <Input
+                              aria-label={t("telegram")}
                               placeholder={t("telegram")}
                               value={phoneForm.telegramChatId}
                               onChange={(e) => setPhoneForm({ ...phoneForm, telegramChatId: e.target.value })}

@@ -645,6 +645,7 @@ export function ConseilAugmenteView({ classes, hierarchie, periodes, periodeCour
                               <div className="flex items-center gap-1.5">
                                 <input
                                   type="text"
+                                  aria-label="Appréciation"
                                   value={eleve.appreciation}
                                   onChange={(e) => setAppreciation(eleve.id, e.target.value)}
                                   placeholder={tBul("appreciationPlaceholder")}

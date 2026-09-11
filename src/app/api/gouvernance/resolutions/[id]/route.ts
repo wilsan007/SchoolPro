@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { z } from "zod";
+import { auditFire } from "@/lib/audit";
 
 const STATUTS = ["ADOPTÉE", "REJETÉE", "EN_ATTENTE", "RETIRÉE"] as const;
 
@@ -64,6 +65,15 @@ export async function PATCH(
     const updated = await prisma.résolution.update({
       where: { id },
       data,
+    });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "resolution:update",
+      verdict: "ALLOWED",
+      resource: "resolution",
+      resourceId: id,
     });
 
     return NextResponse.json(updated);

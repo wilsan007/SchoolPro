@@ -10,6 +10,15 @@ import { genererFraisInscription, genererMensualites } from "@/lib/actions/factu
 import { cloturerAnnee } from "@/lib/annee-scolaire";
 import { sendWhatsAppMessage } from "@/lib/notifications/whatsapp";
 import { notifyDirection } from "@/lib/notifications/notify-direction";
+import crypto from "crypto";
+
+// API-H3 (audit v2) : génère un token aléatoire de 32 bytes (64 hex).
+function genererTokenInvitation(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+// API-H3 : durée de validité d'un token d'invitation (30 jours).
+const TOKEN_EXPIRATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ============================================================
 // CRUD CAMPAGNE
@@ -124,6 +133,8 @@ export async function creerCampagne(params: {
     parentPhone: string | null;
     parentEmail: string | null;
     decisionPromotion: string | null;
+    token: string;
+    expiresAt: Date;
   }> = [];
 
   for (const eleve of eleves) {
@@ -138,6 +149,9 @@ export async function creerCampagne(params: {
       parentPhone: parent?.phone ?? null,
       parentEmail: parent?.email ?? null,
       decisionPromotion: decision,
+      // API-H3 (audit v2) : token aléatoire + expiration 30 jours.
+      token: genererTokenInvitation(),
+      expiresAt: new Date(Date.now() + TOKEN_EXPIRATION_MS),
     });
   }
 
@@ -314,7 +328,12 @@ export async function envoyerInvitations(campagneId: string, canal: "WHATSAPP" |
   for (const invitation of campagne.invitations) {
     try {
       if (canal === "WHATSAPP" && invitation.parentPhone) {
-        const message = `Bonjour, votre enfant ${invitation.eleve.prenom} ${invitation.eleve.nom} (classe ${invitation.eleve.classe?.nom ?? "N/A"}) est invité(e) à se réinscrire pour l'année ${campagne.anneeCible}. Merci de confirmer via le portail parent.`;
+        // API-H3 (audit v2) : inclure le token dans le lien, pas l'ID.
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+        const link = invitation.token
+          ? `${appUrl}/parent/reinscription?token=${invitation.token}`
+          : `${appUrl}/parent/reinscription?id=${invitation.id}`;
+        const message = `Bonjour, votre enfant ${invitation.eleve.prenom} ${invitation.eleve.nom} (classe ${invitation.eleve.classe?.nom ?? "N/A"}) est invité(e) à se réinscrire pour l'année ${campagne.anneeCible}. Merci de confirmer via le lien suivant : ${link}`;
         await sendWhatsAppMessage(invitation.parentPhone, message);
       }
       // SMS et EMAIL peuvent être ajoutés ici

@@ -143,6 +143,7 @@ model Tenant {
   learnosInterventions             StudentIntervention[]
   learnosAiDecisions               AiDecisionLog[]
   learnosEvents                    LearnosEvent[]
+  learnosEventDeadletters          LearnosEventDeadletter[]
   learnosEvalCompetences           EvaluationCompetence[]
   learnosSeuils                    SeuilsRecommandation[]
   learnosRecommandations           Recommandation[]
@@ -187,6 +188,9 @@ model Tenant {
 
   // TÂCHES du personnel
   taches Tache[]
+
+  // Impersonation : grants ciblant ce tenant
+  impersonationGrants ImpersonationGrant[]
 
   // Synchronisation locale (sauvegarde automatique sur PC du principal)
   syncConfig SyncConfig?
@@ -604,6 +608,7 @@ model Site {
   learnosInterventions             StudentIntervention[]
   learnosAiDecisions               AiDecisionLog[]
   learnosEvents                    LearnosEvent[]
+  learnosEventDeadletters          LearnosEventDeadletter[]
   learnosEvalCompetences           EvaluationCompetence[]
   learnosSeuils                    SeuilsRecommandation[]
   learnosRecommandations           Recommandation[]
@@ -825,6 +830,13 @@ model InvitationReinscription {
   /// Décision de promotion associée (promouvoir | redoubler | diplome)
   decisionPromotion String?
 
+  /// API-H3 (audit v2) : token aléatoire (32 bytes hex) servant de token
+  /// d'accès public au lieu de l'ID incrémental. L'ID reste pour les
+  /// opérations internes (admin), le token pour le portail parent.
+  token        String?  @unique
+  /// API-H3 : expiration du token. Null = pas d'expiration (legacy).
+  expiresAt    DateTime?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -832,6 +844,7 @@ model InvitationReinscription {
   @@index([campagneId])
   @@index([eleveId])
   @@index([tenantId, statut])
+  @@index([token])
   @@map("invitation_reinscription")
 }
 
@@ -982,6 +995,13 @@ model User {
   backupCodes         String[]  @default([]) // codes de secours hashés
   twoFactorVerifiedAt DateTime? // dernière vérification 2FA réussie
 
+  // AUTH-H1 (audit v2) : version de session. Incrémentée à chaque changement
+  // sensible (mot de passe, désactivation, révocation de tenant, révocation
+  // de site). Le callback jwt compare cette valeur avec celle du token ; un
+  // écart déclenche une ré-hydratation depuis la base, invalidant le périmètre
+  // porté par le jeton.
+  sessionVersion Int @default(0)
+
   // Préférences
   langue        String @default("fr")
   locale        String @default("fr") // FR ou EN pour l'interface
@@ -1095,9 +1115,83 @@ model User {
   // de délivrance (DELIVERED / BOUNCED / FAILED) mis à jour par le webhook.
   emailsEnvoyes EmailLog[] @relation("EmailLogEnvoyePar")
 
+  // Impersonation : grants émis par cet utilisateur (SUPER_ADMIN)
+  impersonationGrants ImpersonationGrant[] @relation("ImpersonationGrantAdmin")
+
+  // Impersonation : grants où cet utilisateur est la cible
+  impersonationGrantsTarget ImpersonationGrant[] @relation("ImpersonationGrantTarget")
+
   @@index([tenantId])
   @@index([siteId])
   @@map("users")
+}
+
+// ============================================================
+// RATE LIMIT COUNTER — Compteur atomique partagé entre instances
+// ============================================================
+//
+// AUTH-H3 (audit v2) : le rate limit in-memory n'est pas partagé entre
+// instances Fly.io. Ce compteur en base permet un rate limit global.
+// Utilisé pour les routes critiques (login, set-password).
+
+model RateLimitCounter {
+  id        String   @id @default(cuid())
+  key       String   @unique // ex: "login:ip:1.2.3.4"
+  count     Int      @default(0)
+  windowStart DateTime
+  updatedAt DateTime @updatedAt
+
+  @@map("rate_limit_counters")
+}
+
+// ============================================================
+// TACHE CRON EXECUTION — Ledger d'idempotence du répartiteur cron
+// ============================================================
+//
+// AUT-H1 (audit v2) : le cron tourne toutes les 5 min. Sans ledger,
+// une tâche planifiée à 6 h UTC pouvait s'exécuter 12 fois dans l'heure.
+// Ce modèle enregistre chaque exécution réussie et empêche les doublons
+// dans la même fenêtre (par défaut : 1 h pour les tâches horaires,
+// 24 h pour les tâches quotidiennes).
+
+model TacheCronExecution {
+  id        String   @id @default(cuid())
+  nom       String   // nom de la tâche (ex: "learnos-kpi")
+  fenetre   DateTime // début de la fenêtre d'idempotence (arrondi à l'heure/jour)
+  executeeAt DateTime @default(now())
+  resultat  Json?    // résultat retourné par la tâche (pour audit)
+
+  @@unique([nom, fenetre])
+  @@index([nom, fenetre])
+  @@map("tache_cron_executions")
+}
+
+// ============================================================
+// IMPERSONATION GRANT — Autorisation stockée en base pour l'usurpation
+// ============================================================
+//
+// AUTH-1 (audit v2) : le callback `jwt` n'accepte plus les champs
+// d'usurpation depuis `POST /api/auth/session`. L'usurpation passe par
+// un grant créé par la route /api/super-admin/impersonate, vérifié en
+// base à chaque passage du callback. Un attaquant ne peut plus forge
+// son jeton : il doit posséder un grant valide dont il n'est pas le
+// titulaire.
+
+model ImpersonationGrant {
+  id             String   @id @default(cuid())
+  adminId        String
+  targetTenantId String
+  targetUserId   String
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  endedAt        DateTime?
+
+  admin        User   @relation("ImpersonationGrantAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  targetTenant Tenant @relation(fields: [targetTenantId], references: [id], onDelete: Cascade)
+  targetUser   User   @relation("ImpersonationGrantTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("impersonation_grants")
 }
 
 // ============================================================
@@ -1956,6 +2050,7 @@ model Note {
   @@index([matiereId])
   @@index([periodeId])
   @@index([evaluationId])
+  @@unique([evaluationId, eleveId])
   @@map("notes")
 }
 
@@ -3619,6 +3714,48 @@ model LearnosEvent {
   @@index([processedAt, occurredAt])
   @@index([aggregateType, aggregateId])
   @@map("learnos_events")
+}
+
+/// Dead-letter queue : événements abandonnés après épuisement des tentatives.
+///
+/// Quand un événement dépasse `MAX_ATTEMPTS`, il est déplacé ici plutôt que
+/// laissé dans la boîte d'envoi. Cela sépare le trafic sain (à traiter) du
+/// trafic en échec (à diagnostiquer), et permet à un opérateur de le rejouer
+/// après correction du traitement fautif via `replayDeadletterEvent()`.
+model LearnosEventDeadletter {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Type d'événement original, ex. "note.recorded".
+  eventType     String
+  aggregateType String
+  aggregateId   String
+
+  /// Instantané autosuffisant de l'événement original.
+  payload Json
+
+  /// Date d'origine de l'événement.
+  occurredAt DateTime
+
+  /// Date à laquelle l'événement a été déplacé en DLQ.
+  deadletteredAt DateTime @default(now())
+
+  /// Nombre de tentatives avant abandon.
+  attempts  Int
+  /// Dernière erreur enregistrée.
+  lastError String?
+
+  /// Statut de résolution : `PENDING` (à traiter), `REPLAYED` (rejoué avec succès), `IGNORED` (ignoré par un opérateur).
+  resolution String @default("PENDING")
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([resolution])
+  @@index([eventType])
+  @@map("learnos_event_deadletters")
 }
 
 /// Chapitre d'une matière (LEARNOS — Curriculum Knowledge Graph).

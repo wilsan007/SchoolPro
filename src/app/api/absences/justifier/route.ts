@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { auditFire } from "@/lib/audit";
 
 /**
  * Justification d'une absence par un parent.
@@ -80,6 +81,15 @@ export async function POST(req: NextRequest) {
       commentaire: commentaire || null,
     },
     select: { id: true, statut: true, motif: true },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "absence:justifier",
+    verdict: "ALLOWED",
+    resource: "absence",
+    resourceId: absenceId,
   });
 
   return NextResponse.json({ absence: updated });

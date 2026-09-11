@@ -58,7 +58,8 @@ export default async function MonEspacePage() {
       claims,
       session!.user.id,
       scopedClasseIds,
-      maintenant
+      maintenant,
+      anneeCourante
     ),
     getTeacherCounts(
       tenantId,

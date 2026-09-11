@@ -236,7 +236,7 @@ export function PersonnelAbsencesConges({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("date")}</Label>
-                      <Input type="date" value={absenceForm.date} onChange={(e) => setAbsenceForm({ ...absenceForm, date: e.target.value })} className="h-9" />
+                      <Input type="date" aria-label={t("date")} value={absenceForm.date} onChange={(e) => setAbsenceForm({ ...absenceForm, date: e.target.value })} className="h-9" />
                     </div>
                     <div>
                       <Label className="text-xs">{t("type")}</Label>
@@ -257,16 +257,16 @@ export function PersonnelAbsencesConges({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("startTime")}</Label>
-                      <Input type="time" value={absenceForm.heureDebut} onChange={(e) => setAbsenceForm({ ...absenceForm, heureDebut: e.target.value })} className="h-9" />
+                      <Input type="time" aria-label={t("startTime")} value={absenceForm.heureDebut} onChange={(e) => setAbsenceForm({ ...absenceForm, heureDebut: e.target.value })} className="h-9" />
                     </div>
                     <div>
                       <Label className="text-xs">{t("endTime")}</Label>
-                      <Input type="time" value={absenceForm.heureFin} onChange={(e) => setAbsenceForm({ ...absenceForm, heureFin: e.target.value })} className="h-9" />
+                      <Input type="time" aria-label={t("endTime")} value={absenceForm.heureFin} onChange={(e) => setAbsenceForm({ ...absenceForm, heureFin: e.target.value })} className="h-9" />
                     </div>
                   </div>
                   <div>
                     <Label className="text-xs">{t("motif")}</Label>
-                    <Input value={absenceForm.motif} onChange={(e) => setAbsenceForm({ ...absenceForm, motif: e.target.value })} className="h-9" placeholder={t("motifPlaceholder")} />
+                    <Input aria-label={t("motif")} value={absenceForm.motif} onChange={(e) => setAbsenceForm({ ...absenceForm, motif: e.target.value })} className="h-9" placeholder={t("motifPlaceholder")} />
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" size="sm" disabled={isPending} className="gap-1">
@@ -380,22 +380,22 @@ export function PersonnelAbsencesConges({
                     </div>
                     <div>
                       <Label className="text-xs">{t("nbDays")}</Label>
-                      <Input type="number" min="0.5" step="0.5" value={congeForm.nbJours} onChange={(e) => setCongeForm({ ...congeForm, nbJours: parseFloat(e.target.value) || 1 })} className="h-9" />
+                      <Input type="number" aria-label={t("nbDays")} min="0.5" step="0.5" value={congeForm.nbJours} onChange={(e) => setCongeForm({ ...congeForm, nbJours: parseFloat(e.target.value) || 1 })} className="h-9" />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("startDate")}</Label>
-                      <Input type="date" value={congeForm.dateDebut} onChange={(e) => setCongeForm({ ...congeForm, dateDebut: e.target.value })} className="h-9" />
+                      <Input type="date" aria-label={t("startDate")} value={congeForm.dateDebut} onChange={(e) => setCongeForm({ ...congeForm, dateDebut: e.target.value })} className="h-9" />
                     </div>
                     <div>
                       <Label className="text-xs">{t("endDate")}</Label>
-                      <Input type="date" value={congeForm.dateFin} onChange={(e) => setCongeForm({ ...congeForm, dateFin: e.target.value })} className="h-9" />
+                      <Input type="date" aria-label={t("endDate")} value={congeForm.dateFin} onChange={(e) => setCongeForm({ ...congeForm, dateFin: e.target.value })} className="h-9" />
                     </div>
                   </div>
                   <div>
                     <Label className="text-xs">{t("motif")}</Label>
-                    <Input value={congeForm.motif} onChange={(e) => setCongeForm({ ...congeForm, motif: e.target.value })} className="h-9" placeholder={t("motifPlaceholder")} />
+                    <Input aria-label={t("motif")} value={congeForm.motif} onChange={(e) => setCongeForm({ ...congeForm, motif: e.target.value })} className="h-9" placeholder={t("motifPlaceholder")} />
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" size="sm" disabled={isPending} className="gap-1">

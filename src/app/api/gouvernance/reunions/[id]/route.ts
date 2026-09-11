@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { z } from "zod";
+import { auditFire } from "@/lib/audit";
 
 const STATUTS = ["PLANIFIEE", "EN_COURS", "TERMINEE", "ANNULEE"] as const;
 
@@ -55,6 +56,15 @@ export async function PATCH(
     const updated = await prisma.réunion.update({
       where: { id },
       data,
+    });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "reunion:update",
+      verdict: "ALLOWED",
+      resource: "reunion",
+      resourceId: id,
     });
 
     return NextResponse.json(updated);

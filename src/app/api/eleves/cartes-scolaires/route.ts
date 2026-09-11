@@ -46,11 +46,11 @@ export async function GET(req: NextRequest) {
     <div class="carte">
       <div class="recto">
         <div class="header-carte">
-          ${tenant.logoUrl ? `<img src="${tenant.logoUrl}" class="logo" />` : ""}
+          ${tenant.logoUrl ? `<img src="${tenant.logoUrl}" class="logo" alt="Logo de l'établissement" />` : ""}
           <div class="ecole-name">${tenant.name}</div>
         </div>
         <div class="photo-area">
-          ${e.photoUrl ? `<img src="${e.photoUrl}" class="photo" />` : '<div class="photo-placeholder">PHOTO</div>'}
+          ${e.photoUrl ? `<img src="${e.photoUrl}" class="photo" alt="Photo de ${e.prenom} ${e.nom}" />` : '<div class="photo-placeholder">PHOTO</div>'}
         </div>
         <div class="eleve-info">
           <div class="nom">${e.nom} ${e.prenom}</div>

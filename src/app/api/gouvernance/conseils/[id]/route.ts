@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { z } from "zod";
+import { auditFire } from "@/lib/audit";
 
 const TYPES = ["ADMINISTRATION", "DISCIPLINE", "PEDAGOGIQUE", "AUTRE"] as const;
 const FREQUENCES = ["MENSUEL", "TRIMESTRIEL", "ANNUEL", "PONCTUEL"] as const;
@@ -85,6 +86,15 @@ export async function PATCH(
       data: parsed.data,
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "conseil:update",
+      verdict: "ALLOWED",
+      resource: "conseil",
+      resourceId: id,
+    });
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API/gouvernance/conseils/:id PATCH]", error);
@@ -112,6 +122,16 @@ export async function DELETE(
     if (!existing) return erreurJson("CONSEIL_INTROUVABLE");
 
     await prisma.conseil.delete({ where: { id } });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "conseil:delete",
+      verdict: "ALLOWED",
+      resource: "conseil",
+      resourceId: id,
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[API/gouvernance/conseils/:id DELETE]", error);

@@ -7,6 +7,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
 import { getDemoNow } from "@/lib/demo-now";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { auditFire } from "@/lib/audit";
 
 const TYPES_EXCLUSION = ["EXCLUSION_COURS", "EXCLUSION_TEMP"];
 
@@ -141,6 +142,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         });
       }
     }
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "exclusion:update",
+      verdict: "ALLOWED",
+      resource: "sanction",
+      resourceId: id,
+      metadata: { reintegrer: reintegrer === true },
+    });
 
     return NextResponse.json(updated);
   } catch (error) {

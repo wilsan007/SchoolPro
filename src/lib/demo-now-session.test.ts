@@ -56,8 +56,19 @@ describe("date de démonstration et session vérifiée", () => {
     expect(await getDemoDate()).toBeNull();
   });
 
-  it("ignore les anciens cookies dépourvus de périmètre", async () => {
+  it("fallback sur le rôle seul quand le scope cookie manque", async () => {
+    // Le scope cookie peut disparaître (expiration, effacement partiel).
+    // getDemoDate() ne doit pas rejeter la date : les cookies demo_now et
+    // demo_now_enabled sont httpOnly, donc seul le serveur peut les poser
+    // (via le POST qui vérifie déjà le rôle). La vérification de rôle
+    // (peutDeplacerHorloge) reste le garde-fou essentiel.
     mocks.cookies.delete("demo_now_scope");
+    expect((await getDemoDate())?.toISOString()).toBe(date);
+  });
+
+  it("rejette sans scope cookie si le rôle n'est pas autorisé", async () => {
+    mocks.cookies.delete("demo_now_scope");
+    mocks.auth.mockResolvedValue({ user: { ...admin, role: "PARENT" } });
     expect(await getDemoDate()).toBeNull();
   });
 

@@ -180,10 +180,23 @@ export function extensionHorizonDemo() {
             return query(args);
           }
 
-          // Import différé : `demo-now` lit `next/headers`, absent des scripts
-          // qui importent ce client. Chargé ici, il ne casse pas les exécutions
-          // hors requête.
-          const { getDemoDate } = await import("./demo-now");
+          // 1. Contexte AsyncLocalStorage (prioritaire) : utilisé quand la date
+          // a été résolue hors d'un `unstable_cache` et passée via `withDemoDate`.
+          // Cela évite d'appeler `cookies()` à l'intérieur du cache, ce que
+          // Next.js 15 interdit et invaliderait le cache à chaque requête.
+          const { getDemoDateFromContext, getDemoDate } = await import("./demo-now");
+          const dateContextuelle = getDemoDateFromContext();
+          if (dateContextuelle !== null) {
+            const borne = filtreHorizon(model, operation, dateContextuelle);
+            if (!borne) return query(args);
+            const filtreAppelant = (args as { where?: unknown }).where;
+            return query({
+              ...args,
+              where: { AND: [filtreAppelant ?? {}, borne] },
+            } as typeof args);
+          }
+
+          // 2. Pas de contexte : résoudre via cookies (hors cache seulement).
           const date = await getDemoDate();
           if (!date) return query(args);
 

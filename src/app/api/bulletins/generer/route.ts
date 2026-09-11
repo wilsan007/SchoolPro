@@ -9,6 +9,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { enregistrerHistoriqueBulletin } from "@/lib/bulletin-historique";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
+import { Note, calculerMoyennePondereeCentiemes, calculerRangsCentiemes } from "@/lib/domain/note";
 
 const Schema = z.object({
   classeId: z.string().min(1),
@@ -232,7 +233,21 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const moyenneGenerale = totalCoef > 0 ? Number((totalPoints / totalCoef).toFixed(2)) : null;
+      // MET-H1 (audit v2) : moyenne générale en centièmes entiers via le domaine.
+      const notesPourMoyenne: { centiemes: number; coefficient: number }[] = [];
+      for (const [matiereId, matiere] of matieresMap.entries()) {
+        const isDispense = dispenseSet.has(`${eleve.id}:${matiereId}`);
+        const moy = isDispense ? null : (eleveMatiereMoyennes[matiereId]?.[eleve.id] ?? null);
+
+        if (!isDispense && moy !== null) {
+          notesPourMoyenne.push({
+            centiemes: Note.depuisFlottant(moy).centiemes,
+            coefficient: matiere.coefficient,
+          });
+        }
+      }
+      const moyenneCentiemes = calculerMoyennePondereeCentiemes(notesPourMoyenne);
+      const moyenneGenerale = moyenneCentiemes !== null ? moyenneCentiemes / 100 : null;
       const appreciation = genererAppréciation(moyenneGenerale, "BULLETIN_PERIODE", reglesAppreciation);
 
       // Save bulletin
@@ -249,7 +264,12 @@ export async function POST(req: NextRequest) {
         select: { id: true, statut: true },
       });
 
-      const statutInitial = existingBulletin?.statut ?? "BROUILLON";
+      // MET-H2 (audit v2) : ne pas réécrire un bulletin PUBLIE ou VERROUILLE.
+      // Seuls les bulletins BROUILLON peuvent être régénérés.
+      if (existingBulletin && (existingBulletin.statut === "PUBLIE" || existingBulletin.statut === "VERROUILLE")) {
+        bulletinsGlobalAverages.push({ eleveId: eleve.id, moyenne: null });
+        continue;
+      }
 
       // L'upsert utilise la contrainte unique (eleveId, periodeId) ; le
       // tenantId est injecté dans le `create` et vérifié en amont via le
@@ -303,16 +323,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Update global rankings and class averages
+    // MET-H3 (audit v2) : rangs avec ex-aequo via le domaine.
     console.log("[generer] step 13: computing rankings");
+    const moyennesMap = new Map<string, number | null>();
+    for (const b of bulletinsGlobalAverages) {
+      moyennesMap.set(b.eleveId, b.moyenne !== null ? Note.depuisFlottant(b.moyenne).centiemes : null);
+    }
+    const rangsMap = calculerRangsCentiemes(moyennesMap);
+
     const validMoyennes = bulletinsGlobalAverages.filter(b => b.moyenne !== null).map(b => b.moyenne as number);
     const moyenneClasse = validMoyennes.length > 0 ? Number((validMoyennes.reduce((a, b) => a + b, 0) / validMoyennes.length).toFixed(2)) : null;
     const moyennePremier = validMoyennes.length > 0 ? Math.max(...validMoyennes) : null;
 
-    bulletinsGlobalAverages.sort((a, b) => (b.moyenne ?? -1) - (a.moyenne ?? -1));
-
     console.log("[generer] step 14: updating bulletins with rankings");
-    for (let i = 0; i < bulletinsGlobalAverages.length; i++) {
-      const b = bulletinsGlobalAverages[i];
+    for (const b of bulletinsGlobalAverages) {
+      const rang = rangsMap.get(b.eleveId) ?? null;
       // `updateMany` plutôt qu'`update` : la contrainte unique (eleveId,
       // periodeId) désigne la même ligne, mais le `where` accepte ici
       // `tenantId`, ce qui interdit d'écrire sur le bulletin d'un autre
@@ -320,7 +345,7 @@ export async function POST(req: NextRequest) {
       await prisma.bulletin.updateMany({
         where: { eleveId: b.eleveId, periodeId, tenantId, ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
         data: {
-          rang: b.moyenne !== null ? i + 1 : null,
+          rang,
           moyenneClasse,
           moyennePremier
         }

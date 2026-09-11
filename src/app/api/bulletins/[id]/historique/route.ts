@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterForRelation, eleveScopeFilter } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
 /**
@@ -26,10 +26,12 @@ export async function GET(
     const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     // Vérifier que le bulletin appartient bien au tenant de l'utilisateur
-    const siteFilter = siteFilterForRelation(session.user, "eleve");
+    // ISO-H1 (audit v2) : eleveScopeFilter borne aux enfants du parent / à
+    // l'élève lui-même pour PARENT/STUDENT. Pour le personnel, c'est neutre.
+    const siteFilter = eleveScopeFilter(session.user, "eleve");
     const bulletin = await prisma.bulletin.findFirst({
       where: { id, tenantId: session.user.tenantId, ...siteFilter, ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}) },
-      select: { id: true },
+      select: { id: true, eleveId: true },
     });
     if (!bulletin) {
       return NextResponse.json({ error: "Bulletin introuvable" }, { status: 404 });

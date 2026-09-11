@@ -193,6 +193,7 @@ export function InventaireView() {
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
+            aria-label="Rechercher"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
@@ -337,7 +338,7 @@ function ItemForm({
         <div className="overflow-y-auto p-4 sm:p-5 space-y-4">
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("itemName")}</label>
-            <input value={form.nom} onChange={(e) => f("nom", e.target.value)}
+            <input aria-label={t("itemName")} value={form.nom} onChange={(e) => f("nom", e.target.value)}
               placeholder="Ordinateur portable Dell"
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           </div>
@@ -366,12 +367,12 @@ function ItemForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("quantity")}</label>
-              <input type="number" min="0" value={form.quantite} onChange={(e) => f("quantite", Number(e.target.value))}
+              <input type="number" aria-label={t("quantity")} min="0" value={form.quantite} onChange={(e) => f("quantite", Number(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("stockThreshold")}</label>
-              <input type="number" min="0" value={form.quantiteMin} onChange={(e) => f("quantiteMin", Number(e.target.value))}
+              <input type="number" aria-label={t("stockThreshold")} min="0" value={form.quantiteMin} onChange={(e) => f("quantiteMin", Number(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
           </div>
@@ -379,13 +380,13 @@ function ItemForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("referenceLabel")}</label>
-              <input value={form.reference} onChange={(e) => f("reference", e.target.value)}
+              <input aria-label={t("referenceLabel")} value={form.reference} onChange={(e) => f("reference", e.target.value)}
                 placeholder="SN-2024-001"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("location")}</label>
-              <input value={form.localisation} onChange={(e) => f("localisation", e.target.value)}
+              <input aria-label={t("location")} value={form.localisation} onChange={(e) => f("localisation", e.target.value)}
                 placeholder="Salle informatique A"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
@@ -394,13 +395,13 @@ function ItemForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("unitPrice")}</label>
-              <input type="number" value={form.prixUnitaire} onChange={(e) => f("prixUnitaire", e.target.value)}
+              <input type="number" aria-label={t("unitPrice")} value={form.prixUnitaire} onChange={(e) => f("prixUnitaire", e.target.value)}
                 placeholder="0"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("supplier")}</label>
-              <input value={form.fournisseur} onChange={(e) => f("fournisseur", e.target.value)}
+              <input aria-label={t("supplier")} value={form.fournisseur} onChange={(e) => f("fournisseur", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
           </div>
@@ -408,12 +409,12 @@ function ItemForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("purchaseDate")}</label>
-              <input type="date" value={form.dateAchat} onChange={(e) => f("dateAchat", e.target.value)}
+              <input type="date" aria-label={t("purchaseDate")} value={form.dateAchat} onChange={(e) => f("dateAchat", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("nextRevision")}</label>
-              <input type="date" value={form.dateRevision} onChange={(e) => f("dateRevision", e.target.value)}
+              <input type="date" aria-label={t("nextRevision")} value={form.dateRevision} onChange={(e) => f("dateRevision", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
             </div>
           </div>

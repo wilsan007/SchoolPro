@@ -32,6 +32,7 @@ vi.mock("@/lib/rbac", () => ({ checkPermission: vi.fn(() => null) }));
 vi.mock("@/lib/site-scope", () => ({
   siteFilterForModel: vi.fn(() => ({})),
   personalScopeFilter: vi.fn(() => ({})),
+  eleveScopeFilter: vi.fn(() => ({})),
   mergeFilters: vi.fn((...args: unknown[]) => Object.assign({}, ...args)),
 }));
 
@@ -213,13 +214,12 @@ describe("POST /api/bulletins/generer", () => {
     );
   });
 
-  it("préserve le statut existant si le bulletin est déjà VERROUILLE", async () => {
+  it("MET-H2 : skip un bulletin déjà VERROUILLE (pas de régénération)", async () => {
     stubGenerationSuccess();
     mockPrisma.bulletin.findFirst.mockResolvedValue({ id: "b1", statut: "VERROUILLE" });
     await POST_GENERER(req("http://l/api/bulletins/generer", { classeId: "c1", periodeId: "p1" }));
-    const upsertCall = mockPrisma.bulletin.upsert.mock.calls[0][0];
-    // L'update ne doit pas écraser le statut
-    expect(upsertCall.update.statut).toBeUndefined();
+    // MET-H2 : un bulletin VERROUILLE n'est pas réécrit — upsert n'est pas appelé
+    expect(mockPrisma.bulletin.upsert).not.toHaveBeenCalled();
   });
 });
 

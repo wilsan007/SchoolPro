@@ -3,9 +3,10 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { applyRlsContext } from "@/lib/prisma-rls";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
-import { getDemoNow } from "@/lib/demo-now";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { auditFire } from "@/lib/audit";
 
 const PaiementSchema = z.object({
   factureId: z.string().min(1),
@@ -50,31 +51,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Impossible d'encaisser sur une facture annulée" }, { status: 400 });
   }
 
-  const totalDejaPaye = facture.paiements.reduce((sum, p) => sum + p.montant, 0);
-  const restant = facture.montant - totalDejaPaye;
-
-  if (restant <= 0) {
-    return NextResponse.json({ error: "Cette facture est déjà soldée" }, { status: 400 });
-  }
-
-  if (montant > restant) {
-    return NextResponse.json(
-      { error: `Le montant ne peut pas dépasser le solde restant (${restant} ${facture.devise})` },
-      { status: 400 }
-    );
-  }
-
-  const totalPaye = totalDejaPaye + montant;
-  let newStatut: typeof facture.statut = facture.statut;
-
-  if (totalPaye >= facture.montant) {
-    newStatut = "PAYEE";
-  } else if (facture.echeance && (await getDemoNow()) > facture.echeance && totalPaye < facture.montant) {
-    newStatut = "EN_RETARD";
-  }
-
+  // MET-H5 (audit v2) : le solde est vérifié à nouveau DANS la transaction
+  // avec un verrou pessimiste pour empêcher le double encaissement.
   const now = new Date();
   const paiement = await prisma.$transaction(async (tx) => {
+    // ISO-4 : poser le contexte RLS en première instruction de la transaction.
+    await applyRlsContext(tx);
+    // Verrouiller la facture pour empêcher les écritures concurrentes.
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- verrouillage par factureId déjà validé ci-dessus
+    const lockedFacture = await tx.$queryRaw<{ id: string; montant: number; statut: string; echeance: Date | null }[]>`
+      SELECT id, montant, statut, "echeance" FROM factures WHERE id = ${factureId} FOR UPDATE
+    `;
+    if (!lockedFacture.length) {
+      throw new Error("FACTURE_INTROUVABLE");
+    }
+
+    // Relire les paiements dans la transaction pour un solde exact.
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- paiements filtrés par factureId déjà validé
+    const paiementsActuels = await tx.paiement.findMany({
+      where: { factureId },
+      select: { montant: true },
+    });
+    const totalDejaPaye = paiementsActuels.reduce((sum, p) => sum + p.montant, 0);
+    const restant = lockedFacture[0].montant - totalDejaPaye;
+
+    if (restant <= 0) {
+      throw new Error("FACTURE_SOLDEE");
+    }
+    if (montant > restant) {
+      throw new Error("MONTANT_EXCESSIF");
+    }
+
+    const totalPaye = totalDejaPaye + montant;
+    let newStatut: string = lockedFacture[0].statut;
+    if (totalPaye >= lockedFacture[0].montant) {
+      newStatut = "PAYEE";
+    } else if (lockedFacture[0].echeance && now > lockedFacture[0].echeance && totalPaye < lockedFacture[0].montant) {
+      newStatut = "EN_RETARD";
+    }
+
     const created = await tx.paiement.create({
       data: {
         factureId,
@@ -90,15 +105,38 @@ export async function POST(req: NextRequest) {
 
     await tx.facture.update({
       where: { id: factureId },
-      data: { statut: newStatut },
+      data: { statut: newStatut as typeof facture.statut },
     });
 
-    return created;
+    return { created, newStatut };
+  }).catch((err: unknown) => {
+    if (err instanceof Error) {
+      if (err.message === "FACTURE_SOLDEE") {
+        return { error: "Cette facture est déjà soldée", status: 400 };
+      }
+      if (err.message === "MONTANT_EXCESSIF") {
+        return { error: "Le montant dépasse le solde restant", status: 400 };
+      }
+    }
+    throw err;
+  });
+
+  if ("error" in paiement) {
+    return NextResponse.json({ error: paiement.error }, { status: (paiement as { status: number }).status });
+  }
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "facturation:paiement",
+    verdict: "ALLOWED",
+    resource: "facture",
+    resourceId: factureId,
   });
 
   revalidatePath("/facturation");
   revalidatePath("/admissions");
   revalidateTag("dashboard-data");
 
-  return NextResponse.json({ paiement, newStatut });
+  return NextResponse.json({ paiement: paiement.created, newStatut: paiement.newStatut });
 }

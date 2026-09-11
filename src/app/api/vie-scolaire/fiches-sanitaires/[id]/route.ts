@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   allergies: z.array(z.string()).optional(),
@@ -152,5 +153,15 @@ export async function DELETE(
   }
 
   await prisma.ficheSanitaire.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "fiche-sanitaire:delete",
+    verdict: "ALLOWED",
+    resource: "ficheSanitaire",
+    resourceId: id,
+  });
+
   return NextResponse.json({ success: true });
 }

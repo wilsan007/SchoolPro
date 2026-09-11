@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { z } from "zod";
+import { auditFire } from "@/lib/audit";
 
 const ParamsSchema = z.object({
   id: z.string().min(1),
@@ -35,6 +36,15 @@ export async function DELETE(
       id,
       annee: { tenantId: session.user.tenantId },
     },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "calendrier-scolaire:delete",
+    verdict: "ALLOWED",
+    resource: "evenementCalendaire",
+    resourceId: id,
   });
 
   return NextResponse.json({ success: true });

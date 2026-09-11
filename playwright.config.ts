@@ -21,6 +21,19 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3001";
  */
 const port = new URL(baseURL).port || "3000";
 
+/**
+ * Résout le chemin de `pnpm` de façon multi-plateforme.
+ *
+ * TST-1 (audit v2) : le chemin absolu `${HOME}/Library/pnpm/pnpm` ne
+ * fonctionne que sur macOS. En CI (Ubuntu), `pnpm/action-setup` place
+ * pnpm dans le PATH système, donc `pnpm` suffit. En local macOS, le
+ * PATH de `/bin/sh` ne contient pas corepack, d'où le chemin absolu.
+ */
+const pnpmCommand =
+  process.platform === "darwin"
+    ? `${process.env.HOME}/Library/pnpm/bin/pnpm`
+    : "pnpm";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -45,13 +58,9 @@ export default defineConfig({
     // `--` littéralement, et `next` le prend alors pour un répertoire de projet
     // (« Invalid project directory provided: …/-p »). On appelle donc `next`
     // directement, ce qui reste du pnpm — jamais `npx`, cf. AGENTS.md.
-    //
-    // Playwright lance le webServer via `/bin/sh`, dont le PATH ne contient
-    // pas `pnpm` (fourni par corepack). On utilise le chemin absolu du shim
-    // corepack pour garantir que le serveur démarre quel que soit l'environnement.
-    command: `${process.env.HOME}/Library/pnpm/pnpm exec next dev -p ${port}`,
+    command: `${pnpmCommand} exec next dev -p ${port}`,
     url: baseURL,
     reuseExistingServer: true,
-    timeout: 60000,
+    timeout: 120000,
   },
 });

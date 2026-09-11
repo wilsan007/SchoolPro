@@ -191,6 +191,7 @@ export default function AuditJournalPage() {
           </select>
           <input
             type="text"
+            aria-label="Filtrer par action"
             placeholder="Action (ex: auth:login)"
             value={filters.action}
             onChange={(e) => setFilters({ ...filters, action: e.target.value })}
@@ -198,6 +199,7 @@ export default function AuditJournalPage() {
           />
           <input
             type="text"
+            aria-label="Filtrer par identifiant utilisateur"
             placeholder="User ID"
             value={filters.userId}
             onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
@@ -205,12 +207,14 @@ export default function AuditJournalPage() {
           />
           <input
             type="date"
+            aria-label="Date de début"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
             className="px-3 py-2 border rounded-lg text-sm"
           />
           <input
             type="date"
+            aria-label="Date de fin"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
             className="px-3 py-2 border rounded-lg text-sm"

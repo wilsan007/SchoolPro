@@ -9,34 +9,32 @@ import { getFacturesForTenant } from "@/lib/actions/facture";
 import { getTranslations } from "next-intl/server";
 import { guardPage } from "@/lib/guard-page";
 import { getContexteAnnees } from "@/lib/annee-scolaire";
-import { getDemoNow } from "@/lib/demo-now";
+import type { Session } from "next-auth";
 
 export default async function FacturationPage({
   searchParams,
 }: {
   searchParams: Promise<{ vue?: string }>;
 }) {
-  const [session, t] = await Promise.all([
+  const [sessionRaw, t] = await Promise.all([
     auth(),
     getTranslations("facturation"),
   ]);
+  // auth() retourne Session | NextMiddleware | null ; on narrow à Session.
+  const session = sessionRaw && typeof sessionRaw === "object" && "user" in sessionRaw ? sessionRaw as Session : null;
   await guardPage(session);
 
-  const [factures, ctx, params] = await Promise.all([
-    getFacturesForTenant(),
-    getContexteAnnees(session!.user.tenantId!),
+  // Contexte annuel résolu en premier — évite un appel redondant dans
+  // getFacturesForTenant qui le re-demanderait à la DB.
+  const ctx = await getContexteAnnees(session!.user.tenantId!);
+
+  const [factures, params] = await Promise.all([
+    getFacturesForTenant(undefined, { session: session!, ctx }),
     searchParams,
   ]);
 
-  const currentYear = ctx.anneeActive?.libelle ?? (await getDemoNow()).getFullYear().toString();
+  const currentYear = ctx.anneeActive?.libelle ?? new Date().getFullYear().toString();
   const vue = params.vue ?? "tableau";
-
-  const stats = {
-    total: factures.length,
-    enAttente: factures.filter((f) => f.statut === "EN_ATTENTE").length,
-    payees: factures.filter((f) => f.statut === "PAYEE").length,
-    enRetard: factures.filter((f) => f.statut === "EN_RETARD").length,
-  };
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

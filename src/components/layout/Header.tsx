@@ -156,6 +156,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
         <div className="relative hidden md:flex items-center">
           <Search className="absolute left-3 w-4 h-4 text-muted-foreground" />
           <Input
+            aria-label={tCommon("searchPlaceholder")}
             placeholder={tCommon("searchPlaceholder")}
             className="pl-9 h-9 w-60 text-sm rounded-full bg-input/80 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all duration-200"
           />

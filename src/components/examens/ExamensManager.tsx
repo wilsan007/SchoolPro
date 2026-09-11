@@ -113,6 +113,7 @@ function CreateExamenModal({
             </label>
             <input
               required
+              aria-label={t("intitule")}
               value={form.intitule}
               onChange={(e) => setForm({ ...form, intitule: e.target.value })}
               placeholder={t("intitulePlaceholder")}
@@ -139,6 +140,7 @@ function CreateExamenModal({
               <input
                 type="date"
                 required
+                aria-label={t("startDate")}
                 value={form.dateDebut}
                 onChange={(e) => setForm({ ...form, dateDebut: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -151,6 +153,7 @@ function CreateExamenModal({
               <input
                 type="date"
                 required
+                aria-label={t("endDate")}
                 value={form.dateFin}
                 onChange={(e) => setForm({ ...form, dateFin: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -239,6 +242,7 @@ function AddSessionModal({
             <input
               type="date"
               required
+              aria-label={t("date")}
               value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -250,6 +254,7 @@ function AddSessionModal({
               <input
                 type="time"
                 required
+                aria-label={t("startTime")}
                 value={form.heureDebut}
                 onChange={(e) => setForm({ ...form, heureDebut: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -260,6 +265,7 @@ function AddSessionModal({
               <input
                 type="time"
                 required
+                aria-label={t("endTime")}
                 value={form.heureFin}
                 onChange={(e) => setForm({ ...form, heureFin: e.target.value })}
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -270,6 +276,7 @@ function AddSessionModal({
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("room")}</label>
               <input
+                aria-label={t("room")}
                 value={form.salle}
                 onChange={(e) => setForm({ ...form, salle: e.target.value })}
                 placeholder={t("roomPlaceholder")}
@@ -279,6 +286,7 @@ function AddSessionModal({
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t("level")}</label>
               <input
+                aria-label={t("level")}
                 value={form.niveau}
                 onChange={(e) => setForm({ ...form, niveau: e.target.value })}
                 placeholder={t("levelPlaceholder")}

@@ -1,0 +1,34 @@
+import fs from "fs"; import path from "path";
+const root = process.argv[2];
+const files = [];
+(function walk(d){ for (const e of fs.readdirSync(d,{withFileTypes:true})) { const p=path.join(d,e.name); if(e.isDirectory()) walk(p); else if(e.name==="route.ts") files.push(p);} })(path.join(root,"src/app/api"));
+const rows=[];
+for (const f of files){
+  const s=fs.readFileSync(f,"utf8");
+  const rel=path.relative(path.join(root,"src/app/api"),path.dirname(f));
+  const methods=[...s.matchAll(/export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)/g)].map(m=>m[1]);
+  const mutating=methods.some(m=>m!=="GET");
+  const auth=/\bauth\(\)|authorize\(|requireAuth|getMobileUser|verifyMobileToken|verifyMobileScope|authorizeSuperAdmin|getClassesForExport|requireSession|withAuth|getSessionUser|requireRole|authentifierMobile|verifierJetonApi|CRON_SECRET|verifyMetaSignature|verifyWebhookSecret|constructEvent|verifySvix/.test(s);
+  const perm=/checkPermission|authorizeSuperAdmin|isRelationScopedRole|peutDeplacerHorloge|authorize\(|requirePermission|roleHasPermission|hasPermission|role\s*!==|role\s*===|isTeacherRole|SUPER_ADMIN/.test(s);
+  const zod=/z\.object|Schema\.safeParse|\.parse\(|safeParse/.test(s);
+  const readsBody=/req(uest)?\.json\(\)|formData\(\)/.test(s);
+  const tenant=/tenantId/.test(s);
+  const annee=/getAnneeCourante|anneeActive|anneeCourante|anneeId/.test(s);
+  const errMsg=/json\(\s*\{\s*error:\s*(e|err|error)(\s+as\s+Error)?\.message/.test(s)||/error instanceof Error \? error\.message/.test(s);
+  const audit=/audit(Fire|Log)?\(|auditFire/.test(s);
+  const rate=/rateLimit|checkRateLimit/.test(s);
+  const disables=(s.match(/eslint-disable/g)||[]).length;
+  const muteDisables=(s.match(/eslint-disable[^\n]*require-site-filter(?![^\n]*--)/g)||[]).length;
+  const lines=s.split("\n").length;
+  rows.push({rel,methods:methods.join(","),mutating,auth,perm,zod,readsBody,tenant,annee,errMsg,audit,rate,disables,muteDisables,lines});
+}
+const c=(k)=>rows.filter(r=>r[k]).length;
+console.log("routes",rows.length);
+for (const k of ["auth","perm","zod","tenant","annee","audit","rate","errMsg"]) console.log(k,c(k));
+console.log("mutating",c("mutating"),"mutating w/o audit",rows.filter(r=>r.mutating&&!r.audit).length);
+console.log("readsBody w/o zod",rows.filter(r=>r.readsBody&&!r.zod).map(r=>r.rel).join("\n  "));
+console.log("NO AUTH:\n  "+rows.filter(r=>!r.auth).map(r=>r.rel+" ["+r.methods+"]").join("\n  "));
+console.log("auth but no perm (mutating):\n  "+rows.filter(r=>r.auth&&!r.perm&&r.mutating).map(r=>r.rel+" ["+r.methods+"]").join("\n  "));
+console.log("mute site disables total",rows.reduce((a,r)=>a+r.muteDisables,0));
+console.log("biggest:",rows.sort((a,b)=>b.lines-a.lines).slice(0,12).map(r=>r.rel+":"+r.lines).join(", "));
+fs.writeFileSync(process.argv[3],JSON.stringify(rows,null,1));

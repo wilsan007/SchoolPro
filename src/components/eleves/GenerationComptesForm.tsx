@@ -118,6 +118,7 @@ export function GenerationComptesForm({ classes, hierarchie }: { classes: Classe
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
+                aria-label="Générer des comptes élèves"
                 checked={useCustomPassword}
                 onChange={(e) => setUseCustomPassword(e.target.checked)}
                 className="rounded border-input"
@@ -128,6 +129,7 @@ export function GenerationComptesForm({ classes, hierarchie }: { classes: Classe
             {useCustomPassword && (
               <Input
                 type="text"
+                aria-label={t("genAccountsCustomPassword")}
                 placeholder={t("genAccountsPasswordPlaceholder")}
                 value={customPassword}
                 onChange={(e) => setCustomPassword(e.target.value)}

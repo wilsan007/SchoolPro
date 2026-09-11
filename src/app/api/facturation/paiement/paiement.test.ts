@@ -5,7 +5,8 @@ vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 const mockPrismaObj = vi.hoisted(() => {
   const obj: Record<string, unknown> = {
     facture: { findFirst: vi.fn(), update: vi.fn() },
-    paiement: { create: vi.fn() },
+    paiement: { create: vi.fn(), findMany: vi.fn() },
+    $queryRaw: vi.fn(),
   };
   obj.$transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(obj));
   return obj;
@@ -69,6 +70,8 @@ function resetAllPrismaMocks() {
   mockPrisma.facture.findFirst.mockReset();
   mockPrisma.facture.update.mockReset();
   mockPrisma.paiement.create.mockReset();
+  mockPrisma.paiement.findMany.mockReset();
+  mockPrisma.$queryRaw.mockReset();
   mockPrisma.$transaction.mockReset();
   // Rétablir l'implémentation par défaut de $transaction
   mockPrisma.$transaction.mockImplementation(
@@ -86,6 +89,21 @@ beforeEach(() => {
 // ──────────────────────────────────────────────────────────────────
 // POST /api/facturation/paiement
 // ──────────────────────────────────────────────────────────────────
+
+/**
+ * MET-H5 : stub le verrou pessimiste ($queryRaw SELECT ... FOR UPDATE)
+ * et la relecture des paiements dans la transaction.
+ */
+function stubLockedFacture(facture: {
+  id: string;
+  montant: number;
+  statut: string;
+  echeance: Date | null;
+}, paiements: { montant: number }[] = []) {
+  mockPrisma.$queryRaw.mockResolvedValue([facture]);
+  mockPrisma.paiement.findMany.mockResolvedValue(paiements);
+}
+
 describe("POST /api/facturation/paiement", () => {
   it("refuse l'accès sans session (401)", async () => {
     mockAuth.mockResolvedValue(null);
@@ -136,6 +154,11 @@ describe("POST /api/facturation/paiement", () => {
       echeance: null,
       paiements: [{ montant: 50000 }],
     });
+    // MET-H5 : le verrou pessimiste relit la facture et les paiements dans la tx
+    stubLockedFacture(
+      { id: "f1", montant: 50000, statut: "PAYEE", echeance: null },
+      [{ montant: 50000 }]
+    );
     const res = await POST(req("http://l", { factureId: "f1", montant: 100, methode: "ESPECES" }) as never);
     expect(res.status).toBe(400);
     const data = await res.json();
@@ -151,6 +174,10 @@ describe("POST /api/facturation/paiement", () => {
       echeance: null,
       paiements: [{ montant: 30000 }],
     });
+    stubLockedFacture(
+      { id: "f1", montant: 50000, statut: "EN_ATTENTE", echeance: null },
+      [{ montant: 30000 }]
+    );
     const res = await POST(req("http://l", { factureId: "f1", montant: 30000, methode: "ESPECES" }) as never);
     expect(res.status).toBe(400);
     const data = await res.json();
@@ -166,6 +193,10 @@ describe("POST /api/facturation/paiement", () => {
       echeance: null,
       paiements: [{ montant: 30000 }],
     });
+    stubLockedFacture(
+      { id: "f1", montant: 50000, statut: "EN_ATTENTE", echeance: null },
+      [{ montant: 30000 }]
+    );
     mockPrisma.paiement.create.mockResolvedValue({ id: "pay-1", montant: 20000 });
 
     const res = await POST(req("http://l", { factureId: "f1", montant: 20000, methode: "ESPECES" }) as never);
@@ -189,6 +220,10 @@ describe("POST /api/facturation/paiement", () => {
       echeance: null,
       paiements: [],
     });
+    stubLockedFacture(
+      { id: "f1", montant: 50000, statut: "EN_ATTENTE", echeance: null },
+      []
+    );
     mockPrisma.paiement.create.mockResolvedValue({ id: "pay-1", montant: 20000 });
 
     const res = await POST(req("http://l", { factureId: "f1", montant: 20000, methode: "ESPECES" }) as never);
@@ -207,6 +242,10 @@ describe("POST /api/facturation/paiement", () => {
       echeance: new Date("2026-01-01T00:00:00.000Z"), // avant la date de référence (2026-04-07)
       paiements: [],
     });
+    stubLockedFacture(
+      { id: "f1", montant: 50000, statut: "EN_ATTENTE", echeance: new Date("2026-01-01T00:00:00.000Z") },
+      []
+    );
     mockPrisma.paiement.create.mockResolvedValue({ id: "pay-1", montant: 20000 });
 
     const res = await POST(req("http://l", { factureId: "f1", montant: 20000, methode: "ESPECES" }) as never);
@@ -224,6 +263,10 @@ describe("POST /api/facturation/paiement", () => {
       echeance: null,
       paiements: [],
     });
+    stubLockedFacture(
+      { id: "f1", montant: 50000, statut: "EN_ATTENTE", echeance: null },
+      []
+    );
     mockPrisma.paiement.create.mockResolvedValue({ id: "pay-1", montant: 50000 });
 
     await POST(req("http://l", {

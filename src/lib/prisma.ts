@@ -60,8 +60,10 @@ const appDbUrl = withConnectionLimit(
     ? process.env.DIRECT_URL ?? process.env.DATABASE_URL
     : process.env.DATABASE_URL,
   // En prod : 7 connexions max par machine (pooler transaction, port 6543).
-  // En dev : 5 suffit pour un seul dev server.
-  process.env.NODE_ENV === "production" ? 7 : 5,
+  // En dev : 10 connexions pour permettre plus de parallélisme sur base distante.
+  // Le pool session Supabase a 15 connexions ; 10 pour l'app + 3 pour le
+  // background = 13 < 15.
+  process.env.NODE_ENV === "production" ? 7 : 10,
 );
 
 export const prisma =

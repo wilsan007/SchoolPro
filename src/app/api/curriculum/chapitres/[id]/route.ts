@@ -6,6 +6,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidatePath } from "next/cache";
+import { auditFire } from "@/lib/audit";
 
 const PatchSchema = z.object({
   nom: z.string().min(2).max(150).optional(),
@@ -81,6 +82,15 @@ export async function DELETE(
   }
 
   await prisma.chapitre.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "chapitre:delete",
+    verdict: "ALLOWED",
+    resource: "chapitre",
+    resourceId: id,
+  });
 
   revalidatePath("/curriculum");
   return NextResponse.json({ success: true });

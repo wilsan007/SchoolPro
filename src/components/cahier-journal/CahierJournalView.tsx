@@ -1121,6 +1121,7 @@ function ObjectifsSection({
           <div className="flex items-center gap-2 mt-1">
             <input
               type="text"
+              aria-label="Ajouter un objectif"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
@@ -1222,6 +1223,7 @@ function ActivitesSection({
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <input
               type="text"
+              aria-label="Nom de l'activité"
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               placeholder="Nom"
@@ -1229,6 +1231,7 @@ function ActivitesSection({
             />
             <input
               type="number"
+              aria-label="Durée"
               value={duree}
               onChange={(e) => setDuree(Number(e.target.value))}
               min={1}
@@ -1236,6 +1239,7 @@ function ActivitesSection({
             />
             <input
               type="text"
+              aria-label="Type d'activité"
               value={type}
               onChange={(e) => setType(e.target.value)}
               placeholder="Type"
@@ -1346,6 +1350,7 @@ function SupportsSection({
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <input
               type="text"
+              aria-label="Type de support"
               value={type}
               onChange={(e) => setType(e.target.value)}
               placeholder="Type"
@@ -1353,6 +1358,7 @@ function SupportsSection({
             />
             <input
               type="text"
+              aria-label="Lien"
               value={lien}
               onChange={(e) => setLien(e.target.value)}
               placeholder="Lien"
@@ -1360,6 +1366,7 @@ function SupportsSection({
             />
             <input
               type="text"
+              aria-label="Description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optionnel)"
@@ -1469,6 +1476,7 @@ function DifferentiationSection({
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <input
               type="text"
+              aria-label="Élève"
               value={eleve}
               onChange={(e) => setEleve(e.target.value)}
               placeholder="Élève (optionnel)"
@@ -1476,6 +1484,7 @@ function DifferentiationSection({
             />
             <input
               type="text"
+              aria-label="Groupe"
               value={groupe}
               onChange={(e) => setGroupe(e.target.value)}
               placeholder="Groupe (optionnel)"
@@ -1483,6 +1492,7 @@ function DifferentiationSection({
             />
             <input
               type="text"
+              aria-label="Adaptation"
               value={adaptation}
               onChange={(e) => setAdaptation(e.target.value)}
               placeholder="Adaptation"
@@ -1695,6 +1705,7 @@ function DevoirsSection({
             <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
+                aria-label="Titre du devoir"
                 value={titre}
                 onChange={(e) => setTitre(e.target.value)}
                 placeholder="Titre"
@@ -1703,6 +1714,7 @@ function DevoirsSection({
               />
               <input
                 type="date"
+                aria-label="Date de rendu"
                 value={dateRendu}
                 onChange={(e) => setDateRendu(e.target.value)}
                 required
@@ -1898,6 +1910,7 @@ function FichiersSection({
           <input
             ref={fileInputRef}
             type="file"
+            aria-label="Joindre un fichier"
             className="hidden"
             onChange={handleFileSelect}
             accept=".pdf,.doc,.docx,.odt,.jpg,.jpeg,.png,.xlsx,.pptx"
@@ -2044,6 +2057,7 @@ function CommentairesSection({
       <form onSubmit={handleSubmit} className="pl-5 mt-2 flex gap-2">
           <input
             type="text"
+            aria-label="Commentaire"
             value={contenu}
             onChange={(e) => setContenu(e.target.value)}
             placeholder={t("commentairePlaceholder")}

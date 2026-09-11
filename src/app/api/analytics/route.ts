@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
+import { Note, calculerMoyennePondereeCentiemes } from "@/lib/domain/note";
 
 // Cache navigateur 60s : les données analytics changent peu d'une minute à l'autre.
 const CACHE_HEADERS = {
@@ -157,11 +158,13 @@ export async function GET(req: NextRequest) {
   }
 
   const moyennesEleves = Object.entries(moyennesParEleve).map(([id, d]) => {
-    const totalCoeff = d.notes.reduce((s, n) => s + n.coefficient, 0);
-    const totalPondere = d.notes.reduce((s, n) => {
-      return s + (n.valeur / n.noteMax) * 20 * n.coefficient;
-    }, 0);
-    const moyenne = totalCoeff > 0 ? Math.round((totalPondere / totalCoeff) * 100) / 100 : null;
+    // MET-H1 (audit v2) : centièmes entiers via le domaine Note.
+    const notesCentiemes = d.notes.map((n) => ({
+      centiemes: Note.depuisValeurSurBareme(n.valeur, n.noteMax).centiemes,
+      coefficient: n.coefficient,
+    }));
+    const centiemes = calculerMoyennePondereeCentiemes(notesCentiemes);
+    const moyenne = centiemes !== null ? centiemes / 100 : null;
     return { id, nom: d.nom, prenom: d.prenom, classeId: d.classeId, moyenne };
   }).filter((e) => e.moyenne !== null).sort((a, b) => (b.moyenne ?? 0) - (a.moyenne ?? 0));
 

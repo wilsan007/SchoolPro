@@ -3,10 +3,15 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { erreurJson } from "@/lib/erreurs-api";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { auditFire } from "@/lib/audit";
 
 const BodySchema = z.object({
-  invitationId: z.string().min(1),
+  // API-H3 (audit v2) : token aléatoire remplaçant l'ID incrémental.
+  invitationId: z.string().min(1).optional(),
+  token: z.string().min(32).max(128).optional(),
   confirme: z.boolean(),
+}).refine((d) => d.invitationId || d.token, {
+  message: "invitationId ou token requis",
 });
 
 /**
@@ -33,14 +38,30 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES");
   }
-  const { invitationId, confirme } = parsed.data;
+  const { invitationId, token, confirme } = parsed.data;
 
-  const invitation = await prisma.invitationReinscription.findUnique({
-    where: { id: invitationId },
-    include: { campagne: true },
-  });
+  // API-H3 (audit v2) : recherche par token (prioritaire) ou par ID (legacy).
+  let invitation;
+  if (token) {
+    // eslint-disable-next-line ecolpro/require-tenant-id -- token public, pas de tenant
+    invitation = await prisma.invitationReinscription.findFirst({
+      where: { token },
+      include: { campagne: true },
+    });
+  } else {
+    invitation = await prisma.invitationReinscription.findUnique({
+      where: { id: invitationId! },
+      include: { campagne: true },
+    });
+  }
 
   if (!invitation) return erreurJson("INVITATION_INTROUVABLE");
+
+  // API-H3 : vérifier l'expiration du token si définie.
+  if (invitation.expiresAt && invitation.expiresAt < new Date()) {
+    return erreurJson("INVITATION_EXPIREE");
+  }
+
   if (invitation.statut !== "INVITE" && invitation.statut !== "SANS_REPONSE") {
     return erreurJson("DEJA_REPONDU", undefined, {
       detail: `Statut actuel: ${invitation.statut}`,
@@ -52,7 +73,7 @@ export async function POST(req: NextRequest) {
 
   await prisma.$transaction([
     prisma.invitationReinscription.update({
-      where: { id: invitationId, tenantId: invitation.tenantId },
+      where: { id: invitation.id, tenantId: invitation.tenantId },
       data: {
         statut: confirme ? "CONFIRME" : "REFUSE",
         dateReponse: new Date(),
@@ -79,6 +100,16 @@ export async function POST(req: NextRequest) {
   await prisma.campagneReinscription.update({
     where: { id: invitation.campagneId, tenantId: invitation.tenantId },
     data: { nbReinscrits, nbNonReinscrits },
+  });
+
+  auditFire({
+    tenantId: invitation.tenantId,
+    userId: null,
+    action: "reinscription:confirm",
+    verdict: "ALLOWED",
+    resource: "eleve",
+    resourceId: invitation.eleveId,
+    metadata: { confirme, invitationId: invitation.id },
   });
 
   return Response.json({

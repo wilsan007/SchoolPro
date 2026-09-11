@@ -4,11 +4,12 @@ import { z } from "zod";
 import { getAttestationData } from "@/lib/attestation-generator";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { checkPermission } from "@/lib/rbac";
 
 const BodySchema = z.object({
   eleveId: z.string().min(1),
-  honorifique: z.string().optional(),
-  titre: z.string().optional(),
+  honorifique: z.string().max(50).optional(),
+  titre: z.string().max(200).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+
+  // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec eleves:read
+  // peuvent générer une attestation.
+  const denied = checkPermission(session.user.role, "eleves:read");
+  if (denied) return denied;
 
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

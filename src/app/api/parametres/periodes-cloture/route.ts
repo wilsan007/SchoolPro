@@ -4,6 +4,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
 import { publishEvent } from "@/lib/learnos/events";
+import { auditFire } from "@/lib/audit";
 
 const BodySchema = z.object({
   periodeId: z.string().min(1),
@@ -43,6 +44,16 @@ export async function PUT(req: NextRequest) {
     },
     data,
     include: { annee: { select: { id: true, libelle: true } } },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "periode:cloture",
+    verdict: "ALLOWED",
+    resource: "periode",
+    resourceId: periodeId,
+    metadata: { statut },
   });
 
   if (periode.annee) {

@@ -168,6 +168,7 @@ export function ImportModelesTab({ canManage, siteId }: Props) {
                         <input
                           ref={(el) => { fileInputRefs.current[modele.type] = el; }}
                           type="file"
+                          aria-label="Importer un fichier modèle"
                           accept=".xlsx,.xls,.csv"
                           className="hidden"
                           onChange={(e) => {

@@ -573,6 +573,7 @@ export function SmartSuggestPanel({
                           <label className="text-[11px] text-gray-500 whitespace-nowrap">{t("troncCommunHours")}</label>
                           <input
                             type="number"
+                            aria-label={t("troncCommunHours")}
                             min={1}
                             max={20}
                             value={cfg.troncCommunHeures}
@@ -594,6 +595,7 @@ export function SmartSuggestPanel({
                             <label className="text-[11px] text-gray-500 whitespace-nowrap">{t("groupHours")}</label>
                             <input
                               type="number"
+                              aria-label={t("groupHours")}
                               min={1}
                               max={20}
                               value={cfg.groupesHeures}

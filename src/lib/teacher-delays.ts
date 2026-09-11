@@ -216,59 +216,61 @@ export async function getTeacherDelays(
     if (a.eleve.classe?.profPrincipalId) profPrincipalIds.add(a.eleve.classe.profPrincipalId);
   }
 
-  const profsPrincipaux = profPrincipalIds.size > 0
-    ? await prisma.enseignant.findMany({
-        where: {
-          id: { in: Array.from(profPrincipalIds) },
-          tenantId,
-          ...siteFilterForModel("enseignant", claims),
-        },
-        select: { id: true, user: { select: { name: true } } },
-      })
-    : [];
-
-  const profPrincipalMap = new Map<string, string>(
-    profsPrincipaux.map((p) => [p.id, p.user?.name ?? "Enseignant"])
-  );
-
-  // ── Recherche des enseignants pour les évaluations sans notes ──
-  // L'évaluation n'a pas d'enseignantId direct : on cherche via
-  // AffectationEnseignant (source principale) puis EmploiTemps (repli).
+  // Les 3 requêtes de résolution sont indépendantes : on les lance en
+  // parallèle pour économiser 2 allers-retours DB (~800 ms sur base distante).
   const evalKeys = new Set(
     evalsSansNotes.map((e) => `${e.classeId}|${e.matiereId}`)
   );
 
-  // Source principale : AffectationEnseignant
-  const affectationLinks = evalKeys.size > 0
-    ? await prisma.affectationEnseignant.findMany({
-        where: {
-          tenantId,
-          ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
-        },
-        select: {
-          classeId: true, matiereId: true,
-          enseignantId: true,
-          enseignant: { select: { id: true, user: { select: { name: true } } } },
-        },
-      })
-    : [];
+  const [profsPrincipaux, affectationLinks, emploiLinks] = await Promise.all([
+    // Professeurs principaux (depuis bulletins, incidents, absences)
+    profPrincipalIds.size > 0
+      ? prisma.enseignant.findMany({
+          where: {
+            id: { in: Array.from(profPrincipalIds) },
+            tenantId,
+            ...siteFilterForModel("enseignant", claims),
+          },
+          select: { id: true, user: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
 
-  // Source secondaire : EmploiTemps (repli pour les données pré-migration)
-  const emploiLinks = evalKeys.size > 0
-    ? await prisma.emploiTemps.findMany({
-        where: {
-          tenantId,
-          ...(anneeLibelle ? { annee: anneeLibelle } : {}),
-          ...siteFilterForModel("emploiTemps", claims),
-        },
-        select: {
-          classeId: true, matiereId: true,
-          enseignantId: true,
-          enseignant: { select: { id: true, user: { select: { name: true } } } },
-        },
-        distinct: ["classeId", "matiereId", "enseignantId"],
-      })
-    : [];
+    // Source principale : AffectationEnseignant
+    evalKeys.size > 0
+      ? prisma.affectationEnseignant.findMany({
+          where: {
+            tenantId,
+            ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+          },
+          select: {
+            classeId: true, matiereId: true,
+            enseignantId: true,
+            enseignant: { select: { id: true, user: { select: { name: true } } } },
+          },
+        })
+      : Promise.resolve([]),
+
+    // Source secondaire : EmploiTemps (repli pour les données pré-migration)
+    evalKeys.size > 0
+      ? prisma.emploiTemps.findMany({
+          where: {
+            tenantId,
+            ...(anneeLibelle ? { annee: anneeLibelle } : {}),
+            ...siteFilterForModel("emploiTemps", claims),
+          },
+          select: {
+            classeId: true, matiereId: true,
+            enseignantId: true,
+            enseignant: { select: { id: true, user: { select: { name: true } } } },
+          },
+          distinct: ["classeId", "matiereId", "enseignantId"],
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const profPrincipalMap = new Map<string, string>(
+    profsPrincipaux.map((p) => [p.id, p.user?.name ?? "Enseignant"])
+  );
 
   const enseignantParClasseMatiere = new Map<string, EnseignantAvecUser>();
   // D'abord les affectations (source de vérité)
@@ -390,7 +392,7 @@ export async function getTeacherDelays(
       total: personnesSaisie.reduce((a, p) => a + p.count, 0),
       nbPersonnes: personnesSaisie.length,
       personnes: personnesSaisie,
-      href: "/evaluations",
+      href: "/evaluations?filter=sans-notes",
       niveau: "critique",
     });
   }

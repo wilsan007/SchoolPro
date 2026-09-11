@@ -268,6 +268,7 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
                 />
                 <Input
                   type="number"
+                  aria-label="Nombre de questions à générer"
                   min={1}
                   max={5}
                   className="w-20"
@@ -404,6 +405,7 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
               <CardContent className="space-y-3 p-4">
                 <h3 className="text-sm font-semibold">{t("titreSaisie")}</h3>
                 <Input
+                  aria-label="Énoncé de la question"
                   value={enonce}
                   onChange={(e) => setEnonce(e.target.value)}
                   placeholder={t("enonceGeneral")}

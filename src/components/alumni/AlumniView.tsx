@@ -177,6 +177,7 @@ export function AlumniView() {
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
+            aria-label="Rechercher"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
@@ -348,12 +349,12 @@ function AlumniForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("firstName")}</label>
-              <input value={form.prenom} onChange={(e) => f("prenom", e.target.value)}
+              <input aria-label={t("firstName")} value={form.prenom} onChange={(e) => f("prenom", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("lastName")}</label>
-              <input value={form.nom} onChange={(e) => f("nom", e.target.value)}
+              <input aria-label={t("lastName")} value={form.nom} onChange={(e) => f("nom", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
           </div>
@@ -361,13 +362,13 @@ function AlumniForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("graduationYearLabel")}</label>
-              <input value={form.anneeDiplome} onChange={(e) => f("anneeDiplome", e.target.value)}
+              <input aria-label={t("graduationYearLabel")} value={form.anneeDiplome} onChange={(e) => f("anneeDiplome", e.target.value)}
                 placeholder="2024-2025"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("departureClass")}</label>
-              <input value={form.classeDepart} onChange={(e) => f("classeDepart", e.target.value)}
+              <input aria-label={t("departureClass")} value={form.classeDepart} onChange={(e) => f("classeDepart", e.target.value)}
                 placeholder="Terminale S"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
@@ -376,7 +377,7 @@ function AlumniForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("mention")}</label>
-              <input value={form.mention} onChange={(e) => f("mention", e.target.value)}
+              <input aria-label={t("mention")} value={form.mention} onChange={(e) => f("mention", e.target.value)}
                 placeholder="Très Bien"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
@@ -393,14 +394,14 @@ function AlumniForm({
 
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("establishment")}</label>
-            <input value={form.etablissement} onChange={(e) => f("etablissement", e.target.value)}
+            <input aria-label={t("establishment")} value={form.etablissement} onChange={(e) => f("etablissement", e.target.value)}
               placeholder="Université Cheikh Anta Diop"
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           </div>
 
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("formation")}</label>
-            <input value={form.formation} onChange={(e) => f("formation", e.target.value)}
+            <input aria-label={t("formation")} value={form.formation} onChange={(e) => f("formation", e.target.value)}
               placeholder="Licence Informatique"
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           </div>
@@ -408,12 +409,12 @@ function AlumniForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("email")}</label>
-              <input type="email" value={form.email} onChange={(e) => f("email", e.target.value)}
+              <input type="email" aria-label={t("email")} value={form.email} onChange={(e) => f("email", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("phone")}</label>
-              <input value={form.telephone} onChange={(e) => f("telephone", e.target.value)}
+              <input aria-label={t("phone")} value={form.telephone} onChange={(e) => f("telephone", e.target.value)}
                 placeholder="+221 77 000 00 00"
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
             </div>
@@ -421,7 +422,7 @@ function AlumniForm({
 
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("linkedin")}</label>
-            <input value={form.linkedin} onChange={(e) => f("linkedin", e.target.value)}
+            <input aria-label={t("linkedin")} value={form.linkedin} onChange={(e) => f("linkedin", e.target.value)}
               placeholder="https://linkedin.com/in/..."
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           </div>

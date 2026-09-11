@@ -159,6 +159,7 @@ export function CompetencesEvaluation({
                     >
                       <input
                         type="checkbox"
+                        aria-label="Évaluation des compétences"
                         className="mt-0.5"
                         checked={choisie}
                         disabled={!peutModifier || enCours}

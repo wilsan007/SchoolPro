@@ -40,6 +40,9 @@ export interface TenantSiteClaims {
   /** Tous les rôles possédés par l'utilisateur dans le tenant actif. */
   availableRoles: Role[];
   claimsVersion: number;
+  /** AUTH-H1 : version de session lue en base. Comparée à celle du JWT
+   *  pour invalider les sessions après un changement sensible. */
+  sessionVersion: number;
 }
 
 /**
@@ -62,6 +65,7 @@ export async function deriveClaims(
       isActive: true,
       tenantId: true,
       siteId: true,
+      sessionVersion: true,
       userTenants: {
         where: { isActive: true },
         select: {
@@ -126,6 +130,7 @@ export async function deriveClaims(
       availableTenants,
       availableRoles: [],
       claimsVersion: CLAIMS_VERSION,
+      sessionVersion: user.sessionVersion,
     };
   }
 
@@ -214,6 +219,7 @@ export async function deriveClaims(
     availableTenants,
     availableRoles,
     claimsVersion: CLAIMS_VERSION,
+    sessionVersion: user.sessionVersion,
   };
 }
 
@@ -278,4 +284,27 @@ export async function resolveSiteAccess(
   if (isTenantWide(tenantRole)) return { role: tenantRole };
 
   return null;
+}
+
+/**
+ * AUTH-H1 (audit v2) — Invalide toutes les sessions actives d'un utilisateur.
+ *
+ * Incrémente `sessionVersion` en base. Au prochain passage du callback `jwt`,
+ * le token portera une `sessionVersion` périmée et sera ré-hydraté depuis la
+ * base — ce qui, selon l'état du compte, restaure le périmètre ou vide le
+ * jeton (compte désactivé, tenant révoqué, etc.).
+ *
+ * À appeler après tout changement sensible :
+ *  - changement de mot de passe ;
+ *  - désactivation / réactivation du compte ;
+ *  - révocation d'une adhésion tenant (UserTenant.isActive = false) ;
+ *  - révocation d'un rattachement de site (UserSite supprimé) ;
+ *  - changement de rôle dans un tenant.
+ */
+export async function incrementerSessionVersion(userId: string): Promise<void> {
+  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- invalidation de session : pas de session, pas de tenant
+  await prisma.user.update({
+    where: { id: userId },
+    data: { sessionVersion: { increment: 1 } },
+  });
 }

@@ -402,6 +402,7 @@ export function MessagerieView({ userRole }: { userRole: string }) {
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
+              aria-label="Rechercher une conversation"
               placeholder="Rechercher une conversation…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -588,6 +589,7 @@ export function MessagerieView({ userRole }: { userRole: string }) {
                     <Paperclip className="h-4 w-4" />
                   </Button>
                   <Input
+                    aria-label="Écrire un message"
                     placeholder="Écrire un message…"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}

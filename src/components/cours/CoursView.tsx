@@ -127,7 +127,7 @@ function CreerCoursModal({ onClose, onCreate }: {
         <CardContent className="space-y-4">
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("courseTitle")}</label>
-            <Input value={form.titre} onChange={e => set("titre", e.target.value)}
+            <Input aria-label={t("courseTitle")} value={form.titre} onChange={e => set("titre", e.target.value)}
               placeholder="Ex : Introduction aux mathématiques" className="text-sm" />
           </div>
 
@@ -150,7 +150,7 @@ function CreerCoursModal({ onClose, onCreate }: {
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("estimatedDuration")}</label>
-              <Input type="number" value={form.dureeMin} onChange={e => set("dureeMin", e.target.value)}
+              <Input aria-label={t("estimatedDuration")} type="number" value={form.dureeMin} onChange={e => set("dureeMin", e.target.value)}
                 placeholder="60" className="text-sm" />
             </div>
           </div>
@@ -158,12 +158,12 @@ function CreerCoursModal({ onClose, onCreate }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("subject")}</label>
-              <Input value={form.matiereNom} onChange={e => set("matiereNom", e.target.value)}
+              <Input aria-label={t("subject")} value={form.matiereNom} onChange={e => set("matiereNom", e.target.value)}
                 placeholder="Mathématiques" className="text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("targetClass")}</label>
-              <Input value={form.classeNom} onChange={e => set("classeNom", e.target.value)}
+              <Input aria-label={t("targetClass")} value={form.classeNom} onChange={e => set("classeNom", e.target.value)}
                 placeholder="Terminale S" className="text-sm" />
             </div>
           </div>
@@ -253,7 +253,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
         <CardContent className="space-y-4">
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("contentTitle")}</label>
-            <Input value={form.titre} onChange={e => set("titre", e.target.value)}
+            <Input aria-label={t("contentTitle")} value={form.titre} onChange={e => set("titre", e.target.value)}
               placeholder="Ex : Chapitre 1 — Introduction" className="text-sm" />
           </div>
 
@@ -277,7 +277,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
           {needsUrl && (
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">{t("urlLabel")}</label>
-              <Input value={form.url} onChange={e => set("url", e.target.value)}
+              <Input aria-label={t("urlLabel")} value={form.url} onChange={e => set("url", e.target.value)}
                 placeholder={form.type === "VIDEO" ? "https://youtube.com/watch?v=..." : "https://..."}
                 className="text-sm" />
             </div>
@@ -296,7 +296,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
 
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">{t("estimatedDuration")}</label>
-            <Input type="number" value={form.dureeMin} onChange={e => set("dureeMin", e.target.value)}
+            <Input aria-label={t("estimatedDuration")} type="number" value={form.dureeMin} onChange={e => set("dureeMin", e.target.value)}
               placeholder="15" className="text-sm" />
           </div>
 
@@ -689,10 +689,11 @@ export function CoursView({
       <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center">
         <div className="relative flex-1 min-w-0 sm:min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input value={search} onChange={e => setSearch(e.target.value)}
+          <Input aria-label={t("searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")} className="pl-9 text-sm h-9" />
           {search && (
             <button onClick={() => setSearch("")}
+              aria-label="Effacer la recherche"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               <X className="w-3.5 h-3.5" />
             </button>

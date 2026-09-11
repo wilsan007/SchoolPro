@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { erreurJson } from "@/lib/erreurs-api";
+import { checkPermission } from "@/lib/rbac";
+import { z } from "zod";
 import {
   cloturerAnnee,
   reouvrirAnnee,
@@ -22,6 +24,9 @@ export async function GET(
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
+  const denied = checkPermission(session.user.role, "parametres:read");
+  if (denied) return denied;
+
   const { id } = await params;
   const annee = await prisma.anneesScolaires.findFirst({
     where: { id, tenantId: session.user.tenantId },
@@ -36,10 +41,18 @@ export async function GET(
   return Response.json(annee);
 }
 
+const ActionSchema = z.object({
+  action: z.enum(["cloturer", "reouvrir", "archiver"]),
+});
+
 /**
  * PATCH /api/parametres/annees-scolaires/[id]
  * Actions sur une année scolaire.
  * Body: { action: "cloturer" | "reouvrir" | "archiver" }
+ *
+ * AUTH-1 (audit v2) : permission dédiée `annees:gerer` requise.
+ * Auparavant, aucun contrôle de rôle n'était effectué : un parent
+ * pouvait clôturer l'année scolaire.
  */
 export async function PATCH(
   req: NextRequest,
@@ -50,9 +63,16 @@ export async function PATCH(
     return erreurJson("NON_AUTORISE");
   }
 
+  // API-C1 (audit v2) : permission dédiée annees:gerer.
+  // `parametres:write` ne suffit pas : ACCOUNTANT le possède, or un
+  // comptable ne doit pas pouvoir clôturer l'année scolaire.
+  const denied = checkPermission(session.user.role, "annees:gerer");
+  if (denied) return denied;
+
   const { id } = await params;
   const body = await req.json().catch(() => null);
-  if (!body?.action) return erreurJson("DONNEES_INVALIDES");
+  const parsed = ActionSchema.safeParse(body);
+  if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
   // Vérifier que l'année appartient au tenant
   const annee = await prisma.anneesScolaires.findFirst({
@@ -61,7 +81,7 @@ export async function PATCH(
   if (!annee) return erreurJson("ANNEE_INTROUVABLE");
 
   try {
-    switch (body.action) {
+    switch (parsed.data.action) {
       case "cloturer": {
         if (!peutCloturer(annee)) {
           return erreurJson("STATUT_INVALIDE", undefined, {

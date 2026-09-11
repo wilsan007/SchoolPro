@@ -255,6 +255,7 @@ const CATALOGUE = {
 
   // — Réinscription —
   INVITATION_INTROUVABLE: { statut: 404, fr: "Invitation introuvable" },
+  INVITATION_EXPIREE: { statut: 410, fr: "Cette invitation a expiré" },
   DEJA_REPONDU: { statut: 409, fr: "Vous avez déjà répondu à cette invitation" },
   CAMPAGNE_FERMEE: { statut: 403, fr: "La campagne de réinscription est fermée" },
 

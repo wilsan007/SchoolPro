@@ -157,6 +157,31 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // MET-H6 (audit v2) : déduplication — ne pas renvoyer de notification
+      // si une notification d'absence/retard existe déjà pour cet élève
+      // et cette date (évite les doublons quand l'enseignant corrige son appel).
+      const debutJournee = new Date(appelDate);
+      debutJournee.setHours(0, 0, 0, 0);
+      const finJournee = new Date(appelDate);
+      finJournee.setHours(23, 59, 59, 999);
+
+      // eslint-disable-next-line ecolpro/require-site-filter -- notifications filtrées par tenantId + titre
+      const notifsExistantes = await prisma.notification.findMany({
+        where: {
+          tenantId,
+          envoyeeAt: { gte: debutJournee, lte: finJournee },
+          OR: signaleEleveIds.map((s) => ({
+            titre: {
+              contains: `${s.status === "retard" ? "Retard" : "Absence"} signalé${s.status === "retard" ? "" : "e"} -`,
+            },
+          })),
+        },
+        select: { titre: true },
+      });
+
+      // Construire un set des titres déjà envoyés pour vérification rapide.
+      const titresExistants = new Set(notifsExistantes.map((n) => n.titre));
+
       // Toutes les notifications (enregistrement + SMS/WhatsApp/Telegram/Email) sont envoyées
       // en parallèle plutôt qu'en boucle séquentielle, pour ne pas bloquer la réponse HTTP
       // le temps de dizaines d'appels réseau successifs vers des API externes.
@@ -173,6 +198,11 @@ export async function POST(req: NextRequest) {
         const titreNotif = isRetard
           ? `Retard signalé - ${eleveNom}`
           : `Absence signalée - ${eleveNom}`;
+
+        // MET-H6 : ne pas renvoyer si une notification existe déjà aujourd'hui.
+        if (titresExistants.has(titreNotif)) {
+          continue;
+        }
         const contenuNotif = isRetard
           ? `Bonjour,\n\nNous vous informons que ${eleveNom} a été signalé(e) en retard le ${dateStr}.\n\nVeuillez contacter l'établissement pour plus d'informations.\n\nCordialement,\n${ecoleNom}`
           : `Bonjour,\n\nNous vous informons que ${eleveNom} a été signalé(e) absent(e) le ${dateStr}.\n\nVeuillez contacter l'établissement pour régulariser cette absence.\n\nCordialement,\n${ecoleNom}`;

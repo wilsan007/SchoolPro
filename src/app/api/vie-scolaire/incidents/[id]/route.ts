@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { auditFire } from "@/lib/audit";
 
 const PatchSchema = z.object({
   statut: z.enum(["OUVERT", "EN_TRAITEMENT", "RESOLU", "CLASSE"]).optional(),
@@ -59,6 +60,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "incident:update",
+      verdict: "ALLOWED",
+      resource: "incident",
+      resourceId: id,
+    });
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API/vie-scolaire/incidents/:id PATCH]", error);
@@ -108,6 +118,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await prisma.incident.update({
       where: { id },
       data: { statut: "EN_TRAITEMENT" },
+    });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "incident:update",
+      verdict: "ALLOWED",
+      resource: "incident",
+      resourceId: id,
+      metadata: { sanctionId: sanction.id, sanctionType: type },
     });
 
     return NextResponse.json(sanction, { status: 201 });

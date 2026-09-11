@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { checkPermission } from "@/lib/rbac";
+import { z } from "zod";
+import { auditFire } from "@/lib/audit";
+
+const CreateSchema = z.object({
+  eleveId: z.string().min(1),
+  matiereId: z.string().min(1),
+  motif: z.string().max(500).optional(),
+});
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -9,13 +18,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { eleveId, matiereId, motif } = body;
+  // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec eleves:write
+  // peuvent créer une dispense.
+  const denied = checkPermission(session.user.role, "eleves:write");
+  if (denied) return denied;
 
-  if (!eleveId || !matiereId) {
-    return NextResponse.json({ error: "eleveId et matiereId requis" }, { status: 400 });
+  const parsed = CreateSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
-
+  const { eleveId, matiereId, motif } = parsed.data;
 
   const siteFilter = siteFilterForModel("eleve", session.user);
   const eleve = await prisma.eleve.findFirst({
@@ -56,6 +68,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
+  // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec eleves:write
+  // peuvent supprimer une dispense.
+  const denied = checkPermission(session.user.role, "eleves:write");
+  if (denied) return denied;
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) {
@@ -64,6 +81,15 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.dispenseMatiere.delete({
     where: { id, tenantId: session.user.tenantId },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "dispense:delete",
+    verdict: "ALLOWED",
+    resource: "dispenseMatiere",
+    resourceId: id,
   });
 
   return NextResponse.json({ success: true });

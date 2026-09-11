@@ -126,6 +126,7 @@ export function SallesTab({ canManage }: Props) {
           <div className="flex gap-2 flex-wrap">
             <input
               type="text"
+              aria-label="Nom de la salle"
               placeholder="Nom de la salle"
               value={nom}
               onChange={(e) => setNom(e.target.value)}
@@ -134,6 +135,7 @@ export function SallesTab({ canManage }: Props) {
             />
             <input
               type="number"
+              aria-label="Capacité"
               placeholder="Capacité"
               value={capacite}
               onChange={(e) => setCapacite(e.target.value)}
@@ -153,6 +155,7 @@ export function SallesTab({ canManage }: Props) {
             </select>
             <input
               type="text"
+              aria-label="Bâtiment"
               placeholder="Bâtiment"
               value={batiment}
               onChange={(e) => setBatiment(e.target.value)}

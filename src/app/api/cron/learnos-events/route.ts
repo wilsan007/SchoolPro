@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { drainEvents } from "@/lib/learnos/event-bus";
+import { withSystemContext } from "@/lib/rls-context";
 
 /**
  * Drainage de la boîte d'envoi LEARNOS.
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest) {
 
   // `drainEvents` ne lève pas : un événement fautif est comptabilisé puis
   // retenté au passage suivant, sans interrompre le traitement des autres.
-  const resultat = await drainEvents(limit);
+  // ISO-4 : envelopper dans un contexte système RLS (drainage cross-tenant).
+  const resultat = await withSystemContext("cron:learnos-events", () => drainEvents(limit));
 
   return NextResponse.json({ success: true, ...resultat });
 }

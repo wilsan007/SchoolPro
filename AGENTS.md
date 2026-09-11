@@ -118,3 +118,49 @@ node scripts/i18n-audit.mjs  # audit i18n : clés manquantes fr/en/so
 
 Le pre-commit hook (installer avec `node scripts/install-hooks.mjs`) exécute
 `tsc --noEmit` et `next lint` avant chaque commit.
+
+## Déploiement production
+
+### Cible unique : Supabase (PostgreSQL)
+
+- **Base de données** : Supabase PostgreSQL — projet `ndtaedcgwnaopopugiql` (West Europe)
+- **Pooler** : `aws-1-eu-west-1.pooler.supabase.com:6543` (transaction mode)
+- **Connexion directe** : `aws-1-eu-west-1.supabase.com:5432` (migrations)
+- **25 migrations** déployées et enregistrées dans `_prisma_migrations`
+- **RLS** : activée sur toutes les tables tenant-scopées ; fonctions `set_app_context` déployées
+- **Mode RLS** : `off` par défaut, `warn` en préproduction, `enforce` en production (après validation)
+
+### Application
+
+- **Hébergement** : Vercel (Next.js App Router) ou Docker standalone (VPS)
+- **Build** : `pnpm build`
+- **Variables d'environnement requises** :
+  - `DATABASE_URL` — pooler Supabase (port 6543)
+  - `DIRECT_URL` — connexion directe Supabase (port 5432)
+  - `AUTH_SECRET` — secret NextAuth
+  - `AUTH_URL` — URL de l'application
+  - `NEXT_PUBLIC_APP_URL` — URL publique
+  - `CRON_SECRET` — secret pour les tâches planifiées
+  - `RESEND_API_KEY` — emails transactionnels
+  - `RESEND_FROM` — adresse d'envoi
+
+### Procédure de déploiement
+
+1. Vérifier : `pnpm verify` (lint + tsc + tests + prisma validate)
+2. Déployer les migrations : `pnpm prisma migrate deploy` (ou `pnpm prisma db execute` si le pooler bloque)
+3. Build : `pnpm build`
+4. Déployer sur Vercel (git push) ou Docker (`docker compose up -d`)
+5. Vérifier le health check : `curl https://<app-url>/api/health`
+
+### Procédure de rollback
+
+1. **Code** : `git revert <commit>` → redéployer
+2. **Base de données** : `pnpm prisma migrate resolve --rolled-back <migration_name>` (si migration additive)
+3. **Données** : restauration Supabase (Dashboard > Database > Backups)
+4. **RLS** : `RLS_MODE=off` pour désactiver immédiatement le filtrage en cas de blocage
+
+### Sauvegardes
+
+- **Supabase** : sauvegardes automatiques quotidiennes (7 jours)
+- **PITR** : Point-in-Time Recovery disponible (Supabase Pro)
+- **Vérification** : `curl https://<app-url>/api/health` après chaque restauration

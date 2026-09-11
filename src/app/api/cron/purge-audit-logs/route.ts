@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { withSystemContext } from "@/lib/rls-context";
 
 /**
  * Cron endpoint: Purge old audit logs beyond retention period.
@@ -33,31 +34,33 @@ export async function GET(req: NextRequest) {
   let totalDeleted = 0;
   let batchDeleted: number;
 
-  do {
-    // Tâche système authentifiée par CRON_SECRET : purge globale
-    // indépendante du tenant, par conception.
-    // eslint-disable-next-line ecolpro/require-tenant-id
-    const idsToDelete = await prisma.auditLog.findMany({
-      where: { createdAt: { lt: cutoff } },
-      select: { id: true },
-      take: BATCH_SIZE,
-    });
+  await withSystemContext("cron:purge-audit-logs", async () => {
+    do {
+      // Tâche système authentifiée par CRON_SECRET : purge globale
+      // indépendante du tenant, par conception.
+      // eslint-disable-next-line ecolpro/require-tenant-id
+      const idsToDelete = await prisma.auditLog.findMany({
+        where: { createdAt: { lt: cutoff } },
+        select: { id: true },
+        take: BATCH_SIZE,
+      });
 
-    if (idsToDelete.length === 0) {
-      batchDeleted = 0;
-      break;
-    }
+      if (idsToDelete.length === 0) {
+        batchDeleted = 0;
+        break;
+      }
 
-    // Purge système : tenantId non applicable car les ids proviennent de la
-    // sélection précédente (déjà filtrées par date) et aucun autre tenant n'est
-    // ciblé ici.
-    // eslint-disable-next-line ecolpro/require-tenant-id
-    const result = await prisma.auditLog.deleteMany({
-      where: { id: { in: idsToDelete.map((r) => r.id) } },
-    });
-    batchDeleted = result.count;
-    totalDeleted += batchDeleted;
-  } while (batchDeleted === BATCH_SIZE);
+      // Purge système : tenantId non applicable car les ids proviennent de la
+      // sélection précédente (déjà filtrées par date) et aucun autre tenant n'est
+      // ciblé ici.
+      // eslint-disable-next-line ecolpro/require-tenant-id
+      const result = await prisma.auditLog.deleteMany({
+        where: { id: { in: idsToDelete.map((r) => r.id) } },
+      });
+      batchDeleted = result.count;
+      totalDeleted += batchDeleted;
+    } while (batchDeleted === BATCH_SIZE);
+  });
 
   console.log(
     `[cron/purge-audit-logs] ${totalDeleted} entrées purgées (antérieures au ${cutoff.toISOString()})`

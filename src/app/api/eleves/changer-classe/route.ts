@@ -2,54 +2,100 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { checkPermission } from "@/lib/rbac";
+import { erreurJson } from "@/lib/erreurs-api";
+import { auditFire } from "@/lib/audit";
+import { z } from "zod";
 import { revalidateTag, revalidatePath } from "next/cache";
+import { applyRlsContext } from "@/lib/prisma-rls";
 
+const ChangerClasseSchema = z.object({
+  eleveIds: z.array(z.string().min(1)).min(1).max(500),
+  nouvelleClasseId: z.string().min(1),
+});
+
+/**
+ * POST /api/eleves/changer-classe
+ *
+ * API-C2 (audit v2) : auparavant, aucun contrôle de rôle ni validation Zod.
+ * Pour PARENT/STUDENT, `siteFilterForModel("eleve")` renvoyait `{}` : tous
+ * les élèves du tenant étaient modifiables. Les `tx.*` dans la transaction
+ * n'avaient pas de `tenantId`, permettant une écriture inter-tenant.
+ */
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    return erreurJson("NON_AUTORISE");
   }
 
-  const body = await req.json();
-  const { eleveIds, nouvelleClasseId } = body as {
-    eleveIds: string[];
-    nouvelleClasseId: string;
-  };
+  // API-C2 : permission requise. `eleves:write` est détenue par TENANT_ADMIN,
+  // PRINCIPAL, SECRETARY et ACCOUNTANT. Faire confirmer par la direction si
+  // un comptable doit pouvoir changer un élève de classe.
+  const denied = checkPermission(session.user.role, "eleves:write");
+  if (denied) return denied;
 
-  if (!eleveIds?.length || !nouvelleClasseId) {
-    return NextResponse.json({ error: "eleveIds et nouvelleClasseId requis" }, { status: 400 });
-  }
+  const body = await req.json().catch(() => null);
+  const parsed = ChangerClasseSchema.safeParse(body);
+  if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
+  const { eleveIds, nouvelleClasseId } = parsed.data;
+  const tenantId = session.user.tenantId!;
 
   const classeFilter = siteFilterForModel("classe", session.user);
   const eleveFilter = siteFilterForModel("eleve", session.user);
   const targetClasse = await prisma.classe.findFirst({
-    where: { id: nouvelleClasseId, tenantId: session.user.tenantId, ...classeFilter },
+    where: { id: nouvelleClasseId, tenantId, ...classeFilter },
   });
 
   if (!targetClasse) {
-    return NextResponse.json({ error: "Classe destination introuvable" }, { status: 404 });
+    return erreurJson("ELEVE_INTROUVABLE", undefined, {
+      detail: "Classe destination introuvable",
+    });
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
+    // API-C2 : relire les élèves réellement modifiables. On n'utilise
+    // QUE les identifiants retournés par cette requête pour les opérations
+    // suivantes, afin d'éviter toute écriture inter-tenant.
+    const elevesOk = await tx.eleve.findMany({
+      where: {
+        id: { in: eleveIds },
+        tenantId,
+        ...eleveFilter,
+      },
+      select: { id: true, classeId: true },
+    });
+    const okIds = elevesOk.map((e) => e.id);
+
+    if (okIds.length === 0) {
+      return { count: 0 };
+    }
+
     // Mettre à jour les élèves
     const updated = await tx.eleve.updateMany({
       where: {
-        id: { in: eleveIds },
-        tenantId: session.user.tenantId!,
+        id: { in: okIds },
+        tenantId,
         ...eleveFilter,
       },
       data: { classeId: nouvelleClasseId },
     });
 
-    // Clôturer l'historique ancien et créer le nouveau (date d'effet)
+    // Clôturer l'historique ancien et créer le nouveau (date d'effet).
+    // API-C2 / ISO-H3 : ajouter tenantId aux where des tx.* pour empêcher
+    // l'écriture inter-tenant.
     await tx.historiqueClasse.updateMany({
-      where: { eleveId: { in: eleveIds }, dateSortie: null },
+      where: {
+        eleveId: { in: okIds },
+        tenantId,
+        dateSortie: null,
+      },
       data: { dateSortie: new Date(), motif: "Transfert" },
     });
     await tx.historiqueClasse.createMany({
-      data: eleveIds.map((eleveId) => ({
-        tenantId: session.user.tenantId!,
+      data: okIds.map((eleveId) => ({
+        tenantId,
         eleveId,
         classeId: nouvelleClasseId,
         dateEntree: new Date(),
@@ -57,16 +103,30 @@ export async function POST(req: NextRequest) {
       })),
     });
 
-    return updated;
+    return { count: updated.count, okIds };
+  });
+
+  // --- Audit ---
+  auditFire({
+    userId: session.user.id,
+    tenantId,
+    action: "eleves:changer-classe",
+    verdict: "ALLOWED",
+    resource: "eleve",
+    reason: `${result.count} élève(s) transféré(s) vers la classe ${targetClasse.nom}`,
+    metadata: {
+      eleveIds: result.okIds ?? [],
+      nouvelleClasseId,
+      nouvelleClasseNom: targetClasse.nom,
+    },
   });
 
   // --- Notifications IN_APP aux parents des élèves transférés ---
   try {
-    // Récupérer les infos des élèves (ancien nom de classe via historique, nouveau nom)
     const elevesTransf = await prisma.eleve.findMany({
       where: {
-        id: { in: eleveIds },
-        tenantId: session.user.tenantId!,
+        id: { in: result.okIds ?? eleveIds },
+        tenantId,
         ...eleveFilter,
       },
       select: {
@@ -80,8 +140,8 @@ export async function POST(req: NextRequest) {
     // Récupérer l'ancien nom de classe depuis l'historique clôturé
     const historiques = await prisma.historiqueClasse.findMany({
       where: {
-        eleveId: { in: eleveIds },
-        tenantId: session.user.tenantId!,
+        eleveId: { in: result.okIds ?? eleveIds },
+        tenantId,
         motif: "Transfert",
         dateSortie: { not: null },
       },
@@ -104,7 +164,7 @@ export async function POST(req: NextRequest) {
       try {
         await prisma.notification.create({
           data: {
-            tenantId: session.user.tenantId,
+            tenantId,
             siteId: session.user.siteId ?? null,
             titre: "Changement de classe",
             contenu: `Nous vous informons que ${eleveNom} a été transféré(e) de la classe ${ancienneClasse} vers la classe ${nouvelleClasseNom}.`,

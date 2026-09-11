@@ -554,7 +554,7 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
                   {splitClasses.map((sc, idx) => (
                     <div key={idx} className="space-y-2 border rounded-md p-3">
                       <div className="flex items-center gap-2">
-                        <Input value={sc.nom} onChange={(e) => {
+                        <Input aria-label={t("newClassName")} value={sc.nom} onChange={(e) => {
                           const next = [...splitClasses];
                           next[idx] = { ...next[idx], nom: e.target.value };
                           setSplitClasses(next);

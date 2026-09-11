@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForRelation } from "@/lib/site-filter";
+import { auditFire } from "@/lib/audit";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,6 +24,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (!existing) return NextResponse.json({ error: "Disponibilité introuvable" }, { status: 404 });
 
     await prisma.disponibiliteEnseignant.delete({ where: { id } });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "disponibilite:delete",
+      verdict: "ALLOWED",
+      resource: "disponibiliteEnseignant",
+      resourceId: id,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/disponibilites DELETE]", error);

@@ -6,6 +6,15 @@ import { fr } from "date-fns/locale";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
 import { getDemoNow } from "@/lib/demo-now";
+import { checkPermission } from "@/lib/rbac";
+import { z } from "zod";
+
+const BodySchema = z.object({
+  eleveId: z.string().min(1),
+  motif: z.string().min(1).max(500),
+  motifDetail: z.string().max(1000).optional(),
+  dateConvocation: z.string().optional(),
+});
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -13,13 +22,16 @@ export async function POST(req: NextRequest) {
     return erreurJson("NON_AUTORISE");
   }
 
-  const body = await req.json();
-  const { eleveId, motif, motifDetail, dateConvocation } = body;
+  // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec vie-scolaire:write
+  // peuvent émettre une convocation.
+  const denied = checkPermission(session.user.role, "vie-scolaire:write");
+  if (denied) return denied;
 
-  if (!eleveId) {
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES");
   }
-
+  const { eleveId, motif, motifDetail, dateConvocation } = parsed.data;
 
   const siteFilter = siteFilterForModel("eleve", session.user);
   const eleve = await prisma.eleve.findFirst({

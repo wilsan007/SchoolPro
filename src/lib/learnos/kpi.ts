@@ -126,14 +126,19 @@ export async function kpisDirection(
   // Libellé de l'année courante (ex. « 2025-2026 ») — sert à filtrer les
   // classes, dont le champ `annee` est cette chaîne.
   const anneeLibelle = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
-  const precedents = await valeursPrecedentes(tenantId, claims, "DIRECTION", jourDe(maintenant));
 
+  // Les deux requêtes suivantes sont indépendantes : on les lance en
+  // parallèle pour économiser un aller-retour DB (sur une base distante
+  // à 400 ms latence, c'est 400 ms gagnés sur le rendu de la page).
   // Année active au sens chronologique : celle qui contient `maintenant`.
   // Pendant l'été, anneeALaDate retourne l'année isCurrent (à venir) pour
   // permettre la préparation de la rentrée. Mais les KPIs pédagogiques
   // (couverture, saisies en retard, élèves à risque) n'ont pas de sens
   // sur une année qui n'a pas commencé — on l'indique au calcul ci-dessous.
-  const annee = await anneeALaDate(tenantId, maintenant);
+  const [precedents, annee] = await Promise.all([
+    valeursPrecedentes(tenantId, claims, "DIRECTION", jourDe(maintenant)),
+    anneeALaDate(tenantId, maintenant),
+  ]);
   const anneeId = annee?.id;
   const fenetreDebut = annee?.dateDebut;
   const anneePasEncoreCommencee = annee ? annee.dateDebut > maintenant : false;

@@ -59,6 +59,51 @@ export function auditFire(params: AuditParams): void {
 }
 
 // ============================================================
+// API-H3 (audit v2) — Wrapper withAudit pour les mutations
+// ============================================================
+
+/**
+ * Wrapper qui journalise automatiquement une mutation (création,
+ * modification, suppression) dans AuditLog.
+ *
+ * Usage :
+ * ```ts
+ * const result = await withAudit(
+ *   { tenantId, userId, action: "eleve:create", resource: "eleve" },
+ *   async () => {
+ *     const eleve = await prisma.eleve.create({ data: {...} });
+ *     return { resourceId: eleve.id, data: eleve };
+ *   }
+ * );
+ * ```
+ *
+ * - En cas de succès : verdict ALLOWED + resourceId extrait du retour.
+ * - En cas d'erreur : verdict DENIED + reason = message d'erreur.
+ * - L'audit ne lève jamais : il ne peut pas casser le flux métier.
+ */
+export async function withAudit<T extends { resourceId?: string; data?: unknown }>(
+  params: Omit<AuditParams, "verdict" | "resourceId" | "reason">,
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    const result = await fn();
+    auditFire({
+      ...params,
+      verdict: "ALLOWED",
+      resourceId: result.resourceId,
+    });
+    return result;
+  } catch (error) {
+    auditFire({
+      ...params,
+      verdict: "DENIED",
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+// ============================================================
 // ALERTES DE SÉCURITÉ
 // ============================================================
 

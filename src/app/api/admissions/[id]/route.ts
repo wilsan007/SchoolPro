@@ -8,8 +8,10 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { notifyDirection } from "@/lib/notifications/notify-direction";
 import { revalidateTag } from "next/cache";
+import { applyRlsContext } from "@/lib/prisma-rls";
 import { moisScolariteDefaut, isMoisScolariteValide, formatMoisScolarite } from "@/lib/admissions/mois-scolarite";
 import { publishEvent, type CandidatureAccepteePayload } from "@/lib/learnos/events";
+import { auditFire } from "@/lib/audit";
 import {
   PIECES_OBLIGATOIRES,
   fusionnerDocuments,
@@ -341,6 +343,7 @@ export async function PATCH(
 
       // ── Transaction : élève + parent + lien facture ──
       const result = await prisma.$transaction(async (tx) => {
+        await applyRlsContext(tx);
         // a) Générer un matricule unique : ECL-<année>-<compteur>.
         // eslint-disable-next-line ecolpro/require-site-filter -- compteur global tenant pour matricule
         const count = await tx.eleve.count({ where: { tenantId } });
@@ -628,5 +631,15 @@ export async function DELETE(
   }
 
   await prisma.candidature.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "admission:delete",
+    verdict: "ALLOWED",
+    resource: "candidature",
+    resourceId: id,
+  });
+
   return NextResponse.json({ success: true });
 }

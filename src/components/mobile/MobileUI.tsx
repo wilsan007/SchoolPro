@@ -424,6 +424,7 @@ export function MobileSearch({ value, onChange, placeholder, className }: Mobile
       </svg>
       <input
         type="text"
+        aria-label="Rechercher"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

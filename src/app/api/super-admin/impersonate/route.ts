@@ -108,15 +108,23 @@ export async function POST(request: NextRequest) {
     console.error("[impersonate] Échec écriture JournalApprentissage:", err);
   }
 
-  // Mettre à jour le JWT : basculer vers le tenant cible avec le flag d'impersonation
+  // Créer un grant d'usurpation en base (AUTH-1, audit v2) :
+  // le callback jwt vérifiera ce grant à chaque passage, au lieu de faire
+  // confiance aux champs envoyés par le client.
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 60 minutes
+  const grant = await prisma.impersonationGrant.create({
+    data: {
+      adminId,
+      targetTenantId: tenantId,
+      targetUserId: targetUser.id,
+      expiresAt,
+    },
+  });
+
+  // Mettre à jour le JWT : passer uniquement le grant ID au callback jwt.
+  // Le callback vérifiera le grant en base et basculera le tenantId.
   await unstable_update({
-    tenantId,
-    impersonating: true,
-    impersonatedTenantId: tenantId,
-    impersonatedTenantName: tenant.name,
-    impersonatedUserEmail: targetUser.email,
-    originalRole,
-    originalTenantId,
+    impersonationGrantId: grant.id,
   } as never);
 
   return NextResponse.json({

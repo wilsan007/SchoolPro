@@ -127,6 +127,7 @@ function ComposeModal({
           <div>
             <label className="text-xs text-gray-600 mb-1 block font-medium">{t("titleLabel")}</label>
             <Input
+              aria-label={t("titleLabel")}
               value={form.titre}
               onChange={(e) => set("titre", e.target.value)}
               placeholder={t("titlePlaceholder")}
@@ -226,6 +227,7 @@ function ComposeModal({
           <div>
             <label className="text-xs text-gray-600 mb-1 block font-medium">{t("scheduledSend")}</label>
             <Input
+              aria-label={t("scheduledSend")}
               type="datetime-local"
               value={form.planifieeAt}
               onChange={(e) => set("planifieeAt", e.target.value)}

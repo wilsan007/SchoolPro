@@ -4,12 +4,15 @@ import prisma from "@/lib/prisma";
 import { erreurJson } from "@/lib/erreurs-api";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 
-const IdSchema = z.string().min(1);
+const TokenSchema = z.string().min(32).max(128);
 
 /**
- * GET /api/reinscription/invitation/[id]
- * Récupère une invitation par ID (pour le portail parent public).
- * Pas de session requise — l'ID d'invitation est le token d'accès.
+ * GET /api/reinscription/invitation/[id]?token=xxx
+ * Récupère une invitation par token aléatoire (API-H3, audit v2).
+ * Le paramètre [id] est ignoré pour compatibilité rétroactive ; seul le
+ * `token` query string est utilisé pour la recherche. Si aucun token
+ * n'est fourni, on retombe sur l'ID (legacy, à retirer après migration).
+ * Pas de session requise — le token est le token d'accès.
  */
 export async function GET(
   req: NextRequest,
@@ -29,35 +32,63 @@ export async function GET(
     );
   }
 
-  const { id } = await params;
-  const parsed = IdSchema.safeParse(id);
-  if (!parsed.success) {
-    return erreurJson("DONNEES_INVALIDES");
-  }
+  await params; // consommer le paramètre (compatibilité route)
 
-  // Route publique : l'ID d'invitation sert de token d'accès.
-  // Pas de filtre tenant — l'invitation est introuvable sans l'ID correct.
-  // eslint-disable-next-line ecolpro/require-tenant-id
-  const invitation = await prisma.invitationReinscription.findUnique({
-    where: { id: parsed.data },
-    include: {
-      campagne: {
-        select: { libelle: true, anneeCible: true, statut: true },
-      },
-      eleve: {
-        select: {
-          id: true,
-          nom: true,
-          prenom: true,
-          matricule: true,
-          statut: true,
-          classe: { select: { nom: true, niveau: true } },
+  const token = new URL(req.url).searchParams.get("token");
+  const parsedToken = token ? TokenSchema.safeParse(token) : null;
+
+  // Route publique : le token (ou l'ID legacy) sert de token d'accès.
+  // Pas de filtre tenant — l'invitation est introuvable sans le token correct.
+  let invitation;
+  if (parsedToken?.success) {
+    // eslint-disable-next-line ecolpro/require-tenant-id -- token public, pas de tenant
+    invitation = await prisma.invitationReinscription.findFirst({
+      where: { token: parsedToken.data },
+      include: {
+        campagne: {
+          select: { libelle: true, anneeCible: true, statut: true },
+        },
+        eleve: {
+          select: {
+            id: true,
+            nom: true,
+            prenom: true,
+            matricule: true,
+            statut: true,
+            classe: { select: { nom: true, niveau: true } },
+          },
         },
       },
-    },
-  });
+    });
+  } else {
+    // Fallback legacy : recherche par ID (à retirer après migration complète)
+    // eslint-disable-next-line ecolpro/require-tenant-id -- route publique legacy
+    invitation = await prisma.invitationReinscription.findUnique({
+      where: { id: new URL(req.url).searchParams.get("id") ?? "" },
+      include: {
+        campagne: {
+          select: { libelle: true, anneeCible: true, statut: true },
+        },
+        eleve: {
+          select: {
+            id: true,
+            nom: true,
+            prenom: true,
+            matricule: true,
+            statut: true,
+            classe: { select: { nom: true, niveau: true } },
+          },
+        },
+      },
+    });
+  }
 
   if (!invitation) return erreurJson("INVITATION_INTROUVABLE");
+
+  // API-H3 : vérifier l'expiration du token si définie.
+  if (invitation.expiresAt && invitation.expiresAt < new Date()) {
+    return erreurJson("INVITATION_EXPIREE");
+  }
 
   return Response.json({
     id: invitation.id,

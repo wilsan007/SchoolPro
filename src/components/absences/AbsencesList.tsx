@@ -173,6 +173,7 @@ export function AbsencesList({ absences, canWrite = false }: { absences: Absence
         <div className="relative flex-1 max-w-xs w-full sm:w-auto">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
+            aria-label={t("searchStudent")}
             placeholder={t("searchStudent")}
             className="pl-8 h-9 bg-input/50 border-border rounded-xl focus:ring-2 focus:ring-primary/30"
             value={search}

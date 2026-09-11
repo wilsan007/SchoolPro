@@ -12,6 +12,8 @@ import {
   type PieceDoc,
   type TypeDoc,
 } from "@/lib/inscriptions";
+import { applyRlsContext } from "@/lib/prisma-rls";
+import { auditFire } from "@/lib/audit";
 
 /**
  * GET — détail d'un dossier d'inscription + historique complet.
@@ -247,6 +249,7 @@ export async function PATCH(
 
   // Appliquer la mise à jour + tracer l'historique dans une transaction
   const updated = await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     const result = await tx.candidature.update({
       where: { id },
       data: updateData as never,
@@ -255,6 +258,15 @@ export async function PATCH(
       await logInscription(tx, ev);
     }
     return result;
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "inscription:update",
+    verdict: "ALLOWED",
+    resource: "candidature",
+    resourceId: id,
   });
 
   // Recharger avec les relations pour la réponse

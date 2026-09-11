@@ -294,6 +294,7 @@ function PaiementInlineModal({
           <div>
             <label className="text-xs text-gray-600 mb-1 block font-medium">{t("amount")}</label>
             <Input
+              aria-label={t("amount")}
               type="number"
               value={montant}
               onChange={(e) => setMontant(e.target.value)}
@@ -326,6 +327,7 @@ function PaiementInlineModal({
           <div>
             <label className="text-xs text-gray-600 mb-1 block font-medium">{t("reference")}</label>
             <Input
+              aria-label={t("reference")}
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder={t("referenceOptional")}
@@ -436,15 +438,15 @@ function CandidatureForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("lastName")}</label>
-                  <Input value={form.nom} onChange={(e) => set("nom", e.target.value)} required placeholder="DIALLO" className="text-sm" />
+                  <Input aria-label={t("lastName")} value={form.nom} onChange={(e) => set("nom", e.target.value)} required placeholder="DIALLO" className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("firstName")}</label>
-                  <Input value={form.prenom} onChange={(e) => set("prenom", e.target.value)} required placeholder="Amadou" className="text-sm" />
+                  <Input aria-label={t("firstName")} value={form.prenom} onChange={(e) => set("prenom", e.target.value)} required placeholder="Amadou" className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("birthDate")}</label>
-                  <Input type="date" value={form.dateNaissance} onChange={(e) => set("dateNaissance", e.target.value)} required className="text-sm" />
+                  <Input aria-label={t("birthDate")} type="date" value={form.dateNaissance} onChange={(e) => set("dateNaissance", e.target.value)} required className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("gender")}</label>
@@ -488,12 +490,12 @@ function CandidatureForm({
                 ) : (
                   <div>
                     <label className="text-xs text-gray-600 mb-1 block">{t("desiredClass")}</label>
-                    <Input value={form.classeVoulue} onChange={(e) => set("classeVoulue", e.target.value)} required placeholder="6ème, Terminale S…" className="text-sm" />
+                    <Input aria-label={t("desiredClass")} value={form.classeVoulue} onChange={(e) => set("classeVoulue", e.target.value)} required placeholder="6ème, Terminale S…" className="text-sm" />
                   </div>
                 )}
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("schoolYear")}</label>
-                  <Input value={form.annee} onChange={(e) => set("annee", e.target.value)} className="text-sm" />
+                  <Input aria-label={t("schoolYear")} value={form.annee} onChange={(e) => set("annee", e.target.value)} className="text-sm" />
                 </div>
               </div>
             </div>
@@ -506,19 +508,19 @@ function CandidatureForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("lastName")}</label>
-                  <Input value={form.parentNom} onChange={(e) => set("parentNom", e.target.value)} required className="text-sm" />
+                  <Input aria-label={t("lastName")} value={form.parentNom} onChange={(e) => set("parentNom", e.target.value)} required className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("firstName")}</label>
-                  <Input value={form.parentPrenom} onChange={(e) => set("parentPrenom", e.target.value)} required className="text-sm" />
+                  <Input aria-label={t("firstName")} value={form.parentPrenom} onChange={(e) => set("parentPrenom", e.target.value)} required className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("email")}</label>
-                  <Input type="email" value={form.parentEmail} onChange={(e) => set("parentEmail", e.target.value)} placeholder={t("emailOptional")} className="text-sm" />
+                  <Input type="email" aria-label={t("email")} value={form.parentEmail} onChange={(e) => set("parentEmail", e.target.value)} placeholder={t("emailOptional")} className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("phone")}</label>
-                  <Input value={form.parentPhone} onChange={(e) => set("parentPhone", e.target.value)} required placeholder="+221 77 000 00 00" className="text-sm" />
+                  <Input aria-label={t("phone")} value={form.parentPhone} onChange={(e) => set("parentPhone", e.target.value)} required placeholder="+221 77 000 00 00" className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">{t("relationship")}</label>
@@ -1066,6 +1068,7 @@ function DocumentUpload({
       </select>
       <Input
         type="url"
+        aria-label={t("docUrlPlaceholder")}
         placeholder={t("docUrlPlaceholder")}
         value={url}
         onChange={(e) => setUrl(e.target.value)}
@@ -1225,6 +1228,7 @@ export function AdmissionsView({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input
+          aria-label={t("searchPlaceholder")}
           placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

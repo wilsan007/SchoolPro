@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Note as NoteDomain, calculerMoyennePondereeCentiemes } from "@/lib/domain/note";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -235,13 +236,16 @@ export function EleveDetailView({
     return acc;
   }, {});
 
-  const moyenneGenerale =
-    eleve.notes.length > 0
-      ? (
-          eleve.notes.reduce((sum, n) => sum + (n.valeur / n.noteMax) * 20 * n.coefficient, 0) /
-          eleve.notes.reduce((sum, n) => sum + n.coefficient, 0)
-        ).toFixed(2)
-      : null;
+  // MET-H1 (audit v2) : centièmes entiers via le domaine Note.
+  const moyenneGenerale = (() => {
+    if (eleve.notes.length === 0) return null;
+    const notesCentiemes = eleve.notes.map((n) => ({
+      centiemes: NoteDomain.depuisValeurSurBareme(n.valeur, n.noteMax).centiemes,
+      coefficient: n.coefficient,
+    }));
+    const centiemes = calculerMoyennePondereeCentiemes(notesCentiemes);
+    return centiemes !== null ? (centiemes / 100).toFixed(2) : null;
+  })();
 
   const totalAbsences = eleve.absences.filter((a) => !a.isRetard).length;
   const totalRetards = eleve.absences.filter((a) => a.isRetard).length;
@@ -515,10 +519,13 @@ export function EleveDetailView({
           ) : (
             <div className="space-y-4">
               {Object.values(notesByMatiere).map((m) => {
-                const avg = (
-                  m.notes.reduce((s, n) => s + (n.valeur / n.noteMax) * 20 * n.coefficient, 0) /
-                  m.notes.reduce((s, n) => s + n.coefficient, 0)
-                ).toFixed(2);
+                // MET-H1 (audit v2) : centièmes entiers via le domaine Note.
+                const notesCentiemes = m.notes.map((n) => ({
+                  centiemes: NoteDomain.depuisValeurSurBareme(n.valeur, n.noteMax).centiemes,
+                  coefficient: n.coefficient,
+                }));
+                const centiemes = calculerMoyennePondereeCentiemes(notesCentiemes);
+                const avg = centiemes !== null ? (centiemes / 100).toFixed(2) : "—";
                 return (
                   <Card key={m.code} className="overflow-hidden">
                     <div

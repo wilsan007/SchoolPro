@@ -390,6 +390,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
 
           <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex gap-2 shrink-0">
             <input
+              aria-label={t("inputPlaceholder")}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {

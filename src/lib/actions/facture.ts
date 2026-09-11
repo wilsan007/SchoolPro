@@ -8,8 +8,10 @@ import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
 import { anneeActiveId, getContexteAnnees } from "@/lib/annee-scolaire";
 import { publishEvent } from "@/lib/learnos/events";
 import { getDemoNow } from "@/lib/demo-now";
+import { applyRlsContext } from "@/lib/prisma-rls";
 import { z } from "zod";
 import type { TypeFacture } from "@prisma/client";
+import type { Session } from "next-auth";
 import {
   canCreateFacture as canCreateFactureDomain,
   batchValide,
@@ -41,11 +43,24 @@ const PaiementSchema = z.object({
 
 export type PaiementFormData = z.infer<typeof PaiementSchema>;
 
-export async function getFacturesForTenant(filters?: { statut?: string; eleveId?: string; anneeId?: string }) {
-  const session = await auth();
-  if (!session?.user?.tenantId) return [];
+export async function getFacturesForTenant(
+  filters?: { statut?: string; eleveId?: string; anneeId?: string },
+  opts?: {
+    /** Session déjà résolue par l'appelant (évite un auth() redondant). */
+    session?: Session;
+    /** Contexte annuel déjà résolu (évite un getContexteAnnees() redondant). */
+    ctx?: Awaited<ReturnType<typeof getContexteAnnees>>;
+    /** Nombre max de factures à charger (défaut: 500). */
+    limit?: number;
+  }
+) {
+  const session = opts?.session ?? (await auth());
+  // auth() retourne Session | NextMiddleware | null ; on narrow à Session.
+  const sessionObj = session && typeof session === "object" && "user" in session ? session as Session : null;
+  if (!sessionObj?.user?.tenantId) return [];
 
-  const tenantId = session.user.tenantId;
+  const tenantId = sessionObj.user.tenantId;
+  const limit = opts?.limit ?? 500;
 
   // Si un anneeId explicite est fourni, on filtre strictement sur cette année.
   if (filters?.anneeId) {
@@ -57,18 +72,19 @@ export async function getFacturesForTenant(filters?: { statut?: string; eleveId?
           ...(filters.statut && filters.statut !== "ALL" ? { statut: filters.statut as never } : {}),
           ...(filters.eleveId ? { eleveId: filters.eleveId } : {}),
         },
-        siteFilterForModel("facture", session.user)
+        siteFilterForModel("facture", sessionObj.user)
       ),
       include: {
         eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classeId: true, classe: { select: { nom: true } } } },
         paiements: {
-          where: siteFilterForModel("paiement", session.user),
+          where: siteFilterForModel("paiement", sessionObj.user),
           include: { enregistrePar: { select: { id: true, name: true } } },
         },
         relances: { select: { id: true, niveau: true } },
         createdBy: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: "desc" },
+      take: limit,
     });
   }
 
@@ -77,7 +93,7 @@ export async function getFacturesForTenant(filters?: { statut?: string; eleveId?
   //   — Toutes les factures de la nouvelle année (préparation)
   //   — Les factures IMPAYÉES de l'année écoulée (retards à encaisser)
   // En période normale : seulement l'année active.
-  const ctx = await getContexteAnnees(tenantId);
+  const ctx = opts?.ctx ?? (await getContexteAnnees(tenantId));
   const anneeActiveIdVal = ctx.anneeActive?.id ?? null;
   const anneeEcouleeId = ctx.anneeEcoulee?.id ?? null;
 
@@ -115,17 +131,18 @@ export async function getFacturesForTenant(filters?: { statut?: string; eleveId?
         };
 
   return prisma.facture.findMany({
-    where: mergeFilters(where, siteFilterForModel("facture", session.user)),
+    where: mergeFilters(where, siteFilterForModel("facture", sessionObj.user)),
     include: {
       eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classeId: true, classe: { select: { nom: true } } } },
       paiements: {
-        where: siteFilterForModel("paiement", session.user),
+        where: siteFilterForModel("paiement", sessionObj.user),
         include: { enregistrePar: { select: { id: true, name: true } } },
       },
       relances: { select: { id: true, niveau: true } },
       createdBy: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: limit,
   });
 }
 
@@ -390,6 +407,7 @@ export async function createFacturesCombinees(items: FactureBatchItem[]): Promis
   const created: FactureBatchResult["created"] = [];
 
   await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     for (const item of toCreate) {
       count++;
       const numero = `FAC-${new Date().getFullYear()}-${String(count).padStart(5, "0")}`;
@@ -499,6 +517,7 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
   }
 
   const paiement = await prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx);
     // La date de saisie est le jour de la saisie — automatique et identique
     // à la date du paiement (qui figure sur le reçu). On force les deux au
     // même instant pour garantir l'identité requise.

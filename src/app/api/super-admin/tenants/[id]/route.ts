@@ -3,6 +3,7 @@ import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import { authorizeSuperAdmin } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { auditFire } from "@/lib/audit";
 
 const ParamsSchema = z.object({
   id: z.string().min(1),
@@ -62,6 +63,15 @@ export async function DELETE(
 
   // Suppression en cascade (onDelete: Cascade sur tous les modèles enfants)
   await prisma.tenant.delete({ where: { id } });
+
+  auditFire({
+    tenantId: gate.tenantId,
+    userId: gate.userId,
+    action: "tenant:delete",
+    verdict: "ALLOWED",
+    resource: "tenant",
+    resourceId: id,
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -175,6 +175,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-2">
         <Input
+          aria-label={t("searchPlaceholder")}
           placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

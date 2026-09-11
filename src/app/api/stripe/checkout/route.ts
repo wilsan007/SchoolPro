@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import Stripe from "stripe";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { siteFilterForModel } from "@/lib/site-scope";
+
+const checkoutSchema = z.object({
+  factureId: z.string().min(1, "Facture requise"),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,10 +27,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { factureId } = await req.json();
-    if (!factureId) {
+    const body = await req.json();
+    const parsed = checkoutSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json({ error: "Facture requise" }, { status: 400 });
     }
+    const { factureId } = parsed.data;
 
     const facture = await prisma.facture.findFirst({
       where: { id: factureId, tenantId: session.user.tenantId, ...siteFilterForModel("facture", session.user) },

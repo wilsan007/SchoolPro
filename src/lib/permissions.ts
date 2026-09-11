@@ -57,6 +57,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "admissions:*", "rh:*", "finance:*", "inventaire:*", "alumni:*",
     "orientation:*", "analytics:*", "rapports:*", "documents:*",
     "ai:*", "audit:read", "parametres:*",
+    "annees:gerer",
     // Le directeur suit et valide, il ne fait pas les exercices.
     "entrainement:read", "entrainement:valider",
     // Gouvernance, mentorat et tâches : pilotage de l'établissement.

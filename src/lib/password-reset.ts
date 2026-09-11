@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { normaliserEmail } from "@/lib/email";
 import { auditFire } from "@/lib/audit";
+import { incrementerSessionVersion } from "@/lib/tenant-claims";
 
 const EXPIRATION_MS = 60 * 60 * 1000; // 1 heure
 
@@ -77,7 +78,7 @@ export async function reinitialiserMotDePasse(
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
-        data: { password: hashedPassword, mustChangePassword: false },
+        data: { password: hashedPassword, mustChangePassword: false, sessionVersion: { increment: 1 } },
       }),
       prisma.verificationToken.delete({ where: { token } }),
     ]);

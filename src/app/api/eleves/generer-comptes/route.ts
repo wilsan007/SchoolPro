@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidateTag } from "next/cache";
 import { checkPermission } from "@/lib/rbac";
+
+const genererComptesSchema = z.object({
+  classeId: z.string().min(1, "classeId requis"),
+  customPassword: z.string().min(6).optional(),
+});
 
 /**
  * POST /api/eleves/generer-comptes
@@ -33,14 +39,11 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   const body = await req.json();
-  const { classeId, customPassword } = body as {
-    classeId: string;
-    customPassword?: string;
-  };
-
-  if (!classeId) {
-    return NextResponse.json({ error: "classeId requis" }, { status: 400 });
+  const parsed = genererComptesSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Données invalides" }, { status: 400 });
   }
+  const { classeId, customPassword } = parsed.data;
 
   const siteFilter = siteFilterForModel("eleve", session.user);
   const eleves = await prisma.eleve.findMany({

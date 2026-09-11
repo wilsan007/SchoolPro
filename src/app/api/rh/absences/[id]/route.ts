@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-filter";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   statut: z.enum(["JUSTIFIEE", "INJUSTIFIEE", "EN_ATTENTE"]),
@@ -41,6 +42,16 @@ export async function PATCH(
       statut,
       commentaire: commentaire || absence.commentaire,
     },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "rh-absence:update",
+    verdict: "ALLOWED",
+    resource: "absencePersonnel",
+    resourceId: id,
+    metadata: { statut },
   });
 
   if (statut === "INJUSTIFIEE" || statut === "JUSTIFIEE") {

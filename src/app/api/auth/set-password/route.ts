@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line ecolpro/require-tenant-id -- own user record, verified above
   await prisma.user.update({
     where: { id: user.id },
-    data: { password: hashedPassword, mustChangePassword: false },
+    data: { password: hashedPassword, mustChangePassword: false, sessionVersion: { increment: 1 } },
   });
 
   auditFire({

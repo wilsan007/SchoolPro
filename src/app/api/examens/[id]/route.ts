@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidateTag } from "next/cache";
+import { auditFire } from "@/lib/audit";
 
 const PatchSchema = z.object({
   intitule: z.string().min(2).max(200).optional(),
@@ -49,6 +50,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       include: { sessions: true },
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "examen:update",
+      verdict: "ALLOWED",
+      resource: "examen",
+      resourceId: id,
+    });
+
     revalidateTag("dashboard-data");
 
     return NextResponse.json(updated);
@@ -74,6 +84,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!existing) return NextResponse.json({ error: "Examen introuvable" }, { status: 404 });
 
     await prisma.examen.delete({ where: { id } });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "examen:delete",
+      verdict: "ALLOWED",
+      resource: "examen",
+      resourceId: id,
+    });
 
     revalidateTag("dashboard-data");
 

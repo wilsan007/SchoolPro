@@ -140,6 +140,7 @@ export function ConvocationForm({ classes, tenant, hierarchie }: { classes: Clas
           <div className="space-y-2">
             <Label>{t("convocationDate")}</Label>
             <Input
+              aria-label={t("convocationDate")}
               type="date"
               value={dateConvocation}
               onChange={(e) => setDateConvocation(e.target.value)}

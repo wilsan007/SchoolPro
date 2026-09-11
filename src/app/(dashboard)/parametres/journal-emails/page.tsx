@@ -188,6 +188,7 @@ export default function JournalEmailsPage() {
           </select>
           <input
             type="text"
+            aria-label="Filtrer par destinataire"
             placeholder="Destinataire"
             value={filters.to}
             onChange={(e) => setFilters({ ...filters, to: e.target.value })}
@@ -195,6 +196,7 @@ export default function JournalEmailsPage() {
           />
           <input
             type="text"
+            aria-label="Filtrer par type"
             placeholder="Type (notification, relance…)"
             value={filters.type}
             onChange={(e) => setFilters({ ...filters, type: e.target.value })}
@@ -202,12 +204,14 @@ export default function JournalEmailsPage() {
           />
           <input
             type="date"
+            aria-label="Date de début"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
             className="px-3 py-2 border border-border rounded-lg text-sm bg-background"
           />
           <input
             type="date"
+            aria-label="Date de fin"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
             className="px-3 py-2 border border-border rounded-lg text-sm bg-background"

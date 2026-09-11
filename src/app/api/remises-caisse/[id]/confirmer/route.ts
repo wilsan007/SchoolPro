@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 // ============================================================
 // Schéma de validation — confirmation par le receveur
@@ -113,6 +114,16 @@ export async function POST(
         },
       });
 
+      auditFire({
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        action: "remise-caisse:confirmer",
+        verdict: "ALLOWED",
+        resource: "remiseCaisse",
+        resourceId: id,
+        metadata: { statut: "REJETE" },
+      });
+
       return NextResponse.json(updated);
     }
 
@@ -136,6 +147,16 @@ export async function POST(
           receveur: { select: { id: true, name: true } },
           site: { select: { id: true, nom: true } },
         },
+      });
+
+      auditFire({
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        action: "remise-caisse:confirmer",
+        verdict: "ALLOWED",
+        resource: "remiseCaisse",
+        resourceId: id,
+        metadata: { statut: "REJETE", ecart: true },
       });
 
       return NextResponse.json({
@@ -163,6 +184,16 @@ export async function POST(
         receveur: { select: { id: true, name: true } },
         site: { select: { id: true, nom: true } },
       },
+    });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "remise-caisse:confirmer",
+      verdict: "ALLOWED",
+      resource: "remiseCaisse",
+      resourceId: id,
+      metadata: { statut: "CONFIRME" },
     });
 
     return NextResponse.json(updated);

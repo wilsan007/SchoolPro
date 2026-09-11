@@ -28,6 +28,8 @@ export const authConfig: NextAuthConfig = {
         token.siteIds = (user as { siteIds?: string[] }).siteIds ?? [];
         token.tenantHasSites = (user as { tenantHasSites?: boolean }).tenantHasSites ?? true;
         token.claimsVersion = (user as { claimsVersion?: number }).claimsVersion;
+        // AUTH-H1 : version de session pour invalidation après changement sensible.
+        token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion ?? 0;
         // Stocker la liste des tenants accessibles pour le switcher
         const availableTenants = (user as { availableTenants?: AvailableTenant[] }).availableTenants;
         if (availableTenants) {

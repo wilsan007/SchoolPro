@@ -711,6 +711,7 @@ export function NewConversationComposer({
                   <input
                     ref={inputRef}
                     autoFocus
+                    aria-label="Rechercher une personne"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={t("searchPerson")}
@@ -774,6 +775,7 @@ export function NewConversationComposer({
                 {t("subjectOptional")}
               </label>
               <input
+                aria-label={t("subjectOptional")}
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder={hasAudience ? audienceLabel : t("conversationSubject")}

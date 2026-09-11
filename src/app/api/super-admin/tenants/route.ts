@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Session } from "next-auth";
 import { erreurJson } from "@/lib/erreurs-api";
 import { normaliserEmail } from "@/lib/email";
+import { applyRlsContext } from "@/lib/prisma-rls";
 
 function requireSuperAdmin(session: Session | null) {
   if (!session?.user || session.user.role !== "SUPER_ADMIN") {
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(data.adminPassword, 12);
 
     const tenant = await prisma.$transaction(async (tx) => {
+      await applyRlsContext(tx);
       const t = await tx.tenant.create({
         data: {
           name: data.name,

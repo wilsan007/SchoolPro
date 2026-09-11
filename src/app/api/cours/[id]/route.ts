@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, personalScopeFilter } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   titre: z.string().min(1).max(200).optional(),
@@ -108,6 +109,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   });
 
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "cours:update",
+    verdict: "ALLOWED",
+    resource: "cours",
+    resourceId: id,
+  });
+
   // --- Notification IN_APP aux élèves quand le cours est publié ---
   if (data.statut === "PUBLIE" && existing.statut !== "PUBLIE") {
     try {
@@ -151,5 +161,15 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (!existing) return NextResponse.json({ error: "Cours introuvable" }, { status: 404 });
 
   await prisma.cours.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "cours:delete",
+    verdict: "ALLOWED",
+    resource: "cours",
+    resourceId: id,
+  });
+
   return NextResponse.json({ success: true });
 }

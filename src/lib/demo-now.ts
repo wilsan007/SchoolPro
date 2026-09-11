@@ -73,6 +73,43 @@ export const DEMO_NOW_SCOPE_COOKIE = "demo_now_scope";
 const resolutionEnCours = new AsyncLocalStorage<boolean>();
 
 /**
+ * Contexte de date de démo pour `unstable_cache`.
+ *
+ * Next.js 15 interdit d'appeler `cookies()` à l'intérieur d'`unstable_cache`.
+ * Or l'extension Prisma `demo-horizon` appelle `getDemoDate()` qui lit les
+ * cookies. Pour éviter l'erreur (qui invalide le cache à chaque fois et
+ * provoque des rechargements de 7-30s), on résout la date UNE FOIS hors du
+ * cache, puis on la passe via cet `AsyncLocalStorage` à l'extension Prisma.
+ *
+ * Usage :
+ *   const maintenant = await getDemoNow();
+ *   await withDemoDate(maintenant, () => operationQuiUtilisePrisma());
+ */
+const demoDateContext = new AsyncLocalStorage<Date | null>();
+
+/**
+ * Exécute `fn` avec la date de démo passée en contexte, pour que l'extension
+ * Prisma `demo-horizon` puisse l'utiliser sans appeler `cookies()`.
+ *
+ * Passer `null` pour désactiver explicitement l'horizon dans ce scope.
+ */
+export async function withDemoDate<T>(
+  date: Date | null,
+  fn: () => Promise<T>,
+): Promise<T> {
+  return demoDateContext.run(date, fn);
+}
+
+/**
+ * Récupère la date de démo du contexte `AsyncLocalStorage` si présent,
+ * sinon `null`. Utilisé par l'extension Prisma `demo-horizon` pour éviter
+ * d'appeler `cookies()` à l'intérieur d'`unstable_cache`.
+ */
+export function getDemoDateFromContext(): Date | null {
+  return demoDateContext.getStore() ?? null;
+}
+
+/**
  * Périmètre de session minimal requis pour appliquer la date de démo.
  */
 interface ScopeSession {
@@ -136,6 +173,16 @@ async function resoudreSession(): Promise<ScopeSession | null> {
  * Un cookie résiduel chez un autre compte — ou un autre tenant — est ignoré.
  */
 export async function getDemoDate(): Promise<Date | null> {
+  // 1. Contexte AsyncLocalStorage (prioritaire) : si la date a été résolue
+  // hors d'un `unstable_cache` et passée via `withDemoDate`, on l'utilise
+  // directement — sans appeler `cookies()`, ce que Next.js 15 interdit
+  // à l'intérieur d'`unstable_cache`.
+  const dateContextuelle = demoDateContext.getStore();
+  if (dateContextuelle !== undefined) {
+    return dateContextuelle;
+  }
+
+  // 2. Pas de contexte : résoudre via cookies (hors cache seulement).
   // Anti-récursion : si on est déjà en train de résoudre la session pour un
   // appel précédent, on ne re-déclenche pas la résolution.
   if (resolutionEnCours.getStore() === true) return null;
@@ -149,34 +196,141 @@ export async function getDemoDate(): Promise<Date | null> {
     const iso = cookieStore.get(DEMO_NOW_COOKIE)?.value;
     if (!iso) return null;
 
+    // Le scope cookie lie la date au couple [userId, tenantId] qui l'a posée.
+    // S'il est absent (cookie expiré, effacé partiellement, etc.), on ne
+    // rejette pas la date : on vérifie quand même que la session en cours a
+    // le rôle TENANT_ADMIN. Les cookies demo_now et demo_now_enabled étant
+    // httpOnly, seuls le serveur peut les poser — via le POST qui vérifie
+    // déjà le rôle. Le scope ajoute une protection croisée entre comptes
+    // sur un même navigateur ; son absence ne crée pas de nouveau vecteur
+    // d'attaque, juste une perte de cette protection supplémentaire.
     const scopeRaw = cookieStore.get(DEMO_NOW_SCOPE_COOKIE)?.value;
-    if (!scopeRaw) return null;
+    let scopeUserId: string | null = null;
+    let scopeTenantId: string | null = null;
 
-    let scope: [string, string];
-    try {
-      scope = JSON.parse(decodeURIComponent(scopeRaw));
-    } catch {
-      return null;
+    if (scopeRaw) {
+      let scope: unknown;
+      try {
+        scope = JSON.parse(decodeURIComponent(scopeRaw));
+      } catch {
+        console.warn("[demo-now] scope cookie illisible:", scopeRaw.slice(0, 100));
+        scope = null;
+      }
+      if (Array.isArray(scope) && scope.length >= 2) {
+        scopeUserId = typeof scope[0] === "string" ? scope[0] : String(scope[0] ?? "");
+        scopeTenantId = typeof scope[1] === "string" ? scope[1] : String(scope[1] ?? "");
+      }
+    } else {
+      console.warn("[demo-now] scope cookie manquant — fallback sur vérification de rôle seule");
     }
-    if (!Array.isArray(scope) || scope.length < 2 || typeof scope[0] !== "string" || typeof scope[1] !== "string") {
-      return null;
-    }
-    const [scopeUserId, scopeTenantId] = scope;
 
     const d = new Date(decodeURIComponent(iso));
-    if (isNaN(d.getTime())) return null;
+    if (isNaN(d.getTime())) {
+      console.warn("[demo-now] date cookie invalide:", iso);
+      return null;
+    }
 
     // Résoudre la session dans le contexte anti-récursion.
     const session = await resolutionEnCours.run(true, () => resoudreSession());
-    if (!session) return null;
+    if (!session) {
+      console.warn("[demo-now] session null — auth() a échoué ou pas de session");
+      return null;
+    }
 
-    if (!peutDeplacerHorloge(session.role)) return null;
-    if (session.id !== scopeUserId) return null;
-    if (session.tenantId !== scopeTenantId) return null;
+    if (!peutDeplacerHorloge(session.role)) {
+      console.warn("[demo-now] rôle non autorisé:", session.role);
+      return null;
+    }
+
+    // Vérifier le scope seulement si le cookie était présent.
+    if (scopeUserId !== null && session.id !== scopeUserId) {
+      console.warn("[demo-now] userId mismatch — session:", session.id, "scope:", scopeUserId);
+      return null;
+    }
+    if (scopeTenantId !== null && session.tenantId !== scopeTenantId) {
+      console.warn("[demo-now] tenantId mismatch — session:", session.tenantId, "scope:", scopeTenantId);
+      return null;
+    }
 
     return d;
-  } catch {
+  } catch (err) {
+    console.warn("[demo-now] exception dans getDemoDate():", err);
     return null;
+  }
+}
+
+/**
+ * Diagnostic détaillé de la résolution de date de démo.
+ *
+ * Retourne l'état de chaque étape : cookies présents, scope parsé, session
+ * résolue, et le point exact de failure si la date est rejetée. Utilisé par
+ * la route `/api/demo-now/debug` pour aider à diagnostiquer pourquoi la Time
+ * Machine ne fonctionne pas.
+ */
+export async function diagnostiquerDemoDate(): Promise<{
+  enabled: boolean;
+  dateCookie: string | null;
+  scopeCookie: string | null;
+  scopeParsed: unknown;
+  session: { id: string; tenantId: string | null; role: string } | null;
+  echec: string | null;
+  date: Date | null;
+}> {
+  try {
+    if (resolutionEnCours.getStore() === true) {
+      return { enabled: false, dateCookie: null, scopeCookie: null, scopeParsed: null, session: null, echec: "anti-récursion actif", date: null };
+    }
+
+    const cookieStore = await cookies();
+    const enabled = cookieStore.get(DEMO_NOW_ENABLED_COOKIE)?.value === "true";
+    const dateCookie = cookieStore.get(DEMO_NOW_COOKIE)?.value ?? null;
+    const scopeCookie = cookieStore.get(DEMO_NOW_SCOPE_COOKIE)?.value ?? null;
+
+    if (!enabled) return { enabled, dateCookie, scopeCookie, scopeParsed: null, session: null, echec: "cookie enabled != true", date: null };
+    if (!dateCookie) return { enabled, dateCookie, scopeCookie, scopeParsed: null, session: null, echec: "cookie date manquant", date: null };
+
+    // Le scope cookie est optionnel : s'il manque, on fallback sur la
+    // vérification de rôle seule (cf. getDemoDate).
+    let scopeParsed: unknown = null;
+    let scopeUserId: string | null = null;
+    let scopeTenantId: string | null = null;
+
+    if (scopeCookie) {
+      try {
+        scopeParsed = JSON.parse(decodeURIComponent(scopeCookie));
+      } catch {
+        return { enabled, dateCookie, scopeCookie, scopeParsed: null, session: null, echec: "scope cookie illisible", date: null };
+      }
+      if (!Array.isArray(scopeParsed) || scopeParsed.length < 2) {
+        return { enabled, dateCookie, scopeCookie, scopeParsed, session: null, echec: "scope n'est pas un tableau valide", date: null };
+      }
+      scopeUserId = typeof scopeParsed[0] === "string" ? scopeParsed[0] : String(scopeParsed[0] ?? "");
+      scopeTenantId = typeof scopeParsed[1] === "string" ? scopeParsed[1] : String(scopeParsed[1] ?? "");
+    }
+
+    const d = new Date(decodeURIComponent(dateCookie));
+    if (isNaN(d.getTime())) {
+      return { enabled, dateCookie, scopeCookie, scopeParsed, session: null, echec: "date cookie invalide", date: null };
+    }
+
+    const session = await resolutionEnCours.run(true, () => resoudreSession());
+    if (!session) {
+      return { enabled, dateCookie, scopeCookie, scopeParsed, session: null, echec: "session null (auth échoué)", date: null };
+    }
+
+    if (!peutDeplacerHorloge(session.role)) {
+      return { enabled, dateCookie, scopeCookie, scopeParsed, session, echec: `rôle non autorisé: ${session.role}`, date: null };
+    }
+    if (scopeUserId !== null && session.id !== scopeUserId) {
+      return { enabled, dateCookie, scopeCookie, scopeParsed, session, echec: `userId mismatch (session=${session.id} vs scope=${scopeUserId})`, date: null };
+    }
+    if (scopeTenantId !== null && session.tenantId !== scopeTenantId) {
+      return { enabled, dateCookie, scopeCookie, scopeParsed, session, echec: `tenantId mismatch (session=${session.tenantId} vs scope=${scopeTenantId})`, date: null };
+    }
+
+    return { enabled, dateCookie, scopeCookie, scopeParsed, session, echec: scopeCookie ? null : "OK (scope manquant, fallback rôle)", date: d };
+  } catch (err) {
+    return { enabled: false, dateCookie: null, scopeCookie: null, scopeParsed: null, session: null, echec: `exception: ${String(err)}`, date: null };
   }
 }
 

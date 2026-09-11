@@ -90,6 +90,52 @@ export interface NoteRecordedPayload {
   saisieParId: string | null;
 }
 
+/** Instantané d'une note au moment de sa modification. */
+export interface NoteUpdatedPayload {
+  noteId: string;
+  eleveId: string;
+  classeId: string;
+  matiereId: string;
+  periodeId: string | null;
+  evaluationId: string | null;
+  valeurAncienne: number;
+  noteMaxAncienne: number;
+  valeur: number;
+  noteMax: number;
+  coefficient: number;
+  type: string;
+  intitule: string | null;
+  date: string;
+  modifieeParId: string | null;
+}
+
+/** Instantané d'une note au moment de sa suppression. */
+export interface NoteDeletedPayload {
+  noteId: string;
+  eleveId: string;
+  classeId: string;
+  matiereId: string;
+  valeur: number;
+  noteMax: number;
+  coefficient: number;
+  type: string;
+  intitule: string | null;
+  date: string;
+  supprimeParId: string | null;
+}
+
+/** Instantané d'une évaluation dont la saisie est complétée. */
+export interface EvaluationCompletedPayload {
+  evaluationId: string;
+  classeId: string;
+  matiereId: string;
+  periodeId: string | null;
+  eleveIds: string[];
+  nombreNotes: number;
+  dateEvaluation: string;
+  completeeParId: string | null;
+}
+
 /** Instantané d'une absence au moment de l'appel. */
 export interface AbsenceRecordedPayload {
   absenceId: string;

@@ -4,6 +4,7 @@ import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
+import { Note, calculerMoyennePondereeCentiemes } from "@/lib/domain/note";
 
 export async function GET(req: NextRequest) {
   const user = await verifyMobileScope(req);
@@ -105,11 +106,13 @@ export async function GET(req: NextRequest) {
   }
   const moyennesParClasse = classes.map((c) => {
     const notes = notesByClasseId.get(c.id) ?? [];
-    const moyenne =
-      notes.length > 0
-        ? notes.reduce((acc, n) => acc + (n.valeur / n.noteMax) * 20 * n.coefficient, 0) /
-          notes.reduce((acc, n) => acc + n.coefficient, 0)
-        : null;
+    // MET-H1 (audit v2) : centièmes entiers via le domaine Note.
+    const notesCentiemes = notes.map((n) => ({
+      centiemes: Note.depuisValeurSurBareme(n.valeur, n.noteMax).centiemes,
+      coefficient: n.coefficient,
+    }));
+    const centiemes = notes.length > 0 ? calculerMoyennePondereeCentiemes(notesCentiemes) : null;
+    const moyenne = centiemes !== null ? centiemes / 100 : null;
     return { classeId: c.id, classeNom: c.nom, moyenne };
   });
 

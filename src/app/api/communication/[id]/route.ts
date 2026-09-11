@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { auditFire } from "@/lib/audit";
+
+const patchCommunicationSchema = z.object({
+  action: z.enum(["envoyer", "annuler"]),
+});
 
 // PATCH — envoyer une notification en brouillon
 export async function PATCH(
@@ -18,7 +23,11 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { action } = body; // "envoyer" | "annuler"
+  const parsed = patchCommunicationSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Action invalide" }, { status: 400 });
+  }
+  const { action } = parsed.data;
 
   const notifFilter = siteFilterForModel("notification", session.user);
   const notif = await prisma.notification.findFirst({
@@ -30,6 +39,16 @@ export async function PATCH(
     try {
       const result = await dispatchNotification(id, session.user.tenantId);
       const updated = await prisma.notification.findFirst({ where: { id, tenantId: session.user.tenantId, ...notifFilter } });
+
+      auditFire({
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        action: "communication:renvoyer",
+        verdict: "ALLOWED",
+        resource: "communication",
+        resourceId: id,
+      });
+
       return NextResponse.json({ notification: updated, envoi: result });
     } catch (e) {
       console.error("[Communication] Échec dispatch:", e);

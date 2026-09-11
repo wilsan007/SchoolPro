@@ -199,6 +199,7 @@ export function DeuxFacteursPanel({ actifInitial, derniereVerification, obligato
           <Input
             inputMode="numeric"
             autoComplete="one-time-code"
+            aria-label="Code de vérification 2FA"
             placeholder="123456"
             value={code}
             onChange={(e) => setCode(e.target.value)}

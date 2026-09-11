@@ -189,7 +189,10 @@ export function MobileLayout({ roleKey, userName = "Admin", children }: MobileLa
   }, [roleKey]);
 
   // Items épinglés pour la barre du bas
-  const pinned = pinnedMobileItems[roleKey] ?? ["/dashboard", "/eleves", "/notes", "/parametres"];
+  const pinned = useMemo(
+    () => pinnedMobileItems[roleKey] ?? ["/dashboard", "/eleves", "/notes", "/parametres"],
+    [roleKey]
+  );
   const bottomItems = useMemo(() => {
     const flat = availableGroups.flatMap((g) => g.items);
     return pinned

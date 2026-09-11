@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
+import { auth } from "@/lib/auth";
+import { checkPermission } from "@/lib/rbac";
+import { erreurJson } from "@/lib/erreurs-api";
 import { getClassesForExport } from "@/lib/actions/parametres";
 
 export async function GET() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
+
+  // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec parametres:read
+  // peuvent exporter le catalogue des classes.
+  const denied = checkPermission(session.user.role, "parametres:read");
+  if (denied) return denied;
+
   const classes = await getClassesForExport();
   if (classes.length === 0) {
     return NextResponse.json({ error: "Aucune classe à exporter" }, { status: 404 });

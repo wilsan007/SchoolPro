@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   nom: z.string().min(1).optional(),
@@ -52,6 +53,15 @@ export async function PATCH(
       },
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "inventaire:update",
+      verdict: "ALLOWED",
+      resource: "itemInventaire",
+      resourceId: id,
+    });
+
     return NextResponse.json(item);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -82,6 +92,15 @@ export async function DELETE(
   if (!existing) return NextResponse.json({ error: "Item introuvable" }, { status: 404 });
 
   await prisma.itemInventaire.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "inventaire:delete",
+    verdict: "ALLOWED",
+    resource: "itemInventaire",
+    resourceId: id,
+  });
 
   return NextResponse.json({ ok: true });
 }

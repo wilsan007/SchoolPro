@@ -152,6 +152,7 @@ export default function TestTelegramPage() {
           <div>
             <label className="text-sm font-medium block mb-1">Chat ID Telegram</label>
             <Input
+              aria-label="Chat ID Telegram"
               value={chatId}
               onChange={(e) => setChatId(e.target.value)}
               placeholder="ex: 123456789"
@@ -164,11 +165,11 @@ export default function TestTelegramPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium block mb-1">Nom de l&apos;élève</label>
-              <Input value={eleveNom} onChange={(e) => setEleveNom(e.target.value)} />
+              <Input aria-label="Nom de l'élève" value={eleveNom} onChange={(e) => setEleveNom(e.target.value)} />
             </div>
             <div>
               <label className="text-sm font-medium block mb-1">Nom de l&apos;école</label>
-              <Input value={ecoleNom} onChange={(e) => setEcoleNom(e.target.value)} />
+              <Input aria-label="Nom de l'école" value={ecoleNom} onChange={(e) => setEcoleNom(e.target.value)} />
             </div>
           </div>
         </CardContent>

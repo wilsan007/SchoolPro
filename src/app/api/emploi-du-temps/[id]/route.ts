@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -6,6 +7,16 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { publishEvent } from "@/lib/learnos/events";
+import { auditFire } from "@/lib/audit";
+
+const patchEdtSchema = z.object({
+  jour: z.enum(["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"]).optional(),
+  salle: z.string().nullable().optional(),
+  heureDebut: z.string().optional(),
+  heureFin: z.string().optional(),
+  enseignantId: z.string().nullable().optional(),
+  periodeId: z.string().nullable().optional(),
+});
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,6 +40,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
     await prisma.emploiTemps.delete({ where: { id } });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "emploi-temps:delete",
+      verdict: "ALLOWED",
+      resource: "emploiTemps",
+      resourceId: id,
+    });
 
     await publishEvent({
       tenantId,
@@ -69,6 +89,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const tenantId = session.user.tenantId;
     const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     const body = await req.json();
+    const parsed = patchEdtSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Données invalides" }, { status: 400 });
+    }
 
     const existing = await prisma.emploiTemps.findFirst({
       where: {

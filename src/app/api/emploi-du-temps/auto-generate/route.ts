@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { auditFire } from "@/lib/audit";
+
+const autoGenerateSchema = z.object({
+  classeId: z.string().min(1, "classeId requis"),
+  matiereIds: z.array(z.string()).optional(),
+  matiereConfigs: z.array(z.object({
+    matiereId: z.string(),
+    troncCommun: z.boolean().optional(),
+    troncCommunHeures: z.number().int().min(1).max(10).optional(),
+    groupes: z.boolean().optional(),
+    groupesHeures: z.number().int().min(1).max(10).optional(),
+    pairedMatiereId: z.string().optional(),
+    enseignantId: z.string().optional(),
+  })).optional(),
+  heureMin: z.string().optional(),
+  heureMax: z.string().optional(),
+  jours: z.array(z.string()).optional(),
+  periodeId: z.string().optional(),
+});
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -59,23 +79,11 @@ export async function POST(req: NextRequest) {
   const siteId = (session.user as { siteId?: string | null }).siteId ?? null;
   const emploiFilter = siteFilterForRelation(session.user, "classe");
     const body = await req.json();
-    const { classeId, matiereIds, matiereConfigs, heureMin, heureMax, jours, periodeId } = body as {
-      classeId?: string;
-      matiereIds?: string[];
-      matiereConfigs?: Array<{
-        matiereId: string;
-        troncCommun?: boolean;
-        troncCommunHeures?: number;
-        groupes?: boolean;
-        groupesHeures?: number;
-        pairedMatiereId?: string;
-        enseignantId?: string;
-      }>;
-      heureMin?: string;
-      heureMax?: string;
-      jours?: string[];
-      periodeId?: string;
-    };
+    const parsed = autoGenerateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Données invalides" }, { status: 400 });
+    }
+    const { classeId, matiereIds, matiereConfigs, heureMin, heureMax, jours, periodeId } = parsed.data;
     const periodeIdValue = periodeId || null;
 
     if (!classeId) {
@@ -736,6 +744,15 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[auto-generate] Total created: ${stats.totalCreated}, conflicts: ${stats.conflicts}, matieres processed: ${matieres.length}`);
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "emploi-temps:auto-generate",
+      verdict: "ALLOWED",
+      resource: "emploiTemps",
+      resourceId: classeId,
+    });
 
     return NextResponse.json({ creneaux: createdCreneaux, stats, report });
   } catch (error) {

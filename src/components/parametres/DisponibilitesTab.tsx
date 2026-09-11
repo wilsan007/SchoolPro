@@ -238,6 +238,7 @@ export function DisponibilitesTab({ canManage }: Props) {
           <div className="flex gap-2">
             <input
               type="file"
+              aria-label="Importer un fichier de disponibilités"
               accept=".xlsx,.xls,.csv"
               onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportPlan(null); }}
               className="text-sm flex-1"
@@ -324,12 +325,13 @@ export function DisponibilitesTab({ canManage }: Props) {
               {JOURS.map((j) => <option key={j} value={j}>{j.charAt(0) + j.slice(1).toLowerCase()}</option>)}
             </select>
             <div className="flex gap-1">
-              <input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className="rounded-lg border border-border bg-card px-2 py-1.5 text-sm flex-1" />
-              <input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className="rounded-lg border border-border bg-card px-2 py-1.5 text-sm flex-1" />
+              <input type="time" aria-label="Heure de début" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className="rounded-lg border border-border bg-card px-2 py-1.5 text-sm flex-1" />
+              <input type="time" aria-label="Heure de fin" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className="rounded-lg border border-border bg-card px-2 py-1.5 text-sm flex-1" />
             </div>
           </div>
           <input
             type="text"
+            aria-label="Libellé de l'indisponibilité"
             placeholder="Libellé (ex: École B, Formation, Rendez-vous…)"
             value={sourceLibelle}
             onChange={(e) => setSourceLibelle(e.target.value)}

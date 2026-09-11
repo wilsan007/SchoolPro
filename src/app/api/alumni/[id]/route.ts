@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   email: z.string().email().optional().nullable(),
@@ -79,6 +80,15 @@ export async function DELETE(
   if (!existing) return NextResponse.json({ error: "Alumni introuvable" }, { status: 404 });
 
   await prisma.alumni.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "alumni:delete",
+    verdict: "ALLOWED",
+    resource: "alumni",
+    resourceId: id,
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -152,19 +152,19 @@ function NouvelleInscriptionForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("nom")}</label>
-                  <Input value={form.nom} onChange={(e) => set("nom", e.target.value)} required placeholder="DIALLO" className="text-sm" />
+                  <Input aria-label="Nom de l'élève" value={form.nom} onChange={(e) => set("nom", e.target.value)} required placeholder="DIALLO" className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("prenom")}</label>
-                  <Input value={form.prenom} onChange={(e) => set("prenom", e.target.value)} required placeholder="Amadou" className="text-sm" />
+                  <Input aria-label="Prénom de l'élève" value={form.prenom} onChange={(e) => set("prenom", e.target.value)} required placeholder="Amadou" className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("dateNaissance")}</label>
-                  <Input type="date" value={form.dateNaissance} onChange={(e) => set("dateNaissance", e.target.value)} required className="text-sm" />
+                  <Input aria-label="Date de naissance" type="date" value={form.dateNaissance} onChange={(e) => set("dateNaissance", e.target.value)} required className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("lieuNaissance")}</label>
-                  <Input value={form.lieuNaissance} onChange={(e) => set("lieuNaissance", e.target.value)} placeholder="Dakar" className="text-sm" />
+                  <Input aria-label="Lieu de naissance" value={form.lieuNaissance} onChange={(e) => set("lieuNaissance", e.target.value)} placeholder="Dakar" className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("sexe")}</label>
@@ -175,7 +175,7 @@ function NouvelleInscriptionForm({
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("classeVoulue")}</label>
-                  <Input value={form.classeVoulue} onChange={(e) => set("classeVoulue", e.target.value)} required placeholder="6ème, Terminale S…" className="text-sm" />
+                  <Input aria-label="Classe voulue" value={form.classeVoulue} onChange={(e) => set("classeVoulue", e.target.value)} required placeholder="6ème, Terminale S…" className="text-sm" />
                 </div>
               </div>
             </div>
@@ -188,19 +188,19 @@ function NouvelleInscriptionForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("nom")}</label>
-                  <Input value={form.parentNom} onChange={(e) => set("parentNom", e.target.value)} required className="text-sm" />
+                  <Input aria-label="Nom du parent" value={form.parentNom} onChange={(e) => set("parentNom", e.target.value)} required className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("prenom")}</label>
-                  <Input value={form.parentPrenom} onChange={(e) => set("parentPrenom", e.target.value)} required className="text-sm" />
+                  <Input aria-label="Prénom du parent" value={form.parentPrenom} onChange={(e) => set("parentPrenom", e.target.value)} required className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("email")}</label>
-                  <Input type="email" value={form.parentEmail} onChange={(e) => set("parentEmail", e.target.value)} placeholder={t("emailOptionnel")} className="text-sm" />
+                  <Input aria-label="Email du parent" type="email" value={form.parentEmail} onChange={(e) => set("parentEmail", e.target.value)} placeholder={t("emailOptionnel")} className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("telephone")}</label>
-                  <Input value={form.parentPhone} onChange={(e) => set("parentPhone", e.target.value)} required placeholder="+221 77 000 00 00" className="text-sm" />
+                  <Input aria-label="Téléphone du parent" value={form.parentPhone} onChange={(e) => set("parentPhone", e.target.value)} required placeholder="+221 77 000 00 00" className="text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">{t("lienParente")}</label>
@@ -340,7 +340,7 @@ function ZoneUploadPiece({
               isUploading && "pointer-events-none opacity-50"
             )}>
               {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-              <input type="file" accept={cfg.accept} onChange={handleUpload} className="hidden" />
+              <input type="file" aria-label="Téléverser un fichier" accept={cfg.accept} onChange={handleUpload} className="hidden" />
             </label>
           )}
         </div>
@@ -632,7 +632,7 @@ function DossierDetailModal({
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">{t("noteInterne")}</h3>
               <div className="flex gap-2">
-                <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("notePlaceholder")} className="text-sm" />
+                <Input aria-label="Note interne" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("notePlaceholder")} className="text-sm" />
                 <Button size="sm" onClick={ajouterNote} disabled={isPending || !note.trim()} className="gap-2 flex-shrink-0">
                   {t("ajouter")}
                 </Button>
@@ -813,6 +813,7 @@ export function InscriptionsView({ dossiers: initial }: InscriptionsViewProps) {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
+          aria-label="Rechercher"
           placeholder={t("rechercher")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

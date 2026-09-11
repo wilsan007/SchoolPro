@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { revalidateTag } from "next/cache";
+import { auditFire } from "@/lib/audit";
 
 const BodySchema = z.object({}).passthrough();
 
@@ -39,6 +40,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       data: {
         description: `${examen.description ?? ""}\n[DÉLIBÉRÉ le ${new Date().toLocaleDateString("fr-FR")}]`.trim(),
       },
+    });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "examen:deliberation",
+      verdict: "ALLOWED",
+      resource: "examen",
+      resourceId: id,
     });
 
     revalidateTag("dashboard-data");

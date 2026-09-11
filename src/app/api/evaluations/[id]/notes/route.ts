@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { applyRlsContext } from "@/lib/prisma-rls";
 import { siteFilterForRelation, siteFilterForModel } from "@/lib/site-filter";
-import { publishEvents, type NoteRecordedPayload } from "@/lib/learnos/events";
+import { publishEvents, publishEvent, type NoteRecordedPayload, type EvaluationCompletedPayload } from "@/lib/learnos/events";
 import { revalidateTag } from "next/cache";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
@@ -143,57 +144,83 @@ export async function PUT(
     const tenantIdStr = session.user.tenantId as string;
     const userIdStr = session.user.id as string;
 
-    const notesToCreate = updates
-      .filter(n => n.valeur !== null)
-      .map(n => ({
-        tenantId: tenantIdStr,
-        eleveId: n.eleveId,
-        classeId: evaluation.classeId,
-        matiereId: evaluation.matiereId,
-        periodeId: evaluation.periodeId,
-        evaluationId: evaluation.id,
-        valeur: n.valeur as number,
-        noteMax: 20,
-        coefficient: evaluation.coefficient,
-        type: evaluation.type,
-        intitule: evaluation.titre,
-        date: evaluation.date,
-        commentaire: n.commentaire ?? "",
-        saisieParId: userIdStr,
-      }));
+    // IA-H1 (audit v2) : préserver les identifiants de notes existantes
+    // en utilisant upsert au lieu de deleteMany + createMany. Les preuves
+    // LEARNOS sont rattachées à note.id ; un nouvel identifiant crée une
+    // nouvelle preuve et l'ancienne reste orpheline, faussant les profils.
+    const notesWithValeur = updates.filter(n => n.valeur !== null);
+    const notesSansValeur = updates.filter(n => n.valeur === null);
 
-    await prisma.$transaction([
-      prisma.note.deleteMany({ where: { evaluationId, tenantId: tenantIdStr } }),
-      prisma.note.createMany({ data: notesToCreate })
-    ]);
+    // Supprimer les notes effacées (valeur null) — pas de upsert pour celles-ci.
+    const eleveIdsSansValeur = notesSansValeur.map(n => n.eleveId);
+
+    // Exécuter les upserts et suppressions dans une transaction.
+    const savedNotes = await prisma.$transaction(async (tx) => {
+      // ISO-4 : poser le contexte RLS en première instruction de la transaction.
+      await applyRlsContext(tx);
+      // Supprimer les notes effacées (valeur null) dans la transaction.
+      if (eleveIdsSansValeur.length > 0) {
+        // eslint-disable-next-line ecolpro/require-tenant-id -- tenantId dans le where
+        await tx.note.deleteMany({
+          where: {
+            evaluationId,
+            tenantId: tenantIdStr,
+            eleveId: { in: eleveIdsSansValeur },
+          },
+        });
+      }
+
+      // Upsert chaque note via la transaction.
+      const results = [];
+      for (const n of notesWithValeur) {
+        const saved = await tx.note.upsert({
+          where: {
+            evaluationId_eleveId: {
+              evaluationId,
+              eleveId: n.eleveId,
+            },
+          },
+          create: {
+            tenantId: tenantIdStr,
+            eleveId: n.eleveId,
+            classeId: evaluation.classeId,
+            matiereId: evaluation.matiereId,
+            periodeId: evaluation.periodeId,
+            evaluationId: evaluation.id,
+            valeur: n.valeur as number,
+            noteMax: 20,
+            coefficient: evaluation.coefficient,
+            type: evaluation.type,
+            intitule: evaluation.titre,
+            date: evaluation.date,
+            commentaire: n.commentaire ?? "",
+            saisieParId: userIdStr,
+          },
+          update: {
+            valeur: n.valeur as number,
+            commentaire: n.commentaire ?? "",
+            saisieParId: userIdStr,
+          },
+        });
+        results.push(saved);
+      }
+      return results;
+    });
 
     // Mettre à jour le statut de l'évaluation si nécessaire
-    if (notesToCreate.length > 0 && evaluation.statut === "PLANIFIE") {
+    const evaluationTerminee = notesWithValeur.length > 0 && evaluation.statut === "PLANIFIE";
+    if (evaluationTerminee) {
       await prisma.evaluation.update({
         where: { id: evaluationId },
         data: { statut: "TERMINE" }
       });
     }
 
-    // Observation LEARNOS. `createMany` ne rend pas les lignes écrites : on les
-    // relit pour disposer des identifiants réels, indispensables au rattachement
-    // preuve → note. Relecture après la transaction, donc sans l'allonger.
-    if (notesToCreate.length > 0) {
-      const enregistrees = await prisma.note.findMany({
-        where: {
-          evaluationId,
-          tenantId: tenantIdStr,
-          ...siteFilterForModel("note", session.user),
-        },
-        select: {
-          id: true, eleveId: true, classeId: true, matiereId: true, periodeId: true,
-          valeur: true, noteMax: true, coefficient: true, type: true, intitule: true,
-          date: true, saisieParId: true,
-        },
-      });
-
+    // Observation LEARNOS. Les upserts ont retourné les lignes avec leurs
+    // identifiants réels (préservés en cas de correction).
+    if (savedNotes.length > 0) {
       await publishEvents(
-        enregistrees.map((note) => ({
+        savedNotes.map((note) => ({
           tenantId: tenantIdStr,
           siteId: evaluation.classe?.siteId ?? null,
           eventType: "note.recorded" as const,
@@ -216,11 +243,32 @@ export async function PUT(
           } satisfies NoteRecordedPayload,
         }))
       );
+
+      // Publier l'événement evaluation.completed si l'évaluation vient d'être terminée.
+      if (evaluationTerminee) {
+        await publishEvent({
+          tenantId: tenantIdStr,
+          siteId: evaluation.classe?.siteId ?? null,
+          eventType: "evaluation.completed" as const,
+          aggregateType: "evaluation",
+          aggregateId: evaluationId,
+          payload: {
+            evaluationId,
+            classeId: evaluation.classeId,
+            matiereId: evaluation.matiereId,
+            periodeId: evaluation.periodeId,
+            eleveIds: savedNotes.map((n) => n.eleveId),
+            nombreNotes: savedNotes.length,
+            dateEvaluation: evaluation.date.toISOString(),
+            completeeParId: userIdStr,
+          } satisfies EvaluationCompletedPayload,
+        });
+      }
     }
 
     revalidateTag("dashboard-data");
 
-    return NextResponse.json({ success: true, count: notesToCreate.length });
+    return NextResponse.json({ success: true, count: savedNotes.length });
   } catch (error) {
     console.error("[API/evaluations/notes] PUT", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

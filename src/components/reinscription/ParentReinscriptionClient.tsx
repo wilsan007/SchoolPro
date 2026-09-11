@@ -28,6 +28,8 @@ interface InvitationDetail {
 export function ParentReinscriptionClient() {
   const t = useTranslations("reinscription");
   const searchParams = useSearchParams();
+  // API-H3 (audit v2) : token aléatoire prioritaire, ID legacy en repli.
+  const token = searchParams.get("token");
   const invitationId = searchParams.get("id");
 
   const [invitation, setInvitation] = useState<InvitationDetail | null>(null);
@@ -35,11 +37,13 @@ export function ParentReinscriptionClient() {
   const [responding, setResponding] = useState(false);
 
   useEffect(() => {
-    if (!invitationId) {
+    if (!token && !invitationId) {
       setLoading(false);
       return;
     }
-    fetch(`/api/reinscription/invitation/${invitationId}`)
+    // API-H3 : passer le token en query string si disponible.
+    const query = token ? `?token=${encodeURIComponent(token)}` : `?id=${encodeURIComponent(invitationId!)}`;
+    fetch(`/api/reinscription/invitation/${invitationId ?? "token"}${query}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) throw new Error(data.error);
@@ -49,16 +53,17 @@ export function ParentReinscriptionClient() {
         toast.error(t("invitationNotFound"));
       })
       .finally(() => setLoading(false));
-  }, [invitationId, t]);
+  }, [token, invitationId, t]);
 
   async function handleResponse(confirme: boolean) {
-    if (!invitationId) return;
+    if (!token && !invitationId) return;
     setResponding(true);
     try {
       const res = await fetch("/api/reinscription/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invitationId, confirme }),
+        // API-H3 : envoyer le token si disponible, sinon l'ID legacy.
+        body: JSON.stringify(token ? { token, confirme } : { invitationId, confirme }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? data.error ?? "Erreur");

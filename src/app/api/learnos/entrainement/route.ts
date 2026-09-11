@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { erreurJson } from "@/lib/erreurs-api";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/rbac";
 import { anneeActive } from "@/lib/annee-scolaire";
 import { eleveDeSeance, ouvrirSeance } from "@/lib/learnos/entrainement";
+
+const entrainementSchema = z.object({
+  eleveId: z.string().optional(),
+  matiereId: z.string().nullable().optional(),
+  nombre: z.number().int().min(1).max(10).optional(),
+});
 
 /**
  * Ouvre une séance d'entraînement autonome (LEARNOS).
@@ -26,14 +33,15 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
-  const body = (await req.json().catch(() => ({}))) as {
-    eleveId?: string;
-    matiereId?: string | null;
-    nombre?: number;
-  };
+  const body = await req.json().catch(() => ({}));
+  const parsed = entrainementSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Données invalides" }, { status: 400 });
+  }
+  const { eleveId, matiereId, nombre } = parsed.data;
 
-  const eleveId = await eleveDeSeance(tenantId, session.user, body.eleveId);
-  if (!eleveId) {
+  const eleveIdResolved = await eleveDeSeance(tenantId, session.user, eleveId);
+  if (!eleveIdResolved) {
     return erreurJson("ELEVE_INTROUVABLE");
   }
 
@@ -42,13 +50,13 @@ export async function POST(req: NextRequest) {
     return erreurJson("AUCUNE_ANNEE_COURANTE");
   }
 
-  const seance = await ouvrirSeance(tenantId, eleveId, session.user, {
+  const seance = await ouvrirSeance(tenantId, eleveIdResolved, session.user, {
     anneeId: annee.id,
-    matiereId: body.matiereId ?? null,
+    matiereId: matiereId ?? null,
     // Cinq exercices : assez pour mesurer plusieurs compétences, assez court
     // pour être terminé en une fois. Une feuille abandonnée au milieu ne
     // produit aucune preuve.
-    nombre: Math.min(Math.max(body.nombre ?? 5, 1), 10),
+    nombre: Math.min(Math.max(nombre ?? 5, 1), 10),
   });
 
   if (!seance) return new NextResponse(null, { status: 204 });

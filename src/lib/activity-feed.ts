@@ -194,11 +194,13 @@ export async function getActivityFeed(
   const filtreAnneeString = anneeLibelle ? { annee: anneeLibelle } : {};
   const filtreFactureAnnee = anneeId ? { anneeId } : {};
 
-  // Batches séquentiels pour rester sous la limite du pool de connexions.
-  // Chaque batch lance 2-3 requêtes Prisma en parallèle.
+  // Batches parallélisés : Prisma gère le queueing des requêtes au-delà
+  // de la limite de connexions. Sur une base distante à 400 ms, lancer
+  // plus de requêtes en parallèle réduit le temps total car le pool
+  // peut traiter plusieurs requêtes simultanément.
 
-  // Batch 1 — Inscription + Bulletins
-  const [inscriptionEvents, bulletinsHistorique] = await Promise.all([
+  // Batch 1 — Inscription + Bulletins + Notes + Absences (4 requêtes)
+  const [inscriptionEvents, bulletinsHistorique, notes, absences] = await Promise.all([
     prisma.inscriptionHistorique.findMany({
       where: {
         tenantId,
@@ -239,10 +241,6 @@ export async function getActivityFeed(
       orderBy: { createdAt: "desc" },
       take: limite,
     }),
-  ]);
-
-  // Batch 2 — Notes + Absences
-  const [notes, absences] = await Promise.all([
     prisma.note.findMany({
       where: {
         tenantId,
@@ -288,8 +286,8 @@ export async function getActivityFeed(
     }),
   ]);
 
-  // Batch 3 — Incidents + Sanctions
-  const [incidentsRapportes, incidentsResolus, incidentsClasses, sanctionsReintegrees] =
+  // Batch 2 — Incidents (3) + Sanctions + Finance (3) + RH (2) = 9 requêtes
+  const [incidentsRapportes, incidentsResolus, incidentsClasses, sanctionsReintegrees, paiements, factures, depenses, congesDemandes, congesApprouves] =
     await Promise.all([
       prisma.incident.findMany({
         where: {
@@ -366,113 +364,105 @@ export async function getActivityFeed(
         orderBy: { dateRetourEffective: "desc" },
         take: limite,
       }),
+      prisma.paiement.findMany({
+        where: {
+          enregistreParId: { not: null },
+          ...(filtreDate ? { dateSaisie: filtreDate } : {}),
+          facture: { tenantId, ...filtreFactureAnnee },
+          ...siteFilterForModel("paiement", claims),
+        },
+        select: {
+          id: true,
+          dateSaisie: true,
+          enregistreParId: true,
+          montant: true,
+          devise: true,
+          methode: true,
+          facture: { select: { numero: true, eleve: { select: { prenom: true, nom: true } } } },
+        },
+        orderBy: { dateSaisie: "desc" },
+        take: limite,
+      }),
+      prisma.facture.findMany({
+        where: {
+          tenantId,
+          createdById: { not: null },
+          ...(filtreDate ? { createdAt: filtreDate } : {}),
+          ...siteFilterForModel("facture", claims),
+          ...filtreFactureAnnee,
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          createdById: true,
+          numero: true,
+          montant: true,
+          devise: true,
+          type: true,
+          eleve: { select: { prenom: true, nom: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limite,
+      }),
+      prisma.depense.findMany({
+        where: {
+          tenantId,
+          enregistreParId: { not: null },
+          ...(filtreDate ? { createdAt: filtreDate } : {}),
+          ...siteFilterForModel("depense", claims),
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          enregistreParId: true,
+          montant: true,
+          devise: true,
+          libelle: true,
+          categorie: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: limite,
+      }),
+      prisma.congePersonnel.findMany({
+        where: {
+          tenantId,
+          demandeParId: { not: null },
+          ...(filtreDate ? { createdAt: filtreDate } : {}),
+          ...siteFilterForModel("congePersonnel", claims),
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          demandeParId: true,
+          type: true,
+          nbJours: true,
+          enseignant: { select: { user: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limite,
+      }),
+      prisma.congePersonnel.findMany({
+        where: {
+          tenantId,
+          approuveParId: { not: null },
+          approuveAt: filtreDate ?? undefined,
+          ...siteFilterForModel("congePersonnel", claims),
+        },
+        select: {
+          id: true,
+          approuveAt: true,
+          approuveParId: true,
+          type: true,
+          nbJours: true,
+          enseignant: { select: { user: { select: { name: true } } } },
+        },
+        orderBy: { approuveAt: "desc" },
+        take: limite,
+      }),
     ]);
 
-  // Batch 4 — Finance (Paiements + Factures + Dépenses)
-  const [paiements, factures, depenses] = await Promise.all([
-    prisma.paiement.findMany({
-      where: {
-        enregistreParId: { not: null },
-        ...(filtreDate ? { dateSaisie: filtreDate } : {}),
-        facture: { tenantId, ...filtreFactureAnnee },
-        ...siteFilterForModel("paiement", claims),
-      },
-      select: {
-        id: true,
-        dateSaisie: true,
-        enregistreParId: true,
-        montant: true,
-        devise: true,
-        methode: true,
-        facture: { select: { numero: true, eleve: { select: { prenom: true, nom: true } } } },
-      },
-      orderBy: { dateSaisie: "desc" },
-      take: limite,
-    }),
-    prisma.facture.findMany({
-      where: {
-        tenantId,
-        createdById: { not: null },
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-        ...siteFilterForModel("facture", claims),
-        ...filtreFactureAnnee,
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        createdById: true,
-        numero: true,
-        montant: true,
-        devise: true,
-        type: true,
-        eleve: { select: { prenom: true, nom: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limite,
-    }),
-    prisma.depense.findMany({
-      where: {
-        tenantId,
-        enregistreParId: { not: null },
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-        ...siteFilterForModel("depense", claims),
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        enregistreParId: true,
-        montant: true,
-        devise: true,
-        libelle: true,
-        categorie: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: limite,
-    }),
-  ]);
-
-  // Batch 5 — RH (Congés)
-  const [congesDemandes, congesApprouves] = await Promise.all([
-    prisma.congePersonnel.findMany({
-      where: {
-        tenantId,
-        demandeParId: { not: null },
-        ...(filtreDate ? { createdAt: filtreDate } : {}),
-        ...siteFilterForModel("congePersonnel", claims),
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        demandeParId: true,
-        type: true,
-        nbJours: true,
-        enseignant: { select: { user: { select: { name: true } } } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limite,
-    }),
-    prisma.congePersonnel.findMany({
-      where: {
-        tenantId,
-        approuveParId: { not: null },
-        approuveAt: filtreDate ?? undefined,
-        ...siteFilterForModel("congePersonnel", claims),
-      },
-      select: {
-        id: true,
-        approuveAt: true,
-        approuveParId: true,
-        type: true,
-        nbJours: true,
-        enseignant: { select: { user: { select: { name: true } } } },
-      },
-      orderBy: { approuveAt: "desc" },
-      take: limite,
-    }),
-  ]);
-
-  // Batch 6 — Santé + Conseil + Communication
-  const [passagesInfirmerie, entretiensConseil, notifications] = await Promise.all([
+  // Batch 3 — Santé + Conseil + Communication + Séances + Audit = 5 requêtes
+  const [passagesInfirmerie, entretiensConseil, notifications, seanceCommentaires, audits] = await Promise.all([
     prisma.passageInfirmerie.findMany({
       where: {
         tenantId,
@@ -527,10 +517,6 @@ export async function getActivityFeed(
       orderBy: { envoyeeAt: "desc" },
       take: limite,
     }),
-  ]);
-
-  // Batch 7 — Commentaires de séance + Audit
-  const [seanceCommentaires, audits] = await Promise.all([
     prisma.seanceCommentaire.findMany({
       where: {
         auteurId: { not: null },

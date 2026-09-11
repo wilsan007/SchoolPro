@@ -66,6 +66,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       data: dataToUpdate,
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "bulletin:update",
+      verdict: "ALLOWED",
+      resource: "bulletin",
+      resourceId: id,
+    });
+
     // ── Historisation : tracer chaque champ modifié, même par le directeur.
     await tracerModificationsBulletin(
       id,

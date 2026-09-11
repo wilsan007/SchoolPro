@@ -428,6 +428,7 @@ export function FactureForm({
                       <div className="space-y-1">
                         <Label className="text-xs">{t("formLabel")}</Label>
                         <Input
+                          aria-label={t("formLabel")}
                           value={service.libelle}
                           onChange={(e) => updateService(index, { libelle: e.target.value })}
                           className="h-9"
@@ -436,6 +437,7 @@ export function FactureForm({
                       <div className="space-y-1">
                         <Label className="text-xs">{t("formAmount")}</Label>
                         <Input
+                          aria-label={t("formAmount")}
                           type="number"
                           min="0"
                           step="0.01"

@@ -7,6 +7,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { publishEvent } from "@/lib/learnos/events";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { auditFire } from "@/lib/audit";
 import { z } from "zod";
 import type { Prisma, Role } from "@prisma/client";
 
@@ -322,6 +323,16 @@ export async function DELETE(
     if (!existing) return erreurJson("SEANCE_INTROUVABLE");
 
     await prisma.seancePedagogique.delete({ where: { id } });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "seance:delete",
+      verdict: "ALLOWED",
+      resource: "seancePedagogique",
+      resourceId: id,
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[API/cahier-journal/seances/:id DELETE]", error);

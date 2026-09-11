@@ -34,15 +34,26 @@ interface ResendWebhookEvent {
  * Vérifie la signature Svix du webhook Resend.
  * Resend utilise Svix pour signer ses webhooks : la signature est
  * calculée avec le secret partagé (whsec_...) sur le body brut.
+ *
+ * AUT-4 (audit v2) : en production, un secret absent rejette la requête.
+ * En dev, `WEBHOOK_DEV_INSECURE=true` autorise explicitement l'ouverture.
  */
 function verifySvixSignature(
   rawBody: string,
   signatureHeader: string | null,
   secret: string | undefined,
 ): boolean {
+  const isDevInsecureAllowed =
+    process.env.NODE_ENV !== "production" &&
+    process.env.WEBHOOK_DEV_INSECURE === "true";
+
   if (!secret) {
-    console.warn("[Webhook/Resend] RESEND_WEBHOOK_SECRET absent — signature non vérifiée (dev)");
-    return true;
+    if (isDevInsecureAllowed) {
+      console.warn("[Webhook/Resend] RESEND_WEBHOOK_SECRET absent — signature non vérifiée (dev, WEBHOOK_DEV_INSECURE=true)");
+      return true;
+    }
+    console.error("[Webhook/Resend] RESEND_WEBHOOK_SECRET absent — requête rejetée");
+    return false;
   }
   if (!signatureHeader) return false;
 

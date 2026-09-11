@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   statut: z.enum(["PLANIFIE", "REALISE", "ANNULE", "REPORTÉ"]).optional(),
@@ -138,5 +139,15 @@ export async function DELETE(
   }
 
   await prisma.entretienConseiller.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "entretien:delete",
+    verdict: "ALLOWED",
+    resource: "entretienConseiller",
+    resourceId: id,
+  });
+
   return NextResponse.json({ success: true });
 }

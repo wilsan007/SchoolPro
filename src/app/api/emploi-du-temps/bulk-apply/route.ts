@@ -7,6 +7,8 @@ import { checkPermission } from "@/lib/rbac";
 import { overlaps } from "@/lib/emploi-du-temps/suggest";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { applyRlsContext } from "@/lib/prisma-rls";
+import { auditFire } from "@/lib/audit";
 
 const CreneauSchema = z.object({
   // matiereId : matière existante. Rendu optionnel pour supporter l'import
@@ -98,6 +100,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await applyRlsContext(tx);
       // Auto-création des matières issues de l'import (additif). Les matières
       // sont créées ici, dans la même transaction que les créneaux, pour
       // garantir l'atomicité : si un conflit annule la transaction, aucune
@@ -191,6 +194,15 @@ export async function POST(req: NextRequest) {
       });
 
       return { deleted: deleted.count, created: creneauxAvecMatiere.length };
+    });
+
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "emploi-temps:bulk-apply",
+      verdict: "ALLOWED",
+      resource: "emploiTemps",
+      resourceId: classeId,
     });
 
     revalidatePath("/emploi-du-temps");

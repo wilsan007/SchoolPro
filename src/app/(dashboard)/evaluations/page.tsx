@@ -20,7 +20,7 @@ export const metadata = {
 export default async function EvaluationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ matiereId?: string }>;
+  searchParams: Promise<{ matiereId?: string; filter?: string }>;
 }) {
   const [session, t, sp] = await Promise.all([
     auth(),
@@ -31,8 +31,9 @@ export default async function EvaluationsPage({
   await guardPage(session);
 
   const tenantId = session.user.tenantId;
-  const { matiereId } = sp;
+  const { matiereId, filter } = sp;
   const claims = session.user as SessionSiteClaims;
+  const filtreSansNotes = filter === "sans-notes";
 
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const maintenant = await getDemoNow();
@@ -52,11 +53,16 @@ export default async function EvaluationsPage({
           ? { classeId: { in: hierarchieClasseIds } }
           : {}),
         ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
-        // Horizon temporel : les évaluations TERMINE sont des faits constatés
-        // (bornés par la date), les PLANIFIE restent visibles (calendrier).
-        // L'extension demo-horizon gère ce cas quand la Time Machine est active,
-        // mais en usage normal (sans Time Machine) il faut le filtre manuel.
-        OR: [{ statut: "PLANIFIE" }, { date: { lte: maintenant } }],
+        // Filtre "sans-notes" : évaluations passées sans aucune note saisie.
+        ...(filtreSansNotes
+          ? {
+              statut: { not: "ANNULE" },
+              date: { lt: maintenant },
+              notes: { none: {} },
+            }
+          : {
+              OR: [{ statut: "PLANIFIE" }, { date: { lte: maintenant } }],
+            }),
       },
       include: {
         classe: { select: { nom: true, niveau: true } },
@@ -78,7 +84,22 @@ export default async function EvaluationsPage({
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gray-50 dark:bg-gray-950 min-h-full">
-      {matiereId && (
+      {filtreSansNotes && (
+        <div className="mb-4 sm:mb-6 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+            <p className="text-sm text-orange-800 dark:text-orange-400 font-medium">
+              {evaluations.length} évaluation{evaluations.length > 1 ? "s" : ""} sans notes · cliquez sur « Saisir les notes » pour traiter chaque retard
+            </p>
+          </div>
+          <Link href="/evaluations" className="w-full sm:w-auto">
+            <Button size="sm" variant="outline" className="text-orange-600 hover:text-orange-800 bg-white border-orange-200 w-full sm:w-auto">
+              Voir tous les examens
+            </Button>
+          </Link>
+        </div>
+      )}
+      {matiereId && !filtreSansNotes && (
         <div className="mb-4 sm:mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>

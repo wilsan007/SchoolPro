@@ -69,34 +69,124 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         if (result) token = result;
       }
 
-      // — Impersonation : gestion du flag et des champs de session —
-      // `unstable_update({ user: { impersonating, ... } })` est appelé par la
-      // route /api/super-admin/impersonate. On stocke ici les champs dans le
-      // token pour qu'ils soient exposés via le callback `session`.
+      // — Impersonation : gestion via grant stocké en base (AUTH-1, audit v2) —
+      // Le callback `jwt` ne peut pas distinguer un `unstable_update()` serveur
+      // d'un `POST /api/auth/session` client. On ne fait donc plus confiance au
+      // contenu de `session` pour l'usurpation. Seuls `impersonationGrantId`
+      // et `clearImpersonation` sont acceptés, et le grant est vérifié en base.
       if (trigger === "update" && session) {
         const s = session as {
-          impersonating?: boolean;
-          impersonatedTenantId?: string | null;
-          impersonatedTenantName?: string | null;
-          impersonatedUserEmail?: string | null;
-          originalRole?: string | null;
-          originalTenantId?: string | null;
+          tenantId?: string | null;
+          impersonationGrantId?: string | null;
           clearImpersonation?: boolean;
         };
-        if (s.clearImpersonation) {
+
+        // Fin d'impersonation : marquer le grant comme terminé et restaurer
+        // le périmètre original via deriveClaims.
+        if (s.clearImpersonation && token.impersonationGrantId) {
+          const restoreTenantId = (token.originalTenantId as string | null) ?? null;
+          try {
+            await prisma.impersonationGrant.update({
+              where: { id: token.impersonationGrantId as string },
+              data: { endedAt: new Date() },
+            });
+          } catch {
+            // Le grant a peut-être déjà été supprimé ; on continue.
+          }
+          token.impersonationGrantId = null;
           token.impersonating = false;
           token.impersonatedTenantId = null;
           token.impersonatedTenantName = null;
           token.impersonatedUserEmail = null;
           token.originalRole = null;
           token.originalTenantId = null;
-        } else if (s.impersonating !== undefined) {
-          token.impersonating = s.impersonating;
-          token.impersonatedTenantId = s.impersonatedTenantId ?? null;
-          token.impersonatedTenantName = s.impersonatedTenantName ?? null;
-          token.impersonatedUserEmail = s.impersonatedUserEmail ?? null;
-          token.originalRole = s.originalRole ?? null;
-          token.originalTenantId = s.originalTenantId ?? null;
+          // Restaurer le périmètre original
+          if (token.id) {
+            const claims = await deriveClaims(token.id as string, restoreTenantId);
+            if (claims) {
+              token.tenantId = claims.tenantId;
+              token.country = claims.country;
+              token.role = claims.role;
+              token.siteId = claims.siteId;
+              token.siteIds = claims.siteIds;
+              token.tenantHasSites = claims.tenantHasSites;
+              token.availableTenants = claims.availableTenants;
+              token.availableRoles = claims.availableRoles;
+              token.claimsVersion = CLAIMS_VERSION;
+            }
+          }
+          return token;
+        }
+
+        // Demande d'usurpation : vérifier le grant en base.
+        if (s.impersonationGrantId) {
+          const grant = await prisma.impersonationGrant.findUnique({
+            where: { id: s.impersonationGrantId },
+            include: {
+              targetTenant: { select: { id: true, name: true } },
+              targetUser: { select: { email: true } },
+            },
+          });
+
+          const now = new Date();
+          const isValid =
+            grant &&
+            grant.adminId === (token.id as string) &&
+            grant.endedAt === null &&
+            grant.expiresAt > now;
+
+          if (!isValid) {
+            // Refus : le grant n'existe pas, n'appartient pas à cet utilisateur,
+            // est expiré ou déjà terminé.
+            auditFire({
+              userId: token.id as string,
+              action: "impersonation:refus",
+              verdict: "DENIED",
+              resource: "session",
+              reason: "Grant d'usurpation invalide ou expiré",
+              metadata: {
+                impersonationGrantId: s.impersonationGrantId,
+              },
+            });
+            // Ne pas modifier le token : le tenantId reste inchangé.
+          } else {
+            // Vérifier en base que l'utilisateur est bien SUPER_ADMIN
+            // (ne pas se fier à token.role, qui est un état client signé).
+            // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification de sécurité cross-tenant : on relit le rôle en base pour confirmer que l'utilisateur est SUPER_ADMIN, sans filtre tenantId/site
+            const adminUser = await prisma.user.findUnique({
+              where: { id: token.id as string },
+              select: { role: true },
+            });
+
+            if (adminUser?.role !== "SUPER_ADMIN") {
+              auditFire({
+                userId: token.id as string,
+                action: "impersonation:refus",
+                verdict: "DENIED",
+                resource: "session",
+                reason: "L'utilisateur n'est pas SUPER_ADMIN en base",
+                metadata: {
+                  actualRole: adminUser?.role ?? "introuvable",
+                },
+              });
+            } else {
+              // Grant valide : basculer vers le tenant cible.
+              token.impersonationGrantId = grant.id;
+              token.impersonating = true;
+              token.impersonatedTenantId = grant.targetTenantId;
+              token.impersonatedTenantName = grant.targetTenant.name;
+              token.impersonatedUserEmail = grant.targetUser.email;
+              token.originalRole = adminUser.role;
+              token.originalTenantId = token.tenantId as string | null;
+              token.tenantId = grant.targetTenantId;
+              token.country = null;
+              token.siteId = null;
+              token.siteIds = [];
+              token.tenantHasSites = true;
+              token.claimsVersion = CLAIMS_VERSION;
+              return token;
+            }
+          }
         }
       }
 
@@ -106,6 +196,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       //  - dès qu'un JWT porte une version de revendications périmée, afin que
       //    les jetons émis avant ce durcissement soient corrigés sans exiger
       //    une reconnexion (et ne conservent pas un périmètre trop large).
+      //  - AUTH-H1 : dès que `sessionVersion` en base diffère de celle du
+      //    token, pour invalider les sessions après un changement sensible
+      //    (mot de passe, désactivation, révocation de tenant/site).
       const isStale = token.claimsVersion !== CLAIMS_VERSION;
 
       if (token.id && (trigger === "update" || isStale)) {
@@ -119,19 +212,30 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           (token.tenantId as string | null) ??
           null;
 
-        // En impersonation, on force le tenant demandé sans passer par
-        // deriveClaims (le SUPER_ADMIN n'a pas forcément d'adhésion au tenant
-        // cible). On conserve le rôle SUPER_ADMIN mais on bascule le tenantId.
-        if (token.impersonating && token.originalTenantId) {
-          // Restaurer le tenant original si on quitte l'impersonation
-          // (géré par clearImpersonation ci-dessus), sinon garder le tenant cible
-          token.tenantId = requestedTenantId;
-          token.country = null; // L'impersonation ne propage pas le pays (super-admin global)
-          token.siteId = null;
-          token.siteIds = [];
-          token.tenantHasSites = true;
-          token.claimsVersion = CLAIMS_VERSION;
-          return token;
+        // En impersonation, le tenantId a déjà été positionné par le grant
+        // vérifié en base ci-dessus. On ne passe PAS par deriveClaims car le
+        // SUPER_ADMIN n'a pas d'adhésion au tenant cible.
+        if (token.impersonationGrantId && token.impersonating) {
+          // Revérifier le grant à chaque passage (expiration, endedAt).
+          const grant = await prisma.impersonationGrant.findUnique({
+            where: { id: token.impersonationGrantId as string },
+            select: { expiresAt: true, endedAt: true },
+          });
+          if (!grant || grant.endedAt !== null || grant.expiresAt <= new Date()) {
+            // Grant expiré ou terminé : restaurer le périmètre original.
+            token.impersonationGrantId = null;
+            token.impersonating = false;
+            token.impersonatedTenantId = null;
+            token.impersonatedTenantName = null;
+            token.impersonatedUserEmail = null;
+            token.originalRole = null;
+            token.originalTenantId = null;
+            // Tomber dans deriveClaims ci-dessous pour restaurer.
+          } else {
+            // Grant toujours valide : conserver le tenant cible.
+            token.claimsVersion = CLAIMS_VERSION;
+            return token;
+          }
         }
 
         const claims = await deriveClaims(token.id as string, requestedTenantId);
@@ -147,6 +251,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           token.availableTenants = [];
           token.availableRoles = [];
           token.claimsVersion = CLAIMS_VERSION;
+          token.sessionVersion = 0;
           return token;
         }
 
@@ -159,6 +264,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token.availableTenants = claims.availableTenants;
         token.availableRoles = claims.availableRoles;
         token.claimsVersion = claims.claimsVersion;
+        token.sessionVersion = claims.sessionVersion;
       }
 
       return token;
@@ -308,6 +414,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           availableTenants: claims.availableTenants,
           availableRoles: claims.availableRoles,
           claimsVersion: claims.claimsVersion,
+          sessionVersion: claims.sessionVersion,
           mustChangePassword: user.mustChangePassword,
           // Rôle sensible sans 2FA configurée, délai de tolérance écoulé :
           // l'accès est restreint à la page de configuration (voir

@@ -428,6 +428,7 @@ export function VieScolaireView({
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <input
+          aria-label="Rechercher"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("searchPlaceholder")}

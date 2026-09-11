@@ -7,6 +7,7 @@ import { checkPermission } from "@/lib/rbac";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   titre: z.string().min(1).optional(),
@@ -140,6 +141,15 @@ export async function PATCH(
       },
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "tache:update",
+      verdict: "ALLOWED",
+      resource: "tache",
+      resourceId: id,
+    });
+
     // Notifier le créateur quand la tâche est marquée comme FAITE.
     // Les notifications ne doivent pas bloquer l'action principale.
     if (becameFait && existing.creeParId) {
@@ -201,6 +211,15 @@ export async function DELETE(
   }
 
   await prisma.tache.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "tache:delete",
+    verdict: "ALLOWED",
+    resource: "tache",
+    resourceId: id,
+  });
 
   return NextResponse.json({ ok: true });
 }

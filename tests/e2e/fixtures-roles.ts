@@ -66,6 +66,8 @@ const POST_TENANT_URL = /\/(dashboard|acces-bloque|super-admin|direction|mon-esp
  *
  * La sélection de tenant est automatique s'il n'y en a qu'un seul.
  */
+const sessionCache = new Map<string, Record<string, string>>();
+
 export async function loginAs(page: Page, role: string): Promise<void> {
   const creds = E2E_CREDENTIALS[role];
   if (!creds) {
@@ -76,6 +78,19 @@ export async function loginAs(page: Page, role: string): Promise<void> {
 
   // 1. Nettoyer toute session précédente.
   await page.context().clearCookies();
+
+  // 1b. Restaurer la session depuis le cache si disponible (évite le rate limiter).
+  const cachedCookies = sessionCache.get(role);
+  if (cachedCookies) {
+    const cookieList = Object.entries(cachedCookies).map(([name, value]) => ({
+      name,
+      value,
+      domain: "localhost",
+      path: "/",
+    }));
+    await page.context().addCookies(cookieList);
+    return;
+  }
 
   // 2. Récupérer un token CSRF frais (avec retry pour le cold start du dev server).
   let csrfToken: string | undefined;
@@ -101,16 +116,39 @@ export async function loginAs(page: Page, role: string): Promise<void> {
   // 3. Soumettre les credentials via l'API NextAuth.
   //    NextAuth répond par 302 → /select-tenant ou la callback URL.
   //    On suit pas la redirection (redirect: "manual") pour inspecter.
-  const loginRes = await page.request.post(`${origin}/api/auth/callback/credentials`, {
-    form: {
-      email: creds.email,
-      password: creds.password,
-      csrfToken,
-      callbackUrl: `${origin}/select-tenant`,
-      json: "true",
-    },
-    maxRedirects: 0,
-  });
+  //    Retry avec backoff exponentiel si le rate limiter renvoie 429.
+  let loginRes;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    loginRes = await page.request.post(`${origin}/api/auth/callback/credentials`, {
+      form: {
+        email: creds.email,
+        password: creds.password,
+        csrfToken: csrfToken!,
+        callbackUrl: `${origin}/select-tenant`,
+        json: "true",
+      },
+      maxRedirects: 0,
+    });
+
+    if (loginRes.status() === 429) {
+      // Rate limited : attendre avec backoff exponentiel (2s, 4s, 8s).
+      const waitMs = 2000 * Math.pow(2, attempt);
+      await page.waitForTimeout(waitMs);
+      // Récupérer un nouveau token CSRF (l'ancien peut avoir expiré).
+      const csrfRetry = await page.request.get(`${origin}/api/auth/csrf`, {
+        failOnStatusCode: false,
+      });
+      if (csrfRetry.ok()) {
+        const body = await csrfRetry.json();
+        csrfToken = body.csrfToken ?? csrfToken;
+      }
+      continue;
+    }
+    break;
+  }
+  if (!loginRes) {
+    throw new Error(`Login failed for ${role}: no response after retries`);
+  }
 
   // NextAuth renvoie 302 en cas de succès. Les cookies de session
   // sont posés dans cette réponse.
@@ -124,7 +162,21 @@ export async function loginAs(page: Page, role: string): Promise<void> {
   //    Naviguer vers la page d'accueil du rôle.
   //    On passe par /select-tenant qui redirigera automatiquement
   //    si un seul tenant, ou vers la route d'accueil directement.
-  await page.goto("/select-tenant", { waitUntil: "domcontentloaded" });
+  //    Retry : le dev server peut encore compiler /select-tenant (cold start).
+  let gotoOk = false;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await page.goto("/select-tenant", { waitUntil: "domcontentloaded", timeout: 30000 });
+      gotoOk = true;
+      break;
+    } catch {
+      // Le dev server compile peut-être encore la route. Réessayer.
+      await page.waitForTimeout(3000);
+    }
+  }
+  if (!gotoOk) {
+    throw new Error(`Navigation to /select-tenant failed for ${role} after 5 attempts`);
+  }
 
   // Attendre la redirection (automatique si un seul tenant).
   await page.waitForURL(POST_LOGIN_URL, { timeout: 20000 });
@@ -142,6 +194,15 @@ export async function loginAs(page: Page, role: string): Promise<void> {
       await page.waitForURL(POST_TENANT_URL, { timeout: 20000 });
     }
   }
+
+  // 5. Mettre en cache les cookies de session pour les prochains tests
+  //    utilisant le même rôle (évite de dépasser le rate limiter).
+  const currentCookies = await page.context().cookies();
+  const cookieMap: Record<string, string> = {};
+  for (const c of currentCookies) {
+    cookieMap[c.name] = c.value;
+  }
+  sessionCache.set(role, cookieMap);
 }
 
 /**

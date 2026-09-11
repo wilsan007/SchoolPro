@@ -517,6 +517,18 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // --- Campagne de réinscription (niveau tenant, pas de siteId) ---
   campagneReinscription: "tenant",
   invitationReinscription: { one: "eleve" },
+
+  // --- Impersonation (global, pas de tenantId ni siteId) ---
+  impersonationGrant: "tenant",
+
+  // --- LEARNOS dead-letter queue (porte siteId optionnel) ---
+  learnosEventDeadletter: "column",
+
+  // --- Rate limit counter (global, pas de tenantId ni siteId) ---
+  rateLimitCounter: "tenant",
+
+  // --- Tâche cron execution (global, pas de tenantId ni siteId) ---
+  tacheCronExecution: "tenant",
 };
 
 /**

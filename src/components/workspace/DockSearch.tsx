@@ -241,6 +241,7 @@ export function DockSearch({ roleKey, open, onClose }: DockSearchProps) {
             <input
               ref={inputRef}
               type="text"
+              aria-label={t("searchModules")}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -248,7 +249,6 @@ export function DockSearch({ roleKey, open, onClose }: DockSearchProps) {
               }}
               placeholder={t("searchModules")}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-              aria-label="Rechercher un module"
             />
             <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-secondary text-[10px] font-mono text-muted-foreground border border-border">
               <Command className="w-3 h-3" />

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   statut: z.string().optional(),
@@ -96,6 +97,15 @@ export async function PATCH(
       include: { depenses: true },
     });
 
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "budget:update",
+      verdict: "ALLOWED",
+      resource: "budget",
+      resourceId: id,
+    });
+
     return NextResponse.json(budget);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -139,6 +149,15 @@ export async function DELETE(
   }
 
   await prisma.budget.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "budget:delete",
+    verdict: "ALLOWED",
+    resource: "budget",
+    resourceId: id,
+  });
 
   return NextResponse.json({ ok: true });
 }

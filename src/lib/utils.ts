@@ -2,6 +2,7 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr, enUS } from "date-fns/locale";
+import { Note, calculerMoyennePondereeCentiemes } from "@/lib/domain/note";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -43,21 +44,20 @@ export function formatCurrency(
   }).format(amount);
 }
 
-/** Calcule la moyenne pondérée */
+/** Calcule la moyenne pondérée en centièmes entiers (anti-flottant) */
 export function calculerMoyenne(
   notes: { valeur: number; noteMax: number; coefficient: number }[]
 ): number | null {
   if (notes.length === 0) return null;
 
-  const totalPondere = notes.reduce((sum, n) => {
-    const sur20 = (n.valeur / n.noteMax) * 20;
-    return sum + sur20 * n.coefficient;
-  }, 0);
+  // MET-H1 (audit v2) : utilise le domaine Note pour les centièmes entiers.
+  const notesCentiemes = notes.map((n) => ({
+    centiemes: Note.depuisValeurSurBareme(n.valeur, n.noteMax).centiemes,
+    coefficient: n.coefficient,
+  }));
 
-  const totalCoeff = notes.reduce((sum, n) => sum + n.coefficient, 0);
-
-  if (totalCoeff === 0) return null;
-  return Math.round((totalPondere / totalCoeff) * 100) / 100;
+  const result = calculerMoyennePondereeCentiemes(notesCentiemes);
+  return result !== null ? result / 100 : null;
 }
 
 /** Couleur de note selon la valeur */

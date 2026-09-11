@@ -7,6 +7,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { validerPrerequis } from "@/lib/learnos/curriculum";
 import { revalidatePath } from "next/cache";
+import { auditFire } from "@/lib/audit";
 
 const PatchSchema = z.object({
   libelle: z.string().min(2).max(200).optional(),
@@ -155,6 +156,15 @@ export async function DELETE(
   }
 
   await prisma.competence.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "competence:delete",
+    verdict: "ALLOWED",
+    resource: "competence",
+    resourceId: id,
+  });
 
   revalidatePath("/curriculum");
   return NextResponse.json({ success: true });

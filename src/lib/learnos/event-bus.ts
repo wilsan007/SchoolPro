@@ -24,6 +24,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type { LearnosEventType } from "@/lib/learnos/events";
 import { ingererNoteCommePreuve } from "@/lib/learnos/evidence-engine";
 import { recalculerProfilsApresPreuve } from "@/lib/learnos/learning-twin";
@@ -50,6 +51,9 @@ import { onPredictionEmise } from "@/lib/learnos/handlers/prediction-emise";
 import { onCandidatureAcceptee } from "@/lib/learnos/handlers/candidature-acceptee";
 import { onIncidentSignale } from "@/lib/learnos/handlers/incident-signale";
 import { onDecalageDetecte } from "@/lib/learnos/handlers/decalage-detecte";
+import { onNoteUpdated } from "@/lib/learnos/handlers/note-updated";
+import { onNoteDeleted } from "@/lib/learnos/handlers/note-deleted";
+import { onEvaluationCompleted } from "@/lib/learnos/handlers/evaluation-completed";
 
 export interface DrainedEvent {
   id: string;
@@ -80,6 +84,12 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
     recalculerProfilsApresPreuve,
     recalculerRecommandationsApresProfil,
   ],
+  // Modification d'une note : supprimer l'ancienne preuve, réingérer la
+  // nouvelle, recalculer profils et recommandations, alerter si baisse forte.
+  "note.updated": [onNoteUpdated],
+  // Suppression d'une note : retirer les preuves issues de cette note,
+  // puis recalculer profils et recommandations sans elle.
+  "note.deleted": [onNoteDeleted],
   // La clôture d'une séance déclenche la boucle du cahier-journal : mise à
   // jour des statuts de planification (chapitre et compétences) pour
   // refléter la réalité du terrain. Le traitement est idempotent et ne lève
@@ -106,6 +116,8 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "bulletin.publie": [onBulletinPublie],
   // Évaluations.
   "evaluation.publiee": [onEvaluationPubliee],
+  // Saisie d'une évaluation complétée : recalcul KPI + remédiation collective.
+  "evaluation.completed": [onEvaluationCompleted],
   // Cahier de textes.
   "devoir.corrige": [onDevoirCorrige],
   // Intelligence pédagogique : KPI snapshots.
@@ -218,6 +230,16 @@ export async function drainEvents(limit = DEFAULT_BATCH): Promise<DrainResult> {
           `[learnos/event-bus] événement ${evenement.id} (${evenement.eventType}) abandonné ` +
             `après ${tentatives} tentatives : ${motif}`
         );
+
+        // Déplacer l'événement vers la dead-letter queue : on l'y conserve
+        // avec son contexte pour diagnostic et rejeu ultérieur, tout en le
+        // retirant de la boîte d'envoi pour ne pas polluer le drainage sain.
+        await moveToDeadLetter(evenement, tentatives, motif).catch((dlqErr) => {
+          console.error(
+            `[learnos/event-bus] échec du déplacement en DLQ pour ${evenement.id}`,
+            dlqErr
+          );
+        });
       } else {
         resultat.failed++;
       }
@@ -274,4 +296,112 @@ export async function eventBacklog(tenantId: string): Promise<{
     }),
   ]);
   return { pending, abandoned };
+}
+
+/**
+ * Déplace un événement abandonné vers la dead-letter queue.
+ *
+ * Transaction : on crée la ligne en DLQ et on supprime l'original en une
+ * seule opération, pour éviter qu'un crash entre les deux ne laisse
+ * l'événement dans les deux tables ou dans aucune.
+ */
+async function moveToDeadLetter(
+  evenement: DrainedEvent,
+  tentatives: number,
+  motif: string
+): Promise<void> {
+  await prisma.$transaction([
+    prisma.learnosEventDeadletter.create({
+      data: {
+        id: evenement.id,
+        tenantId: evenement.tenantId,
+        siteId: evenement.siteId,
+        eventType: evenement.eventType,
+        aggregateType: evenement.aggregateType,
+        aggregateId: evenement.aggregateId,
+        payload: evenement.payload as Prisma.InputJsonValue,
+        occurredAt: evenement.occurredAt,
+        attempts: tentatives,
+        lastError: motif.slice(0, 500),
+        resolution: "PENDING",
+      },
+    }),
+    prisma.learnosEvent.deleteMany({
+      where: { id: evenement.id, tenantId: evenement.tenantId },
+    }),
+  ]);
+}
+
+/**
+ * Rejoue un événement depuis la dead-letter queue.
+ *
+ * Remet l'événement dans la boîte d'envoi (`learnos_events`) avec
+ * `attempts = 0` et marque sa résolution comme `REPLAYED` en DLQ.
+ * L'événement sera alors repris par le prochain `drainEvents()`.
+ */
+export async function replayDeadletterEvent(
+  deadletterId: string,
+  tenantId: string
+): Promise<void> {
+  const dlq = await prisma.learnosEventDeadletter.findFirst({
+    where: { id: deadletterId, tenantId },
+  });
+  if (!dlq) return;
+
+  await prisma.$transaction([
+    prisma.learnosEvent.create({
+      data: {
+        id: dlq.id,
+        tenantId: dlq.tenantId,
+        siteId: dlq.siteId,
+        eventType: dlq.eventType,
+        aggregateType: dlq.aggregateType,
+        aggregateId: dlq.aggregateId,
+        payload: dlq.payload as Prisma.InputJsonValue,
+        occurredAt: dlq.occurredAt,
+        attempts: 0,
+        lastError: null,
+      },
+    }),
+    prisma.learnosEventDeadletter.update({
+      where: { id: deadletterId },
+      data: { resolution: "REPLAYED" },
+    }),
+  ]);
+}
+
+/**
+ * Marque un événement de la DLQ comme ignoré (résolu sans rejeu).
+ *
+ * Sert quand l'erreur est irréparable (payload corrompu) et que l'opérateur
+ * décide d'abandonner définitivement le traitement.
+ */
+export async function ignoreDeadletterEvent(
+  deadletterId: string,
+  tenantId: string
+): Promise<void> {
+  await prisma.learnosEventDeadletter.updateMany({
+    where: { id: deadletterId, tenantId },
+    data: { resolution: "IGNORED" },
+  });
+}
+
+/** État de la dead-letter queue, pour supervision. */
+export async function deadletterBacklog(tenantId: string): Promise<{
+  pending: number;
+  replayed: number;
+  ignored: number;
+}> {
+  const [pending, replayed, ignored] = await Promise.all([
+    prisma.learnosEventDeadletter.count({
+      where: { tenantId, resolution: "PENDING" },
+    }),
+    prisma.learnosEventDeadletter.count({
+      where: { tenantId, resolution: "REPLAYED" },
+    }),
+    prisma.learnosEventDeadletter.count({
+      where: { tenantId, resolution: "IGNORED" },
+    }),
+  ]);
+  return { pending, replayed, ignored };
 }

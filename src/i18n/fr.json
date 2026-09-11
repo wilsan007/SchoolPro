@@ -3650,6 +3650,7 @@
       "FACTURE_INTROUVABLE": "Facture introuvable",
       "ECHEANCIER_INTROUVABLE": "Échéancier introuvable",
       "INVITATION_INTROUVABLE": "Invitation introuvable",
+      "INVITATION_EXPIREE": "Cette invitation a expiré",
       "DEJA_REPONDU": "Vous avez déjà répondu à cette invitation",
       "CAMPAGNE_FERMEE": "La campagne de réinscription est fermée",
       "PASSWORD_TOO_SHORT": "Le mot de passe doit faire au moins 8 caractères",

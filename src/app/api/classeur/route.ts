@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { erreurJson } from "@/lib/erreurs-api";
 import { genererClasseur, type SectionClasseur } from "@/lib/pdf/classeur-generator";
+import { checkPermission } from "@/lib/rbac";
 
 /**
  * POST /api/classeur
@@ -29,6 +30,11 @@ const ClasseurBodySchema = z.object({
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
+
+  // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec rapports:read
+  // peuvent générer un classeur PDF nominatif.
+  const denied = checkPermission(session.user.role, "rapports:read");
+  if (denied) return denied;
 
   const raw = await req.json().catch(() => null);
   const parsed = ClasseurBodySchema.safeParse(raw);

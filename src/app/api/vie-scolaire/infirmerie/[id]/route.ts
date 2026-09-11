@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { auditFire } from "@/lib/audit";
 
 const UpdateSchema = z.object({
   soin: z.string().optional().nullable(),
@@ -148,5 +149,15 @@ export async function DELETE(
   }
 
   await prisma.passageInfirmerie.delete({ where: { id } });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "infirmerie:delete",
+    verdict: "ALLOWED",
+    resource: "passageInfirmerie",
+    resourceId: id,
+  });
+
   return NextResponse.json({ success: true });
 }

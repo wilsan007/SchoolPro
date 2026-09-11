@@ -3,14 +3,27 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, isRelationScopedRole } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
+import { checkPermission } from "@/lib/rbac";
+import { erreurJson } from "@/lib/erreurs-api";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    return erreurJson("NON_AUTORISE");
+  }
+
+  // API-H1 (audit v2) : contrôle de rôle — la feuille de présence est un
+  // outil du personnel.
+  const denied = checkPermission(session.user.role, "absences:read");
+  if (denied) return denied;
+
+  // ISO-H1 (audit v2) : les familles ne peuvent pas accéder à la feuille
+  // de présence d'une classe entière.
+  if (isRelationScopedRole(session.user.role)) {
+    return erreurJson("ACCES_REFUSE");
   }
 
   const { searchParams } = new URL(req.url);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
@@ -6,6 +7,12 @@ import prisma from "@/lib/prisma";
 import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 import { proposerCommentaires } from "@/lib/learnos/commentaires-bulletin";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+
+const commentairesSchema = z.object({
+  eleveId: z.string().min(1),
+  periodeId: z.string().min(1),
+  matiereId: z.string().min(1),
+});
 
 /**
  * POST /api/learnos/commentaires-bulletin
@@ -25,14 +32,14 @@ export async function POST(req: NextRequest) {
 
   const tenantId = session.user.tenantId;
   const body = await req.json().catch(() => ({}));
-  const { eleveId, periodeId, matiereId } = body;
-
-  if (!eleveId || !periodeId || !matiereId) {
+  const parsed = commentairesSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
       { error: "eleveId, periodeId et matiereId sont requis" },
       { status: 400 }
     );
   }
+  const { eleveId, periodeId, matiereId } = parsed.data;
 
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
   const filtreAnneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
