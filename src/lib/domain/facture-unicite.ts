@@ -23,7 +23,21 @@
 // pour le même service. Les statuts bloquants sont :
 //   EN_ATTENTE, PAYEE, EN_RETARD.
 
-import type { StatutFacture, TypeFacture } from "@prisma/client";
+// Types locaux au domaine (règle 7 : pas d'import Prisma dans src/lib/domain/)
+// Ces types reflètent les enums Prisma mais vivent dans le domaine.
+export type TypeFacture =
+  | "MENSUALITE"
+  | "CANTINE"
+  | "TRANSPORT"
+  | "INSCRIPTION"
+  | "RENOUVELLEMENT"
+  | "LIBRE";
+
+export type StatutFacture =
+  | "EN_ATTENTE"
+  | "PAYEE"
+  | "EN_RETARD"
+  | "ANNULEE";
 
 /** Types mensuels : unicité par (eleveId, type, mois). */
 export const TYPES_MENSUELS: ReadonlySet<TypeFacture> = new Set([

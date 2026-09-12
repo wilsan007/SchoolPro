@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "concurrency": 2,
+  "plugins": ["@stryker-mutator/typescript-checker", "@stryker-mutator/vitest-runner"],
+  "mutator": {
+    "excludedMutations": ["StringLiteral"]
+  },
+  "coverageAnalysis": "perTest",
+  "testRunner": "vitest",
+  "reporters": ["html", "clear-text", "progress"],
+  "reportFileName": "mutation-report.html",
+  "cleanTempDir": true,
+  "thresholds": {
+    "high": 80,
+    "low": 50,
+    "break": 20
+  },
+  "ignorePatterns": [
+    "node_modules",
+    ".next",
+    ".codegraph",
+    "lighthouse-reports",
+    "audit-reports",
+    "tests/e2e",
+    "scripts",
+    "prisma"
+  ],
+  "tsconfigFile": "tsconfig.json"
+}

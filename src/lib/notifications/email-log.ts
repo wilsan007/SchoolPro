@@ -7,14 +7,9 @@
  */
 
 import prisma from "@/lib/prisma";
-import type { EmailResult } from "./email";
+import type { EmailResult, EmailLogContext } from "./email-types";
 
-export interface EmailLogContext {
-  tenantId?: string | null;
-  userId?: string | null;
-  type?: string;
-  resourceId?: string;
-}
+export type { EmailResult, EmailLogContext };
 
 /**
  * Journalise un envoi d'email : crée une entrée EmailLog par destinataire.

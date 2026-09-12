@@ -1,0 +1,44 @@
+{
+  "entry": [
+    "src/app/**/page.tsx",
+    "src/app/**/route.ts",
+    "src/app/**/layout.tsx",
+    "next.config.ts",
+    "vitest.config.ts",
+    "vitest.rls.config.ts",
+    "playwright.config.ts",
+    "capacitor.config.ts",
+    "postcss.config.mjs",
+    "tailwind.config.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,mjs,cjs}",
+    "prisma/**/*.ts",
+    "eslint-rules/**/*.{ts,js}"
+  ],
+  "ignore": [
+    "node_modules",
+    ".next",
+    ".codegraph",
+    ".claude",
+    "tests/e2e/fixtures-roles.ts"
+  ],
+  "ignoreBinaries": [
+    "docker",
+    "docker-compose",
+    "flyctl",
+    "supabase",
+    "cap",
+    "tsx"
+  ],
+  "ignoreDependencies": [
+    "@capacitor/app",
+    "@capacitor/network",
+    "@capacitor/push-notifications",
+    "@capacitor/splash-screen",
+    "@capacitor/status-bar",
+    "@cloudflare/containers",
+    "eslint-plugin-ecolpro"
+  ]
+}

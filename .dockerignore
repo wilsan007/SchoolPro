@@ -46,3 +46,9 @@ pages-output
 .audit-*
 docs/CONTROLE
 PLAN-CONTROLE-TOTAL.md
+
+# Outils de contrôle qualité
+audit-reports
+lighthouse-reports
+tools/zap
+docker/pg-tools

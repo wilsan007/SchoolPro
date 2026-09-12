@@ -1,0 +1,65 @@
+# Semgrep — SchoolPro / LEARNOS
+# Règles de sécurité et qualité pour le multi-tenant
+
+rules:
+  # === SÉCURITÉ — SECRETS ===
+  - id: hardcoded-secret
+    pattern-regex: '(api_key|secret|password|token)\s*[:=]\s*["\x27][^"\x27]{8,}["\x27]'
+    message: "Secret potentiel codé en dur"
+    languages: [typescript, javascript]
+    severity: ERROR
+    paths:
+      include:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
+      exclude:
+        - "*.test.ts"
+        - "src/types/**"
+
+  # === SÉCURITÉ — INJECTION SQL ===
+  - id: raw-sql-template
+    pattern: prisma.$queryRawUnsafe($INPUT)
+    message: "Utilisation de queryRawUnsafe — risque d'injection SQL. Préférer $queryRaw avec template literals"
+    languages: [typescript]
+    severity: WARNING
+
+  # === QUALITÉ — ANY TYPESCRIPT ===
+  - id: explicit-any
+    pattern-regex: ':\s*any\b'
+    message: "Type 'any' explicite — ajouter un @ts-ignore avec justification ou typer correctement"
+    languages: [typescript]
+    severity: WARNING
+    paths:
+      include:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
+      exclude:
+        - "*.test.ts"
+
+  # === SÉCURITÉ — DANGEROUS HTML ===
+  - id: dangerous-html-injection
+    pattern: dangerouslySetInnerHTML
+    message: "dangerouslySetInnerHTML — vérifier que le contenu est sanitisé"
+    languages: [typescript]
+    severity: WARNING
+
+  # === QUALITÉ — CONSOLE.LOG ===
+  - id: console-log-in-prod
+    pattern: console.log(...)
+    message: "console.log — retirer avant production ou utiliser un logger"
+    languages: [typescript, javascript]
+    severity: INFO
+    paths:
+      include:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
+      exclude:
+        - "scripts/**"
+        - "*.test.ts"
+
+  # === SÉCURITÉ — EVAL ===
+  - id: no-eval
+    pattern: eval($X)
+    message: "eval() — ne jamais utiliser en production"
+    languages: [typescript, javascript]
+    severity: ERROR

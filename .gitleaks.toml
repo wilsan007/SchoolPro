@@ -1,0 +1,60 @@
+# Gitleaks — SchoolPro / LEARNOS
+title = "SchoolPro gitleaks config"
+
+[allowlist]
+description = "Allowed paths and patterns"
+paths = [
+  '''node_modules/.*''',
+  '''.next/.*''',
+  '''pnpm-lock\.yaml''',
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+  '''.git/.*''',
+  '''.*\.svg''',
+  '''.*\.png''',
+  '''.*\.jpg''',
+  '''prisma/migrations/.*\.sql''',
+  '''supabase/seed_.*\.sql''',
+]
+regexes = [
+  # Clés de test / seed (mots de passe de démo)
+  '''Ambouli@2026!''',
+  # URLs Supabase publiques
+  '''supabase\.co''',
+]
+
+[[rules]]
+id = "schoolpro-api-key"
+description = "Clé API (SK-*, key-*, Bearer)"
+regex = '''(?i)(api[_-]?key|bearer|authorization)\s*[:=]\s*["\x27]?(sk-|key-|Bearer )[A-Za-z0-9]{20,}'''
+tags = ["key", "api"]
+
+[[rules]]
+id = "schoolpro-jwt-secret"
+description = "JWT secret ou AUTH_SECRET"
+regex = '''(?i)(jwt[_-]?secret|auth[_-]?secret|session[_-]?secret)\s*[:=]\s*["\x27][A-Za-z0-9+/=]{16,}["\x27]'''
+tags = ["jwt", "secret"]
+
+[[rules]]
+id = "schoolpro-database-url"
+description = "URL de base de données avec credentials"
+regex = '''postgres(ql)?://[^:\s]+:[^@\s]+@[^\s]+'''
+tags = ["database", "credentials"]
+
+[[rules]]
+id = "schoolpro-resend-key"
+description = "Clé Resend API"
+regex = '''re_[A-Za-z0-9]{20,}'''
+tags = ["resend", "email"]
+
+[[rules]]
+id = "schoolpro-stripe-key"
+description = "Clé Stripe"
+regex = '''(sk|pk)_(test|live)_[A-Za-z0-9]{20,}'''
+tags = ["stripe", "payment"]
+
+[[rules]]
+id = "schoolpro-private-key"
+description = "Clé privée PEM"
+regex = '''-----BEGIN (RSA |EC )?PRIVATE KEY-----'''
+tags = ["pem", "key"]

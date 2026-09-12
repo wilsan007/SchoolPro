@@ -21,8 +21,8 @@
     --popover: 205 40% 99%;
     --popover-foreground: 225 25% 12%;
 
-    /* Primary : turquoise/azur vif */
-    --primary: 198 65% 46%;
+    /* Primary : turquoise/azur vif (contraste WCAG 2.1 AA ≥ 4.5:1 sur blanc) */
+    --primary: 198 65% 38%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary : bleu ciel très pâle */
@@ -44,7 +44,7 @@
     /* Borders : gris bleuté subtil */
     --border: 210 20% 86%;
     --input: 200 25% 90%;
-    --ring: 198 65% 46%;
+    --ring: 198 65% 38%;
 
     /* Info : teal/azur profond */
     --info: 188 60% 42%;

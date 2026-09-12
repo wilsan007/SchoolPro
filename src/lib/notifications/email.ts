@@ -11,15 +11,10 @@
  */
 
 import { Resend } from "resend";
-import { journaliserEnvoiEmail, type EmailLogContext } from "./email-log";
+import { journaliserEnvoiEmail } from "./email-log";
+import type { EmailResult, EmailLogContext } from "./email-types";
 
-export interface EmailResult {
-  success: boolean;
-  sent: number;
-  error?: string;
-  /** Map email → ID Resend, pour corrélation avec les webhooks (statut délivrance/bond). */
-  emailIds?: Record<string, string>;
-}
+export type { EmailResult, EmailLogContext };
 
 const FROM = process.env.EMAIL_FROM ?? "EcolPro <noreply@ecolpro.app>";
 const BATCH = 50; // limite Resend par appel

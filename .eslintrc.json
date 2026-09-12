@@ -12,6 +12,13 @@
         "ecolpro/require-tenant-id": "error",
         "ecolpro/require-site-filter": "error"
       }
+    },
+    {
+      "files": ["*.test.ts", "*.test.tsx", "tests/**", "scripts/**", "vitest.config.ts", "vitest.rls.config.ts", "playwright.config.ts"],
+      "rules": {
+        "ecolpro/require-tenant-id": "off",
+        "ecolpro/require-site-filter": "off"
+      }
     }
   ]
 }
