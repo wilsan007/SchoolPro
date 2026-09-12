@@ -47,9 +47,9 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# OpenSSL + curl nécessaires au runtime (Prisma + appels cron internes via supercronic)
+# OpenSSL + curl + ca-certificates nécessaires au runtime (Prisma + appels cron internes via supercronic)
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y openssl curl && \
+    apt-get install --no-install-recommends -y openssl curl ca-certificates && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # supercronic : ordonnanceur cron pour conteneurs (pas de syslog, pas de fork zombie).
