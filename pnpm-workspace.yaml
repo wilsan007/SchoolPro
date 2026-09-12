@@ -30,6 +30,12 @@ onlyBuiltDependencies:
   - unrs-resolver
   - tesseract.js
 
+neverBuiltDependencies:
+  - chromedriver
+  - cpu-features
+  - protobufjs
+  - ssh2
+
 allowBuilds:
   '@parcel/watcher': true
   '@prisma/client': true
