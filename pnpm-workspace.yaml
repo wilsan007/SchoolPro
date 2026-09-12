@@ -36,6 +36,12 @@ neverBuiltDependencies:
   - protobufjs
   - ssh2
 
+ignoredBuiltDependencies:
+  - chromedriver
+  - cpu-features
+  - protobufjs
+  - ssh2
+
 allowBuilds:
   '@parcel/watcher': true
   '@prisma/client': true
