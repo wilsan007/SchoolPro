@@ -52,3 +52,11 @@ audit-reports
 lighthouse-reports
 tools/zap
 docker/pg-tools
+
+# Artefacts temporaires de tests
+.stryker-tmp
+.lighthouseci
+reports
+knip.json
+stryker.config.json
+lighthouserc.js
