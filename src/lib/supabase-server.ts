@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase-generated";
 
 /**
  * Client Supabase côté serveur avec la service role key.
@@ -7,6 +8,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * où l'on a besoin de contourner les RLS (l'authentification est déjà
  * vérifiée via `auth()` côté route). Ne JAMAIS exposer la service role
  * key au client — ce module ne s'importe que dans du code serveur.
+ *
+ * Le client est typé avec le generic `Database` généré par
+ * `supabase gen types typescript` (voir `src/types/supabase-generated.ts`
+ * et le script `pnpm audit:supabase:types`). Cela offre l'autocomplétion
+ * des noms de tables/colonnes et la vérification de types à la compilation.
  *
  * Variables d'environnement requises :
  *   - NEXT_PUBLIC_SUPABASE_URL   (ex: https://xqtjqhkfcctwspotyzqv.supabase.co)
@@ -17,9 +23,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * plutôt que de planter silencieusement.
  */
 
-let cached: SupabaseClient | null | undefined;
+let cached: SupabaseClient<Database> | null | undefined;
 
-export function getSupabaseServer(): SupabaseClient | null {
+export function getSupabaseServer(): SupabaseClient<Database> | null {
   if (cached !== undefined) return cached;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -30,7 +36,7 @@ export function getSupabaseServer(): SupabaseClient | null {
     return null;
   }
 
-  cached = createClient(url, key, {
+  cached = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return cached;
