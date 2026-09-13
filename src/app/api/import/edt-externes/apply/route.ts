@@ -11,7 +11,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { z } from "zod";
 
 const ApplySchema = z.object({
-  plan: z.custom<PlanImport<DonneesEdtExterne>>((v) => v && typeof v === "object" && Array.isArray(v.lignes)),
+  plan: z.custom<PlanImport<DonneesEdtExterne>>((v) => v && typeof v === "object" && Array.isArray((v as Record<string, unknown>).lignes)),
   periodeId: z.string().optional(),
   siteId: z.string().nullable().optional(),
 });

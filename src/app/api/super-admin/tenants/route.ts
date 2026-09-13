@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(tenant, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return erreurJson("DONNEES_INVALIDES", undefined, { details: err.errors });
+      return erreurJson("DONNEES_INVALIDES", undefined, { details: err.issues });
     }
     console.error("[SuperAdmin POST tenant] Erreur:", err);
     return erreurJson("ERREUR_SERVEUR");

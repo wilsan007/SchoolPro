@@ -144,7 +144,7 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
     if (!parsed.success) {
       const next: Record<string, string> = {};
       parsed.error.issues.forEach((issue) => {
-        next[issue.path[0]] = issue.message;
+        next[issue.path[0] as string] = issue.message;
       });
       setErrors(next);
       toast.error(t("formErrors"));

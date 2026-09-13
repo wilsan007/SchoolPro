@@ -112,7 +112,7 @@ export async function PATCH(
     return NextResponse.json(entretien);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.errors }, { status: 400 });
+      return NextResponse.json({ error: err.issues }, { status: 400 });
     }
     console.error("[Entretien PATCH] Erreur:", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

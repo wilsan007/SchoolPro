@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(all, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return erreurJson("DONNEES_INVALIDES", undefined, { details: error.errors });
+      return erreurJson("DONNEES_INVALIDES", undefined, { details: error.issues });
     }
     console.error("[API/structures] POST", error);
     return erreurJson("ERREUR_SERVEUR");

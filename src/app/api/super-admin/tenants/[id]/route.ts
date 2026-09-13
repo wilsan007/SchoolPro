@@ -42,7 +42,7 @@ export async function PATCH(
     return NextResponse.json(tenant);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.errors }, { status: 400 });
+      return NextResponse.json({ error: err.issues }, { status: 400 });
     }
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
@@ -57,7 +57,7 @@ export async function DELETE(
 
   const parsed = ParamsSchema.safeParse(await params);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
   const { id } = parsed.data;
 

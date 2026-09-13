@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(remise, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.errors }, { status: 400 });
+      return NextResponse.json({ error: err.issues }, { status: 400 });
     }
     console.error("[RemisesCaisse POST] Erreur:", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

@@ -230,7 +230,7 @@ export function FactureForm({
     if (!parsed.success) {
       const next: Record<string, string> = {};
       parsed.error.issues.forEach((issue) => {
-        next[issue.path[0]] = t(issue.message);
+        next[issue.path[0] as string] = t(issue.message);
       });
       setErrors(next);
       toast.error(t("formErrors"));
