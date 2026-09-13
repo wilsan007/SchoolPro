@@ -120,20 +120,41 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       // --- CORS pour API mobile ---
+      // Restreint aux origines légitimes de l'app mobile (Capacitor) et au
+      // domaine de production. L'auth mobile se fait par Bearer token, pas
+      // par cookie — mais on ferme quand même la porte aux sites tiers.
       {
         source: "/api/mobile/:path*",
         headers: [
-          { key: "Access-Control-Allow-Origin", value: "*" },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: [
+              "capacitor://localhost",
+              "http://localhost",
+              "https://schoolpro.fly.dev",
+              ...(isProd ? [] : ["http://localhost:3000", "http://localhost:3001"]),
+            ].join(", "),
+          },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, OPTIONS" },
           { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+          { key: "Access-Control-Allow-Credentials", value: "true" },
         ],
       },
       {
         source: "/api/auth/mobile",
         headers: [
-          { key: "Access-Control-Allow-Origin", value: "*" },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: [
+              "capacitor://localhost",
+              "http://localhost",
+              "https://schoolpro.fly.dev",
+              ...(isProd ? [] : ["http://localhost:3000", "http://localhost:3001"]),
+            ].join(", "),
+          },
           { key: "Access-Control-Allow-Methods", value: "POST, OPTIONS" },
           { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+          { key: "Access-Control-Allow-Credentials", value: "true" },
         ],
       },
       // --- Stripe webhook : autoriser la signature Stripe ---
