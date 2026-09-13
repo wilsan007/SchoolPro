@@ -38,8 +38,8 @@ function run(cmd, label) {
 console.log("\n🔍 Vérification pre-commit...\n");
 
 const checks = [
-  ["npx tsc --noEmit --pretty false 2>&1 | head -50", "TypeScript (tsc --noEmit)"],
-  ["npx next lint --quiet 2>&1 | tail -5", "ESLint (next lint)"],
+  ["pnpm exec tsc --noEmit --pretty false 2>&1 | head -50", "TypeScript (tsc --noEmit)"],
+  ["NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint src/ --quiet 2>&1 | tail -5", "ESLint (eslint)"],
 ];
 
 let allPassed = true;
