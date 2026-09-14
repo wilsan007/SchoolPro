@@ -21,7 +21,7 @@
  */
 
 import prisma from "@/lib/prisma";
-import type { Prisma, PrioriteTache } from "@prisma/client";
+import type { Prisma, PrioriteTache, StatutTache } from "@prisma/client";
 import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import type { SessionSiteClaims } from "@/lib/site-scope";
@@ -761,7 +761,7 @@ export async function getTachesUtilisateur(
     where: {
       tenantId,
       assigneeAId: userId,
-      ...(options?.statut ? { statut: options.statut as any } : {}),
+      ...(options?.statut ? { statut: options.statut as StatutTache } : {}),
       ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
       ...siteFilterForModel("tache", claims),
     },

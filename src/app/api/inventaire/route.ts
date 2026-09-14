@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import type { CategorieItem, EtatItem } from "@prisma/client";
 
 const ItemSchema = z.object({
   nom: z.string().min(1),
@@ -45,8 +46,8 @@ export async function GET(request: NextRequest) {
     where: {
       tenantId: session.user.tenantId,
       ...siteFilter,
-      ...(categorie ? { categorie: categorie as any } : {}),
-      ...(etat ? { etat: etat as any } : {}),
+      ...(categorie ? { categorie: categorie as CategorieItem } : {}),
+      ...(etat ? { etat: etat as EtatItem } : {}),
       ...(alerte
         ? {
             // quantite <= quantiteMin

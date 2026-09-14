@@ -109,3 +109,9 @@ audit-reports/
 lighthouse-reports/
 tools/zap/
 mutation-report.html
+
+# Temporary audit/tool outputs
+.stryker-tmp/
+.lighthouseci/
+reports/
+PLAN_MISE_A_JOUR.md

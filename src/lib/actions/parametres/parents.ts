@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { auditFire } from "@/lib/audit";
+import type { LienParente } from "@prisma/client";
 
 const ParentSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
@@ -193,7 +194,7 @@ export async function linkParentToEleves(parentId: string, eleveIds: string[], l
     });
     if (!existing) {
       await prisma.eleveParent.create({
-        data: { eleveId, parentId, lien: lien as any, isGardien: true },
+        data: { eleveId, parentId, lien: lien as LienParente, isGardien: true },
       });
     }
   }

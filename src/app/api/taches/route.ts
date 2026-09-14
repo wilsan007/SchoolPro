@@ -9,7 +9,7 @@ import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { synchroniserTachesAuto } from "@/lib/tache-engine";
 import { bucketPour, BUCKET_ORDER, type BucketTache } from "@/lib/tache-buckets";
 import { getDemoNow } from "@/lib/demo-now";
-import type { Role } from "@prisma/client";
+import type { Role, StatutTache } from "@prisma/client";
 
 const TacheSchema = z.object({
   assigneeAId: z.string().min(1),
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       tenantId: session.user.tenantId,
       ...siteFilter,
       ...(filterAssignee ? { assigneeAId: filterAssignee } : {}),
-      ...(statut ? { statut: statut as any } : {}),
+      ...(statut ? { statut: statut as StatutTache } : {}),
       ...(echeance
         ? {
             echeance: {

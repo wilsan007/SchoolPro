@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import type { CategorieBudget } from "@prisma/client";
 
 const BudgetSchema = z.object({
   annee: z.string().min(1),
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       tenantId: session.user.tenantId,
       ...siteFilter,
       ...(annee ? { annee } : {}),
-      ...(categorie ? { categorie: categorie as any } : {}),
+      ...(categorie ? { categorie: categorie as CategorieBudget } : {}),
     },
     include: {
       depenses: {

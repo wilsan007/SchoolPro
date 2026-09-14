@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
+import type { StatutAlumni } from "@prisma/client";
 
 const AlumniSchema = z.object({
   nom: z.string().min(1),
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     where: {
       tenantId: session.user.tenantId,
       ...siteFilter,
-      ...(statut ? { statut: statut as any } : {}),
+      ...(statut ? { statut: statut as StatutAlumni } : {}),
       ...(annee ? { anneeDiplome: annee } : {}),
       ...(search
         ? {
