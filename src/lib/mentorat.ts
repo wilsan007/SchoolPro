@@ -118,10 +118,9 @@ export async function completerSeance(
 /**
  * Termine une relation de mentorat.
  */
-export async function terminerMentorat(mentoratId: string): Promise<Mentorat> {
-  // eslint-disable-next-line ecolpro/require-tenant-id -- le mentorat appartient au tenant via la relation
+export async function terminerMentorat(mentoratId: string, tenantId: string): Promise<Mentorat> {
   return prisma.mentorat.update({
-    where: { id: mentoratId },
+    where: { id: mentoratId, tenantId },
     data: { statut: "TERMINE", dateFin: new Date() },
   });
 }

@@ -37,10 +37,9 @@ export async function lierExamenAFeuille(
 /**
  * Retire le lien entre un examen et sa feuille d'exercices.
  */
-export async function delierExamenDeFeuille(examenId: string) {
-  // eslint-disable-next-line ecolpro/require-tenant-id -- tenantId vérifié via findFirst ci-dessus
+export async function delierExamenDeFeuille(examenId: string, tenantId: string) {
   return prisma.examen.update({
-    where: { id: examenId },
+    where: { id: examenId, tenantId },
     data: { feuilleExercicesId: null },
   });
 }

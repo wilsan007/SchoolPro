@@ -147,7 +147,7 @@ export async function PATCH(req: NextRequest) {
     const becameFait = statut === "FAIT" && existing.statut !== "FAIT";
 
     const tache = await prisma.tache.update({
-      where: { id },
+      where: { id, tenantId: user.tenantId },
       data: {
         statut,
         ...(becameFait && { dateFaite: new Date() }),

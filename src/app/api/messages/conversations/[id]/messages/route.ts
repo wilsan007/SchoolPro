@@ -139,9 +139,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     // Mettre à jour updatedAt de la conversation
-    // eslint-disable-next-line ecolpro/require-tenant-id -- participation déjà vérifiée avec tenantId ci-dessus
     await prisma.conversation.update({
-      where: { id },
+      where: { id, tenantId },
       data: { updatedAt: new Date() },
     });
 

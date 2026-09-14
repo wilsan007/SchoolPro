@@ -419,9 +419,8 @@ export async function updateEleve(
   const tuteurLink = existing.parents[0];
   if (values.parentNom && values.parentPrenom && values.parentPhone) {
     if (tuteurLink) {
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- tuteurLink.parentId vérifié via existing (tenantId + siteFilter)
       await prisma.parent.update({
-        where: { id: tuteurLink.parentId },
+        where: { id: tuteurLink.parentId, tenantId: session.user.tenantId },
         data: {
           nom: values.parentNom,
           prenom: values.parentPrenom,
