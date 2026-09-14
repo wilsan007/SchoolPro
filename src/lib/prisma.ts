@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { withRlsExtension } from "@/lib/prisma-rls";
 import { extensionHorizonDemo } from "@/lib/demo-horizon";
+import { createAuditExtension } from "@/lib/prisma-audit-extension";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -77,7 +78,9 @@ export const prisma =
         },
       },
     })
-  ).$extends(extensionHorizonDemo()) as PrismaClient;
+  )
+    .$extends(extensionHorizonDemo())
+    .$extends(createAuditExtension()) as PrismaClient;
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
