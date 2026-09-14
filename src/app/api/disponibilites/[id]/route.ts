@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { siteFilterFromSession } from "@/lib/site-scope";
 import { auditFire } from "@/lib/audit";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,10 +13,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (denied) return denied;
 
     const { id } = await params;
-    const userFilter = siteFilterForRelation(session.user, "user");
-    const siteFilter = Object.keys(userFilter).length > 0
-      ? { enseignant: (userFilter as any).user }
-      : {};
+    const siteFilter = siteFilterFromSession(session.user);
 
     const existing = await prisma.disponibiliteEnseignant.findFirst({
       where: { id, tenantId: session.user.tenantId, ...siteFilter },

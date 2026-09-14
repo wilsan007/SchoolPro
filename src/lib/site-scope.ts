@@ -97,15 +97,6 @@ export function isRelationScopedRole(role: string | undefined | null): boolean {
 }
 
 /**
- * Conservé pour compatibilité : « ce rôle échappe-t-il au filtrage par site ? »
- * @deprecated Utiliser `resolveSiteScope` qui distingue périmètre tenant et
- * périmètre relationnel.
- */
-export function isSiteAdmin(role: string | undefined | null): boolean {
-  return isTenantWideRole(role) || isRelationScopedRole(role);
-}
-
-/**
  * Détermine le périmètre de sites effectif. Unique endroit où cette décision
  * est prise.
  */

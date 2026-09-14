@@ -112,12 +112,3 @@ export async function getCurrentSiteIds(): Promise<string[] | null> {
   }
 }
 
-/**
- * Site principal de l'utilisateur courant.
- * @deprecated Utiliser `getCurrentSiteIds()` / `getSiteScope()`.
- */
-export async function getCurrentSiteId(): Promise<string | null> {
-  const scope = await getSiteScope();
-  return scope.kind === "SITES" && scope.siteIds.length === 1 ? scope.siteIds[0] : null;
-}
-

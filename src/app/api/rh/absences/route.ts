@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { siteFilterForRelation } from "@/lib/site-filter";
+import { resolveSiteScope, DENY_ALL, siteFilterForRelation } from "@/lib/site-scope";
 
 const AbsencePersonnelSchema = z.object({
   enseignantId: z.string().min(1),
@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const enseignantId = searchParams.get("enseignantId");
 
-  const userFilter = siteFilterForRelation(session.user, "user");
-  const siteFilter = Object.keys(userFilter).length > 0
-    ? { enseignant: (userFilter as any).user }
-    : {};
+  const scope = resolveSiteScope(session.user);
+  const siteFilter = scope.kind === "SITES"
+    ? { enseignant: { user: { OR: [{ siteId: { in: scope.siteIds } }, { siteId: null }] } } }
+    : scope.kind === "NONE" ? DENY_ALL : {};
 
   const absences = await prisma.absencePersonnel.findMany({
     where: {
