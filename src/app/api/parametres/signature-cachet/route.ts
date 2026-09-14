@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest) {
   const denied = checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
-  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }

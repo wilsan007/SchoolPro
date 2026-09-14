@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
     ? await prisma.periode.findFirst({
         where: {
           anneeId: periode.anneeId,
+          annee: { tenantId },
           numero: periode.numero - 1,
         },
         select: { id: true },

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "ai:teacher");
   if (denied) return denied;
 
-  const parsed = Schema.safeParse(await req.json().catch(() => null));
+  const parsed = Schema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.flatten() });
   }

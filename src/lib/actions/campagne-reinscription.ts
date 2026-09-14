@@ -343,7 +343,8 @@ export async function envoyerInvitations(campagneId: string, canal: "WHATSAPP" |
         data: { canal, dateInvitation: new Date() },
       });
       envoyees++;
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       erreurs++;
     }
   }

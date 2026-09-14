@@ -51,7 +51,8 @@ function calculateHours(heureDebut: string | null, heureFin: string | null): num
     const [h2, m2] = heureFin.split(':').map(Number);
     let diff = (h2 + m2 / 60) - (h1 + m1 / 60);
     return diff > 0 ? diff : 4;
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return 4;
   }
 }
@@ -305,7 +306,7 @@ export async function POST(req: NextRequest) {
         "moyenneGenerale",
         null,
         JSON.stringify(moyenneGenerale)
-      ).catch(() => {/* non-fatal */});
+      ).catch((e) => console.warn("[non-fatal]", e));
 
       // Update BulletinMatieres
       await prisma.bulletinMatiere.deleteMany({ where: { bulletinId: bulletin.id, tenantId } });

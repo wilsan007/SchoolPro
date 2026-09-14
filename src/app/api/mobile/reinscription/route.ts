@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Aucun établissement associé" }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = PostSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Données invalides", details: parsed.error.issues }, { status: 400 });

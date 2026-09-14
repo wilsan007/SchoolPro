@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
         ]);
         purged++;
       } catch (err) {
+        console.warn("[non-fatal]", err);
         errors.push(`Site "${site.nom}" (${site.id}): ${err instanceof Error ? err.message : "unknown"}`);
       }
     }

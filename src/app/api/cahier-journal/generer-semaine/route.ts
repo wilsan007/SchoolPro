@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
     const evenements = await prisma.evenementCalendaire.findMany({
       where: {
         anneeId,
+        annee: { tenantId },
         type: { in: ["VACANCE_SCOLAIRE", "JOUR_FERIE"] },
       },
       select: { type: true, dateDebut: true, dateFin: true },

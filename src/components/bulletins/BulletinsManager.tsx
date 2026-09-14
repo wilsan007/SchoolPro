@@ -101,7 +101,8 @@ export function BulletinsManager({
           return true;
         }
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // silent fail
     } finally {
       setCheckingExisting(false);
@@ -161,7 +162,7 @@ export function BulletinsManager({
         setPublished((prev) => new Set([...prev, key]));
         setVerrouille((prev) => new Set([...prev, key]));
         toast.success(t("successPublished", { count: data.count }));
-      } catch {
+      } catch (e) {
         toast.error(t("errPublication"));
       }
     });
@@ -220,7 +221,8 @@ export function BulletinsManager({
           }))
         );
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setConseilEleves(
         selectedClasse.eleves.map((e) => ({
           ...e,
@@ -253,7 +255,7 @@ export function BulletinsManager({
       } else {
         toast.error(t("errPreviewLoad"));
       }
-    } catch {
+    } catch (e) {
       toast.error(t("errLoad"));
     } finally {
       setLoadingPreview(false);

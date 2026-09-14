@@ -40,7 +40,7 @@ export async function GET(
     if (!seance) return erreurJson("SEANCE_INTROUVABLE");
 
     const commentaires = await prisma.seanceCommentaire.findMany({
-      where: { seanceId: id },
+      where: { seanceId: id, seance: { tenantId: session.user.tenantId } },
       include: {
         auteur: { select: { id: true, name: true, avatarUrl: true } },
       },

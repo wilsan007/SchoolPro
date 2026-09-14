@@ -70,7 +70,8 @@ export function SitesTab({ sites, canManage }: { sites: SiteItem[]; canManage: b
     try {
       const result = await getDeletedSites();
       setDeletedSites(result as DeletedSite[]);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // silent
     }
   }, []);

@@ -322,7 +322,8 @@ export function ImportElevesDialog({
                       a.click();
                       document.body.removeChild(a);
                       URL.revokeObjectURL(url);
-                    } catch {
+                    } catch (e) {
+                      console.warn("[non-fatal]", e);
                       // silent
                     }
                   }}

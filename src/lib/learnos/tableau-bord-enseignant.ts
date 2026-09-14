@@ -213,7 +213,8 @@ export async function tableauBordSeance(
             eleves: eleves.size,
           })),
         };
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         // La prédiction peut échouer (pas d'élèves, pas de chapitre, etc.).
         // On ne bloque pas le tableau de bord pour autant.
         prediction = null;
@@ -291,7 +292,8 @@ export async function tableauBordSeance(
           differentiation: existant.differentiation ?? null,
           statut: existant.statut,
         };
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         planLecon = null;
       }
     }
@@ -340,7 +342,8 @@ export async function tableauBordSeance(
               palier: cible.palier,
             });
           }
-        } catch {
+        } catch (e) {
+          console.warn("[non-fatal]", e);
           // Un élève sans profil ou sans contexte ne bloque pas les autres.
         }
       }

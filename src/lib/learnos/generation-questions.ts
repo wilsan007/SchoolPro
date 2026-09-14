@@ -616,7 +616,8 @@ function extraireQuestions(contenu: string | null): unknown[] {
     try {
       const objet = JSON.parse(contenu.slice(debut, fin + 1)) as { questions?: unknown };
       if (Array.isArray(objet.questions)) return objet.questions;
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Sortie tronquée ou malformée : on passe au repêchage.
     }
   }
@@ -628,7 +629,8 @@ function extraireQuestions(contenu: string | null): unknown[] {
     .map((brut) => {
       try {
         return JSON.parse(brut);
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         return null;
       }
     })

@@ -43,7 +43,8 @@ export const resolveRlsContextFromSession = cache(
       const { auth } = await import("@/lib/auth");
       const session = await auth();
       user = session?.user as SessionUserClaims | undefined;
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Pas de contexte de requête (script, tâche planifiée) ou session
       // illisible : on ne devine pas. L'appelant retombe sur l'échec fermé.
       return undefined;

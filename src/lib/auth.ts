@@ -90,7 +90,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
               where: { id: token.impersonationGrantId as string },
               data: { endedAt: new Date() },
             });
-          } catch {
+          } catch (e) {
+            console.warn("[non-fatal]", e);
             // Le grant a peut-être déjà été supprimé ; on continue.
           }
           token.impersonationGrantId = null;

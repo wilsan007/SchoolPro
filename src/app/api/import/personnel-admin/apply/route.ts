@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return erreurJson("PERMISSIONS_INSUFFISANTES");
   }
 
-  const formData = await req.formData().catch(() => null);
+  const formData = await req.formData().catch((e) => { console.warn("[non-fatal]", e); return null; });
   if (!formData) return erreurJson("DONNEES_INVALIDES");
 
   const parsed = ApplySchema.safeParse({ file: formData.get("file") });

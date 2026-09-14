@@ -173,7 +173,8 @@ export async function proposerCommentaires(
         modele: resultat.meta.modelName,
         cached: resultat.meta.cached,
       };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // JSON malformé : fallback sur le texte libre.
     }
   }

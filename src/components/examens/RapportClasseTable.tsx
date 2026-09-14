@@ -52,7 +52,8 @@ export function RapportClasseTable({ classes, hierarchie, periodes }: { classes:
       const data = await res.json();
       setRows(data.rows ?? []);
       setMatieres(data.matieres ?? []);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setRows([]);
       setMatieres([]);
     } finally {

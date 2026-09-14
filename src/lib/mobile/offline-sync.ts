@@ -269,6 +269,7 @@ export async function drainQueue(
         failed++;
       }
     } catch (err) {
+      console.warn("[non-fatal]", err);
       // Erreur réseau — retry exponentiel
       await store.update(mutation.id, {
         status: "PENDING",

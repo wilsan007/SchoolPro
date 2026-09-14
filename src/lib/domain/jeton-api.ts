@@ -105,7 +105,8 @@ export function verifierEmpreinte(
       Buffer.from(empreinteCalculee, "hex"),
       Buffer.from(empreinteStockee, "hex")
     );
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return false;
   }
 }

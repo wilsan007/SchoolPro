@@ -445,7 +445,8 @@ export async function executeAiQuery(
       if (Object.keys(siteFilter).length > 0) {
         Object.assign(securityWhere, siteFilter);
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Modèle sans siteId — pas de filtre site
     }
   }

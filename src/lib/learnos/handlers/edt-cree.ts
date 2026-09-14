@@ -80,7 +80,7 @@ export async function onEmploiDuTempsCree(event: DrainedEvent): Promise<void> {
   if (payload.periodeId) {
     const periode = await prisma.periode.findFirst({
       // eslint-disable-next-line ecolpro/require-site-filter -- tâche de fond, scope via anneeId appartenant au tenant
-      where: { id: payload.periodeId, anneeId: annee.id },
+      where: { id: payload.periodeId, anneeId: annee.id, annee: { tenantId } },
       select: { dateDebut: true, dateFin: true },
     });
     if (periode) {

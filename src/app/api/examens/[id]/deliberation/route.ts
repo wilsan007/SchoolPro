@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "L'examen doit être terminé pour délibérer" }, { status: 400 });
     }
 
-    const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+    const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
     if (!parsed.success) {
       return NextResponse.json({ error: "Données invalides" }, { status: 400 });
     }

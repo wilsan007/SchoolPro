@@ -110,7 +110,7 @@ function CreerCoursModal({ onClose, onCreate }: {
         toast.success(t("courseCreated"));
         onCreate(cours);
         onClose();
-      } catch {
+      } catch (e) {
         toast.error(t("createError"));
       }
     });
@@ -233,7 +233,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
         toast.success(t("contentAdded"));
         onAdded(contenu);
         onClose();
-      } catch {
+      } catch (e) {
         toast.error(t("addError"));
       }
     });
@@ -445,7 +445,7 @@ function CoursDetail({ cours: initial, onBack }: {
         const { cours: updated } = await res.json();
         setCours(c => ({ ...c, statut: updated.statut }));
         toast.success(newStatut === "PUBLIE" ? t("coursePublished") : t("courseUnpublished"));
-      } catch {
+      } catch (e) {
         toast.error(t("error"));
       }
     });
@@ -622,7 +622,7 @@ export function CoursView({
         await fetch(`/api/cours/${id}`, { method: "DELETE" });
         setCours(prev => prev.filter(c => c.id !== id));
         toast.success(t("courseDeleted"));
-      } catch {
+      } catch (e) {
         toast.error(t("deleteError"));
       }
     });
@@ -634,7 +634,8 @@ export function CoursView({
       const res = await fetch(`/api/cours/${c.id}`);
       const { cours: detail } = await res.json();
       setSelected(detail);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setSelected(c);
     }
   };

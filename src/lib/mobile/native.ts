@@ -13,7 +13,8 @@ import { Capacitor } from "@capacitor/core";
 export function isNativePlatform(): boolean {
   try {
     return Capacitor.isNativePlatform();
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return false;
   }
 }
@@ -21,7 +22,8 @@ export function isNativePlatform(): boolean {
 export function getPlatform(): "ios" | "android" | "web" {
   try {
     return Capacitor.getPlatform() as "ios" | "android" | "web";
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return "web";
   }
 }

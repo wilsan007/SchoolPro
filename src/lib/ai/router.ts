@@ -261,7 +261,7 @@ export async function routeAi(
   }
 
   const key = cacheKey(chain, task.promptVersion, messages, options);
-  const cached = await readCache(key).catch(() => null);
+  const cached = await readCache(key).catch((e) => { console.warn("[non-fatal]", e); return null; });
   if (cached) {
     await logDecision(task, cached, "ok");
     return cached;
@@ -284,6 +284,7 @@ export async function routeAi(
         try {
           acceptable = options.validate(result);
         } catch (reason) {
+          console.warn("[non-fatal]", reason);
           acceptable = false;
         }
         if (!acceptable) {

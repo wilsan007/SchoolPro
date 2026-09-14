@@ -329,7 +329,8 @@ function SitesComparison({
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const intelligence: DirectionIntelligenceData = await r.json();
           return { siteId: s.siteId, siteNom: s.siteNom, intelligence };
-        } catch {
+        } catch (e) {
+          console.warn("[non-fatal]", e);
           return { siteId: s.siteId, siteNom: s.siteNom, intelligence: null };
         }
       })

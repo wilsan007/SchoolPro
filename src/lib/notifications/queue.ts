@@ -145,7 +145,8 @@ async function processQueue(): Promise<void> {
       job.status = "SENT";
       lastSentAt = Date.now();
       sentCount++;
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Échec — retry ou fallback
       if (job.attempts < MAX_ATTEMPTS) {
         const fallback = FALLBACK_ORDER[job.canal];

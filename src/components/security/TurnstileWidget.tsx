@@ -91,7 +91,8 @@ export default function TurnstileWidget({
     if (widgetIdRef.current) {
       try {
         window.turnstile.remove(widgetIdRef.current);
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         // ignore
       }
       widgetIdRef.current = null;
@@ -138,7 +139,8 @@ export default function TurnstileWidget({
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);
-        } catch {
+        } catch (e) {
+          console.warn("[non-fatal]", e);
           // ignore
         }
       }

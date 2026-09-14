@@ -60,7 +60,7 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
   if (session.user.role !== "PARENT") return erreurJson("NON_AUTORISE");
 
-  const parsed = PatchSchema.safeParse(await req.json().catch(() => null));
+  const parsed = PatchSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
   }

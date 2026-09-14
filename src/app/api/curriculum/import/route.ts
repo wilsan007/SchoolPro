@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     if (pdf) {
       try {
         lecture = await lirePdf(octets.slice());
-      } catch {
+      } catch (e) {
         // PDF corrompu ou fichier qui n'en est pas un : c'est une erreur
         // d'utilisateur, pas un incident serveur.
         return erreurJson("FICHIER_INVALIDE");
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
       };
     }
   } else {
-    const corps = await req.json().catch(() => null);
+    const corps = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
     const parsed = z
       .object({
         matiereId: z.string().min(1),
@@ -226,7 +226,7 @@ export async function PUT(req: NextRequest) {
   const denied = checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
-  const parsed = AppliquerSchema.safeParse(await req.json().catch(() => null));
+  const parsed = AppliquerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
   }

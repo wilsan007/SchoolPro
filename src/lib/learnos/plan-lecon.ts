@@ -214,7 +214,8 @@ export async function proposerPlanLecon(
         modele: resultat.meta.modelName,
         cached: resultat.meta.cached,
       };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // JSON malformé : fallback ci-dessous.
     }
   }

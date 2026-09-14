@@ -165,7 +165,8 @@ export async function GET(request: NextRequest) {
           });
         }
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Ignore les erreurs de mise à jour de statut
     }
 

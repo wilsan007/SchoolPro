@@ -21,7 +21,7 @@ export function TimeMachineButton() {
     fetch("/api/demo-now")
       .then((r) => r.json())
       .then((data) => setDemoEnabled(data.enabled))
-      .catch(() => {});
+      .catch((e) => console.warn("[non-fatal]", e));
   }, []);
 
   return (

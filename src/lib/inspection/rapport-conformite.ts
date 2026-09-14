@@ -178,7 +178,7 @@ async function calculerDistributionMoyennes(
 
   // Récupérer les périodes de l'année
   const periodes = await prisma.periode.findMany({
-    where: { anneeId: anneeRecord.id },
+    where: { anneeId: anneeRecord.id, annee: { tenantId } },
     orderBy: { numero: "asc" },
     select: { id: true, nom: true },
   });

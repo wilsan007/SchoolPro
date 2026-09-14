@@ -87,14 +87,14 @@ export async function POST(req: NextRequest) {
           "statut",
           JSON.stringify("BROUILLON"),
           JSON.stringify("PUBLIE")
-        ).catch(() => {/* non-fatal */});
+        ).catch((e) => console.warn("[non-fatal]", e));
       }
     }
 
     if (result.count > 0) {
       try {
         const periode = await prisma.periode.findFirst({
-          where: { id: periodeId },
+          where: { id: periodeId, annee: { tenantId } },
           select: { nom: true },
         });
         const periodeNom = periode?.nom ?? "la période";

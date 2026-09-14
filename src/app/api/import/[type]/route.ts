@@ -53,7 +53,7 @@ export async function POST(
     if (denied) return denied;
   }
 
-  const formData = await req.formData().catch(() => null);
+  const formData = await req.formData().catch((e) => { console.warn("[non-fatal]", e); return null; });
   if (!formData) return erreurJson("DONNEES_INVALIDES");
 
   const parsedForm = ImportFileSchema.safeParse({ file: formData.get("file") });

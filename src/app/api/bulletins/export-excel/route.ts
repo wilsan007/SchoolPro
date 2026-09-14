@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     }
 
     const periode = await prisma.periode.findUnique({
-      where: { id: periodeId },
+      where: { id: periodeId, annee: { tenantId: session.user.tenantId } },
       select: { nom: true, numero: true, annee: { select: { libelle: true } } },
     });
     if (!periode) {

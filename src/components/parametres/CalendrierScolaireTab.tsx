@@ -68,7 +68,8 @@ export function CalendrierScolaireTab({
       if (res.ok) {
         setEvenements(data.evenements ?? []);
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Silencieux : l'erreur est non bloquante.
     } finally {
       setChargement(false);

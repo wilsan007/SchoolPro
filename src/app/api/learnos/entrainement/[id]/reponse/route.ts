@@ -41,7 +41,7 @@ export async function POST(
   if (denied) return denied;
 
   const { id: feuilleId } = await params;
-  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("CHAMPS_REPONSE_REQUIS");
   }

@@ -112,8 +112,8 @@ export async function getBulletinData(
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) return null;
 
-  const periode = await prisma.periode.findUnique({ 
-    where: { id: periodeId },
+  const periode = await prisma.periode.findUnique({
+    where: { id: periodeId, annee: { tenantId } },
     include: { annee: true }
   });
   if (!periode) return null;
@@ -329,7 +329,7 @@ export async function getBulletinAnnuelData(
 
   // Récupérer les 3 périodes de l'année
   const periodes = await prisma.periode.findMany({
-    where: { anneeId },
+    where: { anneeId, annee: { tenantId } },
     orderBy: { numero: "asc" },
   });
   if (periodes.length === 0) return null;

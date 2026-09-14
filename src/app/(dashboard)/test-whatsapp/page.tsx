@@ -22,7 +22,7 @@ export default function TestWhatsAppPage() {
     fetch("/api/test/whatsapp")
       .then((r) => r.json())
       .then((data) => setConfig(data))
-      .catch(() => {});
+      .catch((e) => console.warn("[non-fatal]", e));
   }, []);
 
   async function sendTest(type: "test" | "absence" | "retard" | "sms") {

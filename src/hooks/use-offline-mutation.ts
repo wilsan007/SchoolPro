@@ -79,7 +79,7 @@ export function useOfflineMutation(): UseOfflineMutationResult {
     fetch("/api/csrf")
       .then((r) => r.json())
       .then((data: { token: string }) => setCsrfToken(data.token))
-      .catch(() => {});
+      .catch((e) => console.warn("[non-fatal]", e));
   }, []);
 
   // Mettre à jour la taille de la file
@@ -129,7 +129,8 @@ export function useOfflineMutation(): UseOfflineMutationResult {
 
           // Erreur client (400, 403) — ne pas mettre en file
           throw new Error(`HTTP ${response.status}`);
-        } catch {
+        } catch (e) {
+          console.warn("[non-fatal]", e);
           // Erreur réseau — mettre en file
           const mutation = await enqueueMutation(store, url, method, body ?? null);
           await refreshQueueSize();

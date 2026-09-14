@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import {
@@ -86,62 +87,65 @@ export async function GET() {
       orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
     });
 
-    // Compter les messages non lus pour chaque conversation en parallèle
-    const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
-        const myParticipation = conv.participants.find((p) => p.userId === userId);
-        const lastReadAt = myParticipation?.lastReadAt;
+    // Compter les messages non lus pour toutes les conversations en UNE
+    // seule requête, au lieu de N requêtes (une par conversation). La jointure
+    // sur conversation_participants récupère le lastReadAt propre à chaque
+    // conversation pour l'utilisateur courant ; un message est non lu s'il
+    // vient d'un autre expéditeur et (lastReadAt est NULL OU le message est
+    // postérieur au lastReadAt).
+    const conversationIds = conversations.map((c) => c.id);
+    const unreadRows = conversationIds.length > 0
+      ? await prisma.$queryRaw<{ conversationId: string; unread: number }[]>`
+          SELECT m."conversationId", COUNT(*)::int AS unread
+          FROM "messages" m
+          JOIN "conversation_participants" cp
+            ON cp."conversationId" = m."conversationId"
+           AND cp."userId" = ${userId}
+          WHERE m."conversationId" IN (${Prisma.join(conversationIds)})
+            AND m."senderId" != ${userId}
+            AND m."deletedAt" IS NULL
+            AND (cp."lastReadAt" IS NULL OR m."createdAt" > cp."lastReadAt")
+          GROUP BY m."conversationId"
+        `
+      : [];
+    const unreadMap = new Map(unreadRows.map((r) => [r.conversationId, r.unread]));
 
-        // Compter réellement les messages non lus (après lastReadAt)
-        const unreadCount = lastReadAt
-          ? await prisma.message.count({
-              where: {
-                conversationId: conv.id,
-                senderId: { not: userId },
-                createdAt: { gt: lastReadAt },
-              },
-            })
-          : await prisma.message.count({
-              where: {
-                conversationId: conv.id,
-                senderId: { not: userId },
-              },
-            });
+    const conversationsWithUnread = conversations.map((conv) => {
+      const myParticipation = conv.participants.find((p) => p.userId === userId);
+      const lastMessage = conv.messages[0] ?? null;
+      const unreadCount = unreadMap.get(conv.id) ?? 0;
 
-        const lastMessage = conv.messages[0] ?? null;
-
-        return {
-          id: conv.id,
-          subject: conv.subject,
-          isGroup: conv.isGroup,
-          type: conv.type,
-          classeId: conv.classeId,
-          classeNom: conv.classe?.nom ?? null,
-          readOnly: conv.readOnly,
-          pinned: conv.pinned,
-          createdBy: conv.createdBy,
-          myRole: myParticipation?.role ?? "MEMBER",
-          participants: conv.participants.map((p) => ({
-            id: p.user.id,
-            name: p.user.name,
-            role: p.user.role,
-            avatarUrl: p.user.avatarUrl,
-          })),
-          messages: [],
-          lastMessage: lastMessage
-            ? {
-                id: lastMessage.id,
-                content: lastMessage.content,
-                senderId: lastMessage.senderId,
-                senderName: lastMessage.sender.name,
-                createdAt: lastMessage.createdAt,
-                readBy: lastMessage.readBy,
-              }
-            : null,
-          unreadCount,
-        };
-      })
-    );
+      return {
+        id: conv.id,
+        subject: conv.subject,
+        isGroup: conv.isGroup,
+        type: conv.type,
+        classeId: conv.classeId,
+        classeNom: conv.classe?.nom ?? null,
+        readOnly: conv.readOnly,
+        pinned: conv.pinned,
+        createdBy: conv.createdBy,
+        myRole: myParticipation?.role ?? "MEMBER",
+        participants: conv.participants.map((p) => ({
+          id: p.user.id,
+          name: p.user.name,
+          role: p.user.role,
+          avatarUrl: p.user.avatarUrl,
+        })),
+        messages: [],
+        lastMessage: lastMessage
+          ? {
+              id: lastMessage.id,
+              content: lastMessage.content,
+              senderId: lastMessage.senderId,
+              senderName: lastMessage.sender.name,
+              createdAt: lastMessage.createdAt,
+              readBy: lastMessage.readBy,
+            }
+          : null,
+        unreadCount,
+      };
+    });
 
     return NextResponse.json({ conversations: conversationsWithUnread });
   } catch (error) {

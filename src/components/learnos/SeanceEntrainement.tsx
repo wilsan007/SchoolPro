@@ -129,7 +129,7 @@ export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
       setAttestation(null);
       setIndexExercice(Math.max(0, data.exercices.findIndex((e) => !e.termine)));
       setEtat("prete");
-    } catch {
+    } catch (e) {
       setEtat("erreur");
     }
   }, []);
@@ -151,7 +151,8 @@ export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
           return;
         }
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // L'entraînement ordinaire reste servi si cette vérification échoue.
     }
 
@@ -170,7 +171,7 @@ export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
       setSeance(data);
       setIndexExercice(Math.max(0, data.exercices.findIndex((e) => !e.termine)));
       setEtat("prete");
-    } catch {
+    } catch (e) {
       setEtat("erreur");
     }
   }, [eleveId]);
@@ -215,7 +216,7 @@ export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
       // deux implémentations de la même règle.
       const suite = await fetch(`/api/learnos/entrainement/${seance.feuilleId}`);
       if (suite.ok) setSeance((await suite.json()) as SeanceVue);
-    } catch {
+    } catch (e) {
       setEtat("erreur");
     } finally {
       setEnvoi(false);

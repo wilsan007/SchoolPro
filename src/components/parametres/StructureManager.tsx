@@ -55,7 +55,8 @@ export function StructureManager({ canManage, sites = [] }: Props) {
         const data = await res.json();
         setStructures(Array.isArray(data) ? data : []);
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // silent
     } finally {
       setLoading(false);

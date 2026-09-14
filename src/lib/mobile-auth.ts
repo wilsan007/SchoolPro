@@ -46,7 +46,8 @@ export async function verifyMobileToken(req: NextRequest): Promise<MobileUser | 
       role: payload.role as string,
       tenantId: (payload.tenantId as string) ?? null,
     };
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return null;
   }
 }

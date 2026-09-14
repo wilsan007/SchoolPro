@@ -68,7 +68,8 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
         if (!cancelled && data.matieres) {
           setMatieres(data.matieres.map((m: { id: string; nom: string }) => ({ id: m.id, nom: m.nom })));
         }
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         // silent — la matrice n'est pas critique
       }
     }
@@ -153,7 +154,7 @@ export function ConseilDeClasse({ classeId, periodeId, classeNom, periodeNom, el
         if (!res.ok) throw new Error("Erreur serveur");
         setSaved(true);
         toast.success(t("decisionsSaved"));
-      } catch {
+      } catch (e) {
         toast.error(t("errSaveDecisions"));
       }
     });

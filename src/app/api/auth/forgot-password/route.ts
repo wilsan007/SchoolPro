@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const body = await request.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = BodySchema.safeParse(body);
 
   if (!parsed.success) {

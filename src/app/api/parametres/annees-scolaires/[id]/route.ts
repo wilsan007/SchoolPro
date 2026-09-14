@@ -70,7 +70,7 @@ export async function PATCH(
   if (denied) return denied;
 
   const { id } = await params;
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = ActionSchema.safeParse(body);
   if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 

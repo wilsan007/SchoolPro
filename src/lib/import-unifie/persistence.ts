@@ -198,6 +198,7 @@ export async function appliquerImportEnseignants(
         }
       }
     } catch (e) {
+      console.warn("[non-fatal]", e);
       erreurs++;
       details.push(`Erreur ligne ${ligne.numero}: ${e instanceof Error ? e.message : "inconnue"}`);
     }
@@ -277,6 +278,7 @@ export async function appliquerImportPersonnelAdmin(
         details.push(`Compte créé pour ${d.prenom} ${d.nom} (${d.role}) — email: ${email}`);
       }
     } catch (e) {
+      console.warn("[non-fatal]", e);
       erreurs++;
       details.push(`Erreur ligne ${ligne.numero}: ${e instanceof Error ? e.message : "inconnue"}`);
     }
@@ -307,7 +309,8 @@ export async function appliquerImportClasses(
       } else if (ligne.action === "IGNORER") {
         ignores++;
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       erreurs++;
     }
   }
@@ -336,7 +339,8 @@ export async function appliquerImportMatieres(
       } else if (ligne.action === "IGNORER") {
         ignores++;
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       erreurs++;
     }
   }

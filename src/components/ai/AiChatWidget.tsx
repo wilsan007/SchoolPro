@@ -88,7 +88,8 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
       if (saved) setMessages(JSON.parse(saved));
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // stockage corrompu ou indisponible — on repart d'une conversation vide
     }
     hasLoadedRef.current = true;
@@ -98,7 +99,8 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
     if (!hasLoadedRef.current) return;
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // quota dépassé ou stockage indisponible — non bloquant
     }
   }, [messages]);
@@ -133,6 +135,7 @@ export function AiChatWidget({ greeting }: { greeting: string }) {
         { role: "assistant", content: data.reply, actions, bulkPlan: data.bulkPlan as BulkPlan | undefined },
       ]);
     } catch (err) {
+      console.warn("[non-fatal]", err);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: `⚠️ ${err instanceof Error ? err.message : t("aiError")}` },

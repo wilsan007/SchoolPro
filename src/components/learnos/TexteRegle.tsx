@@ -37,7 +37,8 @@ export function TexteRegle({
 
   try {
     return <>{t(cle, params as Record<string, string | number>)}</>;
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     // Clé absente du catalogue : on retombe sur le rendu d'origine.
     return <>{secours}</>;
   }

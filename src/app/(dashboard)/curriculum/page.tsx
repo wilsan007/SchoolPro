@@ -77,7 +77,7 @@ async function getDonnees(tenantId: string, claims: SessionSiteClaims, user: Ses
     // semaines non enseignées.
     anneeData
       ? prisma.evenementCalendaire.findMany({
-          where: { anneeId: anneeData.id },
+          where: { anneeId: anneeData.id, annee: { tenantId } },
           select: { type: true, libelle: true, dateDebut: true, dateFin: true },
           orderBy: { dateDebut: "asc" },
         })

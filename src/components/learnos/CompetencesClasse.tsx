@@ -187,7 +187,7 @@ export function CompetencesClasse({ classeId }: { classeId: string }) {
         setCompetences(d.competences ?? []);
         setProfils(d.profils ?? []);
       })
-      .catch(() => {})
+      .catch((e) => console.warn("[non-fatal]", e))
       .finally(() => !annule && setChargement(false));
     return () => { annule = true; };
   }, [classeId]);

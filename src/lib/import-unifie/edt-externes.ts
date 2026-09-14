@@ -216,7 +216,8 @@ export async function appliquerImportEdtExternes(
         },
       });
       crees++;
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       erreurs++;
     }
   }

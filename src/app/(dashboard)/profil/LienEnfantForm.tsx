@@ -40,7 +40,8 @@ export function LienEnfantForm() {
     try {
       const result = await getMesDemandesLien();
       setDemandes(result as Demande[]);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Silencieux : pas de demandes ou erreur mineure
     }
   }

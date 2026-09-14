@@ -212,7 +212,7 @@ export async function getDemoDate(): Promise<Date | null> {
       let scope: unknown;
       try {
         scope = JSON.parse(decodeURIComponent(scopeRaw));
-      } catch {
+      } catch (e) {
         console.warn("[demo-now] scope cookie illisible:", scopeRaw.slice(0, 100));
         scope = null;
       }
@@ -298,7 +298,8 @@ export async function diagnostiquerDemoDate(): Promise<{
     if (scopeCookie) {
       try {
         scopeParsed = JSON.parse(decodeURIComponent(scopeCookie));
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         return { enabled, dateCookie, scopeCookie, scopeParsed: null, session: null, echec: "scope cookie illisible", date: null };
       }
       if (!Array.isArray(scopeParsed) || scopeParsed.length < 2) {
@@ -330,6 +331,7 @@ export async function diagnostiquerDemoDate(): Promise<{
 
     return { enabled, dateCookie, scopeCookie, scopeParsed, session, echec: scopeCookie ? null : "OK (scope manquant, fallback rôle)", date: d };
   } catch (err) {
+    console.warn("[non-fatal]", err);
     return { enabled: false, dateCookie: null, scopeCookie: null, scopeParsed: null, session: null, echec: `exception: ${String(err)}`, date: null };
   }
 }

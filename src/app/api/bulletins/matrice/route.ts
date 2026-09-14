@@ -210,14 +210,14 @@ export async function GET(req: NextRequest) {
     } = null;
 
     const periode = await prisma.periode.findUnique({
-      where: { id: periodeId },
+      where: { id: periodeId, annee: { tenantId } },
       include: { annee: true },
     });
 
     if (periode && periode.numero === 3) {
       // Récupérer toutes les périodes de l'année
       const allPeriodes = await prisma.periode.findMany({
-        where: { anneeId: periode.anneeId },
+        where: { anneeId: periode.anneeId, annee: { tenantId } },
         orderBy: { numero: "asc" },
       });
 

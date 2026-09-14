@@ -645,12 +645,14 @@ export async function POST(req: NextRequest) {
                 const cm2 = classBusyByDay.get(classeId)!;
                 if (!cm2.has(cand.jour)) cm2.set(cand.jour, []);
                 // Don't add duplicate slot to class busy (already added above)
-              } catch {
+              } catch (e) {
+                console.warn("[non-fatal]", e);
                 stats.conflicts++;
               }
             }
           }
-        } catch {
+        } catch (e) {
+          console.warn("[non-fatal]", e);
           stats.conflicts++;
         }
       }

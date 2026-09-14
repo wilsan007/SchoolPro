@@ -187,7 +187,7 @@ export async function analyserNotes(
     let anneeUtilisee: { id: string; libelle: string } | null = null;
     for (const an of annees) {
       const periodes = await prisma.periode.findMany({
-        where: { anneeId: an.id },
+        where: { anneeId: an.id, annee: { tenantId } },
         select: { id: true },
       });
       if (periodes.length === 0) continue;
@@ -208,7 +208,7 @@ export async function analyserNotes(
     }
 
     const periodes = await prisma.periode.findMany({
-      where: { anneeId: anneeUtilisee.id },
+      where: { anneeId: anneeUtilisee.id, annee: { tenantId } },
       orderBy: { numero: "asc" },
       select: { id: true, nom: true, numero: true },
     });

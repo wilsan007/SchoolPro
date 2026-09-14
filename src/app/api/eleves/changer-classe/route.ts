@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = ChangerClasseSchema.safeParse(body);
   if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 

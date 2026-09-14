@@ -201,7 +201,8 @@ export function FactureForm({
         }
         return { montant: data.montant, libelleAuto: libelle, devise: data.devise };
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // ignore
     }
     return null;

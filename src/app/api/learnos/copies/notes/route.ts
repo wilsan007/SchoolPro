@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
   const tenantId = session.user.tenantId;
 
-  const form = await req.formData().catch(() => null);
+  const form = await req.formData().catch((e) => { console.warn("[non-fatal]", e); return null; });
   if (!form) return erreurJson("DONNEES_INVALIDES");
 
   const fichier = form.get("fichier");
@@ -196,7 +196,7 @@ export async function PUT(req: NextRequest) {
   const denied = checkPermission(session.user.role, "notes:write");
   if (denied) return denied;
 
-  const parsed = AppliquerSchema.safeParse(await req.json().catch(() => null));
+  const parsed = AppliquerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
   }

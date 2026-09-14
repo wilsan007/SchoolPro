@@ -98,7 +98,7 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
           body: JSON.stringify({ action: "cloturer" }),
         });
         if (!res.ok) {
-          const err = await res.json().catch(() => null);
+          const err = await res.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
           throw new Error(err?.detail ?? err?.error ?? "Erreur");
         }
         toast.success(t("anneeCloturee"));
@@ -119,7 +119,7 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
           body: JSON.stringify({ action: "reouvrir" }),
         });
         if (!res.ok) {
-          const err = await res.json().catch(() => null);
+          const err = await res.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
           throw new Error(err?.detail ?? err?.error ?? "Erreur");
         }
         toast.success(t("anneeReouverte"));
@@ -140,7 +140,7 @@ export function AnneesScolairesTab({ annees, canManage }: AnneesScolairesTabProp
           body: JSON.stringify({ action: "archiver" }),
         });
         if (!res.ok) {
-          const err = await res.json().catch(() => null);
+          const err = await res.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
           throw new Error(err?.detail ?? err?.error ?? "Erreur");
         }
         toast.success(t("anneeArchivee"));

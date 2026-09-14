@@ -256,7 +256,8 @@ async function dejaExecutee(
       update: {}, // no-op : si l'enregistrement existe déjà, on ne fait rien
     });
     return false; // pas d'enregistrement existant → exécuter
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     // L'upsert échoue si l'enregistrement existe déjà (race condition) → sauter.
     return true;
   }

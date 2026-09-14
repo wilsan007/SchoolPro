@@ -224,7 +224,8 @@ async function resumerChapitre(
     );
 
     resume = resultat.content?.trim() ?? resumeParDefaut(chapitre);
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     resume = resumeParDefaut(chapitre);
   }
 

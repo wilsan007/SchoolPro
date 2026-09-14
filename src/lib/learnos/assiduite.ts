@@ -202,6 +202,7 @@ export async function fenetreAssiduite(
     ? await prisma.evenementCalendaire.findMany({
         where: {
           anneeId: annee.id,
+          annee: { tenantId },
           type: { in: TYPES_FERMETURE },
           dateDebut: { lte: fin },
           dateFin: { gte: debut },

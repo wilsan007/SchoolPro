@@ -117,6 +117,6 @@ export async function lireImprime(images: Uint8Array[]): Promise<LectureTesserac
       pagesLues: pages.length,
     };
   } finally {
-    await worker.terminate().catch(() => {});
+    await worker.terminate().catch((e) => console.warn("[non-fatal]", e));
   }
 }

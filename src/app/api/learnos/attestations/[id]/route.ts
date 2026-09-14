@@ -40,7 +40,7 @@ export async function POST(
   if (denied) return denied;
 
   const { id } = await params;
-  const parsed = Schema.safeParse(await req.json().catch(() => null));
+  const parsed = Schema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
   const tenantId = session.user.tenantId;

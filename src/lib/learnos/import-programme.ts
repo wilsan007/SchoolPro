@@ -262,7 +262,8 @@ export function extraireJson(brut: string | null): unknown[] {
   try {
     const parse = JSON.parse(brut.slice(debut, fin + 1));
     return Array.isArray(parse) ? parse : [];
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return [];
   }
 }
@@ -466,7 +467,8 @@ export async function analyserProgramme(
       modele = resultat.meta.modelName;
       caracteresAnalyses += tranche.length;
       tranchesReussies++;
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Une tranche qui échoue (tous fournisseurs en panne) ne doit pas faire
       // échouer l'import entier : on perd quelques chapitres, pas tout le
       // programme. L'enseignant voit ce qui a été trouvé et peut compléter à

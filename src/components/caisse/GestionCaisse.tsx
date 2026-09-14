@@ -57,7 +57,8 @@ function formatMoney(amount: number, devise: string) {
       currency: devise,
       maximumFractionDigits: 0,
     }).format(amount);
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return `${amount.toLocaleString("fr-DJ")} ${devise}`;
   }
 }
@@ -124,7 +125,7 @@ export function GestionCaisse({ user }: { user: UserSession }) {
       if (!res.ok) throw new Error(t("erreurChargement"));
       const data = await res.json();
       setRemises(data.remises ?? []);
-    } catch {
+    } catch (e) {
       toast.error(t("erreurChargement"));
     } finally {
       setLoading(false);

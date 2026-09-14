@@ -47,7 +47,8 @@ export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) 
       const data = await res.json();
       setEnabled(data.enabled);
       setSelectedPresetId(findPresetByDate(data.enabled ? data.date : null));
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Erreur silencieuse
     }
   }, []);
@@ -74,7 +75,7 @@ export function TimeMachineModal({ open, onOpenChange }: TimeMachineModalProps) 
         toast.success(t("dateDesactivee"));
       }
       setTimeout(() => window.location.reload(), 500);
-    } catch {
+    } catch (e) {
       toast.error(t("erreur"));
     } finally {
       setLoading(false);

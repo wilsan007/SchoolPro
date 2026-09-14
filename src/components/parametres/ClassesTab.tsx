@@ -90,16 +90,16 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
     fetch("/api/structures")
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setStructures(data); })
-      .catch(() => {});
+      .catch((e) => console.warn("[non-fatal]", e));
   }, []);
 
   useEffect(() => {
     loadStructures();
-    getEnseignantsForClasse().then(setEnseignants).catch(() => {});
+    getEnseignantsForClasse().then(setEnseignants).catch((e) => console.warn("[non-fatal]", e));
   }, [loadStructures]);
 
   const reloadArchived = useCallback(() => {
-    getArchivedClasses().then(setArchivedClasses).catch(() => {});
+    getArchivedClasses().then(setArchivedClasses).catch((e) => console.warn("[non-fatal]", e));
   }, []);
 
   async function handleCreate(e: React.FormEvent) {

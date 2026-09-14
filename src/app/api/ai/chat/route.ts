@@ -67,7 +67,8 @@ async function executeScheduleTool(
         };
       }
       return { payload: { ok: false, message: resolution.message } };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       return { payload: { ok: false, message: "Arguments invalides fournis pour la proposition de créneau." } };
     }
   }
@@ -77,7 +78,8 @@ async function executeScheduleTool(
       const args = ListerArgsSchema.parse(JSON.parse(call.arguments));
       const result = await listCreneaux(tenantId, args, siteClaims);
       return { payload: result };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       return { payload: { ok: false, message: "Arguments invalides fournis pour la consultation de l'emploi du temps." } };
     }
   }
@@ -86,7 +88,8 @@ async function executeScheduleTool(
     try {
       const args = ListerClassesArgsSchema.parse(JSON.parse(call.arguments || "{}"));
       return { payload: await listClasses(tenantId, args, siteClaims) };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       return { payload: { ok: false, message: "Arguments invalides fournis pour lister les classes." } };
     }
   }
@@ -95,7 +98,8 @@ async function executeScheduleTool(
     try {
       const args = ListerEnseignantsArgsSchema.parse(JSON.parse(call.arguments || "{}"));
       return { payload: await listEnseignants(tenantId, args, siteClaims) };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       return { payload: { ok: false, message: "Arguments invalides fournis pour lister les enseignants." } };
     }
   }
@@ -127,7 +131,8 @@ async function executeScheduleTool(
         salle: s.salle,
       }));
       return { payload: result, suggestedActions };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       return { payload: { ok: false, message: "Arguments invalides fournis pour la suggestion de créneaux." } };
     }
   }
@@ -160,7 +165,8 @@ async function executeScheduleTool(
         },
         bulkPlan,
       };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       return { payload: { ok: false, message: "Arguments invalides fournis pour la restructuration de l'emploi du temps." } };
     }
   }

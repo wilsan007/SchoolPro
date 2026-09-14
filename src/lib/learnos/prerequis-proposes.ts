@@ -92,7 +92,8 @@ export function extraireJson(brut: string | null): unknown[] {
   try {
     const parse = JSON.parse(brut.slice(debut, fin + 1));
     return Array.isArray(parse) ? parse : [];
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     return [];
   }
 }

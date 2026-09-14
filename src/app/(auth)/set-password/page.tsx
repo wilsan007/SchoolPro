@@ -65,7 +65,7 @@ export default function SetPasswordPage() {
           }),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => null);
+          const data = await res.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
           if (data?.error === "wrong_current_password") {
             toast.error(t("wrongCurrentPassword"));
           } else if (data?.error === "same_as_old") {
@@ -88,7 +88,7 @@ export default function SetPasswordPage() {
         toast.success(t("success"));
         router.push("/dashboard");
         router.refresh();
-      } catch {
+      } catch (e) {
         toast.error(t("error"));
       }
     });

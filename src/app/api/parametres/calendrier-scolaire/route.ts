@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   if (!annee) return erreurJson("ANNEE_INTROUVABLE");
 
   const evenements = await prisma.evenementCalendaire.findMany({
-    where: { anneeId },
+    where: { anneeId, annee: { tenantId: session.user.tenantId } },
     orderBy: { dateDebut: "asc" },
   });
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
-  const parsed = CreerSchema.safeParse(await req.json().catch(() => null));
+  const parsed = CreerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
   }

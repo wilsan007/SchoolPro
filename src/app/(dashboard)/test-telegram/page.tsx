@@ -23,7 +23,7 @@ export default function TestTelegramPage() {
     fetch("/api/test/telegram")
       .then((r) => r.json())
       .then((data) => setConfig(data))
-      .catch(() => {});
+      .catch((e) => console.warn("[non-fatal]", e));
   }, []);
 
   async function refreshChats() {
@@ -37,7 +37,7 @@ export default function TestTelegramPage() {
       } else {
         toast.info("Aucun chat trouvé. Envoyez /start au bot depuis Telegram.");
       }
-    } catch {
+    } catch (e) {
       toast.error(tc("error"));
     } finally {
       setLoadingChats(false);
@@ -64,7 +64,7 @@ export default function TestTelegramPage() {
       } else {
         toast.error(data.error ?? "Échec de l'envoi");
       }
-    } catch {
+    } catch (e) {
       toast.error(tc("networkError"));
     } finally {
       setLoading(false);

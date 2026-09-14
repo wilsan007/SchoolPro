@@ -75,6 +75,7 @@ export function ChatbotDirection() {
         },
       ]);
     } catch (error) {
+      console.warn("[non-fatal]", error);
       setMessages((prev) => [
         ...prev,
         {

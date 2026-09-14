@@ -108,7 +108,7 @@ export async function deleteAnneeScolaire(anneeId: string) {
   if (annee.isCurrent) throw new Error("Impossible de supprimer l'année scolaire active");
 
   const hasPeriodes = await prisma.periode.count({
-    where: { anneeId },
+    where: { anneeId, annee: { tenantId: session.user.tenantId } },
   });
   if (hasPeriodes > 0) {
     throw new Error("Impossible de supprimer une année scolaire liée à des périodes");

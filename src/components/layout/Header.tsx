@@ -69,7 +69,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
           return;
         }
       }
-    } catch {}
+    } catch (e) { console.warn("[non-fatal]", e); }
 
     const controller = new AbortController();
     fetch("/api/communication?limit=5", { signal: controller.signal })
@@ -80,9 +80,9 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
         setNotifCount(notifs.filter((n) => n.statut === "ENVOYEE" || n.statut === "EN_ENVOI").length);
         try {
           sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: notifs, ts: Date.now() }));
-        } catch {}
+        } catch (e) { console.warn("[non-fatal]", e); }
       })
-      .catch(() => {});
+      .catch((e) => console.warn("[non-fatal]", e));
 
     return () => controller.abort();
   }, []);

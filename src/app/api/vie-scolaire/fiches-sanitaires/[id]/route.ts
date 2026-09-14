@@ -106,7 +106,8 @@ export async function PATCH(
                 motif: "Contre-indication médicale (fiche sanitaire)",
               },
             });
-          } catch {
+          } catch (e) {
+            console.warn("[non-fatal]", e);
             // La dispense existe probablement déjà.
           }
         } else if (!data.contreIndicationsSport && existing.contreIndicationsSport) {

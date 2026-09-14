@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "rh:write");
   if (denied) return denied;
 
-  const formData = await req.formData().catch(() => null);
+  const formData = await req.formData().catch((e) => { console.warn("[non-fatal]", e); return null; });
   if (!formData) return erreurJson("DONNEES_INVALIDES");
 
   const parsed = ApplySchema.safeParse({

@@ -53,7 +53,8 @@ export function GenerateurCommentairesBulletin({
       const data = await res.json();
       setResultat(data);
       setCommentaireEdite(data.commentaireMatiere);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setResultat(null);
     } finally {
       setLoading(false);

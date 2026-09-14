@@ -133,7 +133,8 @@ export function MessagerieView({ userRole }: { userRole: string }) {
       if (!res.ok) return;
       const data = await res.json();
       setConversations(data.conversations ?? []);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // silent
     } finally {
       setLoading(false);
@@ -150,7 +151,8 @@ export function MessagerieView({ userRole }: { userRole: string }) {
       setHasMore(data.hasMore ?? false);
       setOldestCursor(data.oldestCursor ?? null);
       setCanWrite(data.canWrite ?? true);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // silent
     }
   }, []);
@@ -242,7 +244,8 @@ export function MessagerieView({ userRole }: { userRole: string }) {
         );
         fetchConversations(); // refresh sidebar
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setInput(content);
     } finally {

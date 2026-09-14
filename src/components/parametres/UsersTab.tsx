@@ -123,7 +123,8 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
     try {
       const existingSiteIds = await getUserSites(userId);
       setSelectedSiteIds(existingSiteIds.map((s) => s.siteId));
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setSelectedSiteIds([]);
     } finally {
       setSiteLoading(false);

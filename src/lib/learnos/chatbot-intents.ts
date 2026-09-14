@@ -758,7 +758,8 @@ export async function poserQuestion(
       let args: Record<string, unknown> = {};
       try {
         args = JSON.parse(appel.arguments);
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         messages.push({
           role: "tool",
           tool_call_id: appel.id,

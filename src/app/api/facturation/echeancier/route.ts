@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "finance:write");
   if (denied) return denied;
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES");
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
   // Vérifier qu'il n'y a pas déjà un échéancier actif
   const existant = await prisma.echeancier.findFirst({
-    where: { factureId: data.factureId, statut: "ACTIF" },
+    where: { factureId: data.factureId, statut: "ACTIF", facture: { tenantId: session.user.tenantId } },
   });
   if (existant) {
     return erreurJson("SLUG_DEJA_UTILISE", undefined, {

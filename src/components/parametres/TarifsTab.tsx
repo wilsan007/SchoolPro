@@ -61,7 +61,8 @@ export function TarifsTab() {
     try {
       const data = await getTarifsForTenant();
       setTarifs(data as TarifItem[]);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setTarifs([]);
     } finally {
       setLoading(false);

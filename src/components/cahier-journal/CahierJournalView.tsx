@@ -305,7 +305,7 @@ export function CahierJournalView({
           },
         }));
       })
-      .catch(() => {})
+      .catch((e) => console.warn("[non-fatal]", e))
       .finally(() => {
         if (!cancelled) setLoadingDetail(false);
       });
@@ -396,7 +396,7 @@ export function CahierJournalView({
       if (count > 0) {
         setTimeout(() => window.location.reload(), 1200);
       }
-    } catch {
+    } catch (e) {
       toast.error(t("genererErreur"));
     } finally {
       setGenerating(false);
@@ -1528,14 +1528,16 @@ function PlanLeconSection({
   let objectifs: string[] = [];
   try {
     objectifs = JSON.parse(plan.objectifs);
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     objectifs = [];
   }
 
   let etapes: { nom: string; duree?: number; description?: string; support?: string }[] = [];
   try {
     etapes = JSON.parse(plan.etapes);
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     etapes = [];
   }
 
@@ -1825,14 +1827,14 @@ function FichiersSection({
               return;
             }
             window.location.reload();
-          } catch {
+          } catch (e) {
             setError(t("uploadError"));
           } finally {
             setUploading(false);
           }
         };
         reader.readAsDataURL(file);
-      } catch {
+      } catch (e) {
         setError(t("uploadError"));
         setUploading(false);
       }
@@ -1856,7 +1858,7 @@ function FichiersSection({
         return;
       }
       window.location.reload();
-    } catch {
+    } catch (e) {
       setError(t("deleteError"));
     }
   };
@@ -1968,7 +1970,7 @@ function CommentairesSection({
       }
       setContenu("");
       window.location.reload();
-    } catch {
+    } catch (e) {
       setError(t("commentaireError"));
     } finally {
       setSubmitting(false);
@@ -1991,7 +1993,7 @@ function CommentairesSection({
         return;
       }
       window.location.reload();
-    } catch {
+    } catch (e) {
       setError(t("commentaireError"));
     }
   };

@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
-  const parsed = ProposerSchema.safeParse(await req.json().catch(() => null));
+  const parsed = ProposerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
 
   const tenantId = session.user.tenantId;
@@ -83,7 +83,7 @@ export async function PATCH(req: NextRequest) {
   const denied = checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
-  const parsed = AppliquerSchema.safeParse(await req.json().catch(() => null));
+  const parsed = AppliquerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
   }

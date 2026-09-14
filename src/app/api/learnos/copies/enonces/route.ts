@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
         niveau: z.string().max(50).optional(),
         texte: z.string().min(10).max(100_000),
       })
-      .safeParse(await req.json().catch(() => null));
+      .safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
     if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
     matiereId = parsed.data.matiereId;
     niveau = parsed.data.niveau?.trim() || null;
@@ -224,7 +224,7 @@ export async function PUT(req: NextRequest) {
   const denied = checkPermission(session.user.role, "notes:write");
   if (denied) return denied;
 
-  const parsed = AppliquerSchema.safeParse(await req.json().catch(() => null));
+  const parsed = AppliquerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.issues });
   }

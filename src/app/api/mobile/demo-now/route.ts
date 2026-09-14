@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = demoNowSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Date invalide" }, { status: 400 });

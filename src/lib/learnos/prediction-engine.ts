@@ -173,7 +173,8 @@ export async function predirePourChapitre(
   for (const eleve of eleves) {
     try {
       assiduiteCache.set(eleve.id, await tauxAssiduiteRecent(tenantId, eleve.id));
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // En cas d'erreur (base indisponible, etc.), on suppose assiduité neutre.
       assiduiteCache.set(eleve.id, 1);
     }

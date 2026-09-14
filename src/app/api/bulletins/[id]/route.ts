@@ -29,7 +29,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (denied) return denied;
 
     const { id } = await params;
-    const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+    const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
     if (!parsed.success) {
       return NextResponse.json({ error: "Données invalides" }, { status: 400 });
     }
@@ -82,7 +82,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       { id: session.user.id, name: session.user.name, role: session.user.role },
       existing,
       updated
-    ).catch(() => {/* non-fatal : ne pas bloquer la mise à jour */});
+    ).catch((e) => console.warn("[non-fatal]", e));
 
     return NextResponse.json({ success: true, bulletin: updated });
   } catch (error) {
@@ -136,7 +136,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         statut: existing.statut,
       }),
       null
-    ).catch(() => {/* non-fatal */});
+    ).catch((e) => console.warn("[non-fatal]", e));
 
     auditFire({
       tenantId: session.user.tenantId,

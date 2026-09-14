@@ -134,7 +134,8 @@ export function FacturationActions({ currentYear = "2025-2026", userRole }: { cu
     try {
       const data = await getExclusionsForTenant();
       setExclusions(data as ExclusionItem[]);
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       setExclusions([]);
     } finally {
       setLoadingExclu(false);

@@ -340,7 +340,8 @@ export async function enregistrerSnapshot(
           data: { tenantId, siteId, role, kpiKey: kpi.cle, valeur: kpi.valeur, periode },
         });
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Ignoré volontairement : voir ci-dessus.
     }
   }

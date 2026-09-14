@@ -23,7 +23,7 @@ export async function getPeriodesForCloture() {
   if (!annee) return [];
 
   return prisma.periode.findMany({
-    where: { anneeId: annee.id },
+    where: { anneeId: annee.id, annee: { tenantId: session.user.tenantId } },
     orderBy: { numero: "asc" },
   });
 }

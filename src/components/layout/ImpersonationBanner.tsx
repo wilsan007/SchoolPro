@@ -31,7 +31,8 @@ export function ImpersonationBanner() {
         const data = await res.json();
         setState(data);
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Silencieux : la bannière n'est pas critique pour le fonctionnement
     }
   }, []);
@@ -53,7 +54,8 @@ export function ImpersonationBanner() {
         // Recharger la page pour que tout le contexte soit cohérent
         window.location.href = "/super-admin";
       }
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // Silencieux
     } finally {
       setExiting(false);

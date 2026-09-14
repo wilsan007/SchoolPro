@@ -199,7 +199,8 @@ export async function isLockedOut(
     if (!counter) return false;
     if (counter.windowStart.getTime() !== windowStart.getTime()) return false;
     return counter.count >= maxAttempts;
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     // Fail-open : ne pas bloquer si la DB est injoignable.
     return false;
   }
@@ -212,7 +213,8 @@ export async function resetAttempts(key: string): Promise<void> {
   try {
     // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
     await prisma.rateLimitCounter.deleteMany({ where: { key } });
-  } catch {
+  } catch (e) {
+    console.warn("[non-fatal]", e);
     // Ignore : le compteur sera nettoyé à la prochaine fenêtre.
   }
 }

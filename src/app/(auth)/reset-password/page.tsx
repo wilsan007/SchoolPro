@@ -57,7 +57,7 @@ function ResetPasswordForm() {
           body: JSON.stringify({ token, password }),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => null);
+          const data = await res.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
           if (data?.error === "invalid_token") {
             toast.error(t("invalidToken"));
           } else if (data?.error === "weak_password" && Array.isArray(data.codes)) {
@@ -79,7 +79,7 @@ function ResetPasswordForm() {
         setSuccess(true);
         toast.success(t("success"));
         setTimeout(() => router.push("/login"), 2000);
-      } catch {
+      } catch (e) {
         toast.error(t("error"));
       }
     });

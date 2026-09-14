@@ -138,7 +138,7 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
         setRecos(d.recommandations ?? []);
         setAVenir(d.aVenir ?? []);
       })
-      .catch(() => {})
+      .catch((e) => console.warn("[non-fatal]", e))
       .finally(() => !annule && setChargement(false));
     return () => {
       annule = true;

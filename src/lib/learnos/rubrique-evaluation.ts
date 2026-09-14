@@ -192,7 +192,8 @@ export async function proposerRubrique(
         modele: resultat.meta.modelName,
         cached: resultat.meta.cached,
       };
-    } catch {
+    } catch (e) {
+      console.warn("[non-fatal]", e);
       // JSON malformé : fallback.
     }
   }

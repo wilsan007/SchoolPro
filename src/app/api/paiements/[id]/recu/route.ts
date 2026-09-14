@@ -65,7 +65,8 @@ export async function GET(
     function formatMoney(amount: number, devise: string) {
       try {
         return new Intl.NumberFormat("fr-DJ", { style: "currency", currency: devise }).format(amount);
-      } catch {
+      } catch (e) {
+        console.warn("[non-fatal]", e);
         return `${amount.toLocaleString("fr-DJ")} ${devise}`;
       }
     }

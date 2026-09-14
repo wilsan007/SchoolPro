@@ -17,7 +17,7 @@ const BodySchema = z.object({
  * Accessible à tout le personnel authentifié avec permission taches:read.
  */
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = BodySchema.safeParse(body ?? {});
   if (!parsed.success) {
     return NextResponse.json({ error: "Données invalides" }, { status: 400 });

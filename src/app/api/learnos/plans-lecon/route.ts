@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
-  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }

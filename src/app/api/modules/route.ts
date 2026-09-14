@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   const denied = checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
-  const parsed = PatchSchema.safeParse(await req.json().catch(() => null));
+  const parsed = PatchSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES");
   }

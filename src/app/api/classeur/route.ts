@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const denied = checkPermission(session.user.role, "rapports:read");
   if (denied) return denied;
 
-  const raw = await req.json().catch(() => null);
+  const raw = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = ClasseurBodySchema.safeParse(raw);
   if (!parsed.success) return erreurJson("DONNEES_INVALIDES");
   const body = parsed.data;
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   let periode = undefined;
   if (body.periodeId) {
     periode = await prisma.periode.findFirst({
-      where: { id: body.periodeId, anneeId: annee.id },
+      where: { id: body.periodeId, anneeId: annee.id, annee: { tenantId } },
     });
   }
 

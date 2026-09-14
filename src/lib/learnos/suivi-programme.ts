@@ -272,6 +272,7 @@ async function calculerTenueCahier(
   const evenements = await prisma.evenementCalendaire.findMany({
     where: {
       anneeId,
+      annee: { tenantId },
       type: { in: ["VACANCE_SCOLAIRE", "JOUR_FERIE"] },
       dateDebut: { lte: fin },
       dateFin: { gte: debut },

@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
         "statut",
         JSON.stringify(action === "verrouiller" ? "BROUILLON" : "VERROUILLE"),
         JSON.stringify(action === "verrouiller" ? "VERROUILLE" : "BROUILLON")
-      ).catch(() => {/* non-fatal */});
+      ).catch((e) => console.warn("[non-fatal]", e));
     }
 
     auditFire({

@@ -58,6 +58,7 @@ const mockPrisma = prisma as unknown as {
   ficheRH: {
     findFirst: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
   };
   enseignant: {
     findFirst: ReturnType<typeof vi.fn>;

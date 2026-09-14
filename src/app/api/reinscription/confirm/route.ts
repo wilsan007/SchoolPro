@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const raw = await req.json().catch(() => null);
+  const raw = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = BodySchema.safeParse(raw);
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES");
