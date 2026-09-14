@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
           select: { id: true, tenantId: true },
         });
         if (config) {
-          // eslint-disable-next-line ecolpro/require-tenant-id
+           
           await prisma.syncConfig.update({
             where: { id: config.id, tenantId: config.tenantId },
             data: {

@@ -84,6 +84,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // Ajout de contenu
   if (body.action === "add_contenu") {
     const data = ContenuSchema.parse(body);
+     
     const contenu = await prisma.contenuCours.create({
       data: {
         coursId: id,

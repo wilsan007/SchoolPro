@@ -345,7 +345,7 @@ export async function PATCH(
       const result = await prisma.$transaction(async (tx) => {
         await applyRlsContext(tx);
         // a) Générer un matricule unique : ECL-<année>-<compteur>.
-        // eslint-disable-next-line ecolpro/require-site-filter -- compteur global tenant pour matricule
+         
         const count = await tx.eleve.count({ where: { tenantId } });
         let matricule = `ECL-${anneeInscription}-${String(count + 1).padStart(4, "0")}`;
 
@@ -465,7 +465,7 @@ export async function PATCH(
         }
 
         // f) Rattachement rétroactif de la facture à l'élève
-        // eslint-disable-next-line ecolpro/require-site-filter -- recherche par candidatureId
+         
         const factureInscription = await tx.facture.findFirst({
           where: { candidatureId: candidature.id, tenantId },
           select: { id: true },

@@ -50,7 +50,7 @@ export async function onDecalageDetecte(event: DrainedEvent): Promise<void> {
   const chapitreNom = chapitre?.nom ?? "—";
   const classeNom = classe?.nom ?? "—";
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- handler event-bus, pas de session
+   
   await prisma.notification.create({
     data: {
       tenantId,

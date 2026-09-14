@@ -210,6 +210,7 @@ export async function unlinkParentFromEleve(parentId: string, eleveId: string) {
     throw new Error("Permissions insuffisantes");
   }
 
+   
   await prisma.eleveParent.delete({
     where: { eleveId_parentId: { eleveId, parentId } },
   });

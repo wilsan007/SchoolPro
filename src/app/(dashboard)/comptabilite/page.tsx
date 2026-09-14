@@ -81,7 +81,7 @@ export default async function ComptabilitePage() {
       },
     }),
     // EcheancePaiement n'a pas de tenantId : le filtre passe par la facture.
-    // eslint-disable-next-line ecolpro/require-site-filter -- EcheancePaiement n'a pas de siteId, le filtre passe par la relation facture
+     
     prisma.echeancePaiement.count({
       where: {
         facture: {
@@ -220,6 +220,7 @@ export default async function ComptabilitePage() {
     ? await prisma.eleve.findMany({
         where: {
           id: { in: eleveIdsRetard },
+          tenantId,
           ...siteFilterForModel("eleve", claims),
         },
         select: {

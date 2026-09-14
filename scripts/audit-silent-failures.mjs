@@ -346,4 +346,9 @@ function generateReport() {
 }
 
 const findings = generateReport();
+// Export JSON pour analyse programmatique
+if (process.env.AUDIT_JSON) {
+  console.log("\n--- JSON EXPORT ---");
+  console.log(JSON.stringify(findings));
+}
 process.exit(findings.some((f) => f.severity === "CRITICAL") ? 1 : 0);

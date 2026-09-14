@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 100);
     const before = searchParams.get("before"); // ISO date — messages avant cette date
 
-    // eslint-disable-next-line ecolpro/require-tenant-id -- conversationId vérifiée via participation avec tenantId ci-dessus
+     
     const messages = await prisma.message.findMany({
       where: {
         conversationId: id,
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     items.reverse(); // remettre en ordre chronologique
 
     // Marquer comme lu
-    // eslint-disable-next-line ecolpro/require-tenant-id -- participation déjà vérifiée avec tenantId ci-dessus
+     
     await prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId: id, userId } },
       data: { lastReadAt: new Date() },
@@ -127,6 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsed = SendSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 });
 
+     
     const message = await prisma.message.create({
       data: {
         conversationId: id,
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     // Marquer comme lu pour l'expéditeur
-    // eslint-disable-next-line ecolpro/require-tenant-id -- participation déjà vérifiée avec tenantId ci-dessus
+     
     await prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId: id, userId } },
       data: { lastReadAt: new Date() },
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // --- Notifications IN_APP aux autres participants ---
     try {
-      // eslint-disable-next-line ecolpro/require-tenant-id -- conversationId vérifiée via participation avec tenantId ci-dessus
+       
       const participants = await prisma.conversationParticipant.findMany({
         where: { conversationId: id, userId: { not: userId } },
         select: { userId: true },

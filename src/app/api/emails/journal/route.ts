@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   }
 
   const [logs, total] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- emailLog est transverse au tenant (pas de siteId)
+     
     prisma.emailLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -71,12 +71,12 @@ export async function GET(req: NextRequest) {
         envoyePar: { select: { id: true, name: true } },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- emailLog est transverse au tenant
+     
     prisma.emailLog.count({ where }),
   ]);
 
   // Stats globales (toutes les pages confondues)
-  // eslint-disable-next-line ecolpro/require-site-filter -- emailLog est transverse au tenant
+   
   const stats = await prisma.emailLog.groupBy({
     by: ["statut"],
     where: { tenantId },

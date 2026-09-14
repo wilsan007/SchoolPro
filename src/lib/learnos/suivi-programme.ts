@@ -268,7 +268,7 @@ async function calculerTenueCahier(
   const { debut, fin } = datesDeLaSemaine(semaine, annee.dateDebut);
 
   // Déterminer si la semaine tombe sur des vacances / jours fériés.
-  // eslint-disable-next-line ecolpro/require-site-filter -- evenementCalendaire: niveau tenant, pas de siteId, filtré par anneeId
+   
   const evenements = await prisma.evenementCalendaire.findMany({
     where: {
       anneeId,

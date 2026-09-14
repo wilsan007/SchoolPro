@@ -166,6 +166,7 @@ export async function actualiserRetardsEcheanciers(tenantId: string): Promise<nu
  * Récupère l'échéancier d'une facture avec toutes ses échéances.
  */
 export async function getEcheancierPourFacture(factureId: string) {
+   
   const echeancier = await prisma.echeancier.findFirst({
     where: { factureId },
     include: {

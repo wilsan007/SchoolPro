@@ -103,6 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { type, description, dateDebut, dateFin, parentNotifie } = parsed.data;
 
+     
     const sanction = await prisma.sanction.create({
       data: {
         incidentId: id,

@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
       // tenantId est injecté dans le `create` et vérifié en amont via le
       // `findFirst` ci-dessus. Le lint ne peut pas le vérifier statiquement
       // sur une clé composite.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       const bulletin = await prisma.bulletin.upsert({
         where: { eleveId_periodeId: { eleveId: eleve.id, periodeId } },
         update: {

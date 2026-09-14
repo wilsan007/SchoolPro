@@ -22,7 +22,7 @@ export default async function SuperAdminPage() {
   const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
 
   // ── 1. Santé des tenants ─────────────────────────────────────────
-  // eslint-disable-next-line ecolpro/require-tenant-id -- super-admin cross-tenant query
+   
   const tenants = await prisma.tenant.findMany({
     select: {
       id: true,
@@ -37,25 +37,25 @@ export default async function SuperAdminPage() {
   // Pour chaque tenant, calculer les métriques en parallèle
   const tenantHealthPromises = tenants.map(async (tenant) => {
     const [activeUsers, lastLoginAgg, elevesCount, facturesCeMois, adminUser] = await Promise.all([
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
       prisma.user.count({
         where: { tenantId: tenant.id, isActive: true },
       }),
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
       prisma.user.aggregate({
         where: { tenantId: tenant.id },
         _max: { lastLoginAt: true },
       }),
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
       prisma.eleve.count({
         where: { tenantId: tenant.id, statut: "ACTIF", deletedAt: null },
       }),
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
       prisma.facture.count({
         where: { tenantId: tenant.id, createdAt: { gte: debutMois } },
       }),
       // Trouver un admin du tenant pour la prise de contrôle
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
       prisma.user.findFirst({
         where: {
           tenantId: tenant.id,

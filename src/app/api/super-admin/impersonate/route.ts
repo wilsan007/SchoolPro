@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   const originalRole = session.user.role as Role;
 
   // Vérifier que le tenant cible existe
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant lookup
+   
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: { id: true, name: true, slug: true },
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Vérifier que l'utilisateur cible existe dans ce tenant
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant lookup
+  // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant lookup
   const targetUser = await prisma.user.findFirst({
     where: { id: userId, tenantId },
     select: { id: true, email: true, name: true, role: true },

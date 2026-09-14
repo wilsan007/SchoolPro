@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
       const echeanceStr = tache.echeance
         ? new Date(tache.echeance).toLocaleDateString("fr-FR")
         : "sans échéance";
-      // eslint-disable-next-line ecolpro/require-site-filter -- notification interne, bornée par tenantId
+       
       await prisma.notification.create({
         data: {
           tenantId: session.user.tenantId,

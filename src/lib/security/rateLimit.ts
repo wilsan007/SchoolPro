@@ -132,7 +132,7 @@ export async function rateLimitDb(opts: RateLimitOptions): Promise<RateLimitResu
   const windowStart = new Date(now - (now % (windowSec * 1000)));
 
   try {
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- rate limit global, pas de tenant
+     
     const counter = await prisma.rateLimitCounter.upsert({
       where: { key },
       create: { key, count: 1, windowStart },
@@ -146,7 +146,7 @@ export async function rateLimitDb(opts: RateLimitOptions): Promise<RateLimitResu
     // est réinitialisé par le `create`. Mais si l'update a incrémenté un
     // compteur d'une fenêtre précédente, on doit réinitialiser.
     if (counter.windowStart.getTime() !== windowStart.getTime()) {
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       await prisma.rateLimitCounter.update({
         where: { key },
         data: { count: 1, windowStart },
@@ -191,7 +191,7 @@ export async function isLockedOut(
   const windowStart = new Date(now - (now % (windowSec * 1000)));
 
   try {
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+     
     const counter = await prisma.rateLimitCounter.findUnique({
       where: { key },
     });
@@ -211,7 +211,7 @@ export async function isLockedOut(
  */
 export async function resetAttempts(key: string): Promise<void> {
   try {
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+     
     await prisma.rateLimitCounter.deleteMany({ where: { key } });
   } catch (e) {
     console.warn("[non-fatal]", e);

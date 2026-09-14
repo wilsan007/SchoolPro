@@ -38,7 +38,7 @@ export async function onNoteUpdated(event: DrainedEvent): Promise<void> {
 
   // Étape 1 : supprimer les anciennes preuves liées à cette note.
   // Les preuves sont identifiées par sourceType="note" + sourceId=noteId.
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, sourceId)
+   
   await prisma.learningEvidence.deleteMany({
     where: { tenantId: event.tenantId, sourceType: "note", sourceId: p.noteId },
   });

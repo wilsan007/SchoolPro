@@ -29,7 +29,7 @@ export default async function NouvelleFacturePage({
   const hierarchie = await getClassesHierarchie(session.user.tenantId, session.user, { anneeCourante });
   const hierarchieClasseIds = hierarchie.flatMap(c => c.niveaux.flatMap(n => n.classes.map(cls => cls.id)));
   const classes = aplatirHierarchie(hierarchie);
-  // eslint-disable-next-line ecolpro/require-site-filter -- where includes ...siteFilter spread
+   
   const eleves = await prisma.eleve.findMany({
     where: {
       tenantId: session.user.tenantId,

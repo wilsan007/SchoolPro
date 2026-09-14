@@ -81,7 +81,7 @@ async function mettreAJourPlanificationChapitre(
   // La séance peut porter un planificationId direct ; c'est le lien le plus
   // fiable. Sinon, on retrouve la planification par chapitre + classe + année.
   // Événement drainé : borné par tenantId, et par les identifiants du payload.
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+   
   const seance = await prisma.seancePedagogique.findFirst({
     where: { id: p.seanceId, tenantId },
     select: { planificationId: true },
@@ -196,7 +196,7 @@ async function mettreAJourPlanificationCompetence(
   // Retrouver la planification de compétence : d'abord par classe exacte,
   // puis par plan générique (classeId null).
   // Événement drainé : borné par tenantId et les identifiants du payload.
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+   
   let planif = await prisma.planificationCompetence.findFirst({
     where: {
       tenantId,
@@ -207,7 +207,7 @@ async function mettreAJourPlanificationCompetence(
   });
 
   if (!planif) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+     
     planif = await prisma.planificationCompetence.findFirst({
       where: {
         tenantId,
@@ -223,7 +223,7 @@ async function mettreAJourPlanificationCompetence(
   // Vérifier si la compétence est couverte : existe-t-il au moins une
   // SeanceCompetence avec niveau MAITRISEE ou CONSOLIDEE dans une séance
   // EFFECTUEE pour cette classe ?
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+   
   const couverte = await prisma.seanceCompetence.findFirst({
     where: {
       competenceId,
@@ -295,7 +295,7 @@ async function verifierCompetencesChapitreCouvertes(
 
   // Récupérer les compétences couvertes (au moins CONSOLIDEE) dans les
   // séances EFFECTUEE de cette classe.
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+   
   const couvertes = await prisma.seanceCompetence.findMany({
     where: {
       competenceId: { in: competences.map((c) => c.id) },

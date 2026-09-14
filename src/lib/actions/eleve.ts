@@ -179,7 +179,7 @@ export async function createEleve(
     matricule = `ECL-${anneeInscription}-${String(count + 1).padStart(4, "0")}`;
   }
 
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- findUnique sur contrainte unique tenantId_matricule, le tenantId est dans la clé composite
+  // eslint-disable-next-line ecolpro/require-site-filter -- findUnique sur contrainte unique tenantId_matricule, le tenantId est dans la clé composite
   const existing = await prisma.eleve.findUnique({
     where: { tenantId_matricule: { tenantId, matricule } },
   });
@@ -390,7 +390,7 @@ export async function updateEleve(
     if (classe?.siteId) resolvedSiteId = classe.siteId;
   }
 
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId + siteFilter ci-dessus
+   
   await prisma.eleve.update({
     where: { id, tenantId: session.user.tenantId },
     data: {
@@ -430,6 +430,7 @@ export async function updateEleve(
           adresse: values.parentAdresse || null,
         },
       });
+       
       await prisma.eleveParent.update({
         where: { eleveId_parentId: { eleveId: id, parentId: tuteurLink.parentId } },
         data: { lien: values.parentLien || "PERE", isGardien: values.parentIsGardien ?? true },

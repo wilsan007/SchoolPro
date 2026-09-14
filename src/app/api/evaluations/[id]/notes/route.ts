@@ -160,7 +160,7 @@ export async function PUT(
       await applyRlsContext(tx);
       // Supprimer les notes effacées (valeur null) dans la transaction.
       if (eleveIdsSansValeur.length > 0) {
-        // eslint-disable-next-line ecolpro/require-tenant-id -- tenantId dans le where
+         
         await tx.note.deleteMany({
           where: {
             evaluationId,

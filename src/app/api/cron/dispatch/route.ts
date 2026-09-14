@@ -64,7 +64,7 @@ const TACHES: Tache[] = [
     idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : elle balaie délibérément tous les tenants.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       const tenants = await prisma.tenant.findMany({ select: { id: true } });
       // Périmètre tenant complet : le cron n'a pas de session, et la
       // photographie porte sur l'établissement entier.
@@ -95,7 +95,7 @@ const TACHES: Tache[] = [
     idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : elle balaie délibérément tous les tenants.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       const tenants = await prisma.tenant.findMany({ select: { id: true } });
       let nouvelles = 0;
       for (const t of tenants) {
@@ -137,7 +137,7 @@ const TACHES: Tache[] = [
     idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       const tenants = await prisma.tenant.findMany({ select: { id: true } });
       let totalCreated = 0;
       let totalClosed = 0;
@@ -169,7 +169,7 @@ const TACHES: Tache[] = [
     idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       const tenants = await prisma.tenant.findMany({ select: { id: true } });
       let totalVerifiees = 0;
       let totalCorrectes = 0;
@@ -195,7 +195,7 @@ const TACHES: Tache[] = [
     idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       const tenants = await prisma.tenant.findMany({ select: { id: true } });
       let totalCalibrations = 0;
       for (const t of tenants) {
@@ -215,7 +215,7 @@ const TACHES: Tache[] = [
     idempotenceSec: 3600,
     executer: async () => {
       // Tâche système : balaie tous les tenants.
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+       
       const tenants = await prisma.tenant.findMany({ select: { id: true } });
       let totalPatterns = 0;
       for (const t of tenants) {
@@ -249,7 +249,7 @@ async function dejaExecutee(
   const fenetre = new Date(now - (now % fenetreMs));
 
   try {
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- cron global, pas de tenant
+     
     await prisma.tacheCronExecution.upsert({
       where: { nom_fenetre: { nom, fenetre } },
       create: { nom, fenetre, resultat: { skipped: false } },

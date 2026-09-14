@@ -143,6 +143,7 @@ export async function appliquerImportEnseignants(
 
       // Créer les liens EnseignantSite
       for (const sid of siteIds) {
+         
         await prisma.enseignantSite.upsert({
           where: {
             enseignantId_siteId: { enseignantId: enseignantId!, siteId: sid },

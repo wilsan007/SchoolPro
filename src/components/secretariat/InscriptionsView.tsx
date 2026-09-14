@@ -430,7 +430,7 @@ function DossierDetailModal({
       })
       .finally(() => { if (!cancelled) setLoadingHist(false); });
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [dossier.id]);
 
   const handlePieceUploaded = (type: TypeDoc, piece: PieceDoc) => {

@@ -59,8 +59,8 @@ export default async function CahierJournalPage() {
   // Scope enseignant : restreindre aux classes et matières affectées,
   // pour l'année courante uniquement (évite de voir les classes d'une
   // année passée ou à venir).
-  const scope = isTeacherRole(role as any)
-    ? await getTeacherScope(tenantId, session.user.id, role as any, anneeCourante)
+  const scope = isTeacherRole(role)
+    ? await getTeacherScope(tenantId, session.user.id, role, anneeCourante)
     : null;
   const scopeMatiereFilter = scope?.isRestricted
     ? scope.matiereIds.length > 0

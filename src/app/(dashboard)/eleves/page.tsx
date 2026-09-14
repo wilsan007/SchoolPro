@@ -58,7 +58,7 @@ function baseEleveWhere(
  * agrégats sur une colonne indexée (`tenantId`) — le coût est négligeable
  * devant le risque d'afficher deux vérités différentes.
  */
-// eslint-disable-next-line ecolpro/require-site-filter -- `where` est construit par baseEleveWhere, qui applique déjà siteFilter
+ 
 async function getElevesStats(where: Prisma.EleveWhereInput) {
   const [byStatut, bySexe, byRegime, total] = await Promise.all([
     // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
@@ -159,7 +159,7 @@ async function getElevesData(
     prisma.eleve.findMany({
       where,
       include: {
-        // eslint-disable-next-line ecolpro/require-site-filter -- classe is a 1:1 relation, site filter applied at parent query level
+         
         classe: { select: { id: true, nom: true, niveau: true, site: { select: { id: true, nom: true } } } },
         // Le lien élève↔parent n'a pas de site propre : il est borné par
         // l'élève, déjà filtré par le `where` racine. Un parent peut par

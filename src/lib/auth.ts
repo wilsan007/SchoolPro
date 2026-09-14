@@ -86,6 +86,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         if (s.clearImpersonation && token.impersonationGrantId) {
           const restoreTenantId = (token.originalTenantId as string | null) ?? null;
           try {
+             
             await prisma.impersonationGrant.update({
               where: { id: token.impersonationGrantId as string },
               data: { endedAt: new Date() },
@@ -121,6 +122,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         // Demande d'usurpation : vérifier le grant en base.
         if (s.impersonationGrantId) {
+           
           const grant = await prisma.impersonationGrant.findUnique({
             where: { id: s.impersonationGrantId },
             include: {
@@ -218,6 +220,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // SUPER_ADMIN n'a pas d'adhésion au tenant cible.
         if (token.impersonationGrantId && token.impersonating) {
           // Revérifier le grant à chaque passage (expiration, endedAt).
+           
           const grant = await prisma.impersonationGrant.findUnique({
             where: { id: token.impersonationGrantId as string },
             select: { expiresAt: true, endedAt: true },

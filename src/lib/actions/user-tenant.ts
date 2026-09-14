@@ -112,7 +112,7 @@ export async function addUserToTenant(params: {
           throw new Error("Cet utilisateur possède déjà ce rôle dans cet établissement");
         }
         // Ajouter le rôle à UserRole sans changer le rôle actif.
-        // eslint-disable-next-line ecolpro/require-tenant-id -- l'adhésion au tenant a été vérifiée ci-dessus ; ajout d'un rôle possédé
+         
         await prisma.userRole.create({
           data: {
             userId: existingUser.id,
@@ -136,13 +136,13 @@ export async function addUserToTenant(params: {
       });
       // Ajouter ou réactiver le rôle dans UserRole.
       if (existingUserRole) {
-        // eslint-disable-next-line ecolpro/require-tenant-id -- existingUserRole a été obtenu par findUnique avec tenantId dans la clé composite ; réactivation d'un rôle possédé
+         
         await prisma.userRole.update({
           where: { id: existingUserRole.id, tenantId: params.tenantId },
           data: { isActive: true },
         });
       } else {
-        // eslint-disable-next-line ecolpro/require-tenant-id -- création d'un rôle pour un user dont l'adhésion au tenant a été vérifiée ci-dessus
+         
         await prisma.userRole.create({
           data: {
             userId: existingUser.id,
@@ -167,7 +167,7 @@ export async function addUserToTenant(params: {
         isDefault: false,
       },
     });
-    // eslint-disable-next-line ecolpro/require-tenant-id -- l'adhésion au tenant a été vérifiée ci-dessus ; création du rôle possédé
+     
     await prisma.userRole.create({
       data: {
         userId: existingUser.id,
@@ -237,7 +237,7 @@ async function ensureBusinessRecord(
   email: string
 ): Promise<void> {
   if (role === "TEACHER" || role === "CLASS_TEACHER") {
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup, vérification d'existence
+    // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup, vérification d'existence
     const existing = await prisma.enseignant.findFirst({
       where: { userId, tenantId },
       select: { id: true },
@@ -248,7 +248,7 @@ async function ensureBusinessRecord(
       });
     }
   } else if (role === "PARENT") {
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup, vérification d'existence
+    // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup, vérification d'existence
     const existing = await prisma.parent.findFirst({
       where: { userId, tenantId },
       select: { id: true },

@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "convocation") {
+       
       const sanction = await prisma.sanction.create({
         data: {
           incidentId,
@@ -145,6 +146,7 @@ export async function POST(req: NextRequest) {
       const dateFin = new Date();
       dateFin.setDate(dateFin.getDate() + 3);
 
+       
       const sanction = await prisma.sanction.create({
         data: {
           incidentId,

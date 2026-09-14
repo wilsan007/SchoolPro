@@ -92,7 +92,7 @@ export async function activerModule(
   });
 
   if (existing) {
-    // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
+     
     return prisma.moduleActivation.update({
       where: { id: existing.id, tenantId },
       data: {
@@ -140,7 +140,7 @@ export async function desactiverModule(
     throw new Error(`Module ${moduleCode} n'est pas activé pour ce tenant`);
   }
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
+   
   return prisma.moduleActivation.update({
     where: { id: activation.id, tenantId },
     data: {
@@ -159,6 +159,7 @@ export async function moduleEstActif(
   tenantId: string,
   moduleCode: string
 ): Promise<boolean> {
+   
   const moduleEntity = await prisma.module.findUnique({
     where: { code: moduleCode },
   });
@@ -212,6 +213,7 @@ export async function activerModulesParDefaut(tenantId: string): Promise<void> {
  * À appeler au démarrage ou via un script de seed.
  */
 export async function initialiserCatalogueModules(): Promise<void> {
+   
   const count = await prisma.module.count();
   if (count > 0) return;
 

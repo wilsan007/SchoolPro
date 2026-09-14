@@ -28,7 +28,7 @@ export async function rappelerEcheancesTaches(): Promise<{ count: number }> {
     dans3jours.setHours(23, 59, 59, 999);
 
     // Tâche système cron : balaie tous les tenants.
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+    // eslint-disable-next-line ecolpro/require-tenant-id
     const taches = await prisma.tache.findMany({
       where: {
         statut: { in: ["A_FAIRE", "EN_COURS"] },
@@ -77,7 +77,7 @@ export async function rappelerEcheancesTaches(): Promise<{ count: number }> {
             ? `Échéance demain : « ${tache.titre} » (${echeanceStr}). Pensez à la traiter aujourd'hui.`
             : `Échéance dans ${palier.jours} jours : « ${tache.titre} » (${echeanceStr}).`;
 
-        // eslint-disable-next-line ecolpro/require-site-filter -- tâche système cron, notification bornée par tenantId
+         
         await prisma.notification.create({
           data: {
             tenantId: tache.tenantId,

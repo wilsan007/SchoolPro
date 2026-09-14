@@ -107,7 +107,7 @@ async function competencesMaitrisees(
   );
 
   // Détection système : balayage tenant, pas de session utilisateur.
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+   
   const seanceComps = await prisma.seanceCompetence.findMany({
     where: {
       niveau: "MAITRISEE",
@@ -192,7 +192,7 @@ async function devoirsEnRetard(
   anneeCourante?: string | null
 ): Promise<AlertePedagogique[]> {
   const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+   
   const devoirs = await prisma.devoir.findMany({
     where: {
       tenantId,
@@ -366,7 +366,7 @@ async function elevesEnDifficulte(
   const semaineProchaine = semaineCourante + 1;
 
   // Compétences planifiées pour la semaine prochaine.
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+   
   const planComps = await prisma.planificationCompetence.findMany({
     where: {
       tenantId,

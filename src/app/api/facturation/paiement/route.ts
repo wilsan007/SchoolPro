@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     // ISO-4 : poser le contexte RLS en première instruction de la transaction.
     await applyRlsContext(tx);
     // Verrouiller la facture pour empêcher les écritures concurrentes.
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- verrouillage par factureId déjà validé ci-dessus
+     
     const lockedFacture = await tx.$queryRaw<{ id: string; montant: number; statut: string; echeance: Date | null }[]>`
       SELECT id, montant, statut, "echeance" FROM factures WHERE id = ${factureId} FOR UPDATE
     `;
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Relire les paiements dans la transaction pour un solde exact.
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- paiements filtrés par factureId déjà validé
+     
     const paiementsActuels = await tx.paiement.findMany({
       where: { factureId },
       select: { montant: true },

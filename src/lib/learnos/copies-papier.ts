@@ -1058,7 +1058,7 @@ async function cloturerSiComplete(
   eleveId: string,
   maintenant: Date
 ): Promise<boolean> {
-  // eslint-disable-next-line ecolpro/require-site-filter
+   
   const sansReponse = await prisma.exerciceAssigne.count({
     where: { feuille: { id: feuilleId, tenantId }, reponse: { is: null } },
   });

@@ -45,6 +45,7 @@ export async function GET() {
       where: { eleveId_parentId: { eleveId: eleve.id, parentId: parent.id } },
     });
     if (!existing) {
+       
       await prisma.eleveParent.create({
         data: {
           eleveId: eleve.id,

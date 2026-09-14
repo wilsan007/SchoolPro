@@ -286,7 +286,7 @@ export async function deleteUser(userId: string) {
   });
 
   // 2. Supprimer uniquement l'adhésion au tenant courant, pas les autres.
-  // eslint-disable-next-line ecolpro/require-tenant-id -- tenantId explicite ci-dessous
+   
   await prisma.userTenant.deleteMany({
     where: { userId, tenantId: session.user.tenantId },
   }).catch((e) => console.warn("[non-fatal]", e));

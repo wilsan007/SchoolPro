@@ -35,9 +35,9 @@ export async function getNiveauxForEnseignant(): Promise<string[]> {
   if (!session?.user?.tenantId) return [];
 
   const role = session.user.role;
-  if (!isTeacherRole(role as any)) return [];
+  if (!isTeacherRole(role)) return [];
 
-  const scope = await getTeacherScope(session.user.tenantId, session.user.id, role as any);
+  const scope = await getTeacherScope(session.user.tenantId, session.user.id, role);
   if (scope.classeIds.length === 0) return [];
 
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
@@ -61,9 +61,9 @@ export async function getMatieresForEnseignant(): Promise<{ id: string; nom: str
   if (!session?.user?.tenantId) return [];
 
   const role = session.user.role;
-  if (!isTeacherRole(role as any)) return [];
+  if (!isTeacherRole(role)) return [];
 
-  const scope = await getTeacherScope(session.user.tenantId, session.user.id, role as any);
+  const scope = await getTeacherScope(session.user.tenantId, session.user.id, role);
   if (scope.matiereIds.length === 0) return [];
 
   return prisma.matiere.findMany({
@@ -106,7 +106,7 @@ export async function creerDemandeFourniture(data: DemandeFournitureFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
   const role = session.user.role;
-  if (!isTeacherRole(role as any)) throw new Error("Réservé aux enseignants");
+  if (!isTeacherRole(role)) throw new Error("Réservé aux enseignants");
 
   const parsed = DemandeFournitureSchema.safeParse(data);
   if (!parsed.success) {

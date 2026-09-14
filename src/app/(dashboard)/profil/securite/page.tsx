@@ -21,7 +21,7 @@ export default async function SecuritePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- page personnelle : l'utilisateur ne lit que son propre compte
+   
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: { twoFactorEnabled: true, twoFactorVerifiedAt: true },

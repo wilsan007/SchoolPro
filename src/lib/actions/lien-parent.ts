@@ -38,7 +38,7 @@ export async function demanderLienEnfant(data: {
   const { matricule, dateNaissance } = parsed.data;
 
   // Trouver le Parent associé à l'utilisateur connecté
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup du parent lié à l'utilisateur connecté
+  // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup du parent lié à l'utilisateur connecté
   const parent = await prisma.parent.findFirst({
     where: { userId: session.user.id, tenantId: session.user.tenantId },
     select: { id: true },
@@ -105,7 +105,7 @@ export async function demanderLienEnfant(data: {
 
   // Créer ou recréer la demande (si une demande REFUSE existe, on la remplace)
   if (demandeExistante) {
-    // eslint-disable-next-line ecolpro/require-tenant-id -- demandeExistante provient du findUnique ci-dessus, déjà isolé par tenant
+     
     await prisma.demandeLienParent.update({
       where: { id: demandeExistante.id, tenantId: session.user.tenantId },
       data: {
@@ -238,7 +238,7 @@ export async function validerDemandeLien(demandeId: string, lien: LienParente = 
   // --- Notification IN_APP au parent : lien validé ---
   try {
     // Récupérer le nom de l'enfant et le userId du parent
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
+    // eslint-disable-next-line ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
     const demandeInfo = await prisma.demandeLienParent.findFirst({
       where: { id: demandeId },
       select: {
@@ -309,7 +309,7 @@ export async function refuserDemandeLien(demandeId: string, motifRefus: string) 
   // --- Notification IN_APP au parent : lien refusé ---
   try {
     // Récupérer le nom de l'enfant
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
+    // eslint-disable-next-line ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
     const demandeInfo = await prisma.demandeLienParent.findFirst({
       where: { id: demandeId },
       select: {
@@ -351,7 +351,7 @@ export async function getMesDemandesLien() {
     return [];
   }
 
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup du parent lié à l'utilisateur connecté
+  // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup du parent lié à l'utilisateur connecté
   const parent = await prisma.parent.findFirst({
     where: { userId: session.user.id, tenantId: session.user.tenantId },
     select: { id: true },

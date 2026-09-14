@@ -11,7 +11,7 @@ import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hier
 
 async function getClasses(tenantId: string, claims: SessionSiteClaims, hierarchieClasseIds: string[]) {
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
-  // eslint-disable-next-line ecolpro/require-site-filter -- where includes ...siteFilterForModel spread
+   
   return prisma.classe.findMany({
     where: {
       tenantId,

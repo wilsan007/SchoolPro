@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       return erreurJson("AUCUNE_ANNEE_COURANTE");
     }
 
-    // eslint-disable-next-line ecolpro/require-site-filter -- annee scolaire: niveau tenant, pas de siteId
+     
     const anneeRecord = await prisma.anneesScolaires.findFirst({
       where: { tenantId, libelle: libelleAnnee },
     });
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     // `emploiTemps` n'a pas de colonne siteId : le filtrage par site passe par
     // la relation `classe` (voir SITE_PATHS). On récupère aussi la matière pour
     // pouvoir résoudre le chapitre associé lors de l'auto-lien.
-    /* eslint-disable ecolpro/require-site-filter -- siteFilterForModel("emploiTemps", ...) gère le filtrage via la relation classe */
+     
     const edtEntries = await prisma.emploiTemps.findMany({
       where: {
         tenantId,
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
         matiere: { select: { id: true } },
       },
     });
-    /* eslint-enable ecolpro/require-site-filter */
+     
 
     if (edtEntries.length === 0) {
       auditFire({
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
     // 7. Événements calendaires (vacances / jours fériés) de l'année.
     // On ne filtre que VACANCE_SCOLAIRE et JOUR_FERIE : un EXAMEN n'empêche pas
     // de planifier un créneau (le cours peut avoir lieu avant l'épreuve).
-    // eslint-disable-next-line ecolpro/require-site-filter -- evenementCalendaire: niveau tenant, pas de siteId
+     
     const evenements = await prisma.evenementCalendaire.findMany({
       where: {
         anneeId,
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
     // remplacés (PROPOSE/VALIDE/EFFECTUE) pour ne pas créer une séance qui
     // doublerait le remplacement. REFUSE/ANNULE ne bloquent pas.
     const finSemaine = new Date(debutSemaine.getTime() + 6 * MS_PAR_JOUR);
-    // eslint-disable-next-line ecolpro/require-site-filter -- remplacementCours filtré par tenantId + plage de dates
+     
     const remplacements = await prisma.remplacementCours.findMany({
       where: {
         tenantId,
@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
       // début stockée dans le contenu/planification — la séance porte `date`
       // (DateTime) mais pas d'heure séparée : on compare donc sur le jour pour
       // éviter les doublons, ce qui suffit car un créneau EDT = une séance.
-      // eslint-disable-next-line ecolpro/require-site-filter -- vérification d'idempotence dans le périmètre du tenant
+       
       const existante = await prisma.seancePedagogique.findFirst({
         where: {
           tenantId,
@@ -295,7 +295,7 @@ export async function POST(req: NextRequest) {
       const planificationId = planif?.id ?? null;
 
       // 11. Création de la séance.
-      /* eslint-disable ecolpro/require-site-filter -- création tenant-scopée, siteId hérité de la session */
+       
       const seance = await prisma.seancePedagogique.create({
         data: {
           tenantId,
@@ -317,7 +317,7 @@ export async function POST(req: NextRequest) {
           chapitre: { select: { id: true, nom: true } },
         },
       });
-      /* eslint-enable ecolpro/require-site-filter */
+       
       seancesCrees.push(seance);
     }
 

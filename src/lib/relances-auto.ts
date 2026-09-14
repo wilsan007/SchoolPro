@@ -104,7 +104,7 @@ export async function envoyerRelancesAutomatiques(): Promise<{
   const maintenant = await getDemoNow();
 
   // Tâche système : elle balaie délibérément tous les tenants.
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+   
   const tenants = await prisma.tenant.findMany({ select: { id: true, name: true } });
 
   for (const tenant of tenants) {

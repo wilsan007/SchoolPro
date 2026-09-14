@@ -79,7 +79,7 @@ export async function onEmploiDuTempsCree(event: DrainedEvent): Promise<void> {
 
   if (payload.periodeId) {
     const periode = await prisma.periode.findFirst({
-      // eslint-disable-next-line ecolpro/require-site-filter -- tâche de fond, scope via anneeId appartenant au tenant
+       
       where: { id: payload.periodeId, anneeId: annee.id, annee: { tenantId } },
       select: { dateDebut: true, dateFin: true },
     });
@@ -93,7 +93,7 @@ export async function onEmploiDuTempsCree(event: DrainedEvent): Promise<void> {
 
   // Séances déjà existantes pour le même créneau (même classe/matière/prof).
   const existantes = await prisma.seancePedagogique.findMany({
-    // eslint-disable-next-line ecolpro/require-site-filter -- scope via identifiants pédagogiques
+     
     where: {
       tenantId,
       classeId: payload.classeId,

@@ -419,12 +419,12 @@ export async function listCreneaux(
   const emplois = await prisma.emploiTemps.findMany({
     where: { tenantId, ...siteFilterForModel("emploiTemps", siteClaims ?? {}), classeId: classe.id, annee, ...(args.jour ? { jour: args.jour } : {}) },
     include: {
-      // eslint-disable-next-line ecolpro/require-site-filter -- relation to-one depuis emploiTemps déjà filtré par site au niveau parent
+       
       matiere: { select: { nom: true } },
-      // eslint-disable-next-line ecolpro/require-site-filter -- relation to-one depuis emploiTemps déjà filtré par site au niveau parent
+       
       enseignant: {
         include: {
-          // eslint-disable-next-line ecolpro/require-site-filter -- user est un modèle d'auth, pas de données tenant
+           
           user: { select: { name: true } },
         },
       },

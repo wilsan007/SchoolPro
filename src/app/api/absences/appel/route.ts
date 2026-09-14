@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
     const operations = Object.entries(presences)
       .filter(([, status]) => status !== "present")
       .map(([eleveId, status]) =>
+         
         prisma.absence.upsert({
           where: {
             id: `appel-${classeId}-${eleveId}-${appelDate.toISOString().split("T")[0]}`,

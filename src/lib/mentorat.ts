@@ -69,6 +69,7 @@ export async function ajouterObjectif(
   dateCible?: Date,
   priorite: number = 3
 ): Promise<ObjectifMentorat> {
+   
   return prisma.objectifMentorat.create({
     data: { mentoratId, titre, description, dateCible, priorite },
   });
@@ -82,6 +83,7 @@ export async function actualiserProgressionObjectif(
   progression: number
 ): Promise<ObjectifMentorat> {
   const statut = progression >= 100 ? "ATTEINT" : "EN_COURS";
+   
   return prisma.objectifMentorat.update({
     where: { id: objectifId },
     data: { progression: Math.min(100, Math.max(0, progression)), statut },
@@ -97,6 +99,7 @@ export async function planifierSeance(
   lieu?: string,
   duree?: number
 ): Promise<SeanceMentorat> {
+   
   return prisma.seanceMentorat.create({
     data: { mentoratId, date, lieu, duree },
   });

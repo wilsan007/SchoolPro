@@ -529,7 +529,7 @@ export async function passerEnRevueLesPlansEchus(
 ): Promise<number> {
   // Tâche système : elle balaie délibérément tous les tenants, comme les autres
   // traitements planifiés.
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+  // eslint-disable-next-line ecolpro/require-tenant-id
   const { count } = await prisma.planProgression.updateMany({
     where: { statut: "ACTIF", dateRevue: { lte: maintenant } },
     data: { statut: "EN_REVUE" },

@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Lier le compte User au Parent
-    // eslint-disable-next-line ecolpro/require-tenant-id -- parentId provient du lot déjà filtré par tenantId
+     
     await prisma.parent.update({
       where: { id: info.parentId, tenantId },
       data: { userId: user.id },

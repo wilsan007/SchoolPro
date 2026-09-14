@@ -29,7 +29,7 @@ export async function onNoteDeleted(event: DrainedEvent): Promise<void> {
   }
 
   // Étape 1 : supprimer toutes les preuves issues de cette note.
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, sourceId)
+   
   await prisma.learningEvidence.deleteMany({
     where: { tenantId: event.tenantId, sourceType: "note", sourceId: p.noteId },
   });

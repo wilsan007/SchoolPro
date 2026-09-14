@@ -14,7 +14,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    // eslint-disable-next-line ecolpro/require-site-filter -- paiement n'a pas de siteId, contrôle de site via canAccessSite(facture.siteId) ligne 55
+    // eslint-disable-next-line ecolpro/require-site-filter -- findUnique par id only; contrôle tenantId ligne 49 + contrôle site via canAccessSite(facture.siteId) ligne 56
     const paiement = await prisma.paiement.findUnique({
       where: { id },
       include: {

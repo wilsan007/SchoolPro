@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
       ...(alerte
         ? {
             // quantite <= quantiteMin
-            quantite: { lte: prisma.itemInventaire.fields.quantiteMin as any },
+            // FieldRef comparison — Prisma type doesn't expose this cleanly, cast is safe
+            quantite: { lte: prisma.itemInventaire.fields.quantiteMin as unknown as never },
           }
         : {}),
       ...(search

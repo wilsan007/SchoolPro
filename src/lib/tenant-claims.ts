@@ -302,7 +302,7 @@ export async function resolveSiteAccess(
  *  - changement de rôle dans un tenant.
  */
 export async function incrementerSessionVersion(userId: string): Promise<void> {
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- invalidation de session : pas de session, pas de tenant
+  // eslint-disable-next-line ecolpro/require-tenant-id -- invalidation de session : pas de session, pas de tenant
   await prisma.user.update({
     where: { id: userId },
     data: { sessionVersion: { increment: 1 } },

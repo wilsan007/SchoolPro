@@ -73,7 +73,7 @@ export async function mettreAJourStatutEmail(
   if (!config) return;
 
   try {
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- webhook entrant, lookup par resendId (clé unique Resend)
+    // eslint-disable-next-line ecolpro/require-tenant-id -- webhook entrant, lookup par resendId (clé unique Resend)
     const existing = await prisma.emailLog.findUnique({
       where: { resendId },
       select: { id: true },
@@ -85,7 +85,7 @@ export async function mettreAJourStatutEmail(
       data[config.champ] = now;
     }
 
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- resendId déjà vérifié par findUnique
+    // eslint-disable-next-line ecolpro/require-tenant-id -- resendId déjà vérifié par findUnique
     await prisma.emailLog.update({
       where: { id: existing.id },
       data,

@@ -346,7 +346,7 @@ export async function envoyerAlertesEnAttente(
   limite = 100,
   maintenant: Date = new Date()
 ): Promise<{ envoyees: number; supprimees: number; echouees: number }> {
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+  // eslint-disable-next-line ecolpro/require-tenant-id
   const enAttente = await prisma.alerteParent.findMany({
     where: { statut: "EN_ATTENTE" },
     orderBy: { createdAt: "asc" },
@@ -381,7 +381,7 @@ export async function envoyerAlertesEnAttente(
   for (const alerte of enAttente) {
     const prefs = alerte.parent.learnosPreferences ?? PREFERENCES_PAR_DEFAUT;
 
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+    // eslint-disable-next-line ecolpro/require-tenant-id
     const dejaEnvoyees = await prisma.alerteParent.count({
       where: {
         parentId: alerte.parentId,
@@ -392,7 +392,7 @@ export async function envoyerAlertesEnAttente(
 
     const decision = deciderEnvoi(alerte.niveau, prefs, dejaEnvoyees);
     if (!decision.envoyer) {
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+      // eslint-disable-next-line ecolpro/require-tenant-id
       await prisma.alerteParent.update({
         where: { id: alerte.id },
         data: { statut: "SUPPRIMEE", motifSuppression: decision.motif },
@@ -409,7 +409,7 @@ export async function envoyerAlertesEnAttente(
 
     const resultat = await sendWhatsAppMessage(alerte.parent.phone, texte);
 
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+    // eslint-disable-next-line ecolpro/require-tenant-id
     await prisma.alerteParent.update({
       where: { id: alerte.id },
       data: resultat.success

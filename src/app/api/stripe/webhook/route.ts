@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
           const amount = (session.amount_total ?? 0) / 100;
 
           // Create payment record
+           
           await prisma.paiement.create({
             data: {
               factureId,

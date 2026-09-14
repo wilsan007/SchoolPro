@@ -79,7 +79,7 @@ async function fetchDashboardData(
         matiere: { select: { nom: true, couleur: true } },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+     
     wheres.relationScoped
       ? Promise.resolve(null)
       // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres

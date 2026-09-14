@@ -90,6 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (Object.keys(data).length === 0) return erreurJson("DONNEES_INVALIDES");
 
+     
     const updated = await prisma.sanction.update({
       where: { id },
       data,
@@ -107,6 +108,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // La réintégration clôt le volet disciplinaire : si l'incident n'a plus
     // d'exclusion ouverte, il peut passer en RESOLU.
     if (reintegrer === true) {
+       
       const exclusionsOuvertes = await prisma.sanction.count({
         where: {
           incidentId: existing.incidentId,

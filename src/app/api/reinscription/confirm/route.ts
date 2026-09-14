@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       include: { campagne: true },
     });
   } else {
+     
     invitation = await prisma.invitationReinscription.findUnique({
       where: { id: invitationId! },
       include: { campagne: true },
