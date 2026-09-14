@@ -141,7 +141,7 @@ export async function deleteClasse(
   // Stratégie « archive » : soft delete, comme Google Classroom / PowerSchool
   if (strategy === "archive") {
     await prisma.classe.update({
-      where: { id: classeId },
+      where: { id: classeId, tenantId: session.user.tenantId },
       data: {
         deletedAt: new Date(),
         deletedBy: session.user.id,
@@ -238,7 +238,7 @@ export async function deleteClasse(
       resource: "classe",
       resourceId: classeId,
     });
-    await prisma.classe.delete({ where: { id: classeId } });
+    await prisma.classe.delete({ where: { id: classeId, tenantId: session.user.tenantId } });
   }
 
   revalidatePath("/parametres");

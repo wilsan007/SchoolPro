@@ -46,7 +46,7 @@ export async function PATCH(
     if (!existing) return NextResponse.json({ error: "Alumni introuvable" }, { status: 404 });
 
     const alumni = await prisma.alumni.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data,
     });
 
@@ -79,7 +79,7 @@ export async function DELETE(
   });
   if (!existing) return NextResponse.json({ error: "Alumni introuvable" }, { status: 404 });
 
-  await prisma.alumni.delete({ where: { id } });
+  await prisma.alumni.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

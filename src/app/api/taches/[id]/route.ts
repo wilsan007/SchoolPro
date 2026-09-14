@@ -120,7 +120,7 @@ export async function PATCH(
     //   data.statut === "EN_COURS" && existing.statut !== "EN_COURS";
 
     const tache = await prisma.tache.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(data.titre !== undefined && { titre: data.titre }),
         ...(data.description !== undefined && { description: data.description }),
@@ -210,7 +210,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Tâche introuvable" }, { status: 404 });
   }
 
-  await prisma.tache.delete({ where: { id } });
+  await prisma.tache.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

@@ -37,7 +37,7 @@ export async function PATCH(
   }
 
   const updated = await prisma.congePersonnel.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: {
       statut: action,
       approuveParId: session.user.id,
@@ -67,8 +67,8 @@ export async function PATCH(
       select: { enseignantId: true },
     });
     if (ficheExistante) {
-      await prisma.ficheRH.update({
-        where: { enseignantId: conge.enseignantId },
+      await prisma.ficheRH.updateMany({
+        where: { enseignantId: conge.enseignantId, tenantId: session.user.tenantId },
         data: { congesPris: { increment: conge.nbJours } },
       });
     }

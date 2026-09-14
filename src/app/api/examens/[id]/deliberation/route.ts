@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Enregistrer les notes de délibération comme JSON dans une annotation (extensible)
     // En production : créer un modèle ResultatExamen dédié
     await prisma.examen.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         description: `${examen.description ?? ""}\n[DÉLIBÉRÉ le ${new Date().toLocaleDateString("fr-FR")}]`.trim(),
       },

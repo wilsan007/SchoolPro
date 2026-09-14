@@ -28,7 +28,7 @@ export async function lierExamenAFeuille(
   if (!feuille) throw new Error("Feuille d'exercices introuvable");
 
   return prisma.examen.update({
-    where: { id: examenId },
+    where: { id: examenId, tenantId },
     data: { feuilleExercicesId },
     include: { feuilleExercices: { include: { exercices: true } } },
   });

@@ -701,7 +701,7 @@ describe("activerNouvelleAnnee", () => {
     expect(res).toEqual({ success: true });
     expect(mockActivateAnnee).toHaveBeenCalledWith("an-cible");
     expect(mockPrisma.campagneReinscription.update).toHaveBeenCalledWith({
-      where: { id: "camp-1" },
+      where: { id: "camp-1", tenantId: "t1" },
       data: expect.objectContaining({
         statut: "TERMINEE",
         etapeActuelle: 6,

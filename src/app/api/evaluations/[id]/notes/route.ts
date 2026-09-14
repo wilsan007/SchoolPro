@@ -211,7 +211,7 @@ export async function PUT(
     const evaluationTerminee = notesWithValeur.length > 0 && evaluation.statut === "PLANIFIE";
     if (evaluationTerminee) {
       await prisma.evaluation.update({
-        where: { id: evaluationId },
+        where: { id: evaluationId, tenantId: session.user.tenantId },
         data: { statut: "TERMINE" }
       });
     }

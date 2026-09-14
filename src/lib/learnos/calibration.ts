@@ -158,7 +158,7 @@ export async function calibrerSeuils(
     // Persister la calibration.
     if (existante) {
       await prisma.calibrationSeuil.update({
-        where: { id: existante.id },
+        where: { id: existante.id, tenantId },
         data: {
           seuilCritique: seuilsApres.seuilCritique,
           seuilFragile: seuilsApres.seuilFragile,

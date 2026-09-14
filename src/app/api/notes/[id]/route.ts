@@ -79,7 +79,7 @@ export async function PATCH(
     if (parsed.data.commentaire !== undefined) updateData.commentaire = parsed.data.commentaire;
 
     const noteModifiee = await prisma.note.update({
-      where: { id: noteId },
+      where: { id: noteId, tenantId: session.user.tenantId },
       data: updateData,
     });
 
@@ -167,7 +167,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Note introuvable" }, { status: 404 });
     }
 
-    await prisma.note.delete({ where: { id: noteId } });
+    await prisma.note.delete({ where: { id: noteId, tenantId: session.user.tenantId } });
 
     auditFire({
       tenantId: session.user.tenantId,

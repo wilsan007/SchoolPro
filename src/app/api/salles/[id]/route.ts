@@ -18,7 +18,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const existing = await prisma.salle.findFirst({ where: { id, tenantId: session.user.tenantId, ...siteFilter } });
     if (!existing) return NextResponse.json({ error: "Salle introuvable" }, { status: 404 });
 
-    await prisma.salle.delete({ where: { id } });
+    await prisma.salle.delete({ where: { id, tenantId: session.user.tenantId } });
 
     auditFire({
       tenantId: session.user.tenantId,

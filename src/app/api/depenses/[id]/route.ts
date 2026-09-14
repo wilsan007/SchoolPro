@@ -68,7 +68,7 @@ async function recalculateBudget(
       : budget.statut;
 
   await prisma.budget.update({
-    where: { id: budgetId },
+    where: { id: budgetId, tenantId },
     data: { montantDepense, statut: newStatut },
   });
 }
@@ -151,7 +151,7 @@ export async function PATCH(
     }
 
     const depense = await prisma.depense.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(data.budgetId !== undefined && { budgetId: data.budgetId }),
         ...(data.date !== undefined && { date: new Date(data.date) }),
@@ -223,7 +223,7 @@ export async function DELETE(
 
   const budgetId = existing.budgetId;
 
-  await prisma.depense.delete({ where: { id } });
+  await prisma.depense.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

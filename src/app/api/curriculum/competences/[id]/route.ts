@@ -110,7 +110,7 @@ export async function PATCH(
   }
 
   const competence = await prisma.competence.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: { ...champs, ...relationPrerequis },
     include: { prerequis: { select: { id: true, code: true, libelle: true } } },
   });
@@ -155,7 +155,7 @@ export async function DELETE(
     });
   }
 
-  await prisma.competence.delete({ where: { id } });
+  await prisma.competence.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

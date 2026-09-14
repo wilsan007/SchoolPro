@@ -128,7 +128,7 @@ export async function mergeEleves(
           merge: { id: mergeId, matricule: merge.matricule, nom: merge.nom, prenom: merge.prenom },
         },
       },
-    }).catch(() => {}); // Non-bloquant
+    }).catch((e) => console.warn("[non-fatal]", e)); // Non-bloquant
   });
 
   revalidatePath("/eleves");

@@ -42,7 +42,7 @@ export async function PATCH(
   }
 
   const chapitre = await prisma.chapitre.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: parsed.data,
   });
 
@@ -81,7 +81,7 @@ export async function DELETE(
     });
   }
 
-  await prisma.chapitre.delete({ where: { id } });
+  await prisma.chapitre.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

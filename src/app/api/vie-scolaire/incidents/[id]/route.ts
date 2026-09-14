@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!existing) return erreurJson("INCIDENT_INTROUVABLE");
 
     const updated = await prisma.incident.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(parsed.data.statut && { statut: parsed.data.statut }),
         ...(parsed.data.notes !== undefined && { notes: parsed.data.notes }),
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Mettre le statut en traitement
     await prisma.incident.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: { statut: "EN_TRAITEMENT" },
     });
 

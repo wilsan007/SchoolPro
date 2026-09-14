@@ -66,7 +66,7 @@ export async function updateClasse(classeId: string, data: UpdateClasseFormData)
   }
 
   await prisma.classe.update({
-    where: { id: classeId },
+    where: { id: classeId, tenantId: session.user.tenantId },
     data: {
       nom: v.nom,
       niveau: v.niveau,
@@ -105,7 +105,7 @@ export async function archiveClasse(classeId: string, reason?: string) {
   if (classe.deletedAt) throw new Error("Cette classe est déjà archivée");
 
   await prisma.classe.update({
-    where: { id: classeId },
+    where: { id: classeId, tenantId: session.user.tenantId },
     data: {
       deletedAt: new Date(),
       deletedBy: session.user.id,
@@ -139,7 +139,7 @@ export async function restoreClasse(classeId: string) {
   if (!classe.deletedAt) throw new Error("Cette classe n'est pas archivée");
 
   await prisma.classe.update({
-    where: { id: classeId },
+    where: { id: classeId, tenantId: session.user.tenantId },
     data: {
       deletedAt: null,
       deletedBy: null,

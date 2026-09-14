@@ -770,7 +770,7 @@ export async function validerFeuille(
   }
 
   await prisma.feuilleExercices.update({
-    where: { id: feuille.id },
+    where: { id: feuille.id, tenantId },
     data: {
       statut: "ASSIGNEE",
       valideParId,

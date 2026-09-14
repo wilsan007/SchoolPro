@@ -227,7 +227,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const updated = await prisma.devoir.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: { statut },
     include: {
       classe: { select: { nom: true } },

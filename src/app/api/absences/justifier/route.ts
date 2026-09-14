@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
 
   const updated = await prisma.absence.update({
-    where: { id: absenceId },
+    where: { id: absenceId, tenantId },
     data: {
       statut: "JUSTIFIEE",
       motif,

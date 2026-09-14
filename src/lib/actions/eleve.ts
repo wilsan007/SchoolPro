@@ -279,7 +279,7 @@ export async function createEleve(
         dateEntree: new Date(),
         motif: "Inscription",
       },
-    }).catch(() => {}); // Non-bloquant
+    }).catch((e) => console.warn("[non-fatal]", e)); // Non-bloquant
   }
 
   if (values.parentNom && values.parentPrenom && values.parentPhone) {
@@ -392,7 +392,7 @@ export async function updateEleve(
 
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId + siteFilter ci-dessus
   await prisma.eleve.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: {
       nom: values.nom,
       prenom: values.prenom,
@@ -498,7 +498,7 @@ export async function deleteEleve(id: string, reason?: string) {
 
   // Soft delete : marquer avec un timestamp + désactiver le compte utilisateur
   await prisma.eleve.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: {
       deletedAt: new Date(),
       statut: "ABANDONNE",
@@ -515,7 +515,7 @@ export async function deleteEleve(id: string, reason?: string) {
   await prisma.historiqueClasse.updateMany({
     where: { eleveId: id, tenantId, dateSortie: null },
     data: { dateSortie: new Date(), motif: "Départ/suppression" },
-  }).catch(() => {}); // Non-bloquant
+  }).catch((e) => console.warn("[non-fatal]", e)); // Non-bloquant
 
   // Audit trail
   await audit({
@@ -578,7 +578,7 @@ export async function restoreEleve(id: string) {
   }
 
   await prisma.eleve.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: {
       deletedAt: null,
       statut: "ACTIF",

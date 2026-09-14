@@ -53,7 +53,7 @@ export async function PATCH(
     } catch (e) {
       console.error("[Communication] Échec dispatch:", e);
       // eslint-disable-next-line ecolpro/require-tenant-id -- id déjà vérifié par findFirst ci-dessus (ligne 23-25)
-      await prisma.notification.update({ where: { id }, data: { statut: "ECHEC" } });
+      await prisma.notification.update({ where: { id, tenantId: session.user.tenantId }, data: { statut: "ECHEC" } });
       return NextResponse.json({ error: "Échec de l'envoi" }, { status: 500 });
     }
   }
@@ -68,7 +68,7 @@ export async function PATCH(
       resourceId: id,
     });
     // eslint-disable-next-line ecolpro/require-tenant-id -- id déjà vérifié par findFirst ci-dessus (ligne 23-25)
-    await prisma.notification.delete({ where: { id } });
+    await prisma.notification.delete({ where: { id, tenantId: session.user.tenantId } });
     return NextResponse.json({ success: true });
   }
 

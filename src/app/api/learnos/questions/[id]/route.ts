@@ -89,7 +89,7 @@ export async function PATCH(
 
   if (Object.keys(data).length === 0) return erreurJson("DONNEES_INVALIDES");
 
-  await prisma.question.update({ where: { id: question.id }, data });
+  await prisma.question.update({ where: { id: question.id, tenantId: session.user.tenantId }, data });
   return NextResponse.json({ ok: true });
 }
 

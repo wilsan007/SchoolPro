@@ -94,7 +94,7 @@ export async function activerModule(
   if (existing) {
     // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
     return prisma.moduleActivation.update({
-      where: { id: existing.id },
+      where: { id: existing.id, tenantId },
       data: {
         statut: "ACTIF",
         activeAt: new Date(),
@@ -142,7 +142,7 @@ export async function desactiverModule(
 
   // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
   return prisma.moduleActivation.update({
-    where: { id: activation.id },
+    where: { id: activation.id, tenantId },
     data: {
       statut: "DESACTIVE",
       desactiveAt: new Date(),

@@ -108,7 +108,7 @@ export async function DELETE(req: NextRequest) {
     });
     if (!existing) return erreurJson("PERMISSIONS_INSUFFISANTES");
 
-    await prisma.userPermission.delete({ where: { id } });
+    await prisma.userPermission.delete({ where: { id, tenantId: session.user.tenantId } });
 
     auditFire({
       userId: session.user.id,

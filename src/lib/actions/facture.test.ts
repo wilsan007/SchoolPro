@@ -390,7 +390,7 @@ describe("facture actions", () => {
       expect(result).toEqual({ success: true });
       expect(mockPrisma.facture.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "f1" },
+          where: { id: "f1", tenantId: "tenant1" },
           data: { statut: "ANNULEE" },
         })
       );

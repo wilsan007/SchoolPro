@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     const isRetard = status === "retard";
 
     await prisma.absence.upsert({
-      where: { id: absenceId },
+      where: { id: absenceId, tenantId: user.tenantId },
       create: {
         id: absenceId,
         tenantId: user.tenantId,

@@ -632,7 +632,7 @@ export async function annulerFacture(factureId: string) {
   }
 
   await prisma.facture.update({
-    where: { id: factureId },
+    where: { id: factureId, tenantId: session.user.tenantId },
     data: { statut: "ANNULEE" },
   });
 

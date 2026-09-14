@@ -322,7 +322,7 @@ export async function setAnneeCourante(tenantId: string, anneeId: string) {
       data: { isCurrent: false },
     }),
     prisma.anneesScolaires.update({
-      where: { id: anneeId },
+      where: { id: anneeId, tenantId },
       data: { isCurrent: true },
     }),
   ]);

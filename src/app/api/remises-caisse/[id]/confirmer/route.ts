@@ -98,7 +98,7 @@ export async function POST(
     // Si action = rejeter, on rejette quelle que soit la concordance.
     if (data.action === "rejeter") {
       const updated = await prisma.remiseCaisse.update({
-        where: { id },
+        where: { id, tenantId: session.user.tenantId },
         data: {
           statut: "REJETE",
           receveurId: session.user.id,
@@ -133,7 +133,7 @@ export async function POST(
     if (ecart > 0.01) {
       // Écart détecté : on rejette automatiquement avec le motif.
       const updated = await prisma.remiseCaisse.update({
-        where: { id },
+        where: { id, tenantId: session.user.tenantId },
         data: {
           statut: "REJETE",
           receveurId: session.user.id,
@@ -170,7 +170,7 @@ export async function POST(
     // automatiquement (jour de la saisie). Les noms (caissier et receveur)
     // sont enregistrés via les relations.
     const updated = await prisma.remiseCaisse.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         statut: "CONFIRME",
         receveurId: session.user.id,

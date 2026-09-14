@@ -37,7 +37,7 @@ export async function PATCH(
   }
 
   const updated = await prisma.absencePersonnel.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: {
       statut,
       commentaire: commentaire || absence.commentaire,
@@ -71,10 +71,10 @@ export async function PATCH(
       select: { enseignantId: true },
     });
     if (ficheExistante) {
-      await prisma.ficheRH.update({
-        where: { enseignantId: absence.enseignantId },
+      await prisma.ficheRH.updateMany({
+        where: { enseignantId: absence.enseignantId, tenantId: session.user.tenantId },
         data: { absencesCount: count },
-      }).catch(() => {});
+      }).catch((e) => console.warn("[non-fatal]", e));
     }
   }
 

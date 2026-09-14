@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
       console.error("[Communication] Échec dispatch:", e);
       // eslint-disable-next-line ecolpro/require-tenant-id -- notification.id vient d'être créé avec tenantId (ligne 105)
       await prisma.notification.update({
-        where: { id: notification.id },
+        where: { id: notification.id, tenantId },
         data: { statut: "ECHEC" },
       });
       return NextResponse.json(

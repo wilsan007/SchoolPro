@@ -29,7 +29,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Indisponibilité introuvable" }, { status: 404 });
     }
 
-    await prisma.indisponibiliteEnseignant.delete({ where: { id } });
+    await prisma.indisponibiliteEnseignant.delete({ where: { id, tenantId: session.user.tenantId } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[API/indisponibilites DELETE]", error);

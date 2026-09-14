@@ -140,7 +140,7 @@ async function mettreAJourPlanificationChapitre(
     // Toutes les compétences sont couvertes → TRAITE
     if (planif.statut !== "TRAITE") {
       await prisma.planificationChapitre.update({
-        where: { id: planif.id },
+        where: { id: planif.id, tenantId },
         data: {
           statut: "TRAITE",
           traiteLe: planif.traiteLe ?? maintenant,
@@ -159,7 +159,7 @@ async function mettreAJourPlanificationChapitre(
     // Il reste du travail → EN_COURS
     if (planif.statut !== "EN_COURS") {
       await prisma.planificationChapitre.update({
-        where: { id: planif.id },
+        where: { id: planif.id, tenantId },
         data: {
           statut: "EN_COURS",
           demarreLe: planif.demarreLe ?? maintenant,
@@ -240,7 +240,7 @@ async function mettreAJourPlanificationCompetence(
   if (couverte) {
     if (planif.statut !== "TRAITE") {
       await prisma.planificationCompetence.update({
-        where: { id: planif.id },
+        where: { id: planif.id, tenantId },
         data: { statut: "TRAITE" },
       });
       auditFire({
@@ -255,7 +255,7 @@ async function mettreAJourPlanificationCompetence(
   } else {
     if (planif.statut !== "EN_COURS") {
       await prisma.planificationCompetence.update({
-        where: { id: planif.id },
+        where: { id: planif.id, tenantId },
         data: { statut: "EN_COURS" },
       });
       auditFire({

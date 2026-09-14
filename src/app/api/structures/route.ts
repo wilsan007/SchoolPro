@@ -146,7 +146,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.structure.delete({
-      where: { id: structureId },
+      where: { id: structureId, tenantId: session.user.tenantId },
     });
 
     return NextResponse.json({ success: true });

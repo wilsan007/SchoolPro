@@ -365,7 +365,7 @@ export async function appliquerAretes(
   for (const [competenceId, prerequisIds] of parCompetence) {
     if (!idsAutorises.has(competenceId)) continue;
     await prisma.competence.update({
-      where: { id: competenceId },
+      where: { id: competenceId, tenantId },
       data: { prerequis: { connect: prerequisIds.map((id) => ({ id })) } },
     });
     appliquees += prerequisIds.length;

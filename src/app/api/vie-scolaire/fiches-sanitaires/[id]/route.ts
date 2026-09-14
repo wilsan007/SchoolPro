@@ -65,7 +65,7 @@ export async function PATCH(
     }
 
     const fiche = await prisma.ficheSanitaire.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(data.allergies !== undefined && { allergies: data.allergies }),
         ...(data.traitements !== undefined && { traitements: data.traitements }),
@@ -152,7 +152,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Fiche sanitaire introuvable" }, { status: 404 });
   }
 
-  await prisma.ficheSanitaire.delete({ where: { id } });
+  await prisma.ficheSanitaire.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

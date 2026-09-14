@@ -46,7 +46,7 @@ export async function PATCH(
     if (!existing) return NextResponse.json({ error: "Item introuvable" }, { status: 404 });
 
     const item = await prisma.itemInventaire.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...data,
         dateRevision: data.dateRevision ? new Date(data.dateRevision) : undefined,
@@ -91,7 +91,7 @@ export async function DELETE(
   });
   if (!existing) return NextResponse.json({ error: "Item introuvable" }, { status: 404 });
 
-  await prisma.itemInventaire.delete({ where: { id } });
+  await prisma.itemInventaire.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

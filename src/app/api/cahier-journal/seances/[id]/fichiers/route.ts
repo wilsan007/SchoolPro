@@ -76,7 +76,7 @@ export async function POST(
     const fichiersMisAJour = [...fichiersActuels, nouveauFichier];
 
     await prisma.seancePedagogique.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: { fichiers: fichiersMisAJour as unknown as Prisma.InputJsonValue },
     });
 
@@ -133,7 +133,7 @@ export async function DELETE(
     const fichiersMisAJour = fichiersActuels.filter((_, i) => i !== index);
 
     await prisma.seancePedagogique.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: { fichiers: fichiersMisAJour as unknown as Prisma.InputJsonValue },
     });
 

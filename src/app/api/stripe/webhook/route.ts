@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
           const newStatut = totalPaye >= facture.montant ? "PAYEE" : facture.statut;
 
           await prisma.facture.update({
-            where: { id: factureId },
+            where: { id: factureId, tenantId },
             data: { statut: newStatut as never },
           });
 

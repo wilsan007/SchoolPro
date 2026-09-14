@@ -183,7 +183,7 @@ export async function analyserPatterns(
 
     if (existant) {
       await prisma.patternPedagogique.update({
-        where: { id: existant.id },
+        where: { id: existant.id, tenantId },
         data: {
           masteryMoyenne: p.masteryMoyenne,
           confidenceMoyenne: p.confidenceMoyenne,

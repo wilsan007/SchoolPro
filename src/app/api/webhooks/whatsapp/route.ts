@@ -49,21 +49,26 @@ export async function POST(request: NextRequest) {
       return erreurJson("SIGNATURE_INVALIDE");
     }
 
-    const body = JSON.parse(raw);
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return erreurJson("DONNEES_INVALIDES");
+    }
 
     if (body.object !== "whatsapp_business_account") {
       return NextResponse.json({ ok: true });
     }
 
-    for (const entry of body.entry ?? []) {
-      for (const change of entry.changes ?? []) {
-        const value = change.value;
+    for (const entry of (body.entry as Array<Record<string, unknown>>) ?? []) {
+      for (const change of (entry.changes as Array<Record<string, unknown>>) ?? []) {
+        const value = change.value as Record<string, unknown>;
 
         // Messages entrants
         if (value.messages) {
-          for (const msg of value.messages) {
-            const from = msg.from; // numéro international
-            const text = msg.text?.body ?? msg.type ?? "(media)";
+          for (const msg of value.messages as Array<Record<string, unknown>>) {
+            const from = msg.from as string; // numéro international
+            const text = ((msg.text as Record<string, unknown> | undefined)?.body as string) ?? (msg.type as string) ?? "(media)";
 
             console.log(`[WhatsApp Webhook] Message de ${sanitizeForLog(from)}`);
 
@@ -76,7 +81,7 @@ export async function POST(request: NextRequest) {
 
         // Statuts de livraison
         if (value.statuses) {
-          for (const status of value.statuses) {
+          for (const status of value.statuses as Array<Record<string, unknown>>) {
             console.log(`[WhatsApp Webhook] Statut message ${status.id}: ${status.status}`);
           }
         }

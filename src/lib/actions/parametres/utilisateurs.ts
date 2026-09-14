@@ -205,7 +205,7 @@ export async function createUser(data: UserFormData) {
     // Si prof principal, assigner la classe principale
     if (v.role === "CLASS_TEACHER" && v.classePrincipaleId) {
       await prisma.classe.update({
-        where: { id: v.classePrincipaleId },
+        where: { id: v.classePrincipaleId, tenantId: session.user.tenantId },
         data: { profPrincipalId: enseignant.id },
       });
     }
@@ -289,12 +289,12 @@ export async function deleteUser(userId: string) {
   // eslint-disable-next-line ecolpro/require-tenant-id -- tenantId explicite ci-dessous
   await prisma.userTenant.deleteMany({
     where: { userId, tenantId: session.user.tenantId },
-  }).catch(() => {});
+  }).catch((e) => console.warn("[non-fatal]", e));
 
   // 3. Supprimer les affectations de site du tenant courant uniquement.
   await prisma.userSite.deleteMany({
     where: { userId, site: { tenantId: session.user.tenantId } },
-  }).catch(() => {});
+  }).catch((e) => console.warn("[non-fatal]", e));
 
   auditFire({
     tenantId: session.user.tenantId,

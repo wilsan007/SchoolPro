@@ -194,7 +194,7 @@ export async function ajusterPlanLecon(
   }
 
   await prisma.planLecon.update({
-    where: { id: planId },
+    where: { id: planId, tenantId },
     data: {
       ...(modifications.titre ? { titre: modifications.titre } : {}),
       ...(modifications.objectifs ? { objectifs: JSON.stringify(modifications.objectifs) } : {}),
@@ -248,7 +248,7 @@ export async function ajusterRubrique(
   }
 
   await prisma.rubriqueEvaluation.update({
-    where: { id: rubriqueId },
+    where: { id: rubriqueId, tenantId },
     data: {
       ...(modifications.titre ? { titre: modifications.titre } : {}),
       ...(modifications.criteres ? { criteres: JSON.stringify(modifications.criteres) } : {}),
@@ -292,7 +292,7 @@ export async function validerPlanLecon(
   }
 
   await prisma.planLecon.update({
-    where: { id: planId },
+    where: { id: planId, tenantId },
     data: {
       statut: "VALIDE",
       valideParId: userId,
@@ -330,7 +330,7 @@ export async function validerRubrique(
   }
 
   await prisma.rubriqueEvaluation.update({
-    where: { id: rubriqueId },
+    where: { id: rubriqueId, tenantId },
     data: {
       statut: "VALIDE",
       valideParId: userId,
@@ -377,7 +377,7 @@ export async function rejeterProposition(
     }
 
     await prisma.planLecon.update({
-      where: { id: propositionId },
+      where: { id: propositionId, tenantId },
       data: { statut: "REJETE", motifRejet: motif },
     });
   } else {
@@ -395,7 +395,7 @@ export async function rejeterProposition(
     }
 
     await prisma.rubriqueEvaluation.update({
-      where: { id: propositionId },
+      where: { id: propositionId, tenantId },
       data: { statut: "REJETE", motifRejet: motif },
     });
   }

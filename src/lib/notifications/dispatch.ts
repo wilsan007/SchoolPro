@@ -223,7 +223,7 @@ export async function dispatchNotification(
 
   // eslint-disable-next-line ecolpro/require-tenant-id -- notif.id vérifié par findFirst avec tenantId (ligne 123-125)
   await prisma.notification.update({
-    where: { id: notif.id },
+    where: { id: notif.id, tenantId },
     data: {
       statut: success ? "ENVOYEE" : "ECHEC",
       envoyeeAt: new Date(),

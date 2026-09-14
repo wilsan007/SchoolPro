@@ -91,7 +91,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Signature invalide" }, { status: 401 });
     }
 
-    const event = JSON.parse(rawBody) as ResendWebhookEvent;
+    let event: ResendWebhookEvent;
+    try {
+      event = JSON.parse(rawBody) as ResendWebhookEvent;
+    } catch {
+      console.error("[Webhook/Resend] Body JSON invalide");
+      return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
+    }
 
     // Extraire le type d'événement : "email.delivered" → "delivered"
     const evenement = event.type?.replace("email.", "") ?? "";

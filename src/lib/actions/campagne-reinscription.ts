@@ -374,7 +374,7 @@ export async function envoyerRelance(invitationId: string) {
   }
 
   await prisma.invitationReinscription.update({
-    where: { id: invitationId },
+    where: { id: invitationId, tenantId: session.user.tenantId },
     data: {
       nbRelances: { increment: 1 },
       derniereRelance: new Date(),
@@ -571,7 +571,7 @@ export async function activerNouvelleAnnee(campagneId: string) {
 
   // Marquer la campagne comme terminée
   await prisma.campagneReinscription.update({
-    where: { id: campagneId },
+    where: { id: campagneId, tenantId: session.user.tenantId },
     data: { statut: "TERMINEE", dateFin: new Date(), etapeActuelle: 6 },
   });
 

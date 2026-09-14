@@ -230,7 +230,7 @@ export async function updateParentPhone(parentId: string, phone: string, telegra
   if (!parent) throw new Error("Parent non trouvé");
 
   await prisma.parent.update({
-    where: { id: parentId },
+    where: { id: parentId, tenantId: session.user.tenantId },
     data: {
       phone,
       telegramChatId: telegramChatId || null,
@@ -262,7 +262,7 @@ export async function deleteParent(parentId: string) {
     resourceId: parentId,
   });
 
-  await prisma.parent.delete({ where: { id: parentId } });
+  await prisma.parent.delete({ where: { id: parentId, tenantId: session.user.tenantId } });
 
   revalidatePath("/parametres");
   return { success: true };

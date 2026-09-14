@@ -47,7 +47,7 @@ export async function onKpiRecalculer(event: DrainedEvent): Promise<void> {
     });
     if (existing) {
       await prisma.kpiSnapshot.update({
-        where: { id: existing.id },
+        where: { id: existing.id, tenantId },
         data: { valeur: snapshot.valeur },
       });
     } else {

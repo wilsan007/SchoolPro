@@ -77,7 +77,7 @@ export async function deleteMatiere(matiereId: string) {
     resourceId: matiereId,
   });
 
-  await prisma.matiere.delete({ where: { id: matiereId } });
+  await prisma.matiere.delete({ where: { id: matiereId, tenantId: session.user.tenantId } });
 
   revalidatePath("/parametres");
   return { success: true };

@@ -217,7 +217,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const updated = await prisma.remplacementCours.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         statut: statut as StatutRemplacement,
         decideParId: decideParId ?? session.user.id,

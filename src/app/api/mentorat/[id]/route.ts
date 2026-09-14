@@ -83,7 +83,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.mentorat.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data,
     });
 

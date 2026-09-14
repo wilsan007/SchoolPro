@@ -70,7 +70,7 @@ export async function POST(
 
   if (parsed.data.decision === "ecarter") {
     await prisma.feuilleExercices.update({
-      where: { id: feuille.id },
+      where: { id: feuille.id, tenantId },
       data: { statut: "REFUSEE", valideParId: session.user.id, valideeLe: new Date() },
     });
     return NextResponse.json({ statut: "REFUSEE" });

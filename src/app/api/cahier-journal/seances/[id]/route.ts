@@ -210,7 +210,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.seancePedagogique.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data,
       include: {
         matiere: { select: { id: true, nom: true, code: true, couleur: true } },
@@ -322,7 +322,7 @@ export async function DELETE(
     });
     if (!existing) return erreurJson("SEANCE_INTROUVABLE");
 
-    await prisma.seancePedagogique.delete({ where: { id } });
+    await prisma.seancePedagogique.delete({ where: { id, tenantId: session.user.tenantId } });
 
     auditFire({
       tenantId: session.user.tenantId,

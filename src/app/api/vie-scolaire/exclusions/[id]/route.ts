@@ -130,7 +130,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         if (!incident) return erreurJson("INCIDENT_INTROUVABLE");
 
         await prisma.incident.update({
-          where: { id: existing.incidentId },
+          where: { id: existing.incidentId, tenantId },
           data: {
             statut: "RESOLU",
             actionPrise: `Exclusion exécutée avec continuité pédagogique, élève réintégré le ${(

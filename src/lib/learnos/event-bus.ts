@@ -222,7 +222,7 @@ export async function drainEvents(limit = DEFAULT_BATCH): Promise<DrainResult> {
             lastError: motif.slice(0, 500),
           },
         })
-        .catch(() => {});
+        .catch((e) => console.warn("[non-fatal]", e));
 
       if (abandonne) {
         resultat.abandoned++;
@@ -364,7 +364,7 @@ export async function replayDeadletterEvent(
       },
     }),
     prisma.learnosEventDeadletter.update({
-      where: { id: deadletterId },
+      where: { id: deadletterId, tenantId },
       data: { resolution: "REPLAYED" },
     }),
   ]);

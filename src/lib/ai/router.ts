@@ -157,7 +157,7 @@ async function readCache(key: string): Promise<AiResult | null> {
   if (hit.expiresAt.getTime() < Date.now()) {
     // Purge paresseuse : l'entrée périmée est supprimée à la lecture, ce qui
     // évite d'avoir à planifier un nettoyage pour un volume aussi faible.
-    await prisma.aiCache.delete({ where: { id: hit.id } }).catch(() => {});
+    await prisma.aiCache.delete({ where: { id: hit.id } }).catch((e) => console.warn("[non-fatal]", e));
     return null;
   }
 
@@ -176,7 +176,7 @@ async function writeCache(key: string, result: AiResult): Promise<void> {
   // jamais faire échouer une génération déjà obtenue et payée.
   await prisma.aiCache
     .upsert({ where: { cacheKey: key }, create: payload, update: payload })
-    .catch(() => {});
+    .catch((e) => console.warn("[non-fatal]", e));
 }
 
 async function logDecision(

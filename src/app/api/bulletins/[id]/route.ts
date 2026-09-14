@@ -62,7 +62,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (rang !== undefined) dataToUpdate.rang = rang;
 
     const updated = await prisma.bulletin.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: dataToUpdate,
     });
 
@@ -148,7 +148,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       metadata: { eleveId: existing.eleveId, periodeId: existing.periodeId },
     });
 
-    await prisma.bulletin.delete({ where: { id } });
+    await prisma.bulletin.delete({ where: { id, tenantId: session.user.tenantId } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

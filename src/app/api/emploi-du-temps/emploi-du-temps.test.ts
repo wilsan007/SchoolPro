@@ -348,7 +348,7 @@ describe("DELETE /api/emploi-du-temps/:id", () => {
     const data = await res.json();
     expect(data.success).toBe(true);
     expect(mockPrisma.emploiTemps.delete).toHaveBeenCalledWith({
-      where: { id: "edt1" },
+      where: { id: "edt1", tenantId: "t1" },
     });
   });
 });

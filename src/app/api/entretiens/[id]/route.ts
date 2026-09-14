@@ -65,7 +65,7 @@ export async function PATCH(
     }
 
     const entretien = await prisma.entretienConseiller.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(data.statut && { statut: data.statut }),
         ...(data.compteRendu !== undefined && { compteRendu: data.compteRendu }),
@@ -138,7 +138,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Entretien introuvable" }, { status: 404 });
   }
 
-  await prisma.entretienConseiller.delete({ where: { id } });
+  await prisma.entretienConseiller.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

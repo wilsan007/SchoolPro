@@ -75,7 +75,7 @@ export async function PATCH(
     }
 
     const passage = await prisma.passageInfirmerie.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(data.soin !== undefined && { soin: data.soin }),
         ...(data.suite !== undefined && { suite: data.suite }),
@@ -148,7 +148,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Passage introuvable" }, { status: 404 });
   }
 
-  await prisma.passageInfirmerie.delete({ where: { id } });
+  await prisma.passageInfirmerie.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

@@ -107,7 +107,7 @@ export async function demanderLienEnfant(data: {
   if (demandeExistante) {
     // eslint-disable-next-line ecolpro/require-tenant-id -- demandeExistante provient du findUnique ci-dessus, déjà isolé par tenant
     await prisma.demandeLienParent.update({
-      where: { id: demandeExistante.id },
+      where: { id: demandeExistante.id, tenantId: session.user.tenantId },
       data: {
         statut: "EN_ATTENTE",
         matriculeSaisi: matricule,
@@ -227,7 +227,7 @@ export async function validerDemandeLien(demandeId: string, lien: LienParente = 
   }
 
   await prisma.demandeLienParent.update({
-    where: { id: demandeId },
+    where: { id: demandeId, tenantId: session.user.tenantId },
     data: {
       statut: "VALIDE",
       traitePar: session.user.id,
@@ -297,7 +297,7 @@ export async function refuserDemandeLien(demandeId: string, motifRefus: string) 
   }
 
   await prisma.demandeLienParent.update({
-    where: { id: demandeId },
+    where: { id: demandeId, tenantId: session.user.tenantId },
     data: {
       statut: "REFUSE",
       traitePar: session.user.id,

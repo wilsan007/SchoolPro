@@ -138,7 +138,7 @@ export async function addUserToTenant(params: {
       if (existingUserRole) {
         // eslint-disable-next-line ecolpro/require-tenant-id -- existingUserRole a été obtenu par findUnique avec tenantId dans la clé composite ; réactivation d'un rôle possédé
         await prisma.userRole.update({
-          where: { id: existingUserRole.id },
+          where: { id: existingUserRole.id, tenantId: params.tenantId },
           data: { isActive: true },
         });
       } else {

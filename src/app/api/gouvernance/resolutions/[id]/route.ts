@@ -63,7 +63,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.résolution.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data,
     });
 

@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { intitule, description, statut, dateDebut, dateFin } = parsed.data;
 
     const updated = await prisma.examen.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(intitule && { intitule }),
         ...(description !== undefined && { description }),
@@ -83,7 +83,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     });
     if (!existing) return NextResponse.json({ error: "Examen introuvable" }, { status: 404 });
 
-    await prisma.examen.delete({ where: { id } });
+    await prisma.examen.delete({ where: { id, tenantId: session.user.tenantId } });
 
     auditFire({
       tenantId: session.user.tenantId,

@@ -84,7 +84,7 @@ export async function deleteTarif(tarifId: string) {
   if (!existant) throw new Error("Tarif introuvable");
 
   await prisma.tarifNiveau.delete({
-    where: { id: tarifId },
+    where: { id: tarifId, tenantId: session.user.tenantId },
   });
 
   revalidatePath("/parametres");
@@ -435,7 +435,7 @@ export async function exclureEleve(params: {
   if (!eleveAExclure) throw new Error("Élève introuvable");
 
   await prisma.eleve.update({
-    where: { id: eleveId },
+    where: { id: eleveId, tenantId: session.user.tenantId },
     data: { statut: "EXCLU" },
   });
 
@@ -459,7 +459,7 @@ export async function leverExclusion(exclusionId: string) {
   if (!exclusion) throw new Error("Exclusion non trouvée ou déjà levée");
 
   await prisma.exclusionEleve.update({
-    where: { id: exclusionId },
+    where: { id: exclusionId, tenantId: session.user.tenantId },
     data: {
       dateFin: new Date(),
       leveeParId: session.user.id,
@@ -479,7 +479,7 @@ export async function leverExclusion(exclusionId: string) {
   if (!eleveAReactiver) throw new Error("Élève introuvable");
 
   await prisma.eleve.update({
-    where: { id: exclusion.eleveId },
+    where: { id: exclusion.eleveId, tenantId: session.user.tenantId },
     data: { statut: "ACTIF" },
   });
 
@@ -540,7 +540,7 @@ export async function detecterFacturesEnRetard() {
     const totalPaye = f.paiements.reduce((s, p) => s + p.montant, 0);
     if (totalPaye < f.montant && f.statut !== "EN_RETARD") {
       await prisma.facture.update({
-        where: { id: f.id },
+        where: { id: f.id, tenantId: session.user.tenantId },
         data: { statut: "EN_RETARD" },
       });
     }

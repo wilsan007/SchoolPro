@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (!cours) return NextResponse.json({ error: "Cours introuvable" }, { status: 404 });
 
   // Incrémenter le compteur de vues
-  await prisma.cours.update({ where: { id }, data: { nbVues: { increment: 1 } } });
+  await prisma.cours.update({ where: { id, tenantId: session.user.tenantId }, data: { nbVues: { increment: 1 } } });
 
   return NextResponse.json({ cours });
 }
@@ -101,7 +101,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // Mise à jour du cours
   const data = UpdateSchema.parse(body);
   const cours = await prisma.cours.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data,
     include: {
       contenus: { orderBy: { ordre: "asc" } },
@@ -160,7 +160,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   });
   if (!existing) return NextResponse.json({ error: "Cours introuvable" }, { status: 404 });
 
-  await prisma.cours.delete({ where: { id } });
+  await prisma.cours.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

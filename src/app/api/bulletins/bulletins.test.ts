@@ -442,7 +442,7 @@ describe("PUT /api/bulletins/[id]", () => {
     expect(json.success).toBe(true);
     expect(json.bulletin.appreciation).toBe("Nouveau commentaire");
     expect(mockPrisma.bulletin.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "b1" }, data: { appreciation: "Nouveau commentaire" } })
+      expect.objectContaining({ where: { id: "b1", tenantId: "t1" }, data: { appreciation: "Nouveau commentaire" } })
     );
   });
 
@@ -521,7 +521,7 @@ describe("DELETE /api/bulletins/[id]", () => {
 
     const res = await DELETE_BULLETIN(req("http://l/api/bulletins/b1"), params("b1"));
     expect(res.status).toBe(200);
-    expect(mockPrisma.bulletin.delete).toHaveBeenCalledWith({ where: { id: "b1" } });
+    expect(mockPrisma.bulletin.delete).toHaveBeenCalledWith({ where: { id: "b1", tenantId: "t1" } });
     expect(mockEnregistrerHistorique).toHaveBeenCalledWith(
       "b1",
       "t1",

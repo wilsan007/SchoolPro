@@ -211,7 +211,7 @@ describe("DELETE /api/indisponibilites/:id", () => {
     const data = await res.json();
     expect(data.ok).toBe(true);
     expect(mockPrisma.indisponibiliteEnseignant.delete).toHaveBeenCalledWith({
-      where: { id: "ind1" },
+      where: { id: "ind1", tenantId: "t1" },
     });
   });
 });

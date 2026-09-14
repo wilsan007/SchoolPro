@@ -414,7 +414,7 @@ describe("PATCH /api/taches/[id]", () => {
 
     expect(mockPrisma.tache.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "t1" },
+        where: { id: "t1", tenantId: "t1" },
         data: expect.objectContaining({ statut: "EN_COURS" }),
       })
     );

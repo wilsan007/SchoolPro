@@ -25,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
       // par défaut la fiche existe, comme dans le comportement historique du mock.
       findFirst: vi.fn().mockResolvedValue({ enseignantId: "e1" }),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     enseignant: {
       findFirst: vi.fn(),
@@ -339,7 +340,7 @@ describe("RH Congés API", () => {
       });
       const data = await res.json();
       expect(data.conge.statut).toBe("APPROUVE");
-      expect(mockPrisma.ficheRH.update).toHaveBeenCalledWith(
+      expect(mockPrisma.ficheRH.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { congesPris: { increment: 5 } },
         })
@@ -364,7 +365,7 @@ describe("RH Congés API", () => {
       await patchConge(req as never, {
         params: Promise.resolve({ id: "c2" }),
       });
-      expect(mockPrisma.ficheRH.update).not.toHaveBeenCalled();
+      expect(mockPrisma.ficheRH.updateMany).not.toHaveBeenCalled();
     });
   });
 });

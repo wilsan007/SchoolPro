@@ -192,7 +192,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Affectation introuvable" }, { status: 404 });
   }
 
-  await prisma.affectationEnseignant.delete({ where: { id } });
+  await prisma.affectationEnseignant.delete({ where: { id, tenantId: session.user.tenantId } });
 
   void auditFire({
     action: "parametres.affectation-enseignant.delete",

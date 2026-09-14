@@ -251,7 +251,7 @@ export async function PATCH(
   }
 
   const updated = await prisma.candidature.update({
-    where: { id },
+    where: { id, tenantId: session.user.tenantId },
     data: {
       ...(data.statut && { statut: data.statut }),
       ...(data.dateExamen !== undefined && {
@@ -450,7 +450,7 @@ export async function PATCH(
             dateEntree: new Date(),
             motif: "Inscription",
           },
-        }).catch(() => {});
+        }).catch((e) => console.warn("[non-fatal]", e));
 
         // e) Lien EleveParent
         if (parentId) {
@@ -519,9 +519,8 @@ export async function PATCH(
             },
           });
 
-          // eslint-disable-next-line ecolpro/require-tenant-id -- l'élève vient d'être créé dans la transaction ci-dessus
           await prisma.eleve.update({
-            where: { id: result.eleve.id },
+            where: { id: result.eleve.id, tenantId },
             data: { userId: user.id },
           });
         }
@@ -630,7 +629,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Candidature introuvable" }, { status: 404 });
   }
 
-  await prisma.candidature.delete({ where: { id } });
+  await prisma.candidature.delete({ where: { id, tenantId: session.user.tenantId } });
 
   auditFire({
     tenantId: session.user.tenantId,

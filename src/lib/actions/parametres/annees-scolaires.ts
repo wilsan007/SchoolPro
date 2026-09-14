@@ -81,7 +81,7 @@ export async function activateAnneeScolaire(anneeId: string) {
       data: { isCurrent: false },
     }),
     prisma.anneesScolaires.update({
-      where: { id: anneeId },
+      where: { id: anneeId, tenantId: session.user.tenantId },
       data: { isCurrent: true },
     }),
     prisma.tenant.update({
@@ -124,7 +124,7 @@ export async function deleteAnneeScolaire(anneeId: string) {
   });
 
   await prisma.anneesScolaires.delete({
-    where: { id: anneeId },
+    where: { id: anneeId, tenantId: session.user.tenantId },
   });
 
   revalidatePath("/parametres");

@@ -354,7 +354,7 @@ export async function publierListePourNiveau(niveau: string) {
         where: { listeId: existing.id },
       });
       await prisma.listeFournitureClasse.update({
-        where: { id: existing.id },
+        where: { id: existing.id, tenantId },
         data: {
           statut: "PUBLIEE",
           publieeParId: session.user.id,

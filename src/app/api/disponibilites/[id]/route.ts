@@ -20,7 +20,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     });
     if (!existing) return NextResponse.json({ error: "Disponibilité introuvable" }, { status: 404 });
 
-    await prisma.disponibiliteEnseignant.delete({ where: { id } });
+    await prisma.disponibiliteEnseignant.delete({ where: { id, tenantId: session.user.tenantId } });
 
     auditFire({
       tenantId: session.user.tenantId,

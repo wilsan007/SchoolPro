@@ -346,7 +346,7 @@ export async function verifierPredictions(
     const estCorrecte = ecart <= TOLERANCE_PREDICTION;
 
     await prisma.predictionDifficulte.update({
-      where: { id: pred.id },
+      where: { id: pred.id, tenantId },
       data: {
         masteryApres,
         predictionCorrecte: estCorrecte,

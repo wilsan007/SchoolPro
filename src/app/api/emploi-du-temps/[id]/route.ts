@@ -39,7 +39,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     });
     if (!existing) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
 
-    await prisma.emploiTemps.delete({ where: { id } });
+    await prisma.emploiTemps.delete({ where: { id, tenantId: session.user.tenantId } });
 
     auditFire({
       tenantId: session.user.tenantId,
@@ -224,7 +224,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const updated = await prisma.emploiTemps.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: {
         ...(body.jour && { jour: body.jour }),
         ...(body.salle !== undefined && { salle: body.salle }),

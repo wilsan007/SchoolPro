@@ -82,7 +82,7 @@ export async function PATCH(
     if (!existing) return erreurJson("CONSEIL_INTROUVABLE");
 
     const updated = await prisma.conseil.update({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       data: parsed.data,
     });
 
@@ -121,7 +121,7 @@ export async function DELETE(
     });
     if (!existing) return erreurJson("CONSEIL_INTROUVABLE");
 
-    await prisma.conseil.delete({ where: { id } });
+    await prisma.conseil.delete({ where: { id, tenantId: session.user.tenantId } });
 
     auditFire({
       tenantId: session.user.tenantId,

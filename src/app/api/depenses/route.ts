@@ -74,7 +74,7 @@ async function recalculateBudget(
   const newStatut = isDepasse ? "DEPASSE" : budget.statut === "DEPASSE" ? "VALIDE" : budget.statut;
 
   await prisma.budget.update({
-    where: { id: budgetId },
+    where: { id: budgetId, tenantId },
     data: { montantDepense, statut: newStatut },
   });
 

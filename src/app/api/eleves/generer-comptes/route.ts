@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
     });
 
     await prisma.eleve.update({
-      where: { id: eleve.id },
+      where: { id: eleve.id, tenantId: session.user.tenantId },
       data: { userId: user.id },
     });
 
