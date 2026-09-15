@@ -585,7 +585,7 @@ export default async function ParentPage({
     </div>
   );
 
-  const edtPanel = <ParentEdtView entries={edt as any} />;
+  const edtPanel = <ParentEdtView entries={edt} />;
 
   const documentsPanel = (
     <div className="space-y-4">

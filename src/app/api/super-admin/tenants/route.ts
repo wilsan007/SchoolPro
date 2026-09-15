@@ -3,6 +3,7 @@ import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import type { PlanType, TenantStatus } from "@prisma/client";
 import type { Session } from "next-auth";
 import { erreurJson } from "@/lib/erreurs-api";
 import { normaliserEmail } from "@/lib/email";
@@ -52,8 +53,8 @@ export async function GET(request: NextRequest) {
           { email: { contains: search, mode: "insensitive" } },
         ],
       } : {}),
-      ...(plan ? { plan: plan as any } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(plan ? { plan: plan as PlanType } : {}),
+      ...(status ? { status: status as TenantStatus } : {}),
     },
     include: {
       _count: {

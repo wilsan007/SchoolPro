@@ -202,11 +202,11 @@ export function FournituresSecretariat({
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm truncate">{d.nom}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUT_COLORS[d.statut]}`}>
-                              {t(STATUT_LABEL_KEYS[d.statut] as any)}
+                              {t(STATUT_LABEL_KEYS[d.statut] as never)}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {t(TYPE_LABEL_KEYS[d.type] as any)} · {t("quantite")} {d.quantite}
+                            {t(TYPE_LABEL_KEYS[d.type] as never)} · {t("quantite")} {d.quantite}
                             {d.format && ` · ${d.format}`}
                             {d.matiere && ` · ${d.matiere.nom}`}
                             {d.prixEstime != null && ` · ~${d.prixEstime} FCFA`}
@@ -263,7 +263,7 @@ export function FournituresSecretariat({
                               <span className="truncate">{d.nom}</span>
                               <span className="text-xs text-muted-foreground">· {d.enseignant.user.name}</span>
                               <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ml-auto ${STATUT_COLORS[d.statut]}`}>
-                                {t(STATUT_LABEL_KEYS[d.statut] as any)}
+                                {t(STATUT_LABEL_KEYS[d.statut] as never)}
                               </span>
                             </div>
                           );

@@ -61,7 +61,7 @@ export function FournituresClasse({ items, classeNom }: { items: FournitureItem[
               <div key={type}>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
                   <Icon className="h-3.5 w-3.5" />
-                  {t(TYPE_LABEL_KEYS[type as TypeFourniture] as any)} ({typeItems.length})
+                  {t(TYPE_LABEL_KEYS[type as TypeFourniture] as never)} ({typeItems.length})
                 </h4>
                 <div className="space-y-1.5">
                   {typeItems.map((item) => (

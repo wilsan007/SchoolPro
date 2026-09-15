@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { withSystemContext } from "@/lib/rls-context";
+import { logger } from "@/lib/logger";
 
 /**
  * Cron endpoint: Purge old audit logs beyond retention period.
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
     } while (batchDeleted === BATCH_SIZE);
   });
 
-  console.log(
+  logger.info(
     `[cron/purge-audit-logs] ${totalDeleted} entrées purgées (antérieures au ${cutoff.toISOString()})`
   );
 

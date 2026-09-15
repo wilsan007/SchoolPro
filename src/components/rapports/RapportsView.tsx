@@ -341,7 +341,7 @@ export function RapportsView() {
             margin: 0 !important;
             background: white !important;
           }
-          #rapport-print-container .print\:hidden { display: none !important; }
+          #rapport-print-container .no-print { display: none !important; }
         }
       `}</style>
 

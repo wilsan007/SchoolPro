@@ -73,14 +73,15 @@ export async function GET(req: NextRequest) {
       return {
         ...eleve,
         moyenneAnnuelle: moyenneAnnuelle ? Number(moyenneAnnuelle.toFixed(2)) : null,
-        decisionProposee
+        decisionProposee,
+        rangAnnuel: null as number | null,
       };
     });
 
     // Calcul des rangs annuels
     bilanAnnuel.sort((a, b) => (b.moyenneAnnuelle || 0) - (a.moyenneAnnuelle || 0));
     bilanAnnuel.forEach((eleve, index) => {
-      (eleve as any).rangAnnuel = eleve.moyenneAnnuelle !== null ? index + 1 : null;
+      eleve.rangAnnuel = eleve.moyenneAnnuelle !== null ? index + 1 : null;
     });
 
     // Re-trier alphabétiquement pour l'affichage

@@ -15,12 +15,13 @@ import { cn, getInitials, calculerMoyenne, timeAgo } from "@/lib/utils";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { FournituresClasse } from "@/components/fournitures/FournituresClasse";
+import type { TypeFourniture } from "@prisma/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FournitureItemInfo {
   id: string;
-  type: string;
+  type: TypeFourniture;
   nom: string;
   description: string | null;
   quantite: number;
@@ -149,7 +150,7 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
         {enfant.fournitures && enfant.fournitures.length > 0 && (
           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <FournituresClasse
-              items={enfant.fournitures as any}
+              items={enfant.fournitures}
               classeNom={enfant.classe?.nom}
             />
           </div>

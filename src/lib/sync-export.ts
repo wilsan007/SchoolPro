@@ -83,7 +83,7 @@ export async function generateFullExportZip(
   const results = await Promise.all(exportTasks);
 
   // Créer le ZIP
-  const archive = (archiver as any)("zip", { zlib: { level: 6 } });
+  const archive = new archiver.ZipArchive({ zlib: { level: 6 } });
   const chunks: Buffer[] = [];
 
   const writable = new Writable({

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyMetaSignature } from "@/lib/webhooks";
 import { repondreAuParent } from "@/lib/learnos/bot-parent-webhook";
 import { erreurJson } from "@/lib/erreurs-api";
+import { logger } from "@/lib/logger";
 
 /** Sanitise une valeur pour les logs : retire les caractères de contrôle. */
 function sanitizeForLog(value: string): string {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   const challenge = searchParams.get("hub.challenge");
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("[WhatsApp Webhook] Vérification réussie");
+    logger.info("[WhatsApp Webhook] Vérification réussie");
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
             const from = msg.from as string; // numéro international
             const text = ((msg.text as Record<string, unknown> | undefined)?.body as string) ?? (msg.type as string) ?? "(media)";
 
-            console.log(`[WhatsApp Webhook] Message de ${sanitizeForLog(from)}`);
+            logger.info(`[WhatsApp Webhook] Message de ${sanitizeForLog(from)}`);
 
             // Le traitement est délibérément à l'intérieur de la boucle et
             // attendu : sur Vercel, la fonction est gelée dès la réponse
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
         // Statuts de livraison
         if (value.statuses) {
           for (const status of value.statuses as Array<Record<string, unknown>>) {
-            console.log(`[WhatsApp Webhook] Statut message ${status.id}: ${status.status}`);
+            logger.info(`[WhatsApp Webhook] Statut message ${status.id}: ${status.status}`);
           }
         }
       }

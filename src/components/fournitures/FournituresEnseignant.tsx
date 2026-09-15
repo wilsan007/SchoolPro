@@ -175,7 +175,7 @@ export function FournituresEnseignant({
                   onChange={(e) => setForm({ ...form, type: e.target.value as TypeFourniture })}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  {Object.entries(TYPE_LABEL_KEYS).map(([k, v]) => <option key={k} value={k}>{t(v as any)}</option>)}
+                  {Object.entries(TYPE_LABEL_KEYS).map(([k, v]) => <option key={k} value={k}>{t(v as never)}</option>)}
                 </select>
               </div>
 
@@ -273,11 +273,11 @@ export function FournituresEnseignant({
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm truncate">{d.nom}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUT_COLORS[d.statut]}`}>
-                              {t(STATUT_LABEL_KEYS[d.statut] as any)}
+                              {t(STATUT_LABEL_KEYS[d.statut] as never)}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {t(TYPE_LABEL_KEYS[d.type] as any)} · {t("quantite")} {d.quantite}
+                            {t(TYPE_LABEL_KEYS[d.type] as never)} · {t("quantite")} {d.quantite}
                             {d.format && ` · ${d.format}`}
                             {d.matiere && ` · ${d.matiere.nom}`}
                             {d.prixEstime != null && ` · ~${d.prixEstime} FCFA`}

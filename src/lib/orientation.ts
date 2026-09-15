@@ -112,8 +112,7 @@ function matchMatiere(nomMatiere: string, filiere: FiliereConfig): boolean {
 }
 
 export function computeFiliereScores(notes: NoteAvecMatiere[]): ScoreFiliere[] {
-  const byFiliere: Record<FiliereSlug, { sum: number; totalCoef: number; count: number; details: { matiere: string; noteSur20: number; coefficient: number }[] }> =
-    {} as any;
+  const byFiliere = {} as Record<FiliereSlug, { sum: number; totalCoef: number; count: number; details: { matiere: string; noteSur20: number; coefficient: number }[] }>;
 
   for (const filiere of FILIERES) {
     byFiliere[filiere.key] = { sum: 0, totalCoef: 0, count: 0, details: [] };

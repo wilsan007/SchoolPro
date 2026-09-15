@@ -1,6 +1,7 @@
 // @ts-nocheck — Cloudflare Workers file, types fournis par @cloudflare/workers-types
 // (non inclus dans le build Next.js ; voir tsconfig.json qui exclut ce fichier)
 import { Container, getContainer } from "@cloudflare/containers";
+import { logger } from "@/lib/logger";
 
 interface Env {
   SCHOOLPRO_CONTAINER: DurableObjectNamespace;
@@ -24,11 +25,11 @@ export class SchoolProContainer extends Container {
   };
 
   override onStart() {
-    console.log("[SchoolPro] Container started");
+    logger.info("[SchoolPro] Container started");
   }
 
   override onStop() {
-    console.log("[SchoolPro] Container stopped");
+    logger.info("[SchoolPro] Container stopped");
   }
 
   override onError(error: unknown) {

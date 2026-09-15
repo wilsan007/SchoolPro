@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { auditFire } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 
 const autoGenerateSchema = z.object({
   classeId: z.string().min(1, "classeId requis"),
@@ -131,11 +132,11 @@ export async function POST(req: NextRequest) {
     const deleteResult = await prisma.emploiTemps.deleteMany({
       where: { classeId, annee, tenantId, periodeId: periodeIdValue },
     });
-    console.log(`[auto-generate] Deleted ${deleteResult.count} existing creneaux for classe ${classeId}, annee ${annee}`);
+    logger.debug(`[auto-generate] Deleted ${deleteResult.count} existing creneaux for classe ${classeId}, annee ${annee}`);
 
     // Re-fetch creneaux AFTER deletion to build accurate busy maps
     const remainingCreneaux = await prisma.emploiTemps.findMany({ where: { tenantId, ...emploiFilter, annee } });
-    console.log(`[auto-generate] Remaining creneaux in tenant: ${remainingCreneaux.length}`);
+    logger.debug(`[auto-generate] Remaining creneaux in tenant: ${remainingCreneaux.length}`);
 
     // Build matiere config map from matiereConfigs or fallback to matiereIds
     const configMap = new Map<string, {
@@ -178,15 +179,15 @@ export async function POST(req: NextRequest) {
         ownerOfSecondary.set(cfg.pairedMatiereId, matiereId);
       }
     }
-    console.log(`[auto-generate] Owners (generate paired slots): ${[...owners].map(id => allMatieres.find(m => m.id === id)?.nom ?? id).join(', ')}`);
-    console.log(`[auto-generate] Paired as secondary (group slots from owner, own tronc commun): ${[...pairedAsSecondary].map(id => allMatieres.find(m => m.id === id)?.nom ?? id).join(', ')}`);
+    logger.debug(`[auto-generate] Owners (generate paired slots): ${[...owners].map(id => allMatieres.find(m => m.id === id)?.nom ?? id).join(', ')}`);
+    logger.debug(`[auto-generate] Paired as secondary (group slots from owner, own tronc commun): ${[...pairedAsSecondary].map(id => allMatieres.find(m => m.id === id)?.nom ?? id).join(', ')}`);
 
     // Filter matieres: keep owners, non-paired, AND secondary (for their own tronc commun)
     // Secondary matieres are NOT excluded - they just won't generate group slots (only tronc commun)
     const matieres = configMap.size > 0
       ? allMatieres.filter((m) => configMap.has(m.id))
       : allMatieres;
-    console.log(`[auto-generate] Matieres to process: ${matieres.map(m => m.nom).join(', ')}`);
+    logger.debug(`[auto-generate] Matieres to process: ${matieres.map(m => m.nom).join(', ')}`);
 
     const roomNames = salles.map((s) => s.nom);
     const hasRooms = roomNames.length > 0;
@@ -304,7 +305,7 @@ export async function POST(req: NextRequest) {
       let troncCommunAssigned = 0;
       let groupesAssigned = 0;
 
-      console.log(`[auto-generate] Matiere: ${matiere.nom} ${isSecondary ? '(SECONDARY - paired group slots from owner)' : ''} | troncCommun=${hasTroncCommun ? troncCommunHeures + 'h' : 'non'} | groupes=${hasGroupes && !isSecondary ? groupesHeures + 'h x2' : 'non'} | totalSlotsNeeded=${totalSlotsNeeded}`);
+      logger.debug(`[auto-generate] Matiere: ${matiere.nom} ${isSecondary ? '(SECONDARY - paired group slots from owner)' : ''} | troncCommun=${hasTroncCommun ? troncCommunHeures + 'h' : 'non'} | groupes=${hasGroupes && !isSecondary ? groupesHeures + 'h x2' : 'non'} | totalSlotsNeeded=${totalSlotsNeeded}`);
 
       // Find best candidates for this matiere
       // Candidates are now BLOCKS of consecutive hours (not individual 1h slots)
@@ -572,7 +573,7 @@ export async function POST(req: NextRequest) {
             const pairedMatiere = allMatieres.find((m) => m.id === pairedMatiereId);
             if (pairedMatiere) {
               const pairedGroupLabel = groupIndex === 0 ? " (Groupe B)" : " (Groupe A)";
-              console.log(`[auto-generate] Creating paired slot: ${pairedMatiere.nom} ${pairedGroupLabel} for ${matiere.nom} ${cand.jour} ${cand.heureDebut}`);
+              logger.debug(`[auto-generate] Creating paired slot: ${pairedMatiere.nom} ${pairedGroupLabel} for ${matiere.nom} ${cand.jour} ${cand.heureDebut}`);
 
               // Find a DIFFERENT room for the paired group (not the same physical room)
               let pairedSallePhysique: string | null = null;
@@ -657,7 +658,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      console.log(`[auto-generate] DONE Matiere: ${matiere.nom} | assigned=${assigned}/${totalSlotsNeeded} | TC=${troncCommunAssigned}/${troncCommunSlots} | Groupes=${groupesAssigned}/${groupesSlots}`);
+      logger.debug(`[auto-generate] DONE Matiere: ${matiere.nom} | assigned=${assigned}/${totalSlotsNeeded} | TC=${troncCommunAssigned}/${troncCommunSlots} | Groupes=${groupesAssigned}/${groupesSlots}`);
 
       if (assigned === 0) {
         stats.skipped++;
@@ -745,7 +746,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`[auto-generate] Total created: ${stats.totalCreated}, conflicts: ${stats.conflicts}, matieres processed: ${matieres.length}`);
+    logger.debug(`[auto-generate] Total created: ${stats.totalCreated}, conflicts: ${stats.conflicts}, matieres processed: ${matieres.length}`);
 
     auditFire({
       tenantId: session.user.tenantId,

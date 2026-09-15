@@ -7,6 +7,7 @@ import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-filter";
 import { guardPage } from "@/lib/guard-page";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import type { TypeFourniture } from "@prisma/client";
 
 async function getParentsData(tenantId: string, claims: SessionSiteClaims, anneeCourante?: string | null) {
   const parents = await prisma.parent.findMany({
@@ -67,7 +68,7 @@ export default async function ParentsPage() {
       if (ep.eleve.classeId) classeIds.add(ep.eleve.classeId);
     }
   }
-  const fournituresParClasse: Record<string, { id: string; type: string; nom: string; description: string | null; quantite: number; format: string | null; prixEstime: number | null; matiere: { nom: string } | null }[]> = {};
+  const fournituresParClasse: Record<string, { id: string; type: TypeFourniture; nom: string; description: string | null; quantite: number; format: string | null; prixEstime: number | null; matiere: { nom: string } | null }[]> = {};
   if (classeIds.size > 0) {
     const listes = await prisma.listeFournitureClasse.findMany({
       where: {

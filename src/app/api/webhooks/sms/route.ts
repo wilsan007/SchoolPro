@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyWebhookSecret } from "@/lib/webhooks";
 import { erreurJson } from "@/lib/erreurs-api";
 import { withSystemContext } from "@/lib/rls-context";
+import { logger } from "@/lib/logger";
 
 /** Sanitise une valeur pour les logs : retire les caractères de contrôle. */
 function sanitizeForLog(value: string): string {
@@ -32,14 +33,14 @@ export async function POST(request: NextRequest) {
 
     // Delivery receipt
     if (body.status && body.id) {
-      console.log(`[SMS Webhook] Delivery receipt — id: ${sanitizeForLog(body.id)}, status: ${sanitizeForLog(body.status)}`);
+      logger.info(`[SMS Webhook] Delivery receipt — id: ${sanitizeForLog(body.id)}, status: ${sanitizeForLog(body.status)}`);
       // On pourrait stocker le statut de livraison en base ici
       return NextResponse.json({ ok: true });
     }
 
     // Message entrant
     if (body.text && body.from) {
-      console.log(`[SMS Webhook] Message entrant de ${sanitizeForLog(body.from)}`);
+      logger.info(`[SMS Webhook] Message entrant de ${sanitizeForLog(body.from)}`);
 
       // Webhook entrant : aucune session, donc aucun tenant ni site connu à
       // l'avance. C'est le numéro de téléphone qui détermine le tenant — la

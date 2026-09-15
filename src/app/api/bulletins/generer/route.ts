@@ -10,6 +10,7 @@ import { enregistrerHistoriqueBulletin } from "@/lib/bulletin-historique";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
 import { Note, calculerMoyennePondereeCentiemes, calculerRangsCentiemes } from "@/lib/domain/note";
+import { logger } from "@/lib/logger";
 
 const Schema = z.object({
   classeId: z.string().min(1),
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log("[generer] step 1: fetching classe");
+    logger.debug("[generer] step 1: fetching classe");
     const classe = await prisma.classe.findFirst({
       where: { id: classeId, tenantId, ...siteFilterForModel("classe", session.user), ...(anneeCourante ? { annee: anneeCourante } : {}) },
       include: {
@@ -91,35 +92,35 @@ export async function POST(req: NextRequest) {
       },
     });
     if (!classe) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
-    console.log("[generer] step 2: classe found", classe.nom, "eleves:", classe.eleves.length);
+    logger.debug("[generer] step 2: classe found", { classe: classe.nom, eleves: classe.eleves.length });
 
     const periode = await prisma.periode.findFirst({
       where: { id: periodeId, annee: { tenantId } },
     });
     if (!periode) return NextResponse.json({ error: "Période introuvable" }, { status: 404 });
-    console.log("[generer] step 3: periode found", periode.nom);
+    logger.debug("[generer] step 3: periode found", { periode: periode.nom });
 
     // Règles d'appréciation configurées pour ce tenant (repli sur les seuils par défaut si vide)
-    console.log("[generer] step 4: fetching reglesAppreciation");
+    logger.debug("[generer] step 4: fetching reglesAppreciation");
     const reglesAppreciation = await prisma.reglesAppreciation.findMany({
       where: { tenantId, ...siteFilterForModel("reglesAppreciation", session.user), contexte: { in: ["NOTE_MATIERE", "BULLETIN_PERIODE"] } },
       select: { contexte: true, seuilMin: true, seuilMax: true, libelle: true },
     }).catch((e: unknown) => {
-      console.log("[generer] reglesAppreciation error (non-fatal):", e instanceof Error ? e.message : e);
+      logger.warn("[generer] reglesAppreciation error (non-fatal)", { error: e instanceof Error ? e.message : e });
       return [] as RegleAppreciation[];
     });
-    console.log("[generer] step 5: reglesAppreciation fetched", reglesAppreciation.length);
+    logger.debug("[generer] step 5: reglesAppreciation fetched", { count: reglesAppreciation.length });
 
-    console.log("[generer] step 6: fetching notes");
+    logger.debug("[generer] step 6: fetching notes");
     const allNotes = await prisma.note.findMany({
       where: { tenantId, ...siteFilterForModel("note", session.user), classeId, periodeId, isPubliee: true },
       include: { matiere: true },
     });
-    console.log("[generer] step 7: notes fetched", allNotes.length);
+    logger.debug("[generer] step 7: notes fetched", { count: allNotes.length });
 
     // Dispenses de matière : une matière dispensée est exclue du calcul de la moyenne.
     // Une dispense sans période (periodeId null) s'applique à toutes les périodes.
-    console.log("[generer] step 8: fetching dispenses");
+    logger.debug("[generer] step 8: fetching dispenses");
     const dispenses = await prisma.dispenseMatiere.findMany({
       where: { tenantId, ...siteFilterForModel("dispenseMatiere", session.user),
         eleveId: { in: classe.eleves.map((e) => e.id) },
@@ -127,20 +128,20 @@ export async function POST(req: NextRequest) {
       },
       select: { eleveId: true, matiereId: true },
     }).catch((e: unknown) => {
-      console.log("[generer] dispenses error (non-fatal):", e instanceof Error ? e.message : e);
+      logger.warn("[generer] dispenses error (non-fatal)", { error: e instanceof Error ? e.message : e });
       return [] as { eleveId: string; matiereId: string }[];
     });
     const dispenseSet = new Set(dispenses.map((d) => `${d.eleveId}:${d.matiereId}`));
-    console.log("[generer] step 9: dispenses fetched", dispenses.length);
+    logger.debug("[generer] step 9: dispenses fetched", { count: dispenses.length });
 
-    console.log("[generer] step 10: fetching absences");
+    logger.debug("[generer] step 10: fetching absences");
     const absences = await prisma.absence.findMany({
       where: { tenantId, ...siteFilterForModel("absence", session.user),
         eleveId: { in: classe.eleves.map(e => e.id) },
         date: { gte: periode.dateDebut, lte: periode.dateFin }
       }
     });
-    console.log("[generer] step 11: absences fetched", absences.length);
+    logger.debug("[generer] step 11: absences fetched", { count: absences.length });
 
     // 1. Averages per subject per student
     const matieresMap = new Map<string, any>();
@@ -172,7 +173,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Generate bulletins for each student (sequential to avoid connection pool exhaustion)
-    console.log("[generer] step 12: generating bulletins for", classe.eleves.length, "students");
+    logger.debug("[generer] step 12: generating bulletins", { students: classe.eleves.length });
     const bulletinsGlobalAverages: { eleveId: string; moyenne: number | null }[] = [];
     for (const eleve of classe.eleves) {
       const absEleve = absences.filter(a => a.eleveId === eleve.id);
@@ -325,7 +326,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Update global rankings and class averages
     // MET-H3 (audit v2) : rangs avec ex-aequo via le domaine.
-    console.log("[generer] step 13: computing rankings");
+    logger.debug("[generer] step 13: computing rankings");
     const moyennesMap = new Map<string, number | null>();
     for (const b of bulletinsGlobalAverages) {
       moyennesMap.set(b.eleveId, b.moyenne !== null ? Note.depuisFlottant(b.moyenne).centiemes : null);
@@ -336,7 +337,7 @@ export async function POST(req: NextRequest) {
     const moyenneClasse = validMoyennes.length > 0 ? Number((validMoyennes.reduce((a, b) => a + b, 0) / validMoyennes.length).toFixed(2)) : null;
     const moyennePremier = validMoyennes.length > 0 ? Math.max(...validMoyennes) : null;
 
-    console.log("[generer] step 14: updating bulletins with rankings");
+    logger.debug("[generer] step 14: updating bulletins with rankings");
     for (const b of bulletinsGlobalAverages) {
       const rang = rangsMap.get(b.eleveId) ?? null;
       // `updateMany` plutôt qu'`update` : la contrainte unique (eleveId,
@@ -353,7 +354,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.log("[generer] step 15: done, count:", classe.eleves.length);
+    logger.info("[generer] step 15: done", { count: classe.eleves.length });
     return NextResponse.json({ success: true, count: classe.eleves.length });
   } catch (error) {
     console.error("[API/bulletins/generer]", error);

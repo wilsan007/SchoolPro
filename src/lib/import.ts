@@ -23,7 +23,7 @@ export function parseCsv<T extends Record<string, any>>(
   return new Promise((resolve) => {
     const errors: string[] = [];
 
-    Papa.parse(file as any, {
+    Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {

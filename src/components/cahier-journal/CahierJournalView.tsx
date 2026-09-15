@@ -1675,7 +1675,7 @@ function DevoirsSection({
               <span
                 className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${DEVOIR_TYPE_COLORS[d.type]}`}
               >
-                {t(d.type as any)}
+                {t(d.type as never)}
               </span>
               <span className="text-xs text-slate-500">
                 — {new Date(d.dateRendu).toLocaleDateString("fr-FR")} ({d.statut})

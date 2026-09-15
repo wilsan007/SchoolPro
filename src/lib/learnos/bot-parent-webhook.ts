@@ -26,6 +26,7 @@ import {
   traiterQuestion,
   type ParentIdentifie,
 } from "@/lib/learnos/bot-parent";
+import { logger } from "@/lib/logger";
 
 export interface MessageEntrant {
   telephone: string;
@@ -40,7 +41,7 @@ export async function repondreAuParent(message: MessageEntrant): Promise<void> {
   try {
     const parent = await identifierParent(message.telephone);
     if (!parent) {
-      console.log("[bot-parent] numéro non rattaché — aucune réponse envoyée");
+      logger.info("[bot-parent] numéro non rattaché — aucune réponse envoyée");
       return;
     }
 

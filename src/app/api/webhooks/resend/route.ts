@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { mettreAJourStatutEmail } from "@/lib/notifications/email-log";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/webhooks/resend
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     await mettreAJourStatutEmail(resendId, evenement, timestamp);
 
-    console.log(`[Webhook/Resend] ${evenement} — resendId: ${resendId.slice(0, 12)}…`);
+    logger.info(`[Webhook/Resend] ${evenement} — resendId: ${resendId.slice(0, 12)}…`);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[Webhook/Resend] Erreur:", err);

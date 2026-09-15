@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { revalidateTag } from "next/cache";
 import { withSystemContext } from "@/lib/rls-context";
 import { auditFire } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
 
           revalidateTag("dashboard-data");
 
-          console.log(`[Stripe] Paiement enregistré pour facture ${facture.numero}: ${amount}`);
+          logger.info(`[Stripe] Paiement enregistré pour facture ${facture.numero}: ${amount}`);
           break;
         }
 
