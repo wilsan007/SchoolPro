@@ -17,6 +17,13 @@ const PUBLIC_PREFIXES = [
   "/offline",
   "/api/auth",
   "/_next",
+  // Pages pré-auth atteintes depuis des liens email ou par des
+  // utilisateurs sans session : les rediriger vers /login rendrait
+  // le flux absurde (mot de passe oublié → connexion requise).
+  // NB : /set-password reste protégé — il exige le mot de passe actuel.
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
 ];
 
 /** Chemins publics en correspondance exacte. */
