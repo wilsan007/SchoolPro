@@ -76,7 +76,7 @@ function creerTOTP(secret: Secret | string, email: string): TOTP {
   return new TOTP({
     issuer: ISSUER,
     label: email,
-    algorithm: "SHA256",
+    algorithm: "SHA1",
     digits: 6,
     period: 30,
     secret,
@@ -142,7 +142,7 @@ export async function verify2FA(
   const secretBase32 = dechiffrerSecret(user.totpSecret, user.totpSecretIv);
   const totp = creerTOTP(secretBase32, user.email);
 
-  const delta = totp.validate({ token, window: 1 });
+  const delta = totp.validate({ token, window: 2 });
   if (delta === null) {
     return false;
   }
@@ -243,10 +243,10 @@ export async function verifierCodeConnexion(
   const secretBase32 = dechiffrerSecret(user.totpSecret, user.totpSecretIv);
   const totp = creerTOTP(secretBase32, user.email);
 
-  // window: 1 tolère un décalage d'horloge d'une période (±30 s). Au-delà,
+  // window: 2 tolère un décalage d'horloge de deux périodes (±60 s). Au-delà,
   // on refuse : élargir la fenêtre allonge d'autant la durée de validité
   // d'un code intercepté.
-  if (totp.validate({ token: propre, window: 1 }) === null) return false;
+  if (totp.validate({ token: propre, window: 2 }) === null) return false;
 
   await marquerVerification(userId);
   return true;
