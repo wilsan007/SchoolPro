@@ -4,6 +4,7 @@ import { auditFire } from "@/lib/audit";
 import { verifierTokenReset, reinitialiserMotDePasse } from "@/lib/password-reset";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { validerMotDePasse } from "@/lib/password-validation";
+import { withSystemContext } from "@/lib/rls-context";
 
 const BodySchema = z.object({
   token: z.string().min(1),
@@ -24,6 +25,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = BodySchema.safeParse(body);
 
+  // ISO-4 : pré-auth via token email, pas de session — contexte système.
+  return withSystemContext("auth:reset-password", async () => {
   if (!parsed.success) {
     return NextResponse.json(
       { success: false, error: "invalid_data" },
@@ -66,4 +69,5 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ success: true }, { status: 200 });
+  }); // fin withSystemContext
 }

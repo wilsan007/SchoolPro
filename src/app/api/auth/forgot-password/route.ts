@@ -7,6 +7,7 @@ import { genererTokenReset } from "@/lib/password-reset";
 import { sendEmail } from "@/lib/notifications/email";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { verifyTurnstileToken } from "@/lib/security/turnstile";
+import { withSystemContext } from "@/lib/rls-context";
 
 const BodySchema = z.object({
   email: z.string().trim().email(),
@@ -29,6 +30,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = BodySchema.safeParse(body);
 
+  // ISO-4 : pré-auth, pas de session — envelopper dans un contexte système.
+  return withSystemContext("auth:forgot-password", async () => {
   if (!parsed.success) {
     auditFire({
       action: "auth:forgot-password",
@@ -104,4 +107,5 @@ export async function POST(request: NextRequest) {
 
   // Réponse générique identique que l'email existe ou non (sécurité)
   return NextResponse.json({ success: true }, { status: 200 });
+  }); // fin withSystemContext
 }

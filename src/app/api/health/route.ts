@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { rlsMode } from "@/lib/prisma-rls";
+import { withSystemContext } from "@/lib/rls-context";
 import { logger } from "@/lib/logger";
 
 /**
@@ -26,7 +27,7 @@ export async function GET() {
   try {
     const start = Date.now();
     // eslint-disable-next-line ecolpro/require-site-filter -- health check système sans session
-    await prisma.user.count();
+    await withSystemContext("health-check", () => prisma.user.count());
     const latencyMs = Date.now() - start;
     checks.database = { ok: true, latencyMs };
   } catch (error) {

@@ -11,6 +11,7 @@ import { normaliserEmail } from "@/lib/email";
 import { verifierCodeConnexion } from "@/lib/two-factor";
 import { activation2FARequise } from "@/lib/two-factor-policy";
 import { verifyTurnstileToken } from "@/lib/security/turnstile";
+import { withSystemContext } from "@/lib/rls-context";
 
 const LoginSchema = z.object({
   // La saisie est normalisée avant toute recherche : un clavier mobile qui
@@ -286,6 +287,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         const parsed = LoginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
+        // ISO-4 : authorize s'exécute avant toute session — toutes les
+        // requêtes Prisma ci-dessous sont pré-auth et doivent traverser
+        // les tenants (recherche de l'utilisateur par email).
+        return withSystemContext("auth:login", async () => {
         const { email, password, totp, turnstileToken } = parsed.data;
 
         // ─── Vérification Turnstile (anti-bot) ────────────────────────────
@@ -432,6 +437,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             user.createdAt
           ),
         };
+        }); // fin withSystemContext
       },
     }),
   ],

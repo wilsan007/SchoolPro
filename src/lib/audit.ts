@@ -7,6 +7,7 @@
 
 import prisma from "@/lib/prisma";
 import type { AuditVerdict, Prisma } from "@prisma/client";
+import { withSystemContext } from "@/lib/rls-context";
 
 export interface AuditParams {
   tenantId?: string | null;
@@ -28,20 +29,26 @@ export interface AuditParams {
  */
 export async function audit(params: AuditParams): Promise<void> {
   try {
-    await prisma.auditLog.create({
-      data: {
-        tenantId: params.tenantId ?? null,
-        userId: params.userId ?? null,
-        action: params.action,
-        verdict: params.verdict,
-        resource: params.resource ?? null,
-        resourceId: params.resourceId ?? null,
-        reason: params.reason ?? null,
-        metadata: (params.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
-        ip: params.ip ?? null,
-        userAgent: params.userAgent ?? null,
-      },
-    });
+    // L'audit est une opération système : il doit pouvoir s'écrire
+    // depuis n'importe quel contexte (pré-auth, cron, session).
+    // withSystemContext pose le contexte RLS super-admin pour
+    // permettre l'écriture sans déclencher enforce.
+    await withSystemContext("audit-log", () =>
+      prisma.auditLog.create({
+        data: {
+          tenantId: params.tenantId ?? null,
+          userId: params.userId ?? null,
+          action: params.action,
+          verdict: params.verdict,
+          resource: params.resource ?? null,
+          resourceId: params.resourceId ?? null,
+          reason: params.reason ?? null,
+          metadata: (params.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+          ip: params.ip ?? null,
+          userAgent: params.userAgent ?? null,
+        },
+      })
+    );
   } catch (err) {
     console.error("[audit] Échec d'écriture du journal d'audit:", err);
   }

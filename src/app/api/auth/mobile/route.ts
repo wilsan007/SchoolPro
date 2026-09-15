@@ -7,6 +7,7 @@ import { normaliserEmail } from "@/lib/email";
 import { mobileSecret } from "@/lib/mobile-auth";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { verifierCodeConnexion } from "@/lib/two-factor";
+import { withSystemContext } from "@/lib/rls-context";
 
 const MobileLoginSchema = z.object({
   email: z.string().email().transform(normaliserEmail),
@@ -47,6 +48,9 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const parsed = MobileLoginSchema.safeParse(body);
+
+    // ISO-4 : pré-auth mobile, pas de session — contexte système.
+    return withSystemContext("auth:mobile", async () => {
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Données invalides", details: parsed.error.flatten() },
@@ -144,6 +148,7 @@ export async function POST(req: Request) {
           }
         : null,
     });
+    }); // fin withSystemContext
   } catch (error) {
     console.error("[API/auth/mobile]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

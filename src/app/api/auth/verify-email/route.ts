@@ -3,6 +3,7 @@ import { z } from "zod";
 import { confirmerEmail } from "@/lib/email-verification";
 import { auditFire } from "@/lib/audit";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { withSystemContext } from "@/lib/rls-context";
 
 const BodySchema = z.object({
   token: z.string().min(1),
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
   const parsed = BodySchema.safeParse(body);
+
+  // ISO-4 : pré-auth via token email, pas de session — contexte système.
+  return withSystemContext("auth:verify-email", async () => {
   if (!parsed.success) {
     return NextResponse.json(
       { success: false, error: "token_invalide" },
@@ -44,4 +48,5 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true });
+  }); // fin withSystemContext
 }
