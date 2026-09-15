@@ -8,9 +8,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
  * Charge le script `api.js` une seule fois, rend le widget dans un
  * conteneur ref, et expose le jeton via `onVerify`.
  *
- * Si aucune sitekey n'est configurée (`NEXT_PUBLIC_TURNSTILE_SITEKEY`),
- * le composant ne rend rien et appelle `onVerify("dev-bypass")` pour
- * permettre le workflow en développement.
+ * En production, la sitekey est résolue au build (voir TURNSTILE_SITEKEY
+ * ci-dessous). En développement sans `NEXT_PUBLIC_TURNSTILE_SITEKEY`, le
+ * composant ne rend rien et appelle `onVerify("dev-bypass")`.
  */
 
 declare global {
@@ -36,6 +36,28 @@ declare global {
 
 let scriptLoaded = false;
 let scriptPromise: Promise<void> | null = null;
+
+/**
+ * Sitekey Turnstile résolue au moment du build.
+ *
+ * ⚠️ Ne pas remplacer par une simple lecture `process.env.NEXT_PUBLIC_*` :
+ * le build Docker utilise `--experimental-build-mode compile` qui N'INLINE
+ * PAS les NEXT_PUBLIC_* dans le bundle client — la référence resterait
+ * littérale, `process.env` vaudrait `{}` dans le navigateur, et le widget
+ * ne se rendrait jamais (login bloqué en production).
+ *
+ * - Production : sitekey codée en dur. Elle est publique par design
+ *   (visible dans le HTML de toute page protégée par Turnstile) — ce
+ *   n'est pas un secret.
+ * - Développement : `NEXT_PUBLIC_TURNSTILE_SITEKEY` reste prioritaire.
+ *   Non définie → null → bypass ("dev-bypass"). Pour tester le widget
+ *   en local, utiliser la sitekey de test Cloudflare
+ *   `1x00000000000000000000AA` (toujours valide).
+ */
+const TURNSTILE_SITEKEY =
+  process.env.NODE_ENV === "production"
+    ? "0x4AAAAAAE0i9t0Fa7N9R0fV"
+    : process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY || null;
 
 function loadTurnstileScript(): Promise<void> {
   if (scriptLoaded) return Promise.resolve();
@@ -76,13 +98,8 @@ export default function TurnstileWidget({
 }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const [sitekey, setSitekey] = useState<string | null>(null);
+  const [sitekey, setSitekey] = useState<string | null>(TURNSTILE_SITEKEY);
   const [error, setError] = useState<string | null>(null);
-
-  // Lire la sitekey côté client (variable d'environnement publique)
-  useEffect(() => {
-    setSitekey(process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY ?? null);
-  }, []);
 
   const renderWidget = useCallback(async () => {
     if (!containerRef.current || !sitekey || !window.turnstile) return;

@@ -4,9 +4,11 @@
  * Vérifie le jeton Turnstile soumis par le client auprès de l'API
  * siteverify de Cloudflare. Le secret reste côté serveur.
  *
- * En l'absence de `TURNSTILE_SECRET` (développement local), la
- * vérification est contournée : on renvoie `success: true` pour ne
- * pas bloquer le workflow. En production, le secret DOIT être défini.
+ * En l'absence de `TURNSTILE_SECRET` :
+ * - développement : la vérification est contournée (workflow local) ;
+ * - production : FAIL-CLOSED — la requête est rejetée. Une protection
+ *   anti-bot qui se désactive silencieusement quand son secret manque
+ *   n'en est pas une.
  */
 
 interface SiteverifyResponse {
@@ -36,15 +38,16 @@ export async function verifyTurnstileToken(
 ): Promise<TurnstileResult> {
   const secret = process.env.TURNSTILE_SECRET;
 
-  // ─── Mode développement : pas de secret, pas de vérification ────────────
-  // On logge un avertissement pour éviter qu'un déploiement de prod
-  // oublie silencieusement la protection.
+  // ─── Secret manquant ────────────────────────────────────────────────────
+  // Dev : bypass pour ne pas bloquer le workflow local.
+  // Production : FAIL-CLOSED — on rejette plutôt que de laisser passer.
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      console.warn(
+      console.error(
         "[turnstile] TURNSTILE_SECRET non défini en production — " +
-          "la vérification est désactivée. Configurez le secret immédiatement.",
+          "rejet de la requête (fail-closed). Configurez le secret immédiatement.",
       );
+      return { success: false, error: "configuration_manquante" };
     }
     return { success: true };
   }

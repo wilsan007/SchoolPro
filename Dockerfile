@@ -34,6 +34,11 @@ RUN pnpm prisma generate
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 ENV DIRECT_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 
+# NOTE Turnstile : la sitekey publique est codée en dur dans
+# src/components/security/TurnstileWidget.tsx — le mode
+# --experimental-build-mode compile n'inline PAS les NEXT_PUBLIC_*
+# dans le bundle client, une ENV ici serait sans effet.
+
 # --experimental-build-mode compile : compile sans générer les pages statiques
 # (évite l'OOM sur le builder Depot 2 GB). Les pages sont rendues au runtime.
 RUN pnpm next build --experimental-build-mode compile

@@ -49,6 +49,14 @@ describe("verifyTurnstileToken — production (avec TURNSTILE_SECRET)", () => {
     vi.stubEnv("NODE_ENV", "production");
   });
 
+  it("FAIL-CLOSED : rejette quand TURNSTILE_SECRET manque en production", async () => {
+    delete process.env.TURNSTILE_SECRET;
+    const result = await verifyTurnstileToken("any-token");
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("configuration_manquante");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("retourne success:true pour un token valide", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
