@@ -98,6 +98,7 @@ export function Workspace({
             </div>
             <span className="text-base font-display font-bold tracking-wide text-navy hidden sm:inline">SchoolPro</span>
           </div>
+          <div className="h-6 w-px bg-border/50 hidden sm:block" />
           <TenantSwitcher currentTenantName={tenantName} currentTenantId={tenantId} availableTenants={availableTenants} />
           <SiteSwitcher currentSiteId={currentSiteId} sites={sites} isAdmin={isSiteAdmin} />
         </div>

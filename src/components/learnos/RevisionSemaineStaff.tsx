@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { SCHOOL_GROUP_ICONS } from "@/lib/school-groups";
 
 interface EleveOption {
   id: string;
@@ -14,12 +16,11 @@ interface EleveOption {
   matricule: string;
 }
 
-interface ClasseOption {
-  id: string;
-  nom: string;
-  niveau: string;
-  annee: string;
-  eleves: EleveOption[];
+interface RevisionSemaine {
+  semaine: number;
+  niveauLecture: string;
+  resumes: ResumeChapitre[];
+  pointsDeRevision: PointDeRevision[];
 }
 
 interface ResumeChapitre {
@@ -39,35 +40,79 @@ interface PointDeRevision {
   raison: string;
 }
 
-interface RevisionSemaine {
-  semaine: number;
-  niveauLecture: string;
-  resumes: ResumeChapitre[];
-  pointsDeRevision: PointDeRevision[];
-}
-
 interface Props {
-  classes: ClasseOption[];
+  hierarchie: ClassesHierarchie;
   anneeId: string;
 }
 
 /**
- * Vue personnel (direction, enseignants, CPE…) : un sélecteur classe/élève
- * permet de consulter la révision de la semaine d'un élève donné.
+ * Vue personnel (direction, enseignants, CPE…) : un sélecteur cascade
+ * Catégorie → Classe → Élève permet de consulter la révision de la semaine
+ * d'un élève donné.
  */
-export function RevisionSemaineStaff({ classes, anneeId }: Props) {
+export function RevisionSemaineStaff({ hierarchie, anneeId }: Props) {
   const t = useTranslations("learnos.revisionSemaine");
-  const [selectedClasseId, setSelectedClasseId] = useState(classes[0]?.id ?? "");
+  const [selectedCategorie, setSelectedCategorie] = useState<string>("");
+  const [selectedClasseId, setSelectedClasseId] = useState("");
   const [selectedEleveId, setSelectedEleveId] = useState("");
   const [revision, setRevision] = useState<RevisionSemaine | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
-  const selectedClasse = useMemo(
-    () => classes.find((c) => c.id === selectedClasseId),
-    [classes, selectedClasseId]
-  );
+  // Aplatir les classes par catégorie pour faciliter la cascade.
+  const classesParCategorie = useMemo(() => {
+    const map = new Map<string, { id: string; nom: string; niveau: string; eleves: EleveOption[] }[]>();
+    for (const cat of hierarchie) {
+      const classes: { id: string; nom: string; niveau: string; eleves: EleveOption[] }[] = [];
+      for (const niv of cat.niveaux) {
+        for (const cls of niv.classes) {
+          classes.push({
+            id: cls.id,
+            nom: cls.nom,
+            niveau: cls.niveau,
+            eleves: [], // rempli ci-dessous via fetch
+          });
+        }
+      }
+      if (classes.length > 0) {
+        map.set(cat.categorie, classes);
+      }
+    }
+    return map;
+  }, [hierarchie]);
+
+  // Auto-sélection de la première catégorie au montage.
+  useMemo(() => {
+    if (!selectedCategorie && classesParCategorie.size > 0) {
+      setSelectedCategorie(classesParCategorie.keys().next().value ?? "");
+    }
+  }, [classesParCategorie, selectedCategorie]);
+
+  const classesDansCategorie = selectedCategorie
+    ? classesParCategorie.get(selectedCategorie) ?? []
+    : [];
+
+  // Charger les élèves d'une classe via l'API.
+  const [elevesByClasse, setElevesByClasse] = useState<Record<string, EleveOption[]>>({});
+
+  async function chargerEleves(classeId: string) {
+    if (elevesByClasse[classeId]) return; // déjà chargé
+    try {
+      const res = await fetch(`/api/eleves?classeId=${classeId}&pageSize=200`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const eleves: EleveOption[] = (data.eleves ?? []).map((e: { id: string; nom: string; prenom: string; matricule: string }) => ({
+        id: e.id,
+        nom: e.nom,
+        prenom: e.prenom,
+        matricule: e.matricule,
+      }));
+      setElevesByClasse((prev) => ({ ...prev, [classeId]: eleves }));
+    } catch {
+      // silently fail — le sélecteur affichera "aucun élève"
+    }
+  }
 
   async function charger() {
     if (!selectedEleveId || !selectedClasseId) return;
@@ -99,7 +144,7 @@ export function RevisionSemaineStaff({ classes, anneeId }: Props) {
     AVANCE: t("niveau.avance"),
   };
 
-  if (classes.length === 0) {
+  if (hierarchie.length === 0 || classesParCategorie.size === 0) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -110,10 +155,38 @@ export function RevisionSemaineStaff({ classes, anneeId }: Props) {
     );
   }
 
+  const elevesActuels = selectedClasseId ? elevesByClasse[selectedClasseId] ?? [] : [];
+
   return (
     <div className="space-y-4">
-      {/* Sélecteurs classe / élève */}
+      {/* Sélecteurs cascade : Catégorie → Classe → Élève */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+        {/* Catégorie (Primaire / Collège / Lycée) */}
+        <div className="flex-1">
+          <label className="block text-xs font-medium text-muted-foreground mb-1">
+            {t("selectionnerCategorie")}
+          </label>
+          <select
+            value={selectedCategorie}
+            onChange={(e) => {
+              setSelectedCategorie(e.target.value);
+              setSelectedClasseId("");
+              setSelectedEleveId("");
+              setRevision(null);
+              setLoaded(false);
+            }}
+            className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:border-primary"
+          >
+            {[...classesParCategorie.keys()].map((cat) => (
+              <option key={cat} value={cat}>
+                {SCHOOL_GROUP_ICONS[cat as keyof typeof SCHOOL_GROUP_ICONS] ?? ""}{" "}
+                {t(`categorie.${cat === "Primaire" ? "primaire" : cat === "Collège" ? "college" : cat === "Lycée" ? "lycee" : "autre"}`)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Classe */}
         <div className="flex-1">
           <label className="block text-xs font-medium text-muted-foreground mb-1">
             {t("selectionnerClasse")}
@@ -125,16 +198,25 @@ export function RevisionSemaineStaff({ classes, anneeId }: Props) {
               setSelectedEleveId("");
               setRevision(null);
               setLoaded(false);
+              if (e.target.value) chargerEleves(e.target.value);
             }}
-            className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:border-primary"
+            disabled={!selectedCategorie || classesDansCategorie.length === 0}
+            className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:border-primary disabled:opacity-50"
           >
-            {classes.map((c) => (
+            <option value="">
+              {selectedCategorie && classesDansCategorie.length === 0
+                ? t("aucuneClasse")
+                : t("choisirClasse")}
+            </option>
+            {classesDansCategorie.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nom} ({c.annee})
+                {c.nom} ({c.niveau})
               </option>
             ))}
           </select>
         </div>
+
+        {/* Élève */}
         <div className="flex-1">
           <label className="block text-xs font-medium text-muted-foreground mb-1">
             {t("selectionnerEleve")}
@@ -146,21 +228,22 @@ export function RevisionSemaineStaff({ classes, anneeId }: Props) {
               setRevision(null);
               setLoaded(false);
             }}
-            disabled={!selectedClasse || selectedClasse.eleves.length === 0}
+            disabled={!selectedClasseId || elevesActuels.length === 0}
             className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:border-primary disabled:opacity-50"
           >
             <option value="">
-              {selectedClasse && selectedClasse.eleves.length === 0
+              {selectedClasseId && elevesActuels.length === 0
                 ? t("aucunEleve")
                 : t("choisirEleve")}
             </option>
-            {selectedClasse?.eleves.map((e) => (
+            {elevesActuels.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.prenom} {e.nom}
               </option>
             ))}
           </select>
         </div>
+
         <Button onClick={charger} disabled={!selectedEleveId || loading} size="sm">
           {loading ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -3,22 +3,24 @@ import { auth } from "@/lib/auth";
 import { Header } from "@/components/layout/Header";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
-import prisma from "@/lib/prisma";
-import { siteFilterForModel, isRelationScopedRole } from "@/lib/site-scope";
 import { eleveDeLUtilisateur } from "@/lib/learnos/dossier-eleve";
 import { RevisionSemaine } from "@/components/learnos/RevisionSemaine";
 import { RevisionSemaineStaff } from "@/components/learnos/RevisionSemaineStaff";
 import { anneeActive, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
-import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
-import type { Role } from "@prisma/client";
+import { getClassesHierarchie } from "@/lib/classes-hierarchie";
+import prisma from "@/lib/prisma";
+import { siteFilterForModel } from "@/lib/site-scope";
 
 /**
  * Page de révision du cours de la semaine.
  *
  * - STUDENT : révision de son propre cours, re-levelée selon son profil.
  * - PARENT : redirigé vers `/parent` (sélection de la fratrie).
- * - Personnel avec `entrainement:read` : un sélecteur classe/élève permet
- *   de consulter la révision d'un élève donné.
+ * - Personnel avec `entrainement:read` : un sélecteur cascade
+ *   Catégorie → Classe → Élève permet de consulter la révision d'un élève.
+ *   Le site est résolu automatiquement depuis la session. Si l'utilisateur
+ *   a accès à plusieurs sites mais n'en a aucun sélectionné, on lui demande
+ *   d'en choisir un avant de continuer.
  */
 export default async function RevisionSemainePage() {
   const [session, t] = await Promise.all([
@@ -79,50 +81,48 @@ export default async function RevisionSemainePage() {
     redirect("/parent");
   }
 
-  // — Personnel : sélecteur classe/élève —
-  // Charger les classes selon le périmètre (site, enseignant, année).
-  let classeIds: string[] | null = null;
-  if (isTeacherRole(role as Role) && session!.user.id) {
-    const scope = await getTeacherScope(tenantId, session!.user.id, role as Role, anneeLibelle);
-    if (scope.classeIds.length === 0) {
-      return (
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <Header {...headerProps} />
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-            <p className="text-sm text-muted-foreground">{t("aucuneClasse")}</p>
+  // — Personnel : sélecteur cascade Catégorie → Classe → Élève —
+  // Le site est résolu automatiquement depuis la session (siteFilterForModel
+  // applique le site sélectionné ou les sites autorisés). Si l'utilisateur
+  // a accès à plusieurs sites mais n'en a aucun sélectionné, on lui demande
+  // d'en choisir un via le SiteSwitcher de la sidebar/workspace.
+  const sessionSiteId = (session!.user as { siteId?: string | null }).siteId ?? null;
+  const sessionSiteIds = (session!.user as { siteIds?: string[] | null }).siteIds ?? null;
+  const tenantHasSites = (session!.user as { tenantHasSites?: boolean }).tenantHasSites ?? true;
+
+  // Détecter le cas multi-sites sans site sélectionné pour les rôles non-admin.
+  // Les TENANT_ADMIN / SUPER_ADMIN peuvent voir "tous les sites" (siteId null = ALL).
+  const isTenantWide = role === "TENANT_ADMIN" || role === "SUPER_ADMIN";
+  const needsSiteSelection =
+    tenantHasSites && !isTenantWide && !sessionSiteId &&
+    (!sessionSiteIds || sessionSiteIds.length > 1);
+
+  if (needsSiteSelection) {
+    return (
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header {...headerProps} />
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-sm text-muted-foreground max-w-md">
+              {t("selectionnerSiteDabord")}
+            </p>
           </div>
         </div>
-      );
-    }
-    classeIds = scope.classeIds;
+      </div>
+    );
   }
 
-  const classes = await prisma.classe.findMany({
-    where: {
-      tenantId,
-      ...siteFilterForModel("classe", session!.user),
-      ...(anneeLibelle ? { annee: anneeLibelle } : {}),
-      ...(classeIds ? { id: { in: classeIds } } : {}),
-    },
-    select: {
-      id: true,
-      nom: true,
-      niveau: true,
-      annee: true,
-      eleves: {
-        where: { statut: "ACTIF", ...siteFilterForModel("eleve", session!.user) },
-        select: { id: true, nom: true, prenom: true, matricule: true },
-        orderBy: { prenom: "asc" },
-      },
-    },
-    orderBy: { nom: "asc" },
+  // Charger la hiérarchie des classes (Catégorie → Niveau → Classe + élèves).
+  // getClassesHierarchie applique déjà le filtre de site et le scope enseignant.
+  const hierarchie = await getClassesHierarchie(tenantId, session!.user, {
+    anneeCourante: anneeLibelle,
   });
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header {...headerProps} />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <RevisionSemaineStaff classes={classes} anneeId={anneeId} />
+        <RevisionSemaineStaff hierarchie={hierarchie} anneeId={anneeId} />
       </div>
     </div>
   );

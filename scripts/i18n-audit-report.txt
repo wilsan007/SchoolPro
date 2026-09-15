@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-15T18:49:20.193Z
+SchoolPro i18n audit — 2026-09-15T19:01:59.688Z
 
 Referenced keys missing from fr.json: 0
 
@@ -10,7 +10,7 @@ en.json extra keys (not in fr.json): 0
 
 so.json extra keys (not in fr.json): 0
 
-Dynamic template-literal t() calls (manual review): 215
+Dynamic template-literal t() calls (manual review): 217
   src/app/(dashboard)/parametres/audit/page.tsx:62  `/api/audit?${params.toString()}`
   src/app/(dashboard)/test-telegram/page.tsx:36  `${data.chats.length} chat(s) trouvé(s)`
   src/components/absences/AbsencesList.tsx:114  `${absence.eleve.prenom} ${absence.eleve.nom}`
@@ -156,7 +156,9 @@ Dynamic template-literal t() calls (manual review): 215
   src/components/learnos/PropositionsIaValidation.tsx:141  `statut.${s}`
   src/components/learnos/RecommandationsView.tsx:105  `/api/learnos/recommandations/${id}`
   src/components/learnos/RevisionSemaine.tsx:61  `/api/learnos/revision-semaine?${params}`
-  src/components/learnos/RevisionSemaineStaff.tsx:79  `/api/learnos/revision-semaine?${params}`
+  src/components/learnos/RevisionSemaineStaff.tsx:102  `/api/eleves?classeId=${classeId}&pageSize=200`
+  src/components/learnos/RevisionSemaineStaff.tsx:124  `/api/learnos/revision-semaine?${params}`
+  src/components/learnos/RevisionSemaineStaff.tsx:183  `categorie.${cat === "Primaire" ? "primaire" : cat === "Collège" ? "college" : cat === "Lycée" ? "lycee" : "autre"}`
   src/components/learnos/SeanceEntrainement.tsx:125  `/api/learnos/entrainement/${feuilleId}`
   src/components/learnos/SeanceEntrainement.tsx:199  `/api/learnos/entrainement/${seance.feuilleId}/reponse`
   src/components/learnos/SeanceEntrainement.tsx:217  `/api/learnos/entrainement/${seance.feuilleId}`

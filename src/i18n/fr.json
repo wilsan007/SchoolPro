@@ -4058,13 +4058,22 @@
       "titre": "Révision de la semaine",
       "sousTitre": "Résumés du cours adaptés à votre niveau",
       "aucuneAnnee": "Aucune année scolaire active.",
+      "selectionnerCategorie": "Catégorie",
       "selectionnerClasse": "Classe",
       "selectionnerEleve": "Élève",
+      "choisirClasse": "Choisir une classe…",
       "choisirEleve": "Choisir un élève…",
       "aucunEleve": "Aucun élève actif",
       "consulter": "Consulter",
-      "aideSelection": "Sélectionnez une classe puis un élève pour consulter sa révision de la semaine.",
-      "aucuneClasse": "Aucune classe dans votre périmètre."
+      "aideSelection": "Sélectionnez une catégorie, une classe puis un élève pour consulter sa révision de la semaine.",
+      "aucuneClasse": "Aucune classe dans votre périmètre.",
+      "selectionnerSiteDabord": "Veuillez sélectionner un site dans la barre latérale avant de choisir un élève.",
+      "categorie": {
+        "primaire": "Primaire",
+        "college": "Collège",
+        "lycee": "Lycée",
+        "autre": "Autre"
+      }
     },
     "commentairesBulletin": {
       "titre": "Commentaires de bulletin",

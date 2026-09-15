@@ -14,6 +14,7 @@
 
 import { Secret, TOTP, URI } from "otpauth";
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import QRCode from "qrcode";
 import prisma from "@/lib/prisma";
 
 const ISSUER = "EcolPro";
@@ -85,6 +86,7 @@ function creerTOTP(secret: Secret | string, email: string): TOTP {
 
 export interface Setup2FAResult {
   qrCodeUri: string;
+  qrCodeDataUrl: string;
   secretBase32: string;
   backupCodes: string[];
 }
@@ -99,6 +101,13 @@ export async function setup2FA(userId: string): Promise<Setup2FAResult> {
   const secret = genererSecret(user.email);
   const totp = creerTOTP(secret, user.email);
   const qrCodeUri = URI.stringify(totp);
+
+  // Générer le QR code côté serveur (le module qrcode n'est pas bundlé client)
+  const qrCodeDataUrl = await QRCode.toDataURL(qrCodeUri, {
+    width: 200,
+    margin: 2,
+    color: { dark: "#000000", light: "#ffffff" },
+  });
 
   // Chiffrer le secret
   const { chiffre, iv } = chiffrerSecret(secret.base32);
@@ -120,6 +129,7 @@ export async function setup2FA(userId: string): Promise<Setup2FAResult> {
 
   return {
     qrCodeUri,
+    qrCodeDataUrl,
     secretBase32: secret.base32,
     backupCodes,
   };

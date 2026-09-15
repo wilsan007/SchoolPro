@@ -4058,13 +4058,22 @@
       "titre": "Weekly review",
       "sousTitre": "Course summaries adapted to your level",
       "aucuneAnnee": "No active school year.",
+      "selectionnerCategorie": "Category",
       "selectionnerClasse": "Class",
       "selectionnerEleve": "Student",
+      "choisirClasse": "Choose a class…",
       "choisirEleve": "Choose a student…",
       "aucunEleve": "No active student",
       "consulter": "View",
-      "aideSelection": "Select a class then a student to view their weekly review.",
-      "aucuneClasse": "No class in your scope."
+      "aideSelection": "Select a category, a class then a student to view their weekly review.",
+      "aucuneClasse": "No class in your scope.",
+      "selectionnerSiteDabord": "Please select a site in the sidebar before choosing a student.",
+      "categorie": {
+        "primaire": "Primary",
+        "college": "Middle school",
+        "lycee": "High school",
+        "autre": "Other"
+      }
     },
     "commentairesBulletin": {
       "titre": "Report card comments",
