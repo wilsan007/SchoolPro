@@ -4057,7 +4057,14 @@
       },
       "titre": "Dib-u-eegista toddobaadka",
       "sousTitre": "Soo koobada darsiga oo lagu habeeyay heerkaaga",
-      "aucuneAnnee": "Ma jiro sannad dugsi ah oo firfircoon."
+      "aucuneAnnee": "Ma jiro sannad dugsi ah oo firfircoon.",
+      "selectionnerClasse": "Fasal",
+      "selectionnerEleve": "Arday",
+      "choisirEleve": "Dooro arday…",
+      "aucunEleve": "Ma jiro arday firfircoon",
+      "consulter": "Eeg",
+      "aideSelection": "Dooro fasal kadibna arday si aad u eegto dib-u-eegista toddobaadka.",
+      "aucuneClasse": "Ma jiro fasal oo ku jira waaxdaada."
     },
     "commentairesBulletin": {
       "titre": "Faallooyinka warqadda darajo",

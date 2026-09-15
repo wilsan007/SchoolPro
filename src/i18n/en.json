@@ -4057,7 +4057,14 @@
       },
       "titre": "Weekly review",
       "sousTitre": "Course summaries adapted to your level",
-      "aucuneAnnee": "No active school year."
+      "aucuneAnnee": "No active school year.",
+      "selectionnerClasse": "Class",
+      "selectionnerEleve": "Student",
+      "choisirEleve": "Choose a student…",
+      "aucunEleve": "No active student",
+      "consulter": "View",
+      "aideSelection": "Select a class then a student to view their weekly review.",
+      "aucuneClasse": "No class in your scope."
     },
     "commentairesBulletin": {
       "titre": "Report card comments",

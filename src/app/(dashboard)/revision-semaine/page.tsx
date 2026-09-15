@@ -4,21 +4,21 @@ import { Header } from "@/components/layout/Header";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, isRelationScopedRole } from "@/lib/site-scope";
 import { eleveDeLUtilisateur } from "@/lib/learnos/dossier-eleve";
 import { RevisionSemaine } from "@/components/learnos/RevisionSemaine";
-import { anneeActive } from "@/lib/annee-scolaire";
+import { RevisionSemaineStaff } from "@/components/learnos/RevisionSemaineStaff";
+import { anneeActive, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
+import type { Role } from "@prisma/client";
 
 /**
- * Page de révision du cours de la semaine pour l'élève.
+ * Page de révision du cours de la semaine.
  *
- * Les résumés sont re-levelés selon le niveau de lecture de l'élève,
- * déduit de son profil d'apprentissage. Si l'élève progresse, le texte
- * devient moins simplifié ; s'il est en difficulté, le texte est plus
- * accessible.
- *
- * ACCÈS : STUDENT (pour soi), PARENT (pour son enfant), personnel avec
- * entrainement:read.
+ * - STUDENT : révision de son propre cours, re-levelée selon son profil.
+ * - PARENT : redirigé vers `/parent` (sélection de la fratrie).
+ * - Personnel avec `entrainement:read` : un sélecteur classe/élève permet
+ *   de consulter la révision d'un élève donné.
  */
 export default async function RevisionSemainePage() {
   const [session, t] = await Promise.all([
@@ -30,45 +30,22 @@ export default async function RevisionSemainePage() {
   const tenantId = session!.user.tenantId!;
   const role = session!.user.role;
 
-  // Résoudre l'élève selon le rôle.
-  let eleveId: string | null = null;
-  let classeId: string | null = null;
-
-  if (role === "STUDENT") {
-    const eleve = await eleveDeLUtilisateur(tenantId, session!.user);
-    if (!eleve) redirect("/eleve");
-    eleveId = eleve.id;
-    // eleveDeLUtilisateur ne retourne pas classeId — le charger séparément
-    // avec les filtres tenant + site pour respecter l'isolation.
-    const eleveFull = await prisma.eleve.findFirst({
-      where: { id: eleve.id, tenantId, ...siteFilterForModel("eleve", session!.user) },
-      select: { classeId: true },
-    });
-    classeId = eleveFull?.classeId ?? null;
-  } else if (role === "PARENT") {
-    // Le parent accède à la révision de son enfant — il faut sélectionner lequel.
-    // Pour l'instant, on redirige vers l'espace parent qui gère la fratrie.
-    redirect("/parent");
-  } else {
-    // Personnel : rediriger vers le tableau de bord pour sélectionner un élève.
-    redirect("/dashboard");
-  }
-
-  if (!eleveId || !classeId) redirect("/dashboard");
-
-  // Charger l'année active (respecte la Time Machine).
+  // Résoudre l'année active (respecte la Time Machine).
   const annee = await anneeActive(tenantId);
   const anneeId = annee?.id ?? null;
+  const anneeLibelle = await getAnneeCouranteLibelle(tenantId);
+
+  const headerProps = {
+    title: t("titre"),
+    subtitle: t("sousTitre"),
+    userName: session!.user.name,
+    userAvatar: session!.user.image ?? undefined,
+  };
 
   if (!anneeId) {
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Header
-          title={t("titre")}
-          subtitle={t("sousTitre")}
-          userName={session!.user.name}
-          userAvatar={session!.user.image ?? undefined}
-        />
+        <Header {...headerProps} />
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
           <p className="text-sm text-muted-foreground">{t("aucuneAnnee")}</p>
         </div>
@@ -76,20 +53,76 @@ export default async function RevisionSemainePage() {
     );
   }
 
+  // — Élève : sa propre révision —
+  if (role === "STUDENT") {
+    const eleve = await eleveDeLUtilisateur(tenantId, session!.user);
+    if (!eleve) redirect("/eleve");
+    const eleveFull = await prisma.eleve.findFirst({
+      where: { id: eleve.id, tenantId, ...siteFilterForModel("eleve", session!.user) },
+      select: { classeId: true },
+    });
+    const classeId = eleveFull?.classeId ?? null;
+    if (!classeId) redirect("/eleve");
+
+    return (
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header {...headerProps} />
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
+          <RevisionSemaine eleveId={eleve.id} classeId={classeId} anneeId={anneeId} />
+        </div>
+      </div>
+    );
+  }
+
+  // — Parent : la fratrie est gérée dans l'espace parent —
+  if (role === "PARENT") {
+    redirect("/parent");
+  }
+
+  // — Personnel : sélecteur classe/élève —
+  // Charger les classes selon le périmètre (site, enseignant, année).
+  let classeIds: string[] | null = null;
+  if (isTeacherRole(role as Role) && session!.user.id) {
+    const scope = await getTeacherScope(tenantId, session!.user.id, role as Role, anneeLibelle);
+    if (scope.classeIds.length === 0) {
+      return (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Header {...headerProps} />
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
+            <p className="text-sm text-muted-foreground">{t("aucuneClasse")}</p>
+          </div>
+        </div>
+      );
+    }
+    classeIds = scope.classeIds;
+  }
+
+  const classes = await prisma.classe.findMany({
+    where: {
+      tenantId,
+      ...siteFilterForModel("classe", session!.user),
+      ...(anneeLibelle ? { annee: anneeLibelle } : {}),
+      ...(classeIds ? { id: { in: classeIds } } : {}),
+    },
+    select: {
+      id: true,
+      nom: true,
+      niveau: true,
+      annee: true,
+      eleves: {
+        where: { statut: "ACTIF", ...siteFilterForModel("eleve", session!.user) },
+        select: { id: true, nom: true, prenom: true, matricule: true },
+        orderBy: { prenom: "asc" },
+      },
+    },
+    orderBy: { nom: "asc" },
+  });
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <Header
-        title={t("titre")}
-        subtitle={t("sousTitre")}
-        userName={session!.user.name}
-        userAvatar={session!.user.image ?? undefined}
-      />
+      <Header {...headerProps} />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <RevisionSemaine
-          eleveId={eleveId}
-          classeId={classeId}
-          anneeId={anneeId}
-        />
+        <RevisionSemaineStaff classes={classes} anneeId={anneeId} />
       </div>
     </div>
   );

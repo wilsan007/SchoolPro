@@ -4057,7 +4057,14 @@
       },
       "titre": "Révision de la semaine",
       "sousTitre": "Résumés du cours adaptés à votre niveau",
-      "aucuneAnnee": "Aucune année scolaire active."
+      "aucuneAnnee": "Aucune année scolaire active.",
+      "selectionnerClasse": "Classe",
+      "selectionnerEleve": "Élève",
+      "choisirEleve": "Choisir un élève…",
+      "aucunEleve": "Aucun élève actif",
+      "consulter": "Consulter",
+      "aideSelection": "Sélectionnez une classe puis un élève pour consulter sa révision de la semaine.",
+      "aucuneClasse": "Aucune classe dans votre périmètre."
     },
     "commentairesBulletin": {
       "titre": "Commentaires de bulletin",

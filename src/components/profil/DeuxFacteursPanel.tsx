@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, ShieldCheck, ShieldAlert, Copy, Check } from "lucide-react";
@@ -9,18 +10,10 @@ import { Loader2, ShieldCheck, ShieldAlert, Copy, Check } from "lucide-react";
 /**
  * Configuration de la double authentification.
  *
- * POURQUOI PAS DE QR CODE
- * Aucune bibliothèque de génération de QR n'est présente dans le projet,
- * et en ajouter une pour ce seul écran reviendrait à élargir la surface de
- * dépendances au beau milieu d'un chantier de sécurité. Deux voies sont
- * donc proposées, toutes deux universelles :
- *   - sur téléphone, le lien `otpauth://` ouvre directement l'application
- *     d'authentification, sans rien saisir ;
- *   - sur ordinateur, la clé se copie et se colle dans « saisie manuelle »,
- *     que proposent Google Authenticator, Authy, 1Password, Bitwarden et
- *     Aegis.
- * Un QR code pourra être ajouté plus tard ; il n'est pas nécessaire au
- * fonctionnement.
+ * Un QR code est généré côté client à partir de l'URI `otpauth://` retournée
+ * par le serveur. Il contient le secret, l'algorithme (SHA1), le nombre de
+ * chiffres (6) et la période (30s) — l'application d'authentification
+ * récupère ainsi tous les paramètres corrects automatiquement.
  */
 
 interface Props {
@@ -42,6 +35,22 @@ export function DeuxFacteursPanel({ actifInitial, derniereVerification, obligato
   const [enCours, setEnCours] = useState(false);
   const [copie, setCopie] = useState(false);
   const [codesArchives, setCodesArchives] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+
+  // Générer le QR code quand les données de setup arrivent
+  useEffect(() => {
+    if (!setup?.qrCodeUri) {
+      setQrDataUrl("");
+      return;
+    }
+    QRCode.toDataURL(setup.qrCodeUri, {
+      width: 200,
+      margin: 2,
+      color: { dark: "#000000", light: "#ffffff" },
+    })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [setup?.qrCodeUri]);
 
   async function appeler(action: string, corps: Record<string, string> = {}) {
     const res = await fetch("/api/auth/2fa", {
@@ -143,6 +152,18 @@ export function DeuxFacteursPanel({ actifInitial, derniereVerification, obligato
 
         <div className="space-y-2">
           <p className="text-sm font-medium">1. Enregistrer le compte</p>
+          {qrDataUrl && (
+            <div className="flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrDataUrl}
+                alt="QR code à scanner avec votre application d'authentification"
+                className="rounded-lg border"
+                width={200}
+                height={200}
+              />
+            </div>
+          )}
           <a
             href={setup.qrCodeUri}
             className="inline-block text-sm underline underline-offset-4 sm:hidden"
