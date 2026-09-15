@@ -11,7 +11,8 @@ import { DockSearch } from "./DockSearch";
 import { LAYOUT_GEOMETRY, type LayoutMode } from "./types";
 import { getRouteMeta } from "@/lib/nav-metadata";
 import { accueilPourRole } from "@/lib/accueil-par-role";
-import { Monitor, Columns2, Rows2, Grid2x2, School, Search, Command } from "lucide-react";
+import { Monitor, Columns2, Rows2, Grid2x2, School, Search, Command, User, LogOut, ChevronDown } from "lucide-react";
+import { signOut } from "next-auth/react";
 import type { Role } from "@prisma/client";
 import type { AvailableTenant } from "@/auth.config";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
@@ -65,6 +66,9 @@ export function Workspace({
   } = useWindowManager();
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const tCommon = useTranslations("common");
   const containerRef = useRef<HTMLDivElement>(null);
   const geometry = LAYOUT_GEOMETRY[layout];
   const pathname = usePathname();
@@ -82,6 +86,17 @@ export function Workspace({
     const meta = getRouteMeta(routeCible);
     openWindow(routeCible, meta.title, meta.icon, meta.iconColor);
   }, [pathname, openWindow, roleKey]);
+
+  // Fermer le menu utilisateur au clic extérieur
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-secondary/40">
@@ -151,15 +166,41 @@ export function Workspace({
           )}
           <LanguageSwitcher />
           <TimeMachineButton />
-          <a
-            href="/profil"
-            className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-secondary/60 transition-colors"
-          >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shadow-[0_2px_8px_hsl(198_65%_46%/0.1)]">
-              {userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-            </div>
-            <span className="text-sm font-medium text-navy hidden md:inline">{userName.split(" ")[0]}</span>
-          </a>
+          {/* Menu utilisateur — profil + déconnexion */}
+          <div ref={userMenuRef} className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-secondary/60 transition-colors"
+              aria-haspopup="menu"
+              aria-expanded={showUserMenu}
+            >
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shadow-[0_2px_8px_hsl(198_65%_46%/0.1)]">
+                {userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+              <span className="text-sm font-medium text-navy hidden md:inline">{userName.split(" ")[0]}</span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground" />
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 mt-1 w-44 sm:w-48 bg-popover border rounded-2xl shadow-lg py-1 z-50">
+                <a
+                  href="/profil"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors"
+                >
+                  <User className="h-4 w-4" />
+                  {tCommon("myProfile")}
+                </a>
+                <div className="border-t my-1" />
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {tCommon("logout")}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

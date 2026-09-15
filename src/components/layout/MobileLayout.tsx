@@ -13,8 +13,9 @@ import {
   Briefcase, Bell, FileText, Compass, Archive, Package, Crown, PlayCircle,
   ListTodo, NotebookPen, Sun, Wrench, ClipboardCheck, BookOpenCheck,
   Grid3x3, GitCompare, Wallet, Gavel, HeartHandshake, CheckSquare, Activity,
-  Brain, School, Menu, X, ChevronRight,
+  Brain, School, Menu, X, ChevronRight, LogOut,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import type { LucideIcon } from "lucide-react";
 
 interface MobileNavItem {
@@ -172,6 +173,7 @@ interface MobileLayoutProps {
 
 export function MobileLayout({ roleKey, userName = "Admin", children }: MobileLayoutProps) {
   const t = useTranslations("nav");
+  const tCommon = useTranslations("common");
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
@@ -360,6 +362,17 @@ export function MobileLayout({ roleKey, userName = "Admin", children }: MobileLa
                   );
                 })
               )}
+            </div>
+
+            {/* Drawer footer — déconnexion */}
+            <div className="shrink-0 border-t border-border px-4 py-3 safe-area-pb">
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                {tCommon("logout")}
+              </button>
             </div>
           </div>
         </>

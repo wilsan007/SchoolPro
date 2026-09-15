@@ -82,6 +82,7 @@ const nextConfig: NextConfig = {
             "https://api.africastalking.com",
             "https://api.sandbox.africastalking.com",
             "https://api.resend.com",
+            "https://api.fontshare.com",
             "https://graph.facebook.com",
             "https://api.telegram.org",
             "https://api.stripe.com",
