@@ -369,7 +369,9 @@
     "deleteConfirm": "Confirm deletion",
     "studentDeleted": "Student deleted successfully",
     "deleteError": "Error during deletion",
-    "dossierProgression": "Progress record"
+    "dossierProgression": "Progress record",
+    "statutREINSCRIT": "Re-enrolled",
+    "statutNON_REINSCRIT": "Not re-enrolled"
   },
   "eleves": {
     "title": "Student Management",
@@ -1497,7 +1499,13 @@
     "totalSanctions": "Total sanctions",
     "workflowError": "Error validating",
     "workflowSanction": "Sanction workflow",
-    "workflowSuccess": "Sanction applied"
+    "workflowSuccess": "Sanction applied",
+    "notifierParents": "Notify parents",
+    "convocationParents": "Summon parents",
+    "escalade": "Escalate to management",
+    "confirmNotifierParents": "Send a notification to this student's parents?",
+    "confirmConvocation": "Generate a summons for this student's parents?",
+    "confirmEscalade": "Escalate this incident to management?"
   },
   "rh": {
     "title": "Human Resources",
@@ -2700,7 +2708,13 @@
     "selectionnerClasse": "Select a class",
     "selectionnerEnseignant": "Select a teacher",
     "selectionnerMatiere": "Select a subject",
-    "supprimer": "Delete"
+    "supprimer": "Delete",
+    "roleSupervisor": "Supervisor",
+    "roleSubjectLead": "Subject lead",
+    "roleSiteManager": "Site manager",
+    "roleInspector": "Inspector",
+    "userPermissions": "User permissions",
+    "salles": "Rooms"
   },
   "appreciations": {
     "title": "Configurable grading rules",
@@ -3459,7 +3473,8 @@
       "exercice_sondage": "We don't know where you stand on \"{competence}\" yet: this exercise is here to find out.",
       "exercice_approfondissement": "\"{competence}\" is solidly acquired: here's something to go further.",
       "seance_rythme_improbable": "Session completed at an unusual pace: the result is recorded with reduced confidence.",
-      "exercice_attestation": "In-class check exercise, proposed after your practice."
+      "exercice_attestation": "In-class check exercise, proposed after your practice.",
+      "exercice_papier": "Exercise {numero} taken from the marked paper."
     },
     "plans": {
       "titre": "Paths to commit to",
@@ -3492,9 +3507,11 @@
       "plansEnRevue": "Paths to review",
       "plansEnRevueAide": "Their review date has come — are they still useful?",
       "mesSaisiesEnRetard": "My overdue entries",
+      "mesSaisiesEnRetardAide": "My past assessments with no grade recorded",
       "aTraiterCetteSemaine": "Students to handle",
       "aTraiterCetteSemaineAide": "Required or recommended actions in my classes",
       "mesParcours": "Paths I am responsible for",
+      "mesParcoursAide": "Support plans where I am the referring teacher",
       "aucuneVariation": "first reading",
       "voir": "View",
       "rienAsignaler": "Nothing needs your attention today.",
@@ -3671,6 +3688,7 @@
       "aucunEnfantAide": "Contact the school office to have your account linked to your child.",
       "aucunEleve": "No student record is linked to your account.",
       "choisirEnfant": "Choose a child",
+      "erreurBasculeEleve": "Could not switch student. Please try again.",
       "aiderTitre": "You can help this week",
       "aiderTitreEleve": "Your next step",
       "avantLe": "By {date}",
@@ -4876,15 +4894,15 @@
     "presetOctobre2025": "October 2025",
     "presetOctobre2025Desc": "Start T1 2025-2026",
     "presetJanvier2026": "January 2026",
-    "presetJanvier2026Desc": "End T2 2025-2026",
+    "presetJanvier2026Desc": "Start of term 2, 2025-2026",
     "presetMars2026": "March 2026",
-    "presetMars2026Desc": "Mid T3 2025-2026",
+    "presetMars2026Desc": "End of term 2, 2025-2026",
     "presetJuin2026": "June 2026",
-    "presetJuin2026Desc": "End T3 2025-2026",
+    "presetJuin2026Desc": "End of term 3, 2025-2026, year-end decisions",
     "presetAout2026": "August 2026",
-    "presetAout2026Desc": "Holidays, year closed",
+    "presetAout2026Desc": "Holidays: year closed, new year being prepared",
     "presetOctobre2026": "October 2026",
-    "presetOctobre2026Desc": "Start T1 2026-2027"
+    "presetOctobre2026Desc": "Start of term 1, 2026-2027"
   },
   "fournitures": {
     "titre": "School supplies",
@@ -5181,7 +5199,12 @@
     "selectPeriode": "Select a period",
     "selectPrompt": "Select a class and period to generate the augmented council.",
     "signalsSynthesis": "Signal synthesis",
-    "subjectsInDifficulty": "Subjects in difficulty"
+    "subjectsInDifficulty": "Subjects in difficulty",
+    "mentoratType": {
+      "ACADEMIQUE": "Academic",
+      "PROFESSIONNEL": "Professional",
+      "PERSONNEL": "Personal"
+    }
   },
   "activityTimeline": {
     "titre": "Recent activity",

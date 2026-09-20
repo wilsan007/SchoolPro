@@ -369,7 +369,9 @@
     "deleteConfirm": "Confirmer la suppression",
     "studentDeleted": "Élève supprimé avec succès",
     "deleteError": "Erreur lors de la suppression",
-    "dossierProgression": "Dossier de progression"
+    "dossierProgression": "Dossier de progression",
+    "statutREINSCRIT": "Réinscrit",
+    "statutNON_REINSCRIT": "Non réinscrit"
   },
   "eleves": {
     "title": "Gestion des Élèves",
@@ -1497,7 +1499,13 @@
     "totalSanctions": "Total sanctions",
     "workflowError": "Erreur lors de la validation",
     "workflowSanction": "Workflow de sanction",
-    "workflowSuccess": "Sanction appliquée"
+    "workflowSuccess": "Sanction appliquée",
+    "notifierParents": "Notifier les parents",
+    "convocationParents": "Convoquer les parents",
+    "escalade": "Escalader à la direction",
+    "confirmNotifierParents": "Envoyer une notification aux parents de cet élève ?",
+    "confirmConvocation": "Générer une convocation pour les parents de cet élève ?",
+    "confirmEscalade": "Escalader cet incident à la direction ?"
   },
   "rh": {
     "title": "Ressources Humaines",
@@ -2700,7 +2708,13 @@
     "selectionnerClasse": "Sélectionner une classe",
     "selectionnerEnseignant": "Sélectionner un enseignant",
     "selectionnerMatiere": "Sélectionner une matière",
-    "supprimer": "Supprimer"
+    "supprimer": "Supprimer",
+    "roleSupervisor": "Surveillant",
+    "roleSubjectLead": "Coordinateur de matière",
+    "roleSiteManager": "Responsable de site",
+    "roleInspector": "Inspecteur",
+    "userPermissions": "Permissions utilisateurs",
+    "salles": "Salles"
   },
   "appreciations": {
     "title": "Règles d'appréciation configurables",
@@ -3459,7 +3473,8 @@
       "exercice_sondage": "On ne sait pas encore où tu en es sur « {competence} » : cet exercice sert à le mesurer.",
       "exercice_approfondissement": "« {competence} » est solidement acquise : voici de quoi aller plus loin.",
       "seance_rythme_improbable": "Séance réussie à un rythme inhabituel : le résultat est pris en compte avec une confiance réduite.",
-      "exercice_attestation": "Exercice de vérification en classe, proposé après ton entraînement."
+      "exercice_attestation": "Exercice de vérification en classe, proposé après ton entraînement.",
+      "exercice_papier": "Exercice {numero} repris de la copie corrigée."
     },
     "plans": {
       "titre": "Parcours à engager",
@@ -3492,9 +3507,11 @@
       "plansEnRevue": "Parcours à réexaminer",
       "plansEnRevueAide": "Leur point d'étape est arrivé — sont-ils encore utiles ?",
       "mesSaisiesEnRetard": "Mes saisies en retard",
+      "mesSaisiesEnRetardAide": "Mes évaluations passées dont aucune note n'a été enregistrée",
       "aTraiterCetteSemaine": "Élèves à traiter",
       "aTraiterCetteSemaineAide": "Recommandations obligatoires ou recommandées sur mes classes",
       "mesParcours": "Parcours dont je suis responsable",
+      "mesParcoursAide": "Plans d'accompagnement dont je suis l'enseignant référent",
       "aucuneVariation": "premier relevé",
       "voir": "Voir",
       "rienAsignaler": "Rien ne demande votre attention aujourd'hui.",
@@ -3671,6 +3688,7 @@
       "aucunEnfantAide": "Contactez le secrétariat de l’établissement pour faire rattacher votre compte à votre enfant.",
       "aucunEleve": "Aucun dossier élève rattaché à votre compte.",
       "choisirEnfant": "Choisir un enfant",
+      "erreurBasculeEleve": "Impossible de changer d'élève. Réessayez.",
       "aiderTitre": "Vous pouvez l’aider cette semaine",
       "aiderTitreEleve": "Ta prochaine étape",
       "avantLe": "Avant le {date}",
@@ -4876,13 +4894,13 @@
     "presetOctobre2025": "Octobre 2025",
     "presetOctobre2025Desc": "Début T1 2025-2026",
     "presetJanvier2026": "Janvier 2026",
-    "presetJanvier2026Desc": "Fin T2 2025-2026",
+    "presetJanvier2026Desc": "Début T2 2025-2026",
     "presetMars2026": "Mars 2026",
-    "presetMars2026Desc": "Mi T3 2025-2026",
+    "presetMars2026Desc": "Fin T2 2025-2026",
     "presetJuin2026": "Juin 2026",
-    "presetJuin2026Desc": "Fin T3 2025-2026",
+    "presetJuin2026Desc": "Fin T3 2025-2026, décisions annuelles",
     "presetAout2026": "Août 2026",
-    "presetAout2026Desc": "Vacances, année clôturée",
+    "presetAout2026Desc": "Vacances : année clôturée, rentrée en préparation",
     "presetOctobre2026": "Octobre 2026",
     "presetOctobre2026Desc": "Début T1 2026-2027"
   },
@@ -5181,7 +5199,12 @@
     "selectPeriode": "Sélectionner une période",
     "selectPrompt": "Sélectionnez une classe et une période pour générer le conseil augmenté.",
     "signalsSynthesis": "Synthèse des signaux",
-    "subjectsInDifficulty": "Matières en difficulté"
+    "subjectsInDifficulty": "Matières en difficulté",
+    "mentoratType": {
+      "ACADEMIQUE": "Académique",
+      "PROFESSIONNEL": "Professionnel",
+      "PERSONNEL": "Personnel"
+    }
   },
   "activityTimeline": {
     "titre": "Activité récente",

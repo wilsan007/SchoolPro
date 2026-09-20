@@ -235,6 +235,65 @@ describe("eleveScopeFilter", () => {
   });
 });
 
+describe("personalScopeFilter — comptes hybrides élève+parent", () => {
+  it("étend l'élève hybride (possède PARENT) à ses enfants", () => {
+    const filter = personalScopeFilter(
+      {
+        role: "STUDENT",
+        id: "u1",
+        siteId: null,
+        siteIds: [],
+        availableRoles: ["STUDENT", "PARENT"],
+      },
+      null
+    );
+    // « Soi-même ou l'un de ses enfants » : le sous-ensemble exact de ce que
+    // le rôle PARENT du même compte voit déjà.
+    expect(filter).toEqual({
+      AND: [
+        {
+          OR: [
+            { userId: "u1" },
+            { parents: { some: { parent: { userId: "u1" } } } },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("garde l'élève ordinaire sur sa seule fiche", () => {
+    const filter = personalScopeFilter(
+      { role: "STUDENT", id: "u2", siteId: null, siteIds: [], availableRoles: ["STUDENT"] },
+      null
+    );
+    expect(filter).toEqual({ AND: [{ userId: "u2" }] });
+  });
+
+  it("garde l'élève sans liste de rôles sur sa seule fiche (fail-closed)", () => {
+    const filter = personalScopeFilter(
+      { role: "STUDENT", id: "u3", siteId: null, siteIds: [] },
+      null
+    );
+    expect(filter).toEqual({ AND: [{ userId: "u3" }] });
+  });
+
+  it("le parent reste sur le lien familial, même hybride", () => {
+    const filter = personalScopeFilter(
+      {
+        role: "PARENT",
+        id: "u4",
+        siteId: null,
+        siteIds: [],
+        availableRoles: ["STUDENT", "PARENT"],
+      },
+      null
+    );
+    expect(filter).toEqual({
+      AND: [{ parents: { some: { parent: { userId: "u4" } } } }],
+    });
+  });
+});
+
 describe("siteIdForCreate", () => {
   // Régression : un fragment `where` était étalé dans un `data` de création,
   // produisant soit une erreur Prisma, soit un enregistrement sans site donc

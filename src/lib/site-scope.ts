@@ -238,7 +238,12 @@ export function siteWhereForRelation(
  *   Utiliser `null` quand on interroge `Eleve` lui-même.
  */
 export function personalScopeFilter(
-  claims: SessionSiteClaims & { userId?: string; id?: string },
+  claims: SessionSiteClaims & {
+    userId?: string;
+    id?: string;
+    /** Rôles possédés dans le tenant actif (`session.user.availableRoles`). */
+    availableRoles?: readonly string[];
+  },
   relation: string | null = "eleve"
 ): Record<string, unknown> {
   if (!isRelationScopedRole(claims.role)) return {};
@@ -250,9 +255,17 @@ export function personalScopeFilter(
   // doit rien voir.
   if (!userId) return DENY_ALL;
 
+  // COMPTE HYBRIDE ÉLÈVE+PARENT : l'espace élève peut incarner l'un des
+  // enfants du compte (bascule de démonstration). Le périmètre de DONNÉES
+  // du rôle STUDENT s'élargit alors à « soi-même ou l'un de ses enfants » —
+  // strictement le sous-ensemble de ce que le rôle PARENT du même compte
+  // voit déjà, d'où la porte sur les rôles possédés. Un compte élève sans
+  // rôle PARENT garde le périmètre minimal : sa seule fiche.
   const elevePredicate =
     claims.role === "STUDENT"
-      ? { userId }
+      ? claims.availableRoles?.includes("PARENT")
+        ? { OR: [{ userId }, { parents: { some: { parent: { userId } } } }] }
+        : { userId }
       : { parents: { some: { parent: { userId } } } };
 
   return relation

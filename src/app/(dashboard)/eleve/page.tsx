@@ -8,7 +8,12 @@ import { EvolutionEleve } from "@/components/learnos/EvolutionEleve";
 import { CompetencesEleve } from "@/components/learnos/CompetencesEleve";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
-import { dossierEleve, eleveDeLUtilisateur } from "@/lib/learnos/dossier-eleve";
+import {
+  dossierEleve,
+  eleveDeLUtilisateur,
+  enfantsDuComptePourBascule,
+} from "@/lib/learnos/dossier-eleve";
+import { EspaceEleveSwitcher } from "@/components/learnos/EspaceEleveSwitcher";
 import { getDemoNow } from "@/lib/demo-now";
 
 /**
@@ -33,6 +38,20 @@ export default async function EleveEspacePage() {
   // Le périmètre relationnel résout l'élève : aucun identifiant ne transite
   // par l'URL, il n'y a donc rien à falsifier.
   const eleve = await eleveDeLUtilisateur(tenantId, session!.user);
+  // Comptes hybrides (parent+élève) : les enfants que ce compte peut incarner
+  // ici. Vide pour un compte élève ordinaire — pas de sélecteur.
+  const enfantsBascule = await enfantsDuComptePourBascule(tenantId, session!.user);
+  const switcher = enfantsBascule.length > 1 && (
+    <EspaceEleveSwitcher
+      enfants={enfantsBascule.map((e) => ({
+        id: e.id,
+        prenom: e.prenom,
+        nom: e.nom,
+        classe: e.classe?.nom ?? null,
+      }))}
+      actuel={eleve?.id ?? ""}
+    />
+  );
 
   const entete = (
     <Header
@@ -47,7 +66,8 @@ export default async function EleveEspacePage() {
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         {entete}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
+        <div className="flex-1 space-y-6 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
+          {switcher}
           <Card>
             <CardContent className="py-12 text-center">
               <p className="font-medium">{t("aucunEleve")}</p>
@@ -67,6 +87,7 @@ export default async function EleveEspacePage() {
     <div className="flex flex-col flex-1 overflow-hidden">
       {entete}
       <div className="flex-1 space-y-6 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
+        {switcher}
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg sm:text-xl font-semibold truncate">
             {eleve.prenom} {eleve.nom}

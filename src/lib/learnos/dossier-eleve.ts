@@ -29,6 +29,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { cookies } from "next/headers";
 import {
   eleveScopeFilter,
   siteFilterForModel,
@@ -102,48 +103,237 @@ export interface DossierEleve {
   finance: { facturesEnRetard: number; montantDu: number } | null;
 }
 
-/** Les enfants rattachés au compte parent connecté. */
+/**
+ * UNE FICHE PAR ANNÉE, UNE PERSONNE POUR TOUJOURS
+ *
+ * Le modèle de données crée une fiche élève par année scolaire : la « 2nde D »
+ * de 2025-2026 et celle de 2026-2027 ne partagent aucune ligne. Un compte
+ * famille, lui, suit la personne d'une année sur l'autre.
+ *
+ * Les deux fonctions ci-dessous font donc la jonction : elles retiennent
+ * d'abord les fiches de l'année active, et ne retombent sur les autres que
+ * s'il n'y en a aucune — sans quoi l'espace d'un parent afficherait l'enfant
+ * tel qu'il était l'an dernier, dans une classe qui n'existe plus.
+ */
+const CHAMPS_FICHE = {
+  id: true,
+  nom: true,
+  prenom: true,
+  photoUrl: true,
+  dateNaissance: true,
+  userId: true,
+  classe: { select: { nom: true, annee: true } },
+} as const;
+
+/** Les enfants rattachés au compte parent connecté, pour l'année active. */
 export async function enfantsDuParent(
   tenantId: string,
   claims: SessionSiteClaims & { userId?: string; id?: string }
 ) {
-  return prisma.eleve.findMany({
+  const enfants = await prisma.eleve.findMany({
     where: {
       tenantId,
       statut: "ACTIF",
       deletedAt: null,
       ...eleveScopeFilter(claims, null),
     },
-    select: {
-      id: true,
-      nom: true,
-      prenom: true,
-      photoUrl: true,
-      classe: { select: { nom: true } },
-    },
+    select: CHAMPS_FICHE,
     orderBy: [{ prenom: "asc" }, { nom: "asc" }],
   });
+
+  const annee = await getAnneeCouranteLibelle(tenantId);
+
+  // Un enfant SANS classe est retenu lui aussi : inscrit la semaine dernière et
+  // pas encore placé, ou en attente de réaffectation en cours d'année, il est
+  // bien de cette année. L'écarter le ferait disparaître de l'espace de ses
+  // parents sans qu'aucun écran ne l'explique — et d'autant plus sûrement que
+  // sa fratrie, elle, a une classe et suffit à désamorcer le repli ci-dessous.
+  const deLAnnee = annee
+    ? enfants.filter((e) => e.classe === null || e.classe.annee === annee)
+    : [];
+
+  // Repli volontaire : une famille dont aucun enfant n'est inscrit cette
+  // année — départ, fin de scolarité — doit continuer à voir son dossier
+  // plutôt qu'un écran vide.
+  return deLAnnee.length > 0 ? deLAnnee : enfants;
 }
 
-/** L'élève correspondant au compte élève connecté. */
+/**
+ * L'élève correspondant au compte élève connecté, pour l'année active.
+ *
+ * `Eleve.userId` est unique : le compte ne peut être rattaché qu'à UNE fiche,
+ * donc à une seule année. Quand l'année active est une autre, on retrouve la
+ * fiche de la même personne — même nom, même prénom, même date de naissance —
+ * dans l'année en cours. C'est le rapprochement décrit par `identityKey`
+ * (`src/lib/eleve-identity.ts`), appliqué ici sur les champs bruts.
+ *
+ * DEUX GARDE-FOUS, PARCE QUE L'HOMONYMIE EXISTE VRAIMENT
+ * Le même module documente que la base porte des homonymes réels — jumeaux,
+ * patronymes fréquents — et surtout soixante-seize élèves nés le 1er janvier
+ * 2008, date de repli d'un ancien import. Nom + prénom + date de naissance ne
+ * désigne donc PAS toujours une seule personne, et un élève verrait alors le
+ * dossier de compétences et l'assiduité d'un camarade.
+ *
+ *   1. une fiche déjà rattachée à un AUTRE compte n'est jamais « la même
+ *      personne » : elle appartient à quelqu'un qui se connecte lui aussi ;
+ *   2. à égalité, le tri est déterministe — deux appels rendent la même fiche,
+ *      plutôt qu'une réponse qui change d'une requête à l'autre.
+ *
+ * En dernier recours, on rend la fiche rattachée : montrer l'élève tel qu'il
+ * était l'an dernier vaut mieux que montrer quelqu'un d'autre.
+ */
 export async function eleveDeLUtilisateur(
   tenantId: string,
-  claims: SessionSiteClaims & { userId?: string; id?: string }
+  claims: SessionSiteClaims & {
+    userId?: string;
+    id?: string;
+    availableRoles?: readonly string[];
+  }
 ) {
-  return prisma.eleve.findFirst({
+  // COMPTE HYBRIDE ÉLÈVE+PARENT : l'espace élève peut incarner l'un des
+  // enfants du compte (bascule de démonstration). Le choix est un cookie,
+  // REVALIDÉ à chaque lecture contre le périmètre familial — un identifiant
+  // falsifié ne donne jamais la fiche d'un autre.
+  const choisie = await eleveChoisiPourEspace(tenantId, claims);
+  if (choisie) return choisie;
+
+  const rattachee = await prisma.eleve.findFirst({
     where: {
       tenantId,
       deletedAt: null,
       ...eleveScopeFilter(claims, null),
     },
-    select: {
-      id: true,
-      nom: true,
-      prenom: true,
-      photoUrl: true,
-      classe: { select: { nom: true } },
-    },
+    select: CHAMPS_FICHE,
   });
+  if (!rattachee) return null;
+
+  return ficheDeLAnnee(tenantId, rattachee);
+}
+
+/** Fiche telle que sélectionnée par `CHAMPS_FICHE`. */
+interface FicheEleve {
+  id: string;
+  nom: string;
+  prenom: string;
+  photoUrl: string | null;
+  dateNaissance: Date;
+  userId: string | null;
+  classe: { nom: string; annee: string } | null;
+}
+
+/**
+ * Recale une fiche sur l'année active quand elle appartient à une autre —
+ * même nom, même prénom, même date de naissance, fiche libre ou portée par
+ * le même compte. C'est le rapprochement décrit par `identityKey`
+ * (`src/lib/eleve-identity.ts`), appliqué sur les champs bruts.
+ */
+async function ficheDeLAnnee(tenantId: string, fiche: FicheEleve): Promise<FicheEleve> {
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  if (!annee || fiche.classe?.annee === annee) return fiche;
+
+  // eslint-disable-next-line ecolpro/require-site-filter -- rapprochement d'identité au sein du tenant : la fiche visée est la même personne que celle déjà autorisée ci-dessus
+  const deLAnnee = await prisma.eleve.findFirst({
+    where: {
+      tenantId,
+      deletedAt: null,
+      statut: "ACTIF",
+      nom: fiche.nom,
+      prenom: fiche.prenom,
+      dateNaissance: fiche.dateNaissance,
+      classe: { annee },
+      // Libre, ou rattachée au même compte : une fiche portée par un autre
+      // utilisateur est un homonyme, pas la même personne.
+      OR: [{ userId: null }, { userId: fiche.userId }],
+    },
+    // `nulls: "last"` est explicite à dessein : en PostgreSQL, un tri
+    // descendant place les NULL en tête par défaut — la fiche libre passerait
+    // alors devant celle du compte lui-même, soit l'inverse du but.
+    orderBy: [{ userId: { sort: "desc", nulls: "last" } }, { matricule: "asc" }],
+    select: CHAMPS_FICHE,
+  });
+
+  return deLAnnee ?? fiche;
+}
+
+/** Cookie portant l'élève incarné dans l'espace STUDENT (comptes hybrides). */
+export const ESPACE_ELEVE_CHOISI_COOKIE = "espace_eleve_choisi";
+
+/**
+ * La fiche incarnée dans l'espace élève quand le compte a choisi l'un de
+ * ses enfants, ou `null` si aucun choix valide n'est posé.
+ *
+ * Fail-closed sur deux portes : le rôle actif doit être STUDENT, le compte
+ * doit POSSÉDER aussi PARENT (sans lui, le périmètre de données du rôle
+ * STUDENT resterait borné à sa propre fiche — voir `personalScopeFilter`),
+ * et la fiche choisie doit être un enfant ACTIF du compte.
+ */
+async function eleveChoisiPourEspace(
+  tenantId: string,
+  claims: SessionSiteClaims & {
+    userId?: string;
+    id?: string;
+    availableRoles?: readonly string[];
+  }
+): Promise<FicheEleve | null> {
+  if (claims.role !== "STUDENT") return null;
+  if (!claims.availableRoles?.includes("PARENT")) return null;
+  const userId = claims.userId ?? claims.id;
+  if (!userId) return null;
+
+  const brut = (await cookies()).get(ESPACE_ELEVE_CHOISI_COOKIE)?.value;
+  if (!brut) return null;
+
+  // eslint-disable-next-line ecolpro/require-site-filter -- validation du périmètre familial : parent.userId borne déjà au compte connecté
+  const choisie = await prisma.eleve.findFirst({
+    where: {
+      id: brut,
+      tenantId,
+      deletedAt: null,
+      statut: "ACTIF",
+      parents: { some: { parent: { userId } } },
+    },
+    select: CHAMPS_FICHE,
+  });
+  if (!choisie) return null;
+
+  return ficheDeLAnnee(tenantId, choisie);
+}
+
+/**
+ * Les enfants du compte pouvant être incarnés dans l'espace élève — ceux de
+ * l'année active, repli sur tous s'il n'y en a aucun. Serve le sélecteur de
+ * `/eleve` ; vide pour tout compte non hybride (rôle STUDENT sans PARENT).
+ */
+export async function enfantsDuComptePourBascule(
+  tenantId: string,
+  claims: SessionSiteClaims & {
+    userId?: string;
+    id?: string;
+    availableRoles?: readonly string[];
+  }
+): Promise<FicheEleve[]> {
+  if (claims.role !== "STUDENT") return [];
+  if (!claims.availableRoles?.includes("PARENT")) return [];
+  const userId = claims.userId ?? claims.id;
+  if (!userId) return [];
+
+  // eslint-disable-next-line ecolpro/require-site-filter -- périmètre familial : parent.userId borne déjà au compte connecté
+  const enfants = await prisma.eleve.findMany({
+    where: {
+      tenantId,
+      deletedAt: null,
+      statut: "ACTIF",
+      parents: { some: { parent: { userId } } },
+    },
+    select: CHAMPS_FICHE,
+    orderBy: [{ prenom: "asc" }, { nom: "asc" }],
+  });
+
+  const annee = await getAnneeCouranteLibelle(tenantId);
+  const deLAnnee = annee
+    ? enfants.filter((e) => e.classe === null || e.classe.annee === annee)
+    : [];
+  return deLAnnee.length > 0 ? deLAnnee : enfants;
 }
 
 /**

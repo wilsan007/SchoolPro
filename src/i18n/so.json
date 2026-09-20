@@ -369,7 +369,9 @@
     "studentDeleted": "Ardayga si guul leh ayaa la tirtiray",
     "studentExcluded": "Arday la xannibay",
     "totalBilled": "Tirada guud ee faturada",
-    "totalPaid": "Tirada la bixiyay"
+    "totalPaid": "Tirada la bixiyay",
+    "statutREINSCRIT": "Dib-u-diiwaangashan",
+    "statutNON_REINSCRIT": "Aan dib-u-diiwaangelin"
   },
   "eleves": {
     "title": "Student Management",
@@ -1497,7 +1499,13 @@
     "totalSanctions": "Tirada guud ee ciqaabaha",
     "workflowError": "Khalad marka la xaqiijinayo",
     "workflowSanction": "Habka ciqaabta",
-    "workflowSuccess": "Ciqaabta waa la dhaqan geliyay"
+    "workflowSuccess": "Ciqaabta waa la dhaqan geliyay",
+    "notifierParents": "Ogeysii waalidiinta",
+    "convocationParents": "U yeer waalidiinta",
+    "escalade": "U gudbi maamulka",
+    "confirmNotifierParents": "Ma u dirayaa ogeysiis waalidiinta ardaygan?",
+    "confirmConvocation": "Ma soo saarayaa wicitaan waalidiinta ardaygan?",
+    "confirmEscalade": "Ma u gudbinayaa dhacdadan maamulka?"
   },
   "rh": {
     "title": "Human Resources",
@@ -2700,7 +2708,13 @@
     "tarifDeleted": "Qiimaha waa la tirtiray",
     "tarifs": "Qiimaha heerka",
     "tarifsDescription": "Qeex qiimaha heerka (bisho, kharashaadka qorista, cusbooneysiinta) si otomaatig ah loo abuuro faturadaha.",
-    "transportFee": "Kharashaadka gaadhi/bish (ixtiyaaci)"
+    "transportFee": "Kharashaadka gaadhi/bish (ixtiyaaci)",
+    "roleSupervisor": "Kormeere",
+    "roleSubjectLead": "Isuduwaha maadada",
+    "roleSiteManager": "Maamulaha xarunta",
+    "roleInspector": "Kormeeraha wasaaradda",
+    "userPermissions": "Oggolaanshaha isticmaalayaasha",
+    "salles": "Qolalka"
   },
   "appreciations": {
     "title": "Configurable appreciation rules",
@@ -3459,7 +3473,8 @@
       "exercice_sondage": "On ne sait pas encore où tu en es sur « {competence} » : cet exercice sert à le mesurer.",
       "exercice_approfondissement": "« {competence} » est solidement acquise : voici de quoi aller plus loin.",
       "seance_rythme_improbable": "Fadhiga waxaa lagu dhammeeyay xawaare aan caadi ahayn: natiijada waxaa lagu qoray kalsooni yaraatay.",
-      "exercice_attestation": "Layli hubin fasalka ah, oo la soo jeediyay tababarkaaga kaddib."
+      "exercice_attestation": "Layli hubin fasalka ah, oo la soo jeediyay tababarkaaga kaddib.",
+      "exercice_papier": "Layliga {numero} oo laga soo qaaday warqadda la saxay."
     },
     "plans": {
       "titre": "Parcours à engager",
@@ -3492,9 +3507,11 @@
       "plansEnRevue": "Wadooyin la dib-u-eegayo",
       "plansEnRevueAide": "Taariikhda dib-u-eegistoodu waxay gaartay — ma weli faa'iido badan?",
       "mesSaisiesEnRetard": "Daraasaadkayga ee daahay",
+      "mesSaisiesEnRetardAide": "Qiimayntayda la dhaafay oo aan dareen gelin lahayn",
       "aTraiterCetteSemaine": "Ardayda la qabto",
       "aTraiterCetteSemaineAide": "Talooyin qasab ah ama lagu dhiiri galiyay fasaladayda",
       "mesParcours": "Wadooyinka aan ka mas'uul ahay",
+      "mesParcoursAide": "Qorshayaal taageero oo aan macallinka masuulka ka ahay",
       "aucuneVariation": "cabirka ugu horreeya",
       "voir": "Eeg",
       "rienAsignaler": "Wax ma baahana dareenkooda maanta.",
@@ -3669,8 +3686,9 @@
       "sousTitreEleve": "Où tu en es, et la prochaine chose à travailler.",
       "aucunEnfant": "Aucun enfant rattaché à votre compte.",
       "aucunEnfantAide": "Contactez le secrétariat de l’établissement pour faire rattacher votre compte à votre enfant.",
-      "aucunEleve": "Aucun dossier élève rattaché à votre compte.",
-      "choisirEnfant": "Choisir un enfant",
+      "aucunEleve": "Ma jiro dukumi arday la xidhan akawunkaaga.",
+      "choisirEnfant": "Dooro ilmo",
+      "erreurBasculeEleve": "Lama beddelin karo ardayga. Isku day mar kale.",
       "aiderTitre": "Vous pouvez l’aider cette semaine",
       "aiderTitreEleve": "Ta prochaine étape",
       "avantLe": "Avant le {date}",
@@ -4876,15 +4894,15 @@
     "presetOctobre2025": "Oktoobar 2025",
     "presetOctobre2025Desc": "Bilow T1 2025-2026",
     "presetJanvier2026": "Janaayo 2026",
-    "presetJanvier2026Desc": "Dhamaad T2 2025-2026",
+    "presetJanvier2026Desc": "Bilowga T2 2025-2026",
     "presetMars2026": "Maarso 2026",
-    "presetMars2026Desc": "Dhexe T3 2025-2026",
+    "presetMars2026Desc": "Dhammaadka T2 2025-2026",
     "presetJuin2026": "Juin 2026",
-    "presetJuin2026Desc": "Dhamaad T3 2025-2026",
+    "presetJuin2026Desc": "Dhammaadka T3 2025-2026, go’aannada sanadka",
     "presetAout2026": "Agoosto 2026",
-    "presetAout2026Desc": "Maalmaha fasaxa, sannad la xiray",
+    "presetAout2026Desc": "Fasax: sanadkii waa la xiray, kan cusub waa la diyaarinayaa",
     "presetOctobre2026": "Oktoobar 2026",
-    "presetOctobre2026Desc": "Bilow T1 2026-2027"
+    "presetOctobre2026Desc": "Bilowga T1 2026-2027"
   },
   "fournitures": {
     "titre": "Bahalyada iskululka",
@@ -5181,7 +5199,12 @@
     "selectPeriode": "Dooro waqtiga",
     "selectPrompt": "Dooro fasal iyo waqti si aad u abuurto gudiga kor u qaadistan.",
     "signalsSynthesis": "Soo koobidda astaamaha",
-    "subjectsInDifficulty": "Maadooyin halis"
+    "subjectsInDifficulty": "Maadooyin halis",
+    "mentoratType": {
+      "ACADEMIQUE": "Waxbarasho",
+      "PROFESSIONNEL": "Xirfadeed",
+      "PERSONNEL": "Shaqsiyeed"
+    }
   },
   "activityTimeline": {
     "titre": "Howlaha dhawaan",

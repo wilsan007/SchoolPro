@@ -6,6 +6,7 @@ import {
   personalScopeFilter,
   siteFilterForModel,
 } from "@/lib/site-scope";
+import { eleveDeLUtilisateur } from "@/lib/learnos/dossier-eleve";
 import { composerFeuille, type OptionsSelection } from "@/lib/learnos/exercice-selector";
 import { parseStructure } from "./structure-question";
 import { vueEleve, type ExerciceVue, type SeanceVue } from "./vue-eleve";
@@ -41,17 +42,19 @@ export function filtreFeuille(tenantId: string, claims: SessionSiteClaims) {
  */
 export async function eleveDeSeance(
   tenantId: string,
-  claims: SessionSiteClaims & { userId?: string; id?: string },
+  claims: SessionSiteClaims & {
+    userId?: string;
+    id?: string;
+    availableRoles?: readonly string[];
+  },
   eleveIdDemande?: string | null
 ): Promise<string | null> {
   if (claims.role === "STUDENT") {
-    const userId = claims.userId ?? claims.id;
-    if (!userId) return null;
-    // eslint-disable-next-line ecolpro/require-site-filter
-    const eleve = await prisma.eleve.findFirst({
-      where: { tenantId, userId },
-      select: { id: true },
-    });
+    // La résolution passe par `eleveDeLUtilisateur` : elle applique la
+    // bascule d'un compte hybride (parent+élève incarnant l'un de ses
+    // enfants) ET le recalage sur l'année active — la fiche liée au compte
+    // peut être celle de l'an dernier.
+    const eleve = await eleveDeLUtilisateur(tenantId, claims);
     return eleve?.id ?? null;
   }
   if (!eleveIdDemande) return null;
