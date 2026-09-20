@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { Role } from "@prisma/client";
 import { switchRoleAction } from "@/lib/actions/switch-role";
+import { accueilPourRole } from "@/lib/accueil-par-role";
+import { useWindowManager } from "@/components/workspace/WindowManager";
 
 /** Labels courts pour chaque rôle, affichés dans le dropdown. */
 const ROLE_LABEL_KEYS: Record<Role, string> = {
@@ -49,6 +51,7 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { closeAllWindows } = useWindowManager();
   const ref = useRef<HTMLDivElement>(null);
   const tRoles = useTranslations("roles");
   const tCouverture = useTranslations("couverture");
@@ -70,6 +73,10 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
     if (isPending || role === currentRole) return;
     setSwitchingTo(role);
 
+    // Fermer toutes les fenêtres ouvertes : les pages de l'ancien rôle
+    // ne sont pas pertinentes pour le nouveau.
+    closeAllWindows();
+
     startTransition(async () => {
       try {
         const result = await switchRoleAction(role);
@@ -80,6 +87,13 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
           return;
         }
 
+        // Naviguer vers l'accueil du nouveau rôle : rester sur la page
+        // courante enverrait vers /acces-bloque tout rôle sans droit sur
+        // elle (ex. basculer vers STUDENT depuis /direction).
+        const accueil = accueilPourRole(role);
+        if (accueil) {
+          router.push(accueil);
+        }
         // La Server Action a déjà appelé revalidatePath, mais on
         // force un router.refresh() pour que les Server Components
         // re-render avec le nouveau rôle immédiatement.
@@ -97,12 +111,12 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex w-full items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
-          "text-slate-400 hover:text-slate-100 hover:bg-slate-900/60"
+          "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
+          "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
         )}
       >
-        <UserCog className="flex-shrink-0 w-4 h-4 text-indigo-400" />
-        <span className="flex-1 text-left truncate">
+        <UserCog className="flex-shrink-0 w-4 h-4 text-accent/70" />
+        <span className="flex-1 text-left truncate hidden md:inline">
           {tRoles(currentRole)}
         </span>
         <ChevronDown
@@ -114,9 +128,9 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700/60 rounded-xl shadow-2xl z-[100] overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-800">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-popover border border-border rounded-2xl shadow-xl z-[300] overflow-hidden">
+          <div className="px-3 py-2 border-b border-border">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               {tCouverture("switchRole")}
             </p>
           </div>
@@ -135,8 +149,8 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
                   className={cn(
                     "flex items-center gap-2 w-full px-3 py-2.5 text-sm transition-colors text-left",
                     isCurrent
-                      ? "bg-indigo-600/20 text-indigo-200"
-                      : "text-slate-300 hover:bg-slate-800",
+                      ? "bg-accent/10 text-accent"
+                      : "text-foreground hover:bg-muted",
                     isPending && !isSwitching && "opacity-50"
                   )}
                 >
@@ -146,10 +160,10 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
                     </p>
                   </div>
                   {isSwitching && (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400 flex-shrink-0" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-accent flex-shrink-0" />
                   )}
                   {isCurrent && !isSwitching && (
-                    <Check className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                    <Check className="w-4 h-4 text-accent flex-shrink-0" />
                   )}
                 </button>
               );
