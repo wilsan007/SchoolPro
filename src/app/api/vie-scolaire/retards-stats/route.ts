@@ -6,6 +6,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
+import { NiveauAlerteParent } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,6 +19,10 @@ export async function GET(req: NextRequest) {
     const classeId = searchParams.get("classeId");
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
+    // Détection de décrochage : seuil de retards déclenchant une alerte
+    // (5 par défaut — laissé à l'appréciation du CPE via le paramètre).
+    const seuil = Math.max(1, parseInt(searchParams.get("seuil") ?? "5", 10) || 5);
+    const alerter = searchParams.get("alerter") === "true";
     const tenantId = session.user.tenantId;
     const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     const anneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
@@ -74,8 +79,64 @@ export async function GET(req: NextRequest) {
       .map(([jour, retards]) => ({ jour, retards }))
       .sort((a, b) => a.jour - b.jour);
 
+    // Élèves au-dessus du seuil : signal de décrochage scolaire précoce.
+    const aRisque = parEleve.filter((e) => e.retards >= seuil);
+
+    // L'enseignant/CPE décide (alerter=true) : on alerte les parents des
+    // élèves concernés via AlerteParent — écriture idempotente par mois,
+    // re-consulter les stats ne renvoie pas l'alerte en double.
+    let alertesCreees = 0;
+    if (alerter && aRisque.length > 0) {
+      const elevesAvecParents = await prisma.eleve.findMany({
+        where: {
+          id: { in: aRisque.map((e) => e.eleveId) },
+          tenantId,
+          ...siteFilterForModel("eleve", session.user),
+        },
+        select: {
+          id: true,
+          siteId: true,
+          parents: { include: { parent: { select: { id: true } } } },
+        },
+      });
+      const parEleveSite = new Map(elevesAvecParents.map((e) => [e.id, e.siteId ?? null]));
+      const mois = `${maintenant.getFullYear()}-${String(maintenant.getMonth() + 1).padStart(2, "0")}`;
+
+      const alertes = elevesAvecParents.flatMap((eleve) =>
+        eleve.parents.map((ep) => {
+          const retards = parEleveMap.get(eleve.id)?.retards ?? 0;
+          const info = parEleveMap.get(eleve.id);
+          return {
+            tenantId,
+            siteId: parEleveSite.get(eleve.id) ?? null,
+            eleveId: eleve.id,
+            parentId: ep.parent.id,
+            niveau: retards >= seuil * 2 ? NiveauAlerteParent.URGENT : NiveauAlerteParent.ATTENTION,
+            cle: "retards.exces",
+            params: {
+              retards,
+              seuil,
+              prenom: info?.prenom ?? "",
+              nom: info?.nom ?? "",
+              classeNom: info?.classe ?? null,
+              dernierRetard: info ? new Date(info.dernierRetard).toISOString() : null,
+            },
+            empreinte: `retards-${eleve.id}-${mois}`,
+          };
+        })
+      );
+
+      if (alertes.length > 0) {
+        const res = await prisma.alerteParent.createMany({ data: alertes, skipDuplicates: true });
+        alertesCreees = res.count;
+      }
+    }
+
     return NextResponse.json({
       totalRetards: retards.length,
+      seuil,
+      aRisque: aRisque.map((e) => ({ eleveId: e.eleveId, nom: e.nom, prenom: e.prenom, retards: e.retards })),
+      alertesCreees,
       parEleve,
       parJour,
     });

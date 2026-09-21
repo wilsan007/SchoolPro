@@ -7,11 +7,22 @@ import { generateCompletion, AiConfigError } from "@/lib/ai/glm-client";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
+import { SEUILS_PAR_DEFAUT, type Seuils } from "@/lib/learnos/recommendation-engine";
 
 const Schema = z.object({
   eleveId: z.string().min(1),
   periodeId: z.string().min(1),
 });
+
+/** Classifie une moyenne /20 contre les seuils calibrés du niveau × matière. */
+function niveauMaitrise(scoreSur20: number, seuils: Seuils): string {
+  const s = scoreSur20 / 20;
+  if (s < seuils.seuilCritique) return "très en difficulté";
+  if (s < seuils.seuilFragile) return "fragile";
+  if (s < seuils.seuilConsolide) return "en progrès";
+  if (s < seuils.seuilAvance) return "consolidé";
+  return "avancé";
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,13 +95,47 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Seuils calibrés par niveau × matière (LEARNOS) : ils traduisent la
+    // performance attendue réelle de ce niveau, apprise des prédictions
+    // vérifiées — là où une note brute ne dit pas si un 11/20 est dans la
+    // norme du niveau ou en dessous.
+    const niveau = eleve.classe?.niveau ?? null;
+    const calibrations = niveau
+      ? await prisma.calibrationSeuil.findMany({
+          where: { tenantId, niveau, ...siteFilterForModel("calibrationSeuil", session.user) },
+        })
+      : [];
+    const calibrationParMatiere = new Map(calibrations.map((c) => [c.matiereId, c]));
+    const calibrationNiveau = calibrations.find((c) => c.matiereId === null) ?? null;
+    const seuilsPourMatiere = (matiereId: string): Seuils => {
+      const c = calibrationParMatiere.get(matiereId) ?? calibrationNiveau;
+      if (!c) return SEUILS_PAR_DEFAUT;
+      return {
+        seuilCritique: c.seuilCritique,
+        seuilFragile: c.seuilFragile,
+        seuilConsolide: c.seuilConsolide,
+        seuilAvance: c.seuilAvance,
+        confianceMinimale: c.confianceMinimale,
+        prerequisBloquantsMin: SEUILS_PAR_DEFAUT.prerequisBloquantsMin,
+        declenchementPlanCritiques: SEUILS_PAR_DEFAUT.declenchementPlanCritiques,
+        declenchementPlanAvances: SEUILS_PAR_DEFAUT.declenchementPlanAvances,
+      };
+    };
+
+    const matieresEnDifficulte: string[] = [];
     const matieresLignes = bulletin.matieres
-      .map(
-        (m) =>
+      .map((m) => {
+        const maitrise =
+          m.moyenneEleve !== null ? niveauMaitrise(m.moyenneEleve, seuilsPourMatiere(m.matiereId)) : null;
+        if (maitrise === "très en difficulté" || maitrise === "fragile") {
+          matieresEnDifficulte.push(m.matiere.nom);
+        }
+        return (
           `- ${m.matiere.nom} : ${m.moyenneEleve !== null ? m.moyenneEleve.toFixed(2) : "N/A"}/20${
             m.rang ? ` (rang ${m.rang})` : ""
-          }`
-      )
+          }${maitrise ? ` [${maitrise}]` : ""}`
+        );
+      })
       .join("\n");
 
     const prompt = `Rédige une appréciation générale de bulletin scolaire pour cet élève, en français, 2 à 3 phrases maximum, bienveillante mais honnête et constructive.
@@ -99,8 +144,9 @@ export async function POST(req: NextRequest) {
 Moyenne générale : ${bulletin.moyenneGenerale !== null ? bulletin.moyenneGenerale.toFixed(2) : "N/A"}/20
 Rang : ${bulletin.rang ?? "N/A"}
 Absences sur la période : ${absences}
-Résultats par matière :
+Résultats par matière (entre crochets : le niveau de maîtrise attendu pour ce niveau scolaire) :
 ${matieresLignes || "(aucune note enregistrée)"}
+${matieresEnDifficulte.length > 0 ? `\nMatières sous le seuil attendu pour ce niveau : ${matieresEnDifficulte.join(", ")} — invite explicitement à un effort ciblé sur ces matières.` : ""}
 
 Réponds uniquement avec le texte de l'appréciation, sans guillemets ni préambule.`;
 
