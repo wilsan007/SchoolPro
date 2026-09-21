@@ -8,6 +8,7 @@ import { auditFire } from "@/lib/audit";
 import { z } from "zod";
 import { revalidateTag, revalidatePath } from "next/cache";
 import { applyRlsContext } from "@/lib/prisma-rls";
+import { publishEvent, type EleveChangeClassePayload } from "@/lib/learnos/events";
 
 const ChangerClasseSchema = z.object({
   eleveIds: z.array(z.string().min(1)).min(1).max(500),
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
     const okIds = elevesOk.map((e) => e.id);
 
     if (okIds.length === 0) {
-      return { count: 0 };
+      return { count: 0, transferts: [] as { eleveId: string; ancienneClasseId: string | null }[] };
     }
 
     // Mettre à jour les élèves
@@ -103,8 +104,52 @@ export async function POST(req: NextRequest) {
       })),
     });
 
-    return { count: updated.count, okIds };
+    return {
+      count: updated.count,
+      okIds,
+      transferts: elevesOk.map((e) => ({ eleveId: e.id, ancienneClasseId: e.classeId })),
+    };
   });
+
+  // --- Bus LEARNOS : la composition des classes a changé, les KPI de
+  // direction (effectifs, couverture par classe) doivent être recalculés.
+  // Best effort — un échec de publication ne casse pas le transfert.
+  if (result.transferts.length > 0) {
+    try {
+      const anciennesIds = [...new Set(result.transferts.map((t) => t.ancienneClasseId).filter((id): id is string => !!id))];
+      const anciennesClasses = anciennesIds.length > 0
+        ? await prisma.classe.findMany({ where: { id: { in: anciennesIds }, tenantId, ...classeFilter }, select: { id: true, nom: true } })
+        : [];
+      const nomParId = new Map(anciennesClasses.map((c) => [c.id, c.nom]));
+
+      const parAncienne = new Map<string, string[]>();
+      for (const t of result.transferts) {
+        const cle = t.ancienneClasseId ?? "__inconnue__";
+        parAncienne.set(cle, [...(parAncienne.get(cle) ?? []), t.eleveId]);
+      }
+
+      for (const [ancienneId, ids] of parAncienne) {
+        await publishEvent({
+          tenantId,
+          siteId: session.user.siteId ?? null,
+          eventType: "eleve.change.classe",
+          aggregateType: "Eleve",
+          aggregateId: ids[0],
+          payload: {
+            eleveIds: ids,
+            ancienneClasseId: ancienneId === "__inconnue__" ? null : ancienneId,
+            ancienneClasseNom: ancienneId === "__inconnue__" ? null : nomParId.get(ancienneId) ?? null,
+            nouvelleClasseId,
+            nouvelleClasseNom: targetClasse.nom,
+            siteId: session.user.siteId ?? null,
+            dateChangement: new Date().toISOString(),
+          } satisfies EleveChangeClassePayload,
+        });
+      }
+    } catch (publishError) {
+      console.error("[changer-classe] Publication eleve.change.classe échouée:", publishError);
+    }
+  }
 
   // --- Audit ---
   auditFire({

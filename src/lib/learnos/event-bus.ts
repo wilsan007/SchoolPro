@@ -51,6 +51,8 @@ import { onPredictionEmise } from "@/lib/learnos/handlers/prediction-emise";
 import { onCandidatureAcceptee } from "@/lib/learnos/handlers/candidature-acceptee";
 import { onIncidentSignale } from "@/lib/learnos/handlers/incident-signale";
 import { onSanctionAppliquee } from "@/lib/learnos/handlers/sanction-appliquee";
+import { onEleveChangeClasse } from "@/lib/learnos/handlers/eleve-change-classe";
+import { onUtilisateurInvite } from "@/lib/learnos/handlers/utilisateur-invite";
 import { onDecalageDetecte } from "@/lib/learnos/handlers/decalage-detecte";
 import { onNoteUpdated } from "@/lib/learnos/handlers/note-updated";
 import { onNoteDeleted } from "@/lib/learnos/handlers/note-deleted";
@@ -133,6 +135,10 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "incident.signale": [onIncidentSignale],
   // Vie scolaire : sanctions appliquées (workflow disciplinaire).
   "sanction.appliquee": [onSanctionAppliquee],
+  // Scolarité : changement de classe (KPI de composition).
+  "eleve.change.classe": [onEleveChangeClasse],
+  // Comptes : invitation d'un utilisateur (email de bienvenue).
+  "utilisateur.invite": [onUtilisateurInvite],
   // Cahier-journal : décalage entre planification et réalité.
   "decalage.detecte": [onDecalageDetecte],
 };

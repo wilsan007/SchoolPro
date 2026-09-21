@@ -71,6 +71,10 @@ export const LEARNOS_EVENT_TYPES = [
   "incident.signale",
   // Vie scolaire — sanctions appliquées (workflow disciplinaire).
   "sanction.appliquee",
+  // Scolarité — changement de classe d'élèves.
+  "eleve.change.classe",
+  // Comptes — invitation d'un nouvel utilisateur.
+  "utilisateur.invite",
 ] as const;
 
 export type LearnosEventType = (typeof LEARNOS_EVENT_TYPES)[number];
@@ -340,6 +344,29 @@ export interface SanctionAppliqueePayload {
   description: string | null;
   dateDebut: string;
   dateFin: string | null;
+}
+
+/** Instantané d'un transfert d'élèves vers une autre classe. */
+export interface EleveChangeClassePayload {
+  eleveIds: string[];
+  ancienneClasseId: string | null;
+  ancienneClasseNom: string | null;
+  nouvelleClasseId: string;
+  nouvelleClasseNom: string;
+  siteId: string | null;
+  dateChangement: string;
+}
+
+/** Instantané de l'invitation d'un nouvel utilisateur (création de compte). */
+export interface UtilisateurInvitePayload {
+  userId: string;
+  email: string;
+  nom: string;
+  role: string;
+  siteId: string | null;
+  ecoleNom: string;
+  inviteParId: string | null;
+  dateInvitation: string;
 }
 
 export interface LearnosEventInput {

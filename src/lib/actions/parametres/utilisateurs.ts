@@ -10,6 +10,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { normaliserEmail } from "@/lib/email";
 import { generateRandomPassword } from "@/lib/security/password";
 import { auditFire } from "@/lib/audit";
+import { publishEvent, type UtilisateurInvitePayload } from "@/lib/learnos/events";
 
 const UserSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -223,6 +224,34 @@ export async function createUser(data: UserFormData) {
         phone: v.phone || "",
       },
     });
+  }
+
+  // Bus LEARNOS : publier l'invitation (email de bienvenue côté bus).
+  // Best effort — un échec de publication ne fait pas échouer la création.
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: { name: true },
+    });
+    await publishEvent({
+      tenantId: session.user.tenantId,
+      siteId: newUser.siteId ?? null,
+      eventType: "utilisateur.invite",
+      aggregateType: "User",
+      aggregateId: newUser.id,
+      payload: {
+        userId: newUser.id,
+        email: v.email,
+        nom: v.name,
+        role: v.role,
+        siteId: newUser.siteId ?? null,
+        ecoleNom: tenant?.name ?? "votre établissement",
+        inviteParId: session.user.id,
+        dateInvitation: new Date().toISOString(),
+      } satisfies UtilisateurInvitePayload,
+    });
+  } catch (publishError) {
+    console.error("[createUser] Publication utilisateur.invite échouée:", publishError);
   }
 
   revalidatePath("/parametres");
