@@ -101,6 +101,23 @@ export default function TurnstileWidget({
   const [sitekey, setSitekey] = useState<string | null>(TURNSTILE_SITEKEY);
   const [error, setError] = useState<string | null>(null);
 
+  // ─── Pattern « latest ref » : la boucle de re-rendu ─────────────────────
+  // Les callbacks (`onVerify`, `onExpire`…) sont souvent des fléchées inline
+  // côté parent — nouvelle identité à CHAQUE render. Si `renderWidget` en
+  // dépendait directement, le `useEffect` ci-dessous re-fusionnerait à chaque
+  // render : le widget serait détruit et re-créé sans fin. Or un défi Turnstile
+  // résolu appelle `onVerify` → re-render du parent → remontage → nouveau défi
+  // résolu → … boucle infinie, constatée en production (login inutilisable).
+  // Les refs gardent les DERNIERS callbacks sans faire bouger les dépendances.
+  const onVerifyRef = useRef(onVerify);
+  const onExpireRef = useRef(onExpire);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onVerifyRef.current = onVerify;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+  });
+
   const renderWidget = useCallback(async () => {
     if (!containerRef.current || !sitekey || !window.turnstile) return;
 
@@ -119,25 +136,27 @@ export default function TurnstileWidget({
       sitekey,
       callback: (token: string) => {
         setError(null);
-        onVerify(token);
+        onVerifyRef.current(token);
       },
       "error-callback": () => {
         setError("turnstile_error");
-        onError?.();
+        onErrorRef.current?.();
       },
       "expired-callback": () => {
-        onVerify("");
-        onExpire?.();
+        onVerifyRef.current("");
+        onExpireRef.current?.();
       },
       theme,
       action,
     });
-  }, [sitekey, onVerify, onExpire, onError, theme, action]);
+    // Délibérément limité aux valeurs stables (sitekey, theme, action) :
+    // les callbacks vivent dans les refs ci-dessus.
+  }, [sitekey, theme, action]);
 
   useEffect(() => {
     if (!sitekey) {
       // Pas de sitekey en dev : bypass
-      onVerify("dev-bypass");
+      onVerifyRef.current("dev-bypass");
       return;
     }
 
@@ -162,9 +181,9 @@ export default function TurnstileWidget({
         }
       }
     };
-    // onVerify est intentionnellement omis : sa référence peut changer à
-    // chaque render du parent sans qu'on veuille re-render le widget.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // `renderWidget` ne change d'identité que si sitekey/theme/action
+    // changent — les callbacks vivent dans les refs, le widget n'est donc
+    // plus détruit et re-créé à chaque render du parent.
   }, [sitekey, renderWidget]);
 
   // Pas de sitekey → ne rien rendre (mode dev)
