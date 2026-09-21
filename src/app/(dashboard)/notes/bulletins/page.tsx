@@ -12,6 +12,7 @@ import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { guardPage } from "@/lib/guard-page";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { roleHasPermission } from "@/lib/permissions";
 
 async function getBulletinsData(
   tenantId: string,
@@ -71,6 +72,12 @@ export default async function BulletinsPage() {
 
   const { classes, periodes, anneeId } = await getBulletinsData(tenantId, claims, hierarchieClasseIds, anneeCourante);
 
+  // « generation » et « annuel » sont des actions d'écriture (générer un
+  // bulletin, générer un bilan annuel). Un rôle qui n'a que `bulletins:read`
+  // (ex: TEACHER) ne doit pas voir ces onglets — il ne peut que consulter.
+  const canWriteBulletins = roleHasPermission(session.user.role, "bulletins:write");
+  const defaultTab = canWriteBulletins ? "generation" : "liste";
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
@@ -80,33 +87,41 @@ export default async function BulletinsPage() {
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <Tabs defaultValue="generation" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="mb-6 grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="generation" className="gap-2">
-              <FileText className="h-4 w-4" />
-              {t("generation")}
-            </TabsTrigger>
+            {canWriteBulletins && (
+              <TabsTrigger value="generation" className="gap-2">
+                <FileText className="h-4 w-4" />
+                {t("generation")}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="liste" className="gap-2">
               <List className="h-4 w-4" />
               {t("list")}
             </TabsTrigger>
-            <TabsTrigger value="annuel" className="gap-2">
-              <Award className="h-4 w-4" />
-              {t("annualSummary")}
-            </TabsTrigger>
+            {canWriteBulletins && (
+              <TabsTrigger value="annuel" className="gap-2">
+                <Award className="h-4 w-4" />
+                {t("annualSummary")}
+              </TabsTrigger>
+            )}
           </TabsList>
-          
-          <TabsContent value="generation" className="mt-0 outline-none">
-            <BulletinsManager classes={classes} hierarchie={hierarchie} periodes={periodes} tenantId={session.user.tenantId} userRole={session.user.role} />
-          </TabsContent>
-          
+
+          {canWriteBulletins && (
+            <TabsContent value="generation" className="mt-0 outline-none">
+              <BulletinsManager classes={classes} hierarchie={hierarchie} periodes={periodes} tenantId={session.user.tenantId} userRole={session.user.role} />
+            </TabsContent>
+          )}
+
           <TabsContent value="liste" className="mt-0 outline-none">
             <BulletinsList classes={classes} hierarchie={hierarchie} periodes={periodes} userRole={session.user.role} />
           </TabsContent>
-          
-          <TabsContent value="annuel" className="mt-0 outline-none">
-            <BilanAnnuelManager classes={classes} hierarchie={hierarchie} anneeId={anneeId} />
-          </TabsContent>
+
+          {canWriteBulletins && (
+            <TabsContent value="annuel" className="mt-0 outline-none">
+              <BilanAnnuelManager classes={classes} hierarchie={hierarchie} anneeId={anneeId} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

@@ -103,10 +103,12 @@ export function Workspace({
       {/* Halo décoratif unique — Azure Bloom (réduit pour GPU) */}
       <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-primary/[0.04] blur-[80px] pointer-events-none" aria-hidden />
 
-      {/* Barre d'outils top — glassmorphisme Azure Bloom, bordure gris bleuté */}
-      <div className="relative flex items-center justify-between px-4 py-2.5 border-b border-border/70 bg-card/60 backdrop-blur-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.02)] print:hidden gap-3">
+      {/* Barre d'outils top — glassmorphisme Azure Bloom, bordure gris bleuté.
+          z-[200] : la toolbar et ses dropdowns doivent rester au-dessus des
+          WindowFrame (zIndex 50) et de leurs iframes. */}
+      <div className="relative z-[200] flex items-center justify-between px-4 py-2.5 border-b border-border/70 bg-card/80 backdrop-blur-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.02)] print:hidden gap-3">
         {/* Logo + switchers */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-[0_4px_16px_hsl(198_65%_46%/0.2)]">
               <School className="w-5 h-5 text-white" />
@@ -134,28 +136,51 @@ export function Workspace({
             </kbd>
           </button>
 
-          {/* Layout switcher */}
-          <div className="flex items-center gap-1 p-1 rounded-2xl bg-secondary/40 border border-border/30">
-            {LAYOUT_OPTIONS.map((opt) => {
-              const Icon = opt.icon;
-              const isActive = layout === opt.mode;
-              return (
-                <button
-                  key={opt.mode}
-                  onClick={() => setLayout(opt.mode)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200",
-                    isActive
-                      ? "bg-gradient-to-r from-primary to-info text-white shadow-[0_2px_8px_hsl(198_65%_46%/0.2)]"
-                      : "text-muted-foreground hover:text-navy hover:bg-secondary/60"
-                  )}
-                  title={opt.label}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden lg:inline">{opt.label}</span>
-                </button>
-              );
-            })}
+          {/* Layout switcher — bouton compact, popover au survol avec miniatures */}
+          <div className="relative group/layout">
+            <button
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-secondary/40 border border-border/30 text-muted-foreground hover:text-navy hover:bg-secondary/60 transition-colors"
+              title="Disposition"
+            >
+              {(() => {
+                const ActiveIcon = LAYOUT_OPTIONS.find((o) => o.mode === layout)?.icon ?? Monitor;
+                return <ActiveIcon className="w-4 h-4" />;
+              })()}
+            </button>
+            {/* Popover futuriste — miniatures visuelles des layouts */}
+            <div className="absolute right-0 top-full pt-2 z-[300] opacity-0 invisible group-hover/layout:opacity-100 group-hover/layout:visible transition-all duration-200">
+              <div className="bg-popover/95 backdrop-blur-xl border border-border/60 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08),0_0_24px_hsl(198_65%_46%/0.06)] p-2.5">
+                <p className="px-1.5 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Disposition
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 w-52">
+                  {LAYOUT_OPTIONS.map((opt) => {
+                    const isActive = layout === opt.mode;
+                    return (
+                      <button
+                        key={opt.mode}
+                        onClick={() => setLayout(opt.mode)}
+                        className={cn(
+                          "relative flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-200",
+                          isActive
+                            ? "bg-gradient-to-br from-primary/15 to-accent/10 ring-1 ring-primary/30 shadow-[0_2px_12px_hsl(198_65%_46%/0.12)]"
+                            : "hover:bg-muted"
+                        )}
+                      >
+                        {/* Miniature visuelle du layout */}
+                        <LayoutMiniature mode={opt.mode} active={isActive} />
+                        <span className={cn(
+                          "text-[11px] font-medium transition-colors",
+                          isActive ? "text-primary" : "text-muted-foreground"
+                        )}>
+                          {opt.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -181,19 +206,27 @@ export function Workspace({
               <ChevronDown className="w-3 h-3 text-muted-foreground" />
             </button>
             {showUserMenu && (
-              <div className="absolute right-0 mt-1 w-44 sm:w-48 bg-popover border rounded-2xl shadow-lg py-1 z-50">
-                <a
-                  href="/profil"
-                  onClick={() => setShowUserMenu(false)}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors"
+              <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-popover border rounded-2xl shadow-lg py-1 z-[300]">
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    const meta = getRouteMeta("/profil");
+                    openWindow("/profil", meta.title, meta.icon, meta.iconColor);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
                 >
                   <User className="h-4 w-4" />
                   {tCommon("myProfile")}
-                </a>
+                </button>
                 <div className="border-t my-1" />
                 <button
-                  onClick={() => signOut({ callbackUrl: "/login" })}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    signOut({ callbackUrl: "/login" }).catch(() => {
+                      window.location.href = "/login";
+                    });
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors text-left"
                 >
                   <LogOut className="h-4 w-4" />
                   {tCommon("logout")}
@@ -277,4 +310,47 @@ function DockSearchTrigger({ open, onOpenChange, roleKey }: { open: boolean; onO
 
   if (!open) return null;
   return <DockSearch roleKey={roleKey} open={open} onClose={() => onOpenChange(false)} />;
+}
+
+/**
+ * Miniature visuelle d'un layout — schéma en barres colorées.
+ * Compact, futuriste, élégant : un carré 32x32px avec des blocs représentant
+ * la disposition des fenêtres.
+ */
+function LayoutMiniature({ mode, active }: { mode: LayoutMode; active: boolean }) {
+  const cellBase = "rounded-[3px] transition-colors";
+  const cellColor = active
+    ? "bg-gradient-to-br from-primary to-info"
+    : "bg-muted-foreground/30";
+  const gap = "gap-[2px]";
+
+  return (
+    <div className={cn("w-8 h-8 flex", gap)}>
+      {mode === "fullscreen" && (
+        <div className={cn("flex-1 rounded-md", cellColor)} />
+      )}
+      {mode === "split-h" && (
+        <>
+          <div className={cn("flex-1 rounded-md", cellColor)} />
+          <div className={cn("w-1 rounded-md", cellColor)} />
+          <div className={cn("flex-1 rounded-md", cellColor)} />
+        </>
+      )}
+      {mode === "split-v" && (
+        <div className="flex-1 flex flex-col gap-[2px]">
+          <div className={cn("flex-1 rounded-md", cellColor)} />
+          <div className={cn("h-1 rounded-md", cellColor)} />
+          <div className={cn("flex-1 rounded-md", cellColor)} />
+        </div>
+      )}
+      {mode === "quad-4" && (
+        <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-[2px]">
+          <div className={cn("rounded-[3px]", cellColor)} />
+          <div className={cn("rounded-[3px]", cellColor)} />
+          <div className={cn("rounded-[3px]", cellColor)} />
+          <div className={cn("rounded-[3px]", cellColor)} />
+        </div>
+      )}
+    </div>
+  );
 }

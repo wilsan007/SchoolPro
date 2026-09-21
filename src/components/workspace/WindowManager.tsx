@@ -20,6 +20,8 @@ interface WindowManagerContextValue {
 
   openWindow: (route: string, title: string, icon: LucideIcon, iconColor: string) => void;
   closeWindow: (id: string) => void;
+  /** Ferme toutes les fenêtres ouvertes (utilisé lors d'un changement de rôle). */
+  closeAllWindows: () => void;
   minimizeWindow: (id: string) => void;
   restoreWindow: (id: string) => void;
   focusWindow: (id: string) => void;
@@ -110,6 +112,11 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
     });
   }, [activeWindowId]);
 
+  const closeAllWindows = useCallback(() => {
+    setWindows([]);
+    setActiveWindowId(null);
+  }, []);
+
   const minimizeWindow = useCallback((id: string) => {
     setWindows((prev) => {
       const next = prev.map((w) =>
@@ -178,6 +185,7 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
         backgroundWindows,
         openWindow,
         closeWindow,
+        closeAllWindows,
         minimizeWindow,
         restoreWindow,
         focusWindow,

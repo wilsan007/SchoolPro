@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
 
-  const autorise = peutDeplacerHorloge(user.role);
+  const autorise = peutDeplacerHorloge(user.role, user.availableRoles);
   const realNow = new Date().toISOString();
 
   if (!autorise) {
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
 
-  if (!peutDeplacerHorloge(user.role)) {
+  if (!peutDeplacerHorloge(user.role, user.availableRoles)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
@@ -101,7 +101,7 @@ export async function DELETE(req: NextRequest) {
   const user = await verifyMobileScope(req);
   if (!user) return mobileUnauthorized();
 
-  if (!peutDeplacerHorloge(user.role)) {
+  if (!peutDeplacerHorloge(user.role, user.availableRoles)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 

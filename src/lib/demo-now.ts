@@ -31,17 +31,37 @@ import type { Role } from "@prisma/client";
  * L'administrateur du tenant est le seul destinataire : c'est lui qui fait la
  * démonstration. `SUPER_ADMIN` en est volontairement exclu, n'ayant pas de
  * tenant actif — il est redirigé vers son propre espace.
+ *
+ * DÉMONSTRATION PAR BASCULE DE RÔLE
+ * Un `TENANT_ADMIN` qui bascule vers un autre rôle (ex. `TEACHER`) via le
+ * RoleSwitcher pour démontrer l'expérience de cet utilisateur doit pouvoir
+ * continuer à déplacer l'horloge : c'est toujours lui qui fait la démo. On
+ * vérifie donc aussi si `TENANT_ADMIN` figure parmi les rôles *possédés*
+ * (`availableRoles`) dans le tenant actif, indépendamment du rôle *actif*.
  */
 export const ROLES_HORLOGE: readonly Role[] = ["TENANT_ADMIN"];
 
 /**
- * Ce rôle peut-il déplacer l'horloge ?
+ * Ce compte peut-il déplacer l'horloge ?
  *
  * Vérifié côté serveur à chaque appel : masquer le bouton ne protège rien, un
  * composant client ne pouvant rien garantir.
+ *
+ * @param role Rôle *actif* dans la session (celui du JWT, après switch).
+ * @param availableRoles Tous les rôles *possédés* par l'utilisateur dans le
+ *   tenant actif (`session.user.availableRoles`). Si la liste contient
+ *   `TENANT_ADMIN`, l'utilisateur est autorisé même si son rôle actif est
+ *   différent — c'est le cas du directeur qui fait la démo sous un autre
+ *   rôle. Optionnel : les appelants qui n'ont pas cette information se
+ *   contentent de la vérification du rôle actif.
  */
-export function peutDeplacerHorloge(role: Role | string | undefined | null): boolean {
-  return !!role && ROLES_HORLOGE.includes(role as Role);
+export function peutDeplacerHorloge(
+  role: Role | string | undefined | null,
+  availableRoles?: readonly Role[] | null,
+): boolean {
+  if (!!role && ROLES_HORLOGE.includes(role as Role)) return true;
+  if (availableRoles && availableRoles.includes("TENANT_ADMIN" as Role)) return true;
+  return false;
 }
 
 /** Cookie contenant la date de démo (chaîne ISO). */
@@ -116,6 +136,9 @@ interface ScopeSession {
   id: string;
   tenantId: string | null;
   role: string;
+  /** Rôles possédés dans le tenant actif (pour autoriser la démo sous un
+   *  autre rôle via le RoleSwitcher). */
+  availableRoles?: readonly Role[] | null;
 }
 
 /**
@@ -140,7 +163,7 @@ async function resoudreSession(): Promise<ScopeSession | null> {
     const req = new NextRequest("http://localhost", { headers: h });
     const user = await verifyMobileScope(req);
     if (!user) return null;
-    return { id: user.id, tenantId: user.tenantId, role: user.role };
+    return { id: user.id, tenantId: user.tenantId, role: user.role, availableRoles: user.availableRoles ?? null };
   }
 
   const { auth } = await import("@/lib/auth");
@@ -150,6 +173,7 @@ async function resoudreSession(): Promise<ScopeSession | null> {
     id: session.user.id ?? "",
     tenantId: session.user.tenantId ?? null,
     role: session.user.role ?? "",
+    availableRoles: (session.user as { availableRoles?: Role[] }).availableRoles ?? null,
   };
 }
 
@@ -237,7 +261,7 @@ export async function getDemoDate(): Promise<Date | null> {
       return null;
     }
 
-    if (!peutDeplacerHorloge(session.role)) {
+    if (!peutDeplacerHorloge(session.role, session.availableRoles)) {
       console.warn("[demo-now] rôle non autorisé:", session.role);
       return null;
     }
@@ -319,7 +343,7 @@ export async function diagnostiquerDemoDate(): Promise<{
       return { enabled, dateCookie, scopeCookie, scopeParsed, session: null, echec: "session null (auth échoué)", date: null };
     }
 
-    if (!peutDeplacerHorloge(session.role)) {
+    if (!peutDeplacerHorloge(session.role, session.availableRoles)) {
       return { enabled, dateCookie, scopeCookie, scopeParsed, session, echec: `rôle non autorisé: ${session.role}`, date: null };
     }
     if (scopeUserId !== null && session.id !== scopeUserId) {

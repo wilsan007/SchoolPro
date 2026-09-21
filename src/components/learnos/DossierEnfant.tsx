@@ -295,10 +295,10 @@ function ColonneCompetences({
         <div className="flex items-start gap-2">
           <Icone className={cn("mt-0.5 h-4 w-4 shrink-0", accent)} />
           <div className="min-w-0">
-            <p className="flex items-center gap-2 font-medium">
+            <div className="flex items-center gap-2 font-medium">
               {titre}
               <Badge variant="secondary">{items.length}</Badge>
-            </p>
+            </div>
             <p className="text-xs text-muted-foreground">{aide}</p>
           </div>
         </div>

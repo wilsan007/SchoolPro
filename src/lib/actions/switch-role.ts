@@ -64,25 +64,38 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
       return { success: false, error: "ADHESION_INTROUVABLE" };
     }
 
-    // 1. Vérifier l'adhésion active au tenant.
-    const userTenant = await prisma.userTenant.findFirst({
-      where: { userId, tenantId, isActive: true },
-      select: { id: true, role: true },
+    // 1. Vérifier l'accès au tenant.
+    //    On tolère l'ABSENCE d'adhésion — les comptes historiques n'ont qu'un
+    //    `tenantId` dénormalisé, et `deriveClaims` fait de même — mais jamais
+    //    une adhésion DÉSACTIVÉE. La nuance est tout sauf théorique : quand un
+    //    enseignant quitte l'établissement, l'administration passe son
+    //    `UserTenant.isActive` à false ; ses lignes `UserRole`, elles, restent
+    //    souvent en place. Ne regarder que `isActive: true` mettait les deux
+    //    situations dans le même sac, et le partant gardait le droit de
+    //    basculer de rôle tant que son jeton courait.
+    const adhesion = await prisma.userTenant.findFirst({
+      where: { userId, tenantId },
+      select: { id: true, role: true, isActive: true },
     });
 
-    if (!userTenant) {
+    if (adhesion && !adhesion.isActive) {
       auditFire({
         userId,
         tenantId,
         action: "switch-role",
         verdict: "DENIED",
         resource: "role",
-        reason: "Aucune adhésion active à ce tenant",
+        reason: "Adhésion désactivée pour ce tenant",
       });
       return { success: false, error: "ADHESION_INTROUVABLE" };
     }
 
-    // 2. Vérifier la possession du rôle dans UserRole.
+    const userTenant = adhesion;
+
+    // 2. Vérifier la possession du rôle.
+    //    UserRole est la source de vérité moderne. Mais les comptes
+    //    historiques (créés avant UserRole) n'ont pas de ligne — on
+    //    accepte alors le rôle actuel de la session comme possédé.
     // eslint-disable-next-line ecolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; self-lookup de l'utilisateur connecté
     const userRole = await prisma.userRole.findUnique({
       where: {
@@ -91,7 +104,9 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
       select: { id: true, isActive: true },
     });
 
-    if (!userRole || !userRole.isActive) {
+    // Accepter le rôle actuel de la session pour les comptes sans UserRole.
+    const isCurrentRole = session.user.role === targetRole;
+    if ((!userRole || !userRole.isActive) && !isCurrentRole) {
       auditFire({
         userId,
         tenantId,
@@ -104,15 +119,18 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
     }
 
     // Si déjà actif, ne rien faire.
-    if (userTenant.role === targetRole) {
+    const currentActiveRole = userTenant?.role ?? session.user.role;
+    if (currentActiveRole === targetRole) {
       return { success: true };
     }
 
-    // 3. Mettre à jour le rôle ACTIF.
-    await prisma.userTenant.update({
-      where: { id: userTenant.id },
-      data: { role: targetRole },
-    });
+    // 3. Mettre à jour le rôle ACTIF dans UserTenant (si l'adhésion existe).
+    if (userTenant) {
+      await prisma.userTenant.update({
+        where: { id: userTenant.id },
+        data: { role: targetRole },
+      });
+    }
 
     // 4. Synchroniser User.role.
     // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
@@ -149,7 +167,7 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
       resource: "role",
       reason: `Bascule vers ${targetRole}`,
       metadata: {
-        previousRole: userTenant.role,
+        previousRole: currentActiveRole,
         newRole: targetRole,
         availableRoles: claims.availableRoles,
       },

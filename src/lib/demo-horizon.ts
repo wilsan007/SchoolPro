@@ -85,6 +85,13 @@ const HORIZON: Record<string, {
   // La date à laquelle le devoir est DONNÉ aux élèves, pas celle du rendu : un
   // devoir préparé à l'avance n'existe pas encore pour la famille.
   Devoir: { champ: "dateDonne" },
+  // Le cahier journal — hybride, comme l'évaluation. Une séance PLANIFIEE est
+  // un élément de calendrier (l'enseignant prépare la semaine à venir) ; une
+  // séance EFFECTUEE ou ANNULEE est un fait constaté, qui ne peut pas être
+  // connu avant d'avoir eu lieu. Sans cette borne, la démonstration placée en
+  // octobre affichait un cahier journal rempli jusqu'à la fin du trimestre,
+  // séances « effectuées » comprises.
+  SeancePedagogique: { champ: "date", exempt: { statut: "PLANIFIEE" } },
   Bulletin: { champ: "publishedAt", nullable: true },
 
   // Finances — mouvements déjà passés.

@@ -33,6 +33,17 @@ describe("filtreHorizon — faits constatés", () => {
     });
   });
 
+  it("borne une séance effectuée, mais laisse voir celle qui est planifiée", () => {
+    // Le cahier journal se prépare à l'avance : masquer les séances PLANIFIEE
+    // viderait la semaine à venir. Mais une séance EFFECTUEE est un fait : la
+    // laisser visible en octobre pour décembre ferait état d'un cours qui n'a
+    // pas eu lieu.
+    const filtre = filtreHorizon("SeancePedagogique", "findMany", FEVRIER);
+    expect(filtre).toEqual({
+      OR: [{ statut: "PLANIFIEE" }, { date: { lte: FEVRIER } }],
+    });
+  });
+
   it("borne les prédictions LEARNOS sur leur date d'émission", () => {
     // Sans cela, la démonstration « prédirait » ce qu'elle a déjà sous les yeux.
     expect(filtreHorizon("PredictionDifficulte", "findMany", FEVRIER)).toEqual({

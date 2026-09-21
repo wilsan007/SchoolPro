@@ -1,19 +1,25 @@
 import { NextResponse } from "next/server";
+import type { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { diagnostiquerDemoDate, getDemoDate, getDemoNow } from "@/lib/demo-now";
+import { diagnostiquerDemoDate, getDemoDate, getDemoNow, peutDeplacerHorloge } from "@/lib/demo-now";
 
 /**
  * Route de diagnostic pour la Time Machine.
  *
  * Retourne l'état détaillé de la résolution de date de démo : cookies présents,
- * scope parsé, session résolue, et point exact de failure. Accessible uniquement
- * aux TENANT_ADMIN (même restriction que le reste de la Time Machine).
+ * scope parsé, session résolue, et point exact de failure.
+ *
+ * Même règle d'accès que le reste de la Time Machine (`peutDeplacerHorloge`) :
+ * le rôle POSSÉDÉ compte, pas seulement le rôle actif. Sans cela, le directeur
+ * qui a basculé en `TEACHER` pour la démonstration reçoit un 403 précisément
+ * quand il en a besoin — c'est sous un autre rôle que l'horloge pose problème.
  *
  * Usage : GET /api/demo-now/debug
  */
 export async function GET() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "TENANT_ADMIN") {
+  const rolesPossedes = (session?.user as { availableRoles?: Role[] } | undefined)?.availableRoles;
+  if (!session?.user || !peutDeplacerHorloge(session.user.role, rolesPossedes)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 

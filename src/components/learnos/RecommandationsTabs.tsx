@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { roleHasPermission } from "@/lib/permissions";
 import { AttestationsAValider, type Attestation } from "./AttestationsAValider";
 import { PlansAValider, type PlanAValider } from "./PlansAValider";
 import { RecommandationsView } from "./RecommandationsView";
@@ -49,10 +50,12 @@ export function RecommandationsTabs({
   attestations,
   plans,
   recommandations,
+  roleKey,
 }: {
   attestations: Attestation[];
   plans: PlanAValider[];
   recommandations: RecommandationItem[];
+  roleKey: string;
 }) {
   const t = useTranslations("learnos.recommandations");
   const tAtt = useTranslations("learnos.attestations");
@@ -76,19 +79,38 @@ export function RecommandationsTabs({
   const totalPlans = plans.length;
   const totalGlobal = nbAttestations + totalPlans + totalRecommandations;
 
+  // Attestations et plans sont des workflows de validation : seuls les rôles
+  // qui peuvent valider (`entrainement:valider`) voient l'onglet attestations,
+  // et ceux qui peuvent écrire le curriculum (`curriculum:write`) voient l'onglet
+  // plans. Les recommandations sont visibles par tous les rôles qui accèdent
+  // à la page (permission `curriculum:read`).
+  const canValidateAttestations = roleHasPermission(roleKey, "entrainement:valider");
+  const canWritePlans = roleHasPermission(roleKey, "curriculum:write");
+
   // L'onglet par défaut est celui qui a le plus de travail urgent.
   // Attestations > Plans > Recommandations (par ordre de priorité).
-  const defaultTab = nbAttestations > 0
+  const defaultTab = canValidateAttestations && nbAttestations > 0
     ? "attestations"
-    : totalPlans > 0
+    : canWritePlans && totalPlans > 0
       ? "plans"
       : "recommandations";
 
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Cartes de synthèse — visibles sur tous les onglets.
-  const cartes = [
-    {
+  type Carte = {
+    key: string;
+    tab: string;
+    icone: typeof BadgeCheck;
+    couleur: string;
+    bg: string;
+    border: string;
+    label: string;
+    sub: string;
+    count: number;
+  };
+  const cartes: Carte[] = [
+    canValidateAttestations && {
       key: "attestations",
       tab: "attestations",
       icone: BadgeCheck,
@@ -99,7 +121,7 @@ export function RecommandationsTabs({
       sub: tAtt("sousTitre"),
       count: nbAttestations,
     },
-    {
+    canWritePlans && {
       key: "plans",
       tab: "plans",
       icone: Route,
@@ -121,7 +143,7 @@ export function RecommandationsTabs({
       sub: t("sousTitre"),
       count: totalRecommandations,
     },
-  ];
+  ].filter(Boolean) as Carte[];
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -188,24 +210,28 @@ export function RecommandationsTabs({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
         <div className="px-4 sm:px-6 lg:px-8 pb-2">
           <TabsList className="w-full justify-start h-auto p-1 flex-wrap">
-            <TabsTrigger value="attestations" className="gap-1.5 py-2">
-              <BadgeCheck className="h-4 w-4 text-amber-600" />
-              {tAtt("titre")}
-              {nbAttestations > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                  {nbAttestations}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="plans" className="gap-1.5 py-2">
-              <Route className="h-4 w-4 text-indigo-600" />
-              {tPlans("titre")}
-              {totalPlans > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                  {totalPlans}
-                </Badge>
-              )}
-            </TabsTrigger>
+            {canValidateAttestations && (
+              <TabsTrigger value="attestations" className="gap-1.5 py-2">
+                <BadgeCheck className="h-4 w-4 text-amber-600" />
+                {tAtt("titre")}
+                {nbAttestations > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {nbAttestations}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
+            {canWritePlans && (
+              <TabsTrigger value="plans" className="gap-1.5 py-2">
+                <Route className="h-4 w-4 text-indigo-600" />
+                {tPlans("titre")}
+                {totalPlans > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {totalPlans}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="recommandations" className="gap-1.5 py-2">
               <AlertTriangle className="h-4 w-4 text-red-600" />
               {t("titre")}
@@ -220,16 +246,20 @@ export function RecommandationsTabs({
 
         {/* Contenu — scrollable */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-6 scrollbar-thin">
-          <TabsContent value="attestations" className="space-y-4 mt-0">
-            <AttestationsAValider
-              attestations={attestations}
-              onCountChange={onAttestationsCountChange}
-            />
-          </TabsContent>
+          {canValidateAttestations && (
+            <TabsContent value="attestations" className="space-y-4 mt-0">
+              <AttestationsAValider
+                attestations={attestations}
+                onCountChange={onAttestationsCountChange}
+              />
+            </TabsContent>
+          )}
 
-          <TabsContent value="plans" className="space-y-4 mt-0">
-            <PlansAValider plans={plans} />
-          </TabsContent>
+          {canWritePlans && (
+            <TabsContent value="plans" className="space-y-4 mt-0">
+              <PlansAValider plans={plans} />
+            </TabsContent>
+          )}
 
           <TabsContent value="recommandations" className="space-y-4 mt-0">
             {/* Sous-résumé des trois files */}

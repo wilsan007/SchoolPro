@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import type { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import {
@@ -81,7 +82,7 @@ function poserCookies(date: string | null, session: { id: string; tenantId: stri
 
 async function getDemoSession() {
   const session = await auth();
-  if (!peutDeplacerHorloge(session?.user?.role)) return null;
+  if (!peutDeplacerHorloge(session?.user?.role, (session?.user as { availableRoles?: Role[] } | undefined)?.availableRoles)) return null;
   return session;
 }
 

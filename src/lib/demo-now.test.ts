@@ -69,4 +69,29 @@ describe("peutDeplacerHorloge", () => {
     expect(peutDeplacerHorloge(null)).toBe(false);
     expect(peutDeplacerHorloge("")).toBe(false);
   });
+
+  // ── Démonstration sous un autre rôle ──────────────────────────────────
+  // Le directeur bascule en enseignant pour montrer l'expérience de ce
+  // dernier : c'est toujours lui qui fait la démonstration, l'horloge doit
+  // continuer de répondre. C'est le rôle POSSÉDÉ qui décide, pas le rôle actif.
+
+  it("autorise le compte qui POSSÈDE TENANT_ADMIN, même sous un autre rôle actif", () => {
+    expect(peutDeplacerHorloge("TEACHER", ["TENANT_ADMIN", "TEACHER"])).toBe(true);
+    expect(peutDeplacerHorloge("PARENT", ["TENANT_ADMIN", "PARENT", "STUDENT"])).toBe(true);
+  });
+
+  it("refuse un compte qui ne possède pas TENANT_ADMIN", () => {
+    // Le cas qui compte vraiment : `availableRoles` est reconstruit côté
+    // serveur depuis `UserRole` (cf. `deriveClaims`), jamais fourni par le
+    // client. Un enseignant qui possède plusieurs rôles pédagogiques n'y
+    // trouvera pas TENANT_ADMIN, et n'obtiendra donc jamais l'horloge.
+    expect(peutDeplacerHorloge("TEACHER", ["TEACHER", "CLASS_TEACHER", "SUBJECT_LEAD"])).toBe(false);
+    expect(peutDeplacerHorloge("PARENT", ["PARENT", "STUDENT"])).toBe(false);
+  });
+
+  it("traite une liste de rôles vide ou absente comme une absence de droit", () => {
+    expect(peutDeplacerHorloge("TEACHER", [])).toBe(false);
+    expect(peutDeplacerHorloge("TEACHER", null)).toBe(false);
+    expect(peutDeplacerHorloge("TEACHER", undefined)).toBe(false);
+  });
 });

@@ -30,6 +30,20 @@ interface PromotionClasse {
   eleves: PromotionEleve[];
 }
 
+/**
+ * Décision de passage → clé de libellé.
+ *
+ * L'état interne parle français (`promouvoir`, `redoubler`, `diplome`) tandis
+ * que le dictionnaire est en anglais (`promote`, `repeat`, `graduate`). Sans
+ * cette table, le badge affichait `reinscription.step3.promouvoir` — et sur
+ * CHAQUE ligne élève de chaque classe.
+ */
+const CLES_DECISION: Record<"promouvoir" | "redoubler" | "diplome", string> = {
+  promouvoir: "promote",
+  redoubler: "repeat",
+  diplome: "graduate",
+};
+
 export function PromotionPreview({
   campagneId,
   anneeSource,
@@ -222,7 +236,7 @@ export function PromotionPreview({
                       </div>
                     ) : (
                       <Badge variant="outline" className="text-xs">
-                        {t(`step3.${decision}`)}
+                        {t(`step3.${CLES_DECISION[decision]}`)}
                       </Badge>
                     )}
                   </div>

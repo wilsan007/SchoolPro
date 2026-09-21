@@ -437,7 +437,16 @@ export function ImportElevesDialog({
                               confPct >= 70 ? "text-green-600" :
                               confPct >= 40 ? "text-amber-600" :
                               "text-muted-foreground";
-                            const typeLabel = t(`columnMapping.type${col.type.charAt(0).toUpperCase()}${col.type.slice(1)}`, undefined);
+                            // `col.type` est un enum en CAPITALES_AVEC_TIRETS
+                            // (`NOMBRE_ENTIER`), le dictionnaire est en
+                            // camelCase (`typeNombreEntier`). Sans conversion,
+                            // la colonne « Type détecté » affichait
+                            // `columnMapping.typeNOMBRE_ENTIER` sur chaque
+                            // ligne du tableau d'import.
+                            const typeCle = col.type
+                              .toLowerCase()
+                              .replace(/_(\w)/g, (_m, c: string) => c.toUpperCase());
+                            const typeLabel = t(`columnMapping.type${typeCle.charAt(0).toUpperCase()}${typeCle.slice(1)}`, undefined);
                             const fieldLabel = col.champCible
                               ? t(`columnMapping.field${col.champCible.charAt(0).toUpperCase()}${col.champCible.slice(1)}`, undefined)
                               : t("columnMapping.unmapped");

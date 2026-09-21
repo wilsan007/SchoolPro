@@ -236,6 +236,7 @@ export default async function RecommandationsPage() {
         attestations={attestations}
         plans={plans}
         recommandations={recommandations}
+        roleKey={session!.user.role}
       />
     </div>
   );

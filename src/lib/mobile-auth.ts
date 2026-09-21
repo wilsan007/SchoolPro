@@ -1,6 +1,7 @@
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import type { Role } from "@prisma/client";
 import { deriveClaims } from "@/lib/tenant-claims";
 import type { SessionSiteClaims } from "@/lib/site-filter";
 
@@ -15,7 +16,7 @@ export interface MobileUser {
  * Périmètre complet d'un client mobile : identité issue du jeton, périmètre
  * (tenant, sites, rôle) relu depuis la base.
  */
-export type MobileScope = MobileUser & SessionSiteClaims;
+export type MobileScope = MobileUser & SessionSiteClaims & { availableRoles?: Role[] };
 
 /**
  * Secret de signature/vérification des jetons mobiles. Source unique : la
@@ -75,6 +76,7 @@ export async function verifyMobileScope(req: NextRequest): Promise<MobileScope |
     siteId: claims.siteId,
     siteIds: claims.siteIds,
     tenantHasSites: claims.tenantHasSites,
+    availableRoles: claims.availableRoles,
   };
 }
 

@@ -27,6 +27,15 @@ interface UserItem {
   createdAt: Date;
 }
 
+/**
+ * Rôle → clé de libellé, pour les SEIZE valeurs de l'enum `Role`.
+ *
+ * Il en manquait cinq (surveillant, coordinateur de matière, responsable de
+ * site, inspecteur, et la clé du caissier). Le repli `?? u.role` affichait
+ * alors le code brut — « SUPERVISOR » dans un badge, sous les yeux du client.
+ * Ces rôles existent bel et bien dans le jeu de démonstration, qui crée des
+ * comptes pour chacun d'eux.
+ */
 const roleKeys: Record<string, string> = {
   TENANT_ADMIN: "roleTenantAdmin",
   PRINCIPAL: "rolePrincipal",
@@ -37,6 +46,10 @@ const roleKeys: Record<string, string> = {
   NURSE: "roleNurse",
   ACCOUNTANT: "roleAccountant",
   CAISSIER: "roleCaissier",
+  SUPERVISOR: "roleSupervisor",
+  SUBJECT_LEAD: "roleSubjectLead",
+  SITE_MANAGER: "roleSiteManager",
+  INSPECTOR: "roleInspector",
   PARENT: "roleParent",
   STUDENT: "roleStudent",
 };

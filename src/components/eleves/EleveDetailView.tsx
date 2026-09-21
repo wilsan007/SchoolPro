@@ -24,6 +24,7 @@ import { DispenseMatiereManager } from "./DispenseMatiereManager";
 import { useTranslations } from "next-intl";
 import { useLibelleNiveau } from "@/lib/niveau-context";
 import { deleteEleve } from "@/lib/actions/eleve";
+import { roleHasPermission } from "@/lib/permissions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -210,19 +211,31 @@ export function EleveDetailView({
   const t = useTranslations("eleveDetail");
   const libelleNiveau = useLibelleNiveau();
   const router = useRouter();
+  const role = userRole ?? "STUDENT";
 
-  // Le comptable ne voit que la facturation et les absences dans le profil élève.
-  // Les autres rôles voient tous les onglets.
-  const isComptable = userRole === "ACCOUNTANT";
   // `eleves:write` = TENANT_ADMIN, SUPER_ADMIN, PRINCIPAL, SECRETARY.
   // TEACHER n'a que `eleves:read` — il consulte mais n'édite pas.
-  const canWrite = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL" || userRole === "SECRETARY";
-  const canDelete = userRole === "TENANT_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "PRINCIPAL";
-  const visibleTabs = isComptable
-    ? ["absences", "facturation"]
-    : ["notes", "competences", "absences", "discipline", "facturation", "parcours", "dispenses", "evolution"];
+  const canWrite = role === "TENANT_ADMIN" || role === "SUPER_ADMIN" || role === "PRINCIPAL" || role === "SECRETARY";
+  const canDelete = role === "TENANT_ADMIN" || role === "SUPER_ADMIN" || role === "PRINCIPAL";
+  // Chaque onglet exige une permission distincte : un rôle qui peut consulter
+  // la fiche élève n'a pas nécessairement accès aux notes, à la facturation, etc.
+  // Filtrer par `roleHasPermission` garantit qu'aucun onglet non accessible
+  // n'est visible, quel que soit le rôle.
+  const allTabs = [
+    { key: "notes", perm: "notes:read" as const },
+    { key: "competences", perm: "curriculum:read" as const },
+    { key: "absences", perm: "absences:read" as const },
+    { key: "discipline", perm: "vie-scolaire:read" as const },
+    { key: "facturation", perm: "finance:read" as const },
+    { key: "parcours", perm: null },
+    { key: "dispenses", perm: "eleves:write" as const },
+    { key: "evolution", perm: "entrainement:read" as const },
+  ];
+  const visibleTabs = allTabs
+    .filter((tab) => tab.perm === null || roleHasPermission(role, tab.perm as string))
+    .map((tab) => tab.key);
 
-  const [tab, setTab] = useState(isComptable ? "facturation" : "notes");
+  const [tab, setTab] = useState(visibleTabs[0] ?? "parcours");
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -280,7 +293,12 @@ export function EleveDetailView({
             {t("backToList")}
           </Link>
         </Button>
-        {!isComptable && (
+        {(() => {
+          const showActions = canWrite || canDelete
+            || roleHasPermission(role, "curriculum:read")
+            || roleHasPermission(role, "entrainement:read");
+          if (!showActions) return null;
+          return (
           <div className="flex flex-wrap gap-2">
             {canWrite && (
               <Button asChild variant="outline" size="sm" className="gap-2">
@@ -308,7 +326,8 @@ export function EleveDetailView({
               </Button>
             )}
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Delete confirmation dialog */}
@@ -391,35 +410,50 @@ export function EleveDetailView({
         </div>
       </Card>
 
-      {/* KPI strip — le comptable ne voit que les absences et le solde dû */}
-      <div className={cn("grid gap-4", isComptable ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}>
-        {!isComptable && (
+      {/* KPI strip — chaque carte exige sa permission : la moyenne générale
+          nécessite `notes:read`, les incidents nécessitent `vie-scolaire:read`.
+          Un rôle qui n'a ni l'une ni l'autre (ex: ACCOUNTANT, NURSE) ne voit
+          que les absences et le solde dû. */}
+      {(() => {
+        const showMoyenne = roleHasPermission(role, "notes:read");
+        const showIncidents = roleHasPermission(role, "vie-scolaire:read");
+        const nbKpis = 2 + (showMoyenne ? 1 : 0) + (showIncidents ? 1 : 0);
+        const gridCls = nbKpis >= 4
+          ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+          : nbKpis === 3
+            ? "grid-cols-2 sm:grid-cols-3"
+            : "grid-cols-2";
+        return (
+        <div className={cn("grid gap-4", gridCls)}>
+          {showMoyenne && (
+            <StatCard
+              label={t("generalAverage")}
+              value={moyenneGenerale ? `${moyenneGenerale}/20` : "—"}
+              sub={t("notesCount", { count: eleve.notes.length })}
+              color={
+                moyenneGenerale
+                  ? parseFloat(moyenneGenerale) >= 14
+                    ? "text-green-600"
+                    : parseFloat(moyenneGenerale) >= 10
+                    ? "text-blue-600"
+                    : "text-red-600"
+                  : undefined
+              }
+            />
+          )}
+          <StatCard label={t("absences")} value={totalAbsences} sub={t("latesCount", { count: totalRetards })} color="text-orange-600" />
+          {showIncidents && (
+            <StatCard label={t("incidents")} value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
+          )}
           <StatCard
-            label={t("generalAverage")}
-            value={moyenneGenerale ? `${moyenneGenerale}/20` : "—"}
-            sub={t("notesCount", { count: eleve.notes.length })}
-            color={
-              moyenneGenerale
-                ? parseFloat(moyenneGenerale) >= 14
-                  ? "text-green-600"
-                  : parseFloat(moyenneGenerale) >= 10
-                  ? "text-blue-600"
-                  : "text-red-600"
-                : undefined
-            }
+            label={t("balanceDue")}
+            value={`${(totalDu - totalPaye).toLocaleString()} FDJ`}
+            sub={`${t("paid")}: ${totalPaye.toLocaleString()} FDJ`}
+            color={totalDu - totalPaye > 0 ? "text-red-600" : "text-green-600"}
           />
-        )}
-        <StatCard label={t("absences")} value={totalAbsences} sub={t("latesCount", { count: totalRetards })} color="text-orange-600" />
-        {!isComptable && (
-          <StatCard label={t("incidents")} value={eleve.incidents.length} color={eleve.incidents.length > 0 ? "text-red-600" : "text-green-600"} />
-        )}
-        <StatCard
-          label={t("balanceDue")}
-          value={`${(totalDu - totalPaye).toLocaleString()} FDJ`}
-          sub={`${t("paid")}: ${totalPaye.toLocaleString()} FDJ`}
-          color={totalDu - totalPaye > 0 ? "text-red-600" : "text-green-600"}
-        />
-      </div>
+        </div>
+        );
+      })()}
 
       {/* Parent / tuteur */}
       {tuteur && (

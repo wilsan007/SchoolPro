@@ -80,13 +80,13 @@ export function SiteSwitcher({ currentSiteId, sites, isAdmin = false }: SiteSwit
   }
 
   return (
-    <div ref={ref} className="relative mt-1">
+    <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors group"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group px-2 py-1.5 rounded-lg hover:bg-secondary/60"
       >
-        <MapPin className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate font-medium max-w-[160px]">
+        <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-primary/70" />
+        <span className="truncate font-medium max-w-[140px]">
           {displayLabel}
         </span>
         <ChevronDown
@@ -95,9 +95,9 @@ export function SiteSwitcher({ currentSiteId, sites, isAdmin = false }: SiteSwit
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-56 bg-slate-900 border border-slate-700/60 rounded-xl shadow-2xl z-[100] overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-800">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <div className="absolute left-0 top-full mt-1 w-56 bg-popover border border-border rounded-2xl shadow-xl z-[300] overflow-hidden">
+          <div className="px-3 py-2 border-b border-border">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               {t("switchSite")}
             </p>
           </div>
@@ -109,19 +109,19 @@ export function SiteSwitcher({ currentSiteId, sites, isAdmin = false }: SiteSwit
               disabled={switching}
               className={`flex items-center gap-2 w-full px-3 py-2.5 text-sm transition-colors text-left ${
                 !currentSiteId
-                  ? "bg-indigo-600/20 text-indigo-200"
-                  : "text-slate-300 hover:bg-slate-800"
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground hover:bg-muted"
               } ${switching && switchingTo !== "ALL" ? "opacity-50" : ""}`}
             >
-              <Layers className="w-4 h-4 flex-shrink-0 text-slate-400" />
+              <Layers className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
               <div className="flex-1 min-w-0">
                 <p className="truncate font-medium">{t("allSites")}</p>
               </div>
               {switchingTo === "ALL" && (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400 flex-shrink-0" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary flex-shrink-0" />
               )}
               {!currentSiteId && switchingTo !== "ALL" && (
-                <Check className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                <Check className="w-4 h-4 text-primary flex-shrink-0" />
               )}
             </button>
             )}
@@ -140,24 +140,24 @@ export function SiteSwitcher({ currentSiteId, sites, isAdmin = false }: SiteSwit
                   disabled={switching}
                   className={`flex items-center gap-2 w-full px-3 py-2.5 text-sm transition-colors text-left ${
                     isCurrent
-                      ? "bg-indigo-600/20 text-indigo-200"
-                      : "text-slate-300 hover:bg-slate-800"
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground hover:bg-muted"
                   } ${switching && !isSwitching ? "opacity-50" : ""}`}
                 >
-                  <MapPin className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  <MapPin className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
                     <p className="truncate font-medium">{site.nom}</p>
                     {site.code && (
-                      <p className="text-[10px] text-slate-500 truncate">
+                      <p className="text-[10px] text-muted-foreground truncate">
                         {site.code}
                       </p>
                     )}
                   </div>
                   {isSwitching && (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400 flex-shrink-0" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary flex-shrink-0" />
                   )}
                   {isCurrent && !isSwitching && (
-                    <Check className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                    <Check className="w-4 h-4 text-primary flex-shrink-0" />
                   )}
                 </button>
               );

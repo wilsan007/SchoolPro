@@ -15,14 +15,24 @@ export function TimeMachineButton() {
   const t = useTranslations("timeMachine");
   const [open, setOpen] = useState(false);
   const [demoEnabled, setDemoEnabled] = useState(false);
+  const [autorise, setAutorise] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Vérifier si le mode démo est activé au chargement
+    // Vérifier si le mode démo est activé au chargement.
+    // `autorise` provient du serveur (peutDeplacerHorloge) — c'est lui qui
+    // décide si le bouton doit s'afficher, pas le client.
     fetch("/api/demo-now")
       .then((r) => r.json())
-      .then((data) => setDemoEnabled(data.enabled))
+      .then((data) => {
+        setDemoEnabled(data.enabled);
+        setAutorise(data.autorise ?? false);
+      })
       .catch((e) => console.warn("[non-fatal]", e));
   }, []);
+
+  // Seul un compte autorisé par le serveur (peutDeplacerHorloge) voit le bouton.
+  // Tant que l'état n'est pas résolu (null), on ne rend rien pour éviter un flash.
+  if (autorise !== true) return null;
 
   return (
     <>
