@@ -8,6 +8,60 @@ import { erreurJson } from "@/lib/erreurs-api";
 import { auditFire } from "@/lib/audit";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { publishEvent, type SanctionAppliqueePayload } from "@/lib/learnos/events";
+import type { Prisma } from "@prisma/client";
+
+type IncidentAvecEleve = Prisma.IncidentGetPayload<{
+  include: {
+    eleve: {
+      select: {
+        id: true;
+        nom: true;
+        prenom: true;
+        siteId: true;
+        classe: { select: { nom: true } };
+        parents: { include: { parent: { select: { id: true } } } };
+      };
+    };
+  };
+}>;
+
+/**
+ * Publie `sanction.appliquee` sur le bus LEARNOS — best effort : l'échec de
+ * publication ne doit jamais casser le workflow disciplinaire.
+ */
+async function publierSanctionAppliquee(
+  tenantId: string,
+  incident: IncidentAvecEleve,
+  sanction: { id: string; type: string; description: string | null; dateDebut: Date; dateFin: Date | null },
+) {
+  try {
+    await publishEvent({
+      tenantId,
+      siteId: incident.eleve.siteId ?? null,
+      eventType: "sanction.appliquee",
+      aggregateType: "Sanction",
+      aggregateId: sanction.id,
+      payload: {
+        sanctionId: sanction.id,
+        incidentId: incident.id,
+        eleveId: incident.eleveId,
+        parentIds: incident.eleve.parents.map((ep) => ep.parent.id),
+        siteId: incident.eleve.siteId ?? null,
+        prenom: incident.eleve.prenom,
+        nom: incident.eleve.nom,
+        classeNom: incident.eleve.classe?.nom ?? null,
+        typeSanction: sanction.type,
+        gravite: incident.gravite,
+        description: sanction.description,
+        dateDebut: sanction.dateDebut.toISOString(),
+        dateFin: sanction.dateFin ? sanction.dateFin.toISOString() : null,
+      } satisfies SanctionAppliqueePayload,
+    });
+  } catch (publishError) {
+    console.error("[workflow-sanction] Publication sanction.appliquee échouée:", publishError);
+  }
+}
 
 const ActionSchema = z.object({
   incidentId: z.string().min(1),
@@ -39,7 +93,16 @@ export async function POST(req: NextRequest) {
         ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}),
       },
       include: {
-        eleve: { select: { id: true, nom: true, prenom: true, classe: { select: { nom: true } } } },
+        eleve: {
+          select: {
+            id: true,
+            nom: true,
+            prenom: true,
+            siteId: true,
+            classe: { select: { nom: true } },
+            parents: { include: { parent: { select: { id: true } } } },
+          },
+        },
       },
     });
     if (!incident) return erreurJson("INCIDENT_INTROUVABLE");
@@ -107,6 +170,8 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      await publierSanctionAppliquee(tenantId, incident, sanction);
+
       auditFire({
         userId: session.user.id,
         tenantId,
@@ -157,6 +222,8 @@ export async function POST(req: NextRequest) {
           parentNotifie: false,
         },
       });
+
+      await publierSanctionAppliquee(tenantId, incident, sanction);
 
       auditFire({
         userId: session.user.id,
