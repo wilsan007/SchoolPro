@@ -606,7 +606,14 @@
     "appelError": "Error saving attendance",
     "appelPresent": "Present",
     "appelLate": "Late",
-    "appelAbsentTitle": "Absent"
+    "appelAbsentTitle": "Absent",
+    "appelDate": "Attendance day",
+    "appelSlot": "Time slot",
+    "appelFullDay": "Full day",
+    "appelNoTimetable": "no timetable for this day, 1-hour slots",
+    "appelArrivalTime": "Arrived at",
+    "appelArrivalTimeFor": "Arrival time for {nom}",
+    "appelArrivalInvalid": "Invalid arrival time: it must be between {debut} and {fin}"
   },
   "bulletinsManager": {
     "period": "Period",

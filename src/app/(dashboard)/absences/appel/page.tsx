@@ -33,6 +33,38 @@ async function getClasses(tenantId: string, claims: SessionSiteClaims, hierarchi
   });
 }
 
+/**
+ * Créneaux de l'emploi du temps des classes affichées, pour proposer l'appel
+ * par créneau. Le filtrage par période se fait côté client, selon le jour choisi.
+ */
+async function getCreneauxEdt(tenantId: string, claims: SessionSiteClaims, classeIds: string[], anneeCourante: string | null) {
+  if (classeIds.length === 0) return [];
+  const rows = await prisma.emploiTemps.findMany({
+    where: {
+      tenantId,
+      classeId: { in: classeIds },
+      ...siteFilterForModel("emploiTemps", claims),
+      ...(anneeCourante ? { annee: anneeCourante } : {}),
+    },
+    select: {
+      classeId: true, jour: true, heureDebut: true, heureFin: true, salle: true,
+      matiere: { select: { nom: true } },
+      periode: { select: { dateDebut: true, dateFin: true } },
+    },
+    orderBy: { heureDebut: "asc" },
+  });
+  return rows.map((r) => ({
+    classeId: r.classeId,
+    jour: r.jour,
+    heureDebut: r.heureDebut,
+    heureFin: r.heureFin,
+    salle: r.salle,
+    matiere: r.matiere.nom,
+    periodeDebut: r.periode?.dateDebut.toISOString().slice(0, 10) ?? null,
+    periodeFin: r.periode?.dateFin.toISOString().slice(0, 10) ?? null,
+  }));
+}
+
 export default async function AppelPage() {
   const session = await auth();
   await guardPage(session);
@@ -48,6 +80,7 @@ export default async function AppelPage() {
     getClasses(session.user.tenantId, session.user, hierarchieClasseIds),
     getDemoNow(),
   ]);
+  const creneaux = await getCreneauxEdt(session.user.tenantId, session.user, classes.map((c) => c.id), anneeCourante);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -58,7 +91,13 @@ export default async function AppelPage() {
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <AppelInterface classes={classes} tenantId={session.user.tenantId} hierarchie={hierarchie} />
+        <AppelInterface
+          classes={classes}
+          tenantId={session.user.tenantId}
+          hierarchie={hierarchie}
+          creneauxEdt={creneaux}
+          maintenantISO={maintenant.toISOString()}
+        />
       </div>
     </div>
   );

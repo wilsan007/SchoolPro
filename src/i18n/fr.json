@@ -606,7 +606,14 @@
     "appelError": "Erreur lors de l'enregistrement de l'appel",
     "appelPresent": "Présent",
     "appelLate": "Retard",
-    "appelAbsentTitle": "Absent"
+    "appelAbsentTitle": "Absent",
+    "appelDate": "Jour de l'appel",
+    "appelSlot": "Créneau",
+    "appelFullDay": "Journée entière",
+    "appelNoTimetable": "pas d'emploi du temps ce jour, créneaux d'1 h",
+    "appelArrivalTime": "Arrivé à",
+    "appelArrivalTimeFor": "Heure d'arrivée de {nom}",
+    "appelArrivalInvalid": "Heure d'arrivée invalide : elle doit être comprise entre {debut} et {fin}"
   },
   "bulletinsManager": {
     "period": "Période",

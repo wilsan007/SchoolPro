@@ -13,11 +13,18 @@ import { revalidateTag } from "next/cache";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
 import { publishEvents } from "@/lib/learnos/events";
+import { absenceIdAppel, validerCreneau } from "@/lib/absences/appel-creneaux";
 
 const AppelSchema = z.object({
   classeId: z.string().min(1),
-  date: z.string().datetime(),
+  /** Date ISO complète, ou jour seul "AAAA-MM-JJ". */
+  date: z.union([z.string().datetime(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
   presences: z.record(z.string(), z.enum(["present", "absent", "retard"])),
+  /** Créneau de l'appel ; absent = journée entière. */
+  heureDebut: z.string().nullish(),
+  heureFin: z.string().nullish(),
+  /** Heure d'arrivée ("HH:MM") des élèves en retard, par eleveId. */
+  retardsHeureArrivee: z.record(z.string(), z.string()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -36,8 +43,20 @@ export async function POST(req: NextRequest) {
     }
 
     const { classeId, date, presences } = parsed.data;
+    const heureDebut = parsed.data.heureDebut || null;
+    const heureFin = parsed.data.heureFin || null;
+    const heuresArrivee = parsed.data.retardsHeureArrivee ?? {};
+    const erreurCreneau = validerCreneau(heureDebut, heureFin, heuresArrivee);
+    if (erreurCreneau) {
+      return NextResponse.json({ error: erreurCreneau }, { status: 400 });
+    }
+    if (Object.keys(heuresArrivee).some((id) => presences[id] !== "retard")) {
+      return NextResponse.json({ error: "Heure d'arrivée pour un élève non marqué en retard" }, { status: 400 });
+    }
     const tenantId = session.user.tenantId;
-    const appelDate = new Date(date);
+    const dateJour = date.slice(0, 10);
+    // Un jour seul est ancré à midi UTC pour ne pas basculer de date selon le fuseau.
+    const appelDate = date.length === 10 ? new Date(`${date}T12:00:00.000Z`) : new Date(date);
     const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     // Vérifier que la classe appartient au périmètre enseignant (si applicable).
@@ -70,34 +89,50 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Plage stockée sur l'absence : le créneau pour un absent ; pour un retard,
+    // du début du créneau jusqu'à l'heure d'arrivée (temps réellement manqué).
+    const plage = (eleveId: string, status: "absent" | "retard") => ({
+      heureDebut,
+      heureFin: status === "retard" && heuresArrivee[eleveId] ? heuresArrivee[eleveId] : heureFin,
+    });
+
     // Créer les absences pour les absents et retards
     const operations = Object.entries(presences)
-      .filter(([, status]) => status !== "present")
-      .map(([eleveId, status]) =>
-         
-        prisma.absence.upsert({
-          where: {
-            id: `appel-${classeId}-${eleveId}-${appelDate.toISOString().split("T")[0]}`,
-          },
+      .filter((entry): entry is [string, "absent" | "retard"] => entry[1] !== "present")
+      .map(([eleveId, status]) => {
+        const id = absenceIdAppel(classeId, eleveId, dateJour, heureDebut);
+        return prisma.absence.upsert({
+          where: { id },
           update: {
             motif: "INJUSTIFIE",
             statut: "EN_ATTENTE",
             isRetard: status === "retard",
+            ...plage(eleveId, status),
           },
           create: {
-            id: `appel-${classeId}-${eleveId}-${appelDate.toISOString().split("T")[0]}`,
+            id,
             tenantId,
             eleveId,
             date: appelDate,
             motif: "INJUSTIFIE",
             statut: "EN_ATTENTE",
             isRetard: status === "retard",
+            ...plage(eleveId, status),
             saisieParId: session.user.id,
           },
-        })
-      );
+        });
+      });
 
-    const absences = await prisma.$transaction(operations);
+    // Refaire l'appel : un élève désormais présent ne doit pas garder l'absence
+    // saisie lors du précédent enregistrement de ce même créneau.
+    const idsPresents = Object.entries(presences)
+      .filter(([, status]) => status === "present")
+      .map(([eleveId]) => absenceIdAppel(classeId, eleveId, dateJour, heureDebut));
+
+    const [, ...absences] = await prisma.$transaction([
+      prisma.absence.deleteMany({ where: { tenantId, id: { in: idsPresents } } }),
+      ...operations,
+    ]);
 
     // Publier les événements LEARNOS en lot.
     await publishEvents(
@@ -135,7 +170,8 @@ export async function POST(req: NextRequest) {
         select: { name: true },
       });
       const ecoleNom = tenant?.name ?? "EcolPro";
-      const dateStr = appelDate.toLocaleDateString("fr-FR");
+      const dateStr = appelDate.toLocaleDateString("fr-FR", { timeZone: "UTC" })
+        + (heureDebut && heureFin ? ` (${heureDebut}–${heureFin})` : "");
 
       // Récupérer les élèves signalés avec leurs parents (tous les parents liés, pas seulement le gardien)
       const elevesSignales = await prisma.eleve.findMany({
@@ -204,8 +240,9 @@ export async function POST(req: NextRequest) {
         if (titresExistants.has(titreNotif)) {
           continue;
         }
+        const arrivee = isRetard && heuresArrivee[eleve.id] ? `, arrivé(e) à ${heuresArrivee[eleve.id]}` : "";
         const contenuNotif = isRetard
-          ? `Bonjour,\n\nNous vous informons que ${eleveNom} a été signalé(e) en retard le ${dateStr}.\n\nVeuillez contacter l'établissement pour plus d'informations.\n\nCordialement,\n${ecoleNom}`
+          ? `Bonjour,\n\nNous vous informons que ${eleveNom} a été signalé(e) en retard le ${dateStr}${arrivee}.\n\nVeuillez contacter l'établissement pour plus d'informations.\n\nCordialement,\n${ecoleNom}`
           : `Bonjour,\n\nNous vous informons que ${eleveNom} a été signalé(e) absent(e) le ${dateStr}.\n\nVeuillez contacter l'établissement pour régulariser cette absence.\n\nCordialement,\n${ecoleNom}`;
 
         // Enregistrer dans la signalétique (table Notification)

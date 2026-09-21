@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
-import { CheckCircle2, XCircle, Clock, Users, CheckCheck, RotateCcw } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Users, CheckCheck, RotateCcw, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import {
+  creneauxHoraires, estHeureValide, heureEnMinutes, jourDepuisDate, type CreneauAppel,
+} from "@/lib/absences/appel-creneaux";
 
 interface Eleve {
   id: string;
@@ -30,25 +34,90 @@ interface Classe {
 
 type Presence = "present" | "absent" | "retard" | null;
 
+export interface CreneauEdt {
+  classeId: string;
+  jour: string;
+  heureDebut: string;
+  heureFin: string;
+  salle: string | null;
+  matiere: string;
+  /** Bornes "AAAA-MM-JJ" de la période ciblée ; null = toute l'année. */
+  periodeDebut: string | null;
+  periodeFin: string | null;
+}
+
+/** "AAAA-MM-JJ" dans le fuseau du navigateur. */
+function dateLocale(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function heureLocale(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** Créneaux proposés pour une classe un jour donné : l'EDT s'il existe, sinon des heures pleines. */
+function creneauxDuJour(edt: CreneauEdt[], classeId: string, dateJour: string): { creneaux: CreneauAppel[]; depuisEdt: boolean } {
+  const jour = jourDepuisDate(dateJour);
+  const vus = new Set<string>();
+  const creneaux: CreneauAppel[] = [];
+  for (const c of edt) {
+    if (c.classeId !== classeId || c.jour !== jour) continue;
+    if (c.periodeDebut && c.periodeFin && (dateJour < c.periodeDebut || dateJour > c.periodeFin)) continue;
+    const cle = `${c.heureDebut}-${c.heureFin}`;
+    if (vus.has(cle)) continue;
+    vus.add(cle);
+    creneaux.push({ heureDebut: c.heureDebut, heureFin: c.heureFin, matiere: c.matiere, salle: c.salle });
+  }
+  creneaux.sort((a, b) => a.heureDebut.localeCompare(b.heureDebut));
+  return creneaux.length > 0 ? { creneaux, depuisEdt: true } : { creneaux: creneauxHoraires(), depuisEdt: false };
+}
+
+/** Créneau en cours à l'heure donnée, sinon null (journée entière). */
+function creneauEnCours(creneaux: CreneauAppel[], heure: string): CreneauAppel | null {
+  const m = heureEnMinutes(heure);
+  return creneaux.find((c) => m >= heureEnMinutes(c.heureDebut) && m < heureEnMinutes(c.heureFin)) ?? null;
+}
+
 export function AppelInterface({
   classes,
   tenantId,
   hierarchie,
+  creneauxEdt = [],
+  maintenantISO,
 }: {
   classes: Classe[];
   tenantId: string;
   hierarchie?: ClassesHierarchie;
+  creneauxEdt?: CreneauEdt[];
+  /** Horloge de référence (Time Machine en démo). */
+  maintenantISO?: string;
 }) {
   const t = useTranslations("absences");
+  const locale = useLocale();
+  const maintenant = useMemo(() => (maintenantISO ? new Date(maintenantISO) : new Date()), [maintenantISO]);
+  const aujourdHui = dateLocale(maintenant);
+
   const [selectedClasseId, setSelectedClasseId] = useState<string>(
     classes[0]?.id ?? ""
   );
+  const [dateJour, setDateJour] = useState(aujourdHui);
+  const [creneau, setCreneau] = useState<CreneauAppel | null>(() =>
+    classes[0] ? creneauEnCours(creneauxDuJour(creneauxEdt, classes[0].id, aujourdHui).creneaux, heureLocale(maintenant)) : null
+  );
   const [presences, setPresences] = useState<Record<string, Presence>>({});
+  const [heuresArrivee, setHeuresArrivee] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
 
   const selectedClasse = classes.find((c) => c.id === selectedClasseId);
   const eleves = selectedClasse?.eleves ?? [];
+  const { creneaux, depuisEdt } = useMemo(
+    () => creneauxDuJour(creneauxEdt, selectedClasseId, dateJour),
+    [creneauxEdt, selectedClasseId, dateJour]
+  );
+  const libelleJour = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
+    .format(new Date(`${dateJour}T12:00:00Z`));
+  const libelleCreneau = creneau ? `${creneau.heureDebut}–${creneau.heureFin}` : t("appelFullDay");
 
   const stats = {
     total: eleves.length,
@@ -60,6 +129,32 @@ export function AppelInterface({
 
   function setPresence(eleveId: string, status: Presence) {
     setPresences((prev) => ({ ...prev, [eleveId]: status }));
+    if (status === "retard" && creneau && !heuresArrivee[eleveId]) {
+      // Pré-remplit avec l'heure courante quand l'appel porte sur le créneau en cours.
+      const h = heureLocale(new Date());
+      const m = heureEnMinutes(h);
+      if (dateJour === dateLocale(new Date()) && m > heureEnMinutes(creneau.heureDebut) && m <= heureEnMinutes(creneau.heureFin)) {
+        setHeuresArrivee((prev) => ({ ...prev, [eleveId]: h }));
+      }
+    }
+  }
+
+  /** Nouvelle séance (classe, jour ou créneau) : on repart d'une feuille vierge. */
+  function nouvelleSeance(classeId: string, jour: string, c: CreneauAppel | null) {
+    setSelectedClasseId(classeId);
+    setDateJour(jour);
+    setCreneau(c);
+    setPresences({});
+    setHeuresArrivee({});
+    setSubmitted(false);
+  }
+
+  function changerClasseOuJour(classeId: string, jour: string) {
+    const { creneaux: dispo } = creneauxDuJour(creneauxEdt, classeId, jour);
+    // Garde le même horaire s'il existe encore, sinon le créneau en cours si c'est aujourd'hui.
+    const meme = creneau ? dispo.find((c) => c.heureDebut === creneau.heureDebut) ?? null : null;
+    const suivant = meme ?? (jour === aujourdHui ? creneauEnCours(dispo, heureLocale(maintenant)) : null);
+    nouvelleSeance(classeId, jour, suivant);
   }
 
   function marquerTousPresents() {
@@ -70,12 +165,31 @@ export function AppelInterface({
 
   function reset() {
     setPresences({});
+    setHeuresArrivee({});
     setSubmitted(false);
+  }
+
+  /** Heures d'arrivée des élèves effectivement en retard, ou null si l'une est invalide. */
+  function heuresArriveeValides(): Record<string, string> | null {
+    if (!creneau) return {};
+    const out: Record<string, string> = {};
+    for (const [eleveId, h] of Object.entries(heuresArrivee)) {
+      if (presences[eleveId] !== "retard" || !h) continue;
+      const m = heureEnMinutes(h);
+      if (!estHeureValide(h) || m <= heureEnMinutes(creneau.heureDebut) || m > heureEnMinutes(creneau.heureFin)) return null;
+      out[eleveId] = h;
+    }
+    return out;
   }
 
   async function soumettre() {
     if (stats.nonSaisis > 0) {
       toast.warning(t("appelNotSetWarn", { count: stats.nonSaisis }));
+      return;
+    }
+    const arrivees = heuresArriveeValides();
+    if (!arrivees) {
+      toast.warning(t("appelArrivalInvalid", { debut: creneau?.heureDebut ?? "", fin: creneau?.heureFin ?? "" }));
       return;
     }
     startTransition(async () => {
@@ -86,11 +200,17 @@ export function AppelInterface({
           body: JSON.stringify({
             classeId: selectedClasseId,
             presences,
-            date: new Date().toISOString(),
+            date: dateJour,
+            heureDebut: creneau?.heureDebut ?? null,
+            heureFin: creneau?.heureFin ?? null,
+            retardsHeureArrivee: arrivees,
           }),
         });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast.error(typeof data.error === "string" ? data.error : t("appelError"));
+          return;
+        }
         setSubmitted(true);
         toast.success(data.message ?? t("appelSuccess"));
       } catch {
@@ -112,7 +232,7 @@ export function AppelInterface({
               {classes.map((classe) => (
                 <button
                   key={classe.id}
-                  onClick={() => { setSelectedClasseId(classe.id); setPresences({}); setSubmitted(false); }}
+                  onClick={() => changerClasseOuJour(classe.id, dateJour)}
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                     selectedClasseId === classe.id
@@ -166,6 +286,9 @@ export function AppelInterface({
             <CheckCheck className="h-12 w-12 text-green-500" />
             <div className="text-center">
               <p className="text-lg font-semibold">{t("appelSaved")}</p>
+              <p className="text-sm text-muted-foreground first-letter:uppercase">
+                {selectedClasse.nom} · {libelleJour} · {libelleCreneau}
+              </p>
               <p className="text-sm text-muted-foreground">
                 {t("appelSummaryLine", { presents: stats.presents, absents: stats.absents, retards: stats.retards })}
               </p>
@@ -199,6 +322,58 @@ export function AppelInterface({
               </div>
             </div>
 
+            {/* Séance : jour + créneau */}
+            <div className="px-4 sm:px-5 py-4 border-b space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <CalendarDays className="h-4 w-4 text-primary" aria-hidden />
+                  {t("appelDate")}
+                </label>
+                <Input
+                  type="date"
+                  value={dateJour}
+                  max={aujourdHui}
+                  onChange={(e) => e.target.value && changerClasseOuJour(selectedClasseId, e.target.value)}
+                  className="h-9 w-full sm:w-44"
+                  aria-label={t("appelDate")}
+                />
+                <span className="text-sm text-muted-foreground first-letter:uppercase">{libelleJour}</span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  {t("appelSlot")}
+                  {!depuisEdt && <span className="ml-1 font-normal">— {t("appelNoTimetable")}</span>}
+                </p>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("appelSlot")}>
+                  {[null, ...creneaux].map((c) => {
+                    const actif = c ? creneau?.heureDebut === c.heureDebut : creneau === null;
+                    return (
+                      <button
+                        key={c ? c.heureDebut : "journee"}
+                        type="button"
+                        role="radio"
+                        aria-checked={actif}
+                        onClick={() => nouvelleSeance(selectedClasseId, dateJour, c)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors text-left",
+                          actif
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border hover:bg-muted text-foreground"
+                        )}
+                      >
+                        <span className="tabular-nums">{c ? `${c.heureDebut}–${c.heureFin}` : t("appelFullDay")}</span>
+                        {c?.matiere && (
+                          <span className={cn("block text-[11px] font-normal", actif ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                            {c.matiere}{c.salle ? ` · ${c.salle}` : ""}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
             {/* Grille élèves */}
             <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {eleves.map((eleve) => {
@@ -225,6 +400,20 @@ export function AppelInterface({
                         {eleve.prenom} {eleve.nom}
                       </p>
                       <p className="text-xs text-muted-foreground">{eleve.matricule}</p>
+                      {status === "retard" && creneau && (
+                        <label className="mt-1 flex items-center gap-1.5 text-xs text-yellow-700 dark:text-yellow-400">
+                          {t("appelArrivalTime")}
+                          <input
+                            type="time"
+                            value={heuresArrivee[eleve.id] ?? ""}
+                            min={creneau.heureDebut}
+                            max={creneau.heureFin}
+                            onChange={(e) => setHeuresArrivee((prev) => ({ ...prev, [eleve.id]: e.target.value }))}
+                            className="h-6 rounded-md border border-yellow-400 bg-background px-1 tabular-nums text-foreground"
+                            aria-label={t("appelArrivalTimeFor", { nom: `${eleve.prenom} ${eleve.nom}` })}
+                          />
+                        </label>
+                      )}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button
