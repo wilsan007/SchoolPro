@@ -18,6 +18,7 @@ import {
   type DashboardScopeClaims,
 } from "./dashboard-scope";
 import { getDemoNow } from "@/lib/demo-now";
+import { withRlsContext } from "@/lib/rls-context";
 
 async function fetchDashboardData(
   tenantId: string,
@@ -116,7 +117,20 @@ const getCachedDashboardData = unstable_cache(
     anneeLibelle: string | null
   ) => {
     void scopeKey;
-    return fetchDashboardData(tenantId, claims, new Date(maintenantKey), anneeLibelle);
+    // unstable_cache s'exécute hors contexte de requête : l'extension RLS ne
+    // peut pas y déduire la session (auth()/headers() interdits, Next.js 15).
+    // On pose le contexte explicitement depuis les claims — passés en
+    // argument par l'appelant authentifié et inclus dans la clé de cache.
+    return withRlsContext(
+      {
+        tenantId,
+        siteId: claims.siteId ?? null,
+        siteIds: claims.siteIds ?? [],
+        superAdmin: claims.role === "SUPER_ADMIN",
+        origin: "cache:dashboard-data",
+      },
+      () => fetchDashboardData(tenantId, claims, new Date(maintenantKey), anneeLibelle),
+    );
   },
   ["dashboard-data"],
   { revalidate: 30, tags: ["dashboard-data"] }

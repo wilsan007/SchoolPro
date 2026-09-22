@@ -59,9 +59,12 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          // Offline: essayer le cache, puis page offline
+          // Offline: essayer le cache, puis page offline. Le fallback DOIT
+          // toujours résoudre vers une Response — `respondWith(undefined)`
+          // lève « Failed to convert value to 'Response' ».
           return caches.match(request).then((cached) => {
-            return cached || caches.match("/dashboard");
+            if (cached) return cached;
+            return caches.match("/dashboard").then((dashboard) => dashboard ?? Response.error());
           });
         })
     );
@@ -103,7 +106,7 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => cached);
+        .catch(() => cached ?? Response.error());
       return cached || fetchPromise;
     })
   );

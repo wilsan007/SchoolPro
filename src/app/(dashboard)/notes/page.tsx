@@ -12,6 +12,7 @@ import { GrilleSaisie } from "@/components/evaluations/GrilleSaisie";
 import { SiteTabs } from "@/components/sites/SiteTabs";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
+import { withRlsContext } from "@/lib/rls-context";
 import { siteFilterForModel, mergeFilters, type SessionSiteClaims } from "@/lib/site-scope";
 import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { getSitesForUser } from "@/lib/actions/eleve";
@@ -29,36 +30,51 @@ const getNotesData = unstable_cache(
     classeId?: string,
     anneeCourante?: string | null
   ) => {
-    const matiereWhere = { tenantId, ...siteFilterForModel("matiere", claims) };
-    // Le filtre de site s'applique dans tous les cas : auparavant il sautait dès
-    // qu'une `classeId` était fournie dans l'URL, ce qui laissait lire les
-    // statistiques de notes d'une classe d'un autre site.
-    // Le scope enseignant est déjà résolu via la hiérarchie : hierarchieClasseIds
-    // contient exactement les classes accessibles (toutes pour un admin, les
-    // classes affectées pour un enseignant).
-    const noteWhere = mergeFilters(
-      { tenantId, ...(classeId ? { classeId } : {}), ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
-      siteFilterForModel("note", claims),
-      hierarchieClasseIds.length > 0
-        ? { eleve: { classeId: { in: hierarchieClasseIds } } }
-        : { id: "__none__" }
+    // unstable_cache s'exécute hors contexte de requête : l'extension RLS ne
+    // peut pas y déduire la session (auth()/headers() interdits, Next.js 15).
+    // Contexte posé explicitement depuis les claims, passés en argument par
+    // l'appelant authentifié et inclus dans la clé de cache.
+    return withRlsContext(
+      {
+        tenantId,
+        siteId: claims.siteId ?? null,
+        siteIds: claims.siteIds ?? [],
+        superAdmin: claims.role === "SUPER_ADMIN",
+        origin: "cache:notes-data",
+      },
+      async () => {
+        const matiereWhere = { tenantId, ...siteFilterForModel("matiere", claims) };
+        // Le filtre de site s'applique dans tous les cas : auparavant il sautait dès
+        // qu'une `classeId` était fournie dans l'URL, ce qui laissait lire les
+        // statistiques de notes d'une classe d'un autre site.
+        // Le scope enseignant est déjà résolu via la hiérarchie : hierarchieClasseIds
+        // contient exactement les classes accessibles (toutes pour un admin, les
+        // classes affectées pour un enseignant).
+        const noteWhere = mergeFilters(
+          { tenantId, ...(classeId ? { classeId } : {}), ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}) },
+          siteFilterForModel("note", claims),
+          hierarchieClasseIds.length > 0
+            ? { eleve: { classeId: { in: hierarchieClasseIds } } }
+            : { id: "__none__" }
+        );
+
+        const [matieres, statsNotes] = await Promise.all([
+          prisma.matiere.findMany({
+            where: matiereWhere,
+            select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
+            orderBy: { nom: "asc" },
+          }),
+          prisma.note.groupBy({
+            by: ["matiereId"],
+            where: noteWhere,
+            _avg: { valeur: true },
+            _count: true,
+          }),
+        ]);
+
+        return { matieres, statsNotes };
+      },
     );
-
-    const [matieres, statsNotes] = await Promise.all([
-      prisma.matiere.findMany({
-        where: matiereWhere,
-        select: { id: true, nom: true, code: true, couleur: true, coefficient: true },
-        orderBy: { nom: "asc" },
-      }),
-      prisma.note.groupBy({
-        by: ["matiereId"],
-        where: noteWhere,
-        _avg: { valeur: true },
-        _count: true,
-      }),
-    ]);
-
-    return { matieres, statsNotes };
   },
   ["notes-data"],
   { revalidate: 60, tags: ["notes-data"] }

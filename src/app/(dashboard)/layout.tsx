@@ -6,6 +6,7 @@ import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 import { unstable_cache } from "next/cache";
+import { withRlsContext } from "@/lib/rls-context";
 import { checkUserFinancialBlock } from "@/lib/financial-guard";
 import { PWAInstallPrompt } from "@/components/parent/PWAInstallPrompt";
 import { WindowManagerProvider } from "@/components/workspace/WindowManager";
@@ -20,11 +21,22 @@ function isMobileDevice(userAgent: string): boolean {
 
 const getTenantName = unstable_cache(
   async (tenantId: string) => {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { name: true },
-    });
-    return tenant?.name ?? "Mon École";
+    // unstable_cache s'exécute HORS contexte de requête : auth()/headers()
+    // y sont interdits (Next.js 15), et l'extension RLS ne peut donc pas
+    // déduire la session. On pose le contexte explicitement depuis le
+    // tenantId — transmis par l'appelant, déjà authentifié. Sans cela, en
+    // RLS_MODE=enforce, chaque revalidation du cache faisait crasher le
+    // rendu de la page (digest 610027794).
+    return withRlsContext(
+      { tenantId, siteId: null, siteIds: [], superAdmin: false, origin: "cache:tenant-name" },
+      async () => {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { name: true },
+        });
+        return tenant?.name ?? "Mon École";
+      },
+    );
   },
   ["tenant-name"],
   { revalidate: 300, tags: ["tenant-name"] }
@@ -32,11 +44,17 @@ const getTenantName = unstable_cache(
 
 const getTenantModeleNiveaux = unstable_cache(
   async (tenantId: string): Promise<ModeleNiveaux> => {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { modeleNiveaux: true },
-    });
-    return tenant?.modeleNiveaux ?? "ANNEES";
+    // Cf. getTenantName : contexte RLS explicite, le cache n'a pas de session.
+    return withRlsContext(
+      { tenantId, siteId: null, siteIds: [], superAdmin: false, origin: "cache:tenant-modele-niveaux" },
+      async () => {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { modeleNiveaux: true },
+        });
+        return tenant?.modeleNiveaux ?? "ANNEES";
+      },
+    );
   },
   ["tenant-modele-niveaux"],
   { revalidate: 300, tags: ["tenant-modele-niveaux"] }
