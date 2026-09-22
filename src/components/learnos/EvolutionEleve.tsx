@@ -492,7 +492,7 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
                 />
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  formatter={(value: number, name: string) => [
+                  formatter={(value: any, name: any) => [
                     `${value}%`,
                     name === "mastery" ? t("maitrise") : t("fiabilite"),
                   ]}
@@ -500,7 +500,7 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
                 <Legend
                   formatter={(value) => (
                     <span className="text-xs">
-                      {value === "mastery" ? t("maitrise") : t("fiabilite")}
+                       {value === "mastery" ? t("maitrise") : t("fiabilite")}
                     </span>
                   )}
                 />
@@ -556,11 +556,11 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
                 />
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  formatter={(value: number, name: string) => [
+                  formatter={(value: any, name: any) => [
                     `${value}%`,
                     name === "predit" ? t("predit") : t("reel"),
                   ]}
-                  labelFormatter={(code: string) => {
+                  labelFormatter={(code: any) => {
                     const item = predictionsChartData.find((p) => p.code === code);
                     return item ? item.libelle : code;
                   }}

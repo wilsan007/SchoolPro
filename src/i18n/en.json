@@ -2914,7 +2914,10 @@
     "switchTenant": "Switch school",
     "invalidEmail": "Invalid email",
     "passwordTooShort": "Password too short",
-    "invalidCredentials": "Invalid email or password"
+    "invalidCredentials": "Invalid email or password",
+    "turnstilePending": "Anti-bot verification in progress, please wait a moment…",
+    "turnstileFailed": "Anti-bot verification failed. Please try again.",
+    "turnstileBlocked": "The anti-bot check could not load. Check your connection, disable your ad blocker, then reload the page."
   },
   "resetPassword": {
     "title": "Reset password",

@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-15T19:01:59.688Z
+SchoolPro i18n audit — 2026-09-22T08:04:22.714Z
 
 Referenced keys missing from fr.json: 0
 
@@ -10,11 +10,12 @@ en.json extra keys (not in fr.json): 0
 
 so.json extra keys (not in fr.json): 0
 
-Dynamic template-literal t() calls (manual review): 217
+Dynamic template-literal t() calls (manual review): 218
   src/app/(dashboard)/parametres/audit/page.tsx:62  `/api/audit?${params.toString()}`
   src/app/(dashboard)/test-telegram/page.tsx:36  `${data.chats.length} chat(s) trouvé(s)`
   src/components/absences/AbsencesList.tsx:114  `${absence.eleve.prenom} ${absence.eleve.nom}`
-  src/components/absences/AppelInterface.tsx:220  `${eleve.prenom} ${eleve.nom}`
+  src/components/absences/AppelInterface.tsx:119  `${dateJour}T12:00:00Z`
+  src/components/absences/AppelInterface.tsx:395  `${eleve.prenom} ${eleve.nom}`
   src/components/admissions/AdmissionsView.tsx:594  `/api/admissions/${candidature.id}`
   src/components/admissions/AdmissionsView.tsx:627  `/api/admissions/${candidature.id}`
   src/components/admissions/AdmissionsView.tsx:655  `/api/admissions/${candidature.id}`
@@ -79,9 +80,9 @@ Dynamic template-literal t() calls (manual review): 217
   src/components/dossier-progression/DossierProgressionView.tsx:263  `/api/dossier-progression?eleveId=${eleveId}`
   src/components/eleves/CartesScolairesForm.tsx:34  `/api/eleves/cartes-scolaires?classeId=${classeId}`
   src/components/eleves/DispenseMatiereManager.tsx:76  `/api/eleves/dispenses?id=${id}`
-  src/components/eleves/EleveDetailView.tsx:356  `${eleve.prenom} ${eleve.nom}`
-  src/components/eleves/EleveDetailView.tsx:371  `statut${eleve.statut}`
-  src/components/eleves/EleveDetailView.tsx:371  `statut${eleve.statut}`
+  src/components/eleves/EleveDetailView.tsx:375  `${eleve.prenom} ${eleve.nom}`
+  src/components/eleves/EleveDetailView.tsx:390  `statut${eleve.statut}`
+  src/components/eleves/EleveDetailView.tsx:390  `statut${eleve.statut}`
   src/components/eleves/EleveForm.tsx:173  `/eleves/${result.id}`
   src/components/eleves/ElevesActions.tsx:43  `/api/eleves?${params.toString()}`
   src/components/eleves/ElevesTable.tsx:90  `?${params.toString()}`
@@ -92,8 +93,8 @@ Dynamic template-literal t() calls (manual review): 217
   src/components/eleves/ElevesTable.tsx:589  `statut${eleve.statut}`
   src/components/eleves/ElevesTable.tsx:589  `statut${eleve.statut}`
   src/components/eleves/ImportElevesDialog.tsx:216  `${data.annulees} fiche(s) archivée(s)`
-  src/components/eleves/ImportElevesDialog.tsx:440  `columnMapping.type${col.type.charAt(0).toUpperCase()}${col.type.slice(1)}`
-  src/components/eleves/ImportElevesDialog.tsx:442  `columnMapping.field${col.champCible.charAt(0).toUpperCase()}${col.champCible.slice(1)}`
+  src/components/eleves/ImportElevesDialog.tsx:449  `columnMapping.type${typeCle.charAt(0).toUpperCase()}${typeCle.slice(1)}`
+  src/components/eleves/ImportElevesDialog.tsx:451  `columnMapping.field${col.champCible.charAt(0).toUpperCase()}${col.champCible.slice(1)}`
   src/components/emploi-du-temps/EmploiDuTempsView.tsx:314  `daysShort.${j}`
   src/components/emploi-du-temps/EmploiDuTempsView.tsx:389  `daysShort.${form.jour}`
   src/components/emploi-du-temps/EmploiDuTempsView.tsx:524  `/api/emploi-du-temps/${id}`
@@ -197,7 +198,7 @@ Dynamic template-literal t() calls (manual review): 217
   src/components/reinscription/CampagneReinscriptionWizard.tsx:474  `${etapeConfig.key}.title`
   src/components/reinscription/CampagneReinscriptionWizard.tsx:504  `${ETAPES[etape - 1].key}.title`
   src/components/reinscription/ParentReinscriptionClient.tsx:46  `/api/reinscription/invitation/${invitationId ?? "token"}${query}`
-  src/components/reinscription/PromotionPreview.tsx:225  `step3.${decision}`
+  src/components/reinscription/PromotionPreview.tsx:239  `step3.${CLES_DECISION[decision]}`
   src/components/reinscription/SuiviReinscriptions.tsx:112  `statutInv.${statut.toLowerCase()}`
   src/components/reinscription/SuiviReinscriptions.tsx:176  `statutInv.${inv.statut.toLowerCase()}`
   src/components/rh/PersonnelAbsencesConges.tsx:168  `/api/rh/conges/${id}`

@@ -39,12 +39,29 @@ export const ERREUR_2FA_REQUIS = "2fa_requis";
 export const ERREUR_2FA_INVALIDE = "2fa_invalide";
 
 /**
+ * Émis quand le défi anti-bot Turnstile échoue (jeton manquant, expiré ou
+ * déjà consommé). Contrairement aux codes 2FA, il l'est AVANT toute recherche
+ * en base : il ne révèle donc rien sur l'existence du compte, tout en
+ * permettant au formulaire d'afficher « le contrôle anti-bot a échoué »
+ * plutôt qu'un « identifiants invalides » trompeur pour un utilisateur
+ * légitime dont les identifiants étaient corrects.
+ */
+export const ERREUR_TURNSTILE = "erreur_turnstile";
+
+/**
  * NextAuth n'expose au client que la propriété `code` d'une
  * `CredentialsSignin` — le message, lui, est volontairement masqué pour ne
  * pas laisser fuiter de détail d'authentification. D'où cette sous-classe :
  * sans elle, toute erreur remonterait indistinctement en « credentials ».
  */
 class Erreur2FA extends CredentialsSignin {
+  constructor(public code: string) {
+    super(code);
+  }
+}
+
+/** Même mécanisme que `Erreur2FA`, pour l'échec du défi anti-bot. */
+class ErreurTurnstile extends CredentialsSignin {
   constructor(public code: string) {
     super(code);
   }
@@ -306,7 +323,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             reason: "Échec Turnstile",
             metadata: { email, turnstileError: turnstileResult.error },
           });
-          return null;
+          // Code distinct : l'utilisateur légitime dont le jeton anti-bot a
+          // expiré (ou n'a pas été produit) ne doit pas voir « identifiants
+          // incorrects » — ses identifiants n'ont même pas été vérifiés.
+          throw new ErreurTurnstile(ERREUR_TURNSTILE);
         }
 
         // Recherche insensible à la casse : les comptes déjà enregistrés avec

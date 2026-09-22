@@ -215,7 +215,10 @@ export function siteWhereForRelation(
     case "RELATION":
       return {};
     case "NONE":
-      return DENY_ALL;
+      // Nie l'accès via la relation plutôt qu'avec `DENY_ALL` (`{ id: ... }`),
+      // car certains modèles de jointure (ex. `EleveParent`) n'ont pas de
+      // champ `id` individuel — ils utilisent un `@@id` composite.
+      return { AND: [{ [relation]: { id: IMPOSSIBLE_ID } }] };
     case "SITES": {
       const inner = includeUnassigned
         ? { OR: [{ siteId: { in: scope.siteIds } }, { siteId: null }] }

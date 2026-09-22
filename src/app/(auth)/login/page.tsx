@@ -30,12 +30,25 @@ function LoginForm() {
   const [demande2FA, setDemande2FA] = useState(false);
   const [erreur2FA, setErreur2FA] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
+  // Le jeton Turnstile est à usage unique : après CHAQUE tentative de
+  // connexion (même échouée), il est consommé côté Cloudflare. Incrémenter
+  // cette clé remonte le widget → nouveau défi → nouveau jeton. Sans ce
+  // reset, la 2e soumission (ex: après le code 2FA) échouait systématiquement.
+  const [cleWidget, setCleWidget] = useState(0);
+  const [turnstileErreur, setTurnstileErreur] = useState(false);
   const t = useTranslations("login");
 
   const LoginSchema = z.object({
     email: z.string().email(t("invalidEmail")),
     password: z.string().min(6, t("passwordTooShort")),
   });
+
+  /** Jeton à usage unique : après chaque tentative, on repart d'un défi neuf. */
+  function reinitialiserWidget() {
+    setTurnstileToken("");
+    setTurnstileErreur(false);
+    setCleWidget((k) => k + 1);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +61,19 @@ function LoginForm() {
         email: fieldErrors.email?.[0],
         password: fieldErrors.password?.[0],
       });
+      return;
+    }
+
+    // Ne pas consommer une tentative de rate-limit ni partir en « identifiants
+    // incorrects » trompeur quand le défi anti-bot n'est pas prêt : bloquer
+    // côté client, avec un message qui dit ce qui se passe vraiment.
+    if (!turnstileToken) {
+      if (turnstileErreur) {
+        toast.error(t("turnstileBlocked"));
+        reinitialiserWidget();
+      } else {
+        toast.warning(t("turnstilePending"));
+      }
       return;
     }
 
@@ -73,13 +99,26 @@ function LoginForm() {
       if (code.includes("2fa_requis")) {
         setDemande2FA(true);
         setErreur2FA(null);
+        // Le jeton a été consommé par cette tentative : défi neuf pour le
+        // second passage (soumission du code TOTP).
+        reinitialiserWidget();
       } else if (code.includes("2fa_invalide")) {
         setDemande2FA(true);
         setErreur2FA("Code de vérification incorrect ou expiré.");
         setForm((f) => ({ ...f, totp: "" }));
+        reinitialiserWidget();
+      } else if (code.includes("erreur_turnstile")) {
+        setDemande2FA(false);
+        toast.error(t("turnstileFailed"));
+        reinitialiserWidget();
       } else if (result?.error) {
         setDemande2FA(false);
         toast.error(t("invalidCredentials"));
+        // Mauvais mot de passe ou compte introuvable : le jeton a néanmoins
+        // été consommé — sans reset, la tentative suivante échouait sur le
+        // défi anti-bot (« token déjà utilisé ») avec le même message que
+        // des identifiants invalides.
+        reinitialiserWidget();
       } else {
         toast.success(t("title") === "Sign In" ? "Signed in!" : "Connexion réussie !");
         router.push("/select-tenant");
@@ -186,10 +225,14 @@ function LoginForm() {
           </div>
         )}
 
-        {/* Cloudflare Turnstile — défi anti-bot invisible */}
+        {/* Cloudflare Turnstile — défi anti-bot invisible.
+            `key` : incrémentée après chaque tentative, remonte le widget pour
+            obtenir un jeton neuf (l'ancien est consommé, même en cas d'échec). */}
         <TurnstileWidget
+          key={cleWidget}
           onVerify={setTurnstileToken}
           onExpire={() => setTurnstileToken("")}
+          onError={() => setTurnstileErreur(true)}
           className="flex justify-center"
         />
 

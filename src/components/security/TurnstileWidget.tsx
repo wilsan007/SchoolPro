@@ -72,7 +72,14 @@ function loadTurnstileScript(): Promise<void> {
       scriptLoaded = true;
       resolve();
     };
-    script.onerror = () => reject(new Error("turnstile_script_load_failed"));
+    script.onerror = () => {
+      // Ne pas mettre en cache l'échec : un remontage du widget (clé
+      // changée par le parent après un échec de connexion) doit pouvoir
+      // retenter le chargement — sinon seule un rechargement complet de la
+      // page s'en sortirait (bloqueur de publicité temporaire, réseau lent).
+      scriptPromise = null;
+      reject(new Error("turnstile_script_load_failed"));
+    };
     document.head.appendChild(script);
   });
 

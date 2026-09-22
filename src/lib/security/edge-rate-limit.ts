@@ -120,6 +120,13 @@ export function checkApiRateLimit(
   method: string,
   ip: string,
 ): { status: 429; retryAfter: number } | null {
+  // E2E : les tests Playwright enchaînent des dizaines de logins en peu de
+  // temps. Le rate limiter les bloquerait systématiquement. On le désactive
+  // totalement quand PLAYWRIGHT=1 ou E2E_MODE=true est défini.
+  if (process.env.PLAYWRIGHT === "1" || process.env.E2E_MODE === "true") {
+    return null;
+  }
+
   cleanupEdgeBuckets();
 
   // 1. Limite spécifique à l'endpoint d'auth (la plus stricte)

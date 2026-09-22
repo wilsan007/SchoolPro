@@ -910,7 +910,7 @@ function KpiSnapshotsChart({ annees }: { annees: AnneeData[] }) {
         />
         <YAxis tick={{ fontSize: 10 }} />
         <Tooltip
-          labelFormatter={(v: string) => new Date(v).toLocaleDateString("fr")}
+          labelFormatter={(v: any) => new Date(v).toLocaleDateString("fr")}
         />
         <Legend />
         {seriesData.map((s, i) => (

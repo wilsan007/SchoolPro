@@ -88,15 +88,39 @@ const sansBascule = process.argv.includes("--sans-bascule");
 /** Les écrans à visiter, recensés une fois pour toutes. */
 const ROUTES = routesDuTableauDeBord();
 
+/**
+ * Un `fetch` exécuté dans la page juste après `domcontentloaded` peut échouer
+ * avec « Failed to fetch » si la navigation n'est pas totalement stabilisée
+ * (surtout contre un serveur de production très rapide). On retente quelques
+ * fois avant d'abandonner — la sémantique du contrôle n'en change pas.
+ */
+async function evaluerAvecReprise(page, fn, arg, tentatives = 4) {
+  let derniere;
+  for (let i = 0; i < tentatives; i++) {
+    try {
+      return await page.evaluate(fn, arg);
+    } catch (e) {
+      derniere = e;
+      await page.waitForTimeout(1500 * (i + 1));
+    }
+  }
+  throw derniere;
+}
+
 async function connecter(context) {
   const page = await context.newPage();
+  instrumenterReseau(page);
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-  const csrf = await page.evaluate(async (base) => {
+  // Laisser la redirection de locale / l'hydratation se terminer : un fetch
+  // lancé pendant une transition client est annulé (« Failed to fetch »).
+  await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const csrf = await evaluerAvecReprise(page, async (base) => {
     const r = await fetch(`${base}/api/auth/csrf`);
     return (await r.json()).csrfToken;
   }, BASE);
 
-  const ok = await page.evaluate(
+  const ok = await evaluerAvecReprise(page,
     async ({ base, csrfToken, email, password }) => {
       const body = new URLSearchParams({ csrfToken, email, password, redirect: "false", callbackUrl: `${base}/dashboard` });
       const r = await fetch(`${base}/api/auth/callback/credentials`, {
@@ -116,7 +140,7 @@ async function connecter(context) {
 }
 
 async function poserDate(page, date) {
-  return page.evaluate(
+  return evaluerAvecReprise(page,
     async ({ base, date }) => {
       const r = await fetch(`${base}/api/demo-now`, {
         method: "POST",
@@ -134,8 +158,9 @@ async function basculerRole(page, role) {
   // train de naviguer, le contexte d'exécution disparaît sous les pieds de
   // l'appel. On se pose donc d'abord sur un écran stable.
   await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" }).catch(() => {});
-  await page.waitForTimeout(300);
-  return page.evaluate(
+  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  return evaluerAvecReprise(page,
     async ({ base, role }) => {
       const r = await fetch(`${base}/api/switch-role`, {
         method: "POST",
@@ -239,12 +264,26 @@ function ecrireRapport(rapport) {
   fs.writeFileSync(SORTIE, JSON.stringify(rapport, null, 1));
 }
 
+/**
+ * Contournement d'un bug Playwright/Chromium : sans écoute réseau active,
+ * les `fetch` exécutés dans la page contre le serveur de production
+ * standalone échouent systématiquement avec « Failed to fetch » (socket
+ * keep-alive réutilisée après fermeture côté serveur). Activer l'écoute
+   * `response` force Playwright à piloter le réseau via CDP et corrige le
+ * comportement, sans changer la sémantique des contrôles.
+ */
+function instrumenterReseau(page) {
+  page.on("response", () => {});
+  page.on("requestfailed", () => {});
+}
+
 async function main() {
   const navigateur = await chromium.launch();
   const context = await navigateur.newContext({ viewport: { width: 1440, height: 900 }, locale: "fr-FR" });
   await connecter(context);
 
   const page = await context.newPage();
+  instrumenterReseau(page);
   // Les appels `fetch` relatifs partent de l'origine de la page : sur
   // `about:blank`, ils échouent avant même d'atteindre le serveur.
   await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });

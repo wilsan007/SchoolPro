@@ -654,7 +654,7 @@ export function AnalyticsView() {
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                    formatter={(v: number) => [`${v.toLocaleString()} F`, t("collected")]}
+                    formatter={(v: any) => [`${Number(v ?? 0).toLocaleString()} F`, t("collected")]}
                   />
                   <Line type="monotone" dataKey="montant" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
@@ -686,7 +686,7 @@ export function AnalyticsView() {
                   <PolarAngleAxis dataKey="classe" tick={{ fontSize: 10 }} />
                   <PolarRadiusAxis domain={[0, 20]} tick={{ fontSize: 9 }} />
                   <Radar name={t("avgLabel")} dataKey="moyenne" stroke="#6366f1" fill="#6366f1" fillOpacity={0.3} />
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [`${v}/20`, t("avgLabel")]} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: any) => [`${v}/20`, t("avgLabel")]} />
                 </RadarChart>
               </ResponsiveContainer>
             )}

@@ -42,10 +42,16 @@ export default defineConfig({
   workers: 1,
   reporter: "html",
   timeout: 30000,
+  // Désactiver le rate limiter Edge pendant les tests E2E pour éviter
+  // que 144 tests de login consécutifs ne soient bloqués par 429.
+  // Le middleware lit process.env.PLAYWRIGHT via checkApiRateLimit.
   use: {
     baseURL,
     trace: "on-first-retry",
     headless: true,
+    extraHTTPHeaders: {
+      "x-e2e": "1",
+    },
   },
   projects: [
     {
@@ -58,7 +64,7 @@ export default defineConfig({
     // `--` littéralement, et `next` le prend alors pour un répertoire de projet
     // (« Invalid project directory provided: …/-p »). On appelle donc `next`
     // directement, ce qui reste du pnpm — jamais `npx`, cf. AGENTS.md.
-    command: `${pnpmCommand} exec next dev -p ${port}`,
+    command: `PLAYWRIGHT=1 ${pnpmCommand} exec next dev -p ${port}`,
     url: baseURL,
     reuseExistingServer: true,
     timeout: 120000,

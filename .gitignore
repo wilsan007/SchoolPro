@@ -1,3 +1,7 @@
+# Logs temporaires d'audit local
+dryrun.log
+targets.log
+
 # Dependencies
 node_modules/
 .pnp

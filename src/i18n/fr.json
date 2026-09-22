@@ -2914,7 +2914,10 @@
     "switchTenant": "Changer d'établissement",
     "invalidEmail": "Email invalide",
     "passwordTooShort": "Mot de passe trop court",
-    "invalidCredentials": "Email ou mot de passe incorrect"
+    "invalidCredentials": "Email ou mot de passe incorrect",
+    "turnstilePending": "Vérification anti-bot en cours, patientez un instant…",
+    "turnstileFailed": "Échec de la vérification anti-bot. Réessayez.",
+    "turnstileBlocked": "Le contrôle anti-bot n'a pas pu se charger. Vérifiez votre connexion, désactivez votre bloqueur de publicité, puis rechargez la page."
   },
   "resetPassword": {
     "title": "Réinitialiser le mot de passe",

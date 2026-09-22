@@ -144,7 +144,7 @@ describe("siteFilterForRelation", () => {
   it("refuse l'accès quand le périmètre est vide", () => {
     expect(
       siteFilterForRelation({ role: "TEACHER", siteId: null, siteIds: [] }, "eleve")
-    ).toEqual({ AND: [{ id: IMPOSSIBLE_ID }] });
+    ).toEqual({ AND: [{ eleve: { id: IMPOSSIBLE_ID } }] });
   });
 });
 

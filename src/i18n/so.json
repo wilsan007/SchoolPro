@@ -2914,7 +2914,10 @@
     "switchTenant": "Bedel dugsi",
     "invalidEmail": "Email khalad ah",
     "passwordTooShort": "Eray sir ah oo gaaban",
-    "invalidCredentials": "Email ama eray sir ah khalad ah"
+    "invalidCredentials": "Email ama eray sir ah khalad ah",
+    "turnstilePending": "Hubinta ka-hortagka bot-ka ay socoto, sug waqti yar…",
+    "turnstileFailed": "Hubinta ka-hortagka bot-ka way fashilantay. Isku day mar kale.",
+    "turnstileBlocked": "Hubinta ka-hortagka bot-ka lama soo dejin karin. Hubi isku xirkaaga, dami caneelaha xannibaadda, kadib dib u soo shub bogga."
   },
   "resetPassword": {
     "title": "Dib u deji erayga sirta",
