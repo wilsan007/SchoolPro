@@ -307,6 +307,8 @@ export function Dock({ roleKey }: DockProps) {
                     return (
                       <button
                         key={item.href}
+                        // Ancre de test : cf. data-dock-group ci-dessus.
+                        data-dock-item={item.href}
                         onClick={() => handleItemClick(item, openGroup.accent)}
                         className={cn(
                           "flex flex-col items-start gap-2 p-3 rounded-2xl border transition-all duration-200 text-left group focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
@@ -391,6 +393,10 @@ export function Dock({ roleKey }: DockProps) {
               return (
                 <button
                   key={group.groupKey}
+                  // Ancre de test : l'audit UI (scripts/demo/audit-ui-complet.mjs)
+                  // doit pouvoir énumérer les catégories du dock sans dépendre de
+                  // classes Tailwind, qui changent au gré du design.
+                  data-dock-group={group.groupKey}
                   onClick={() => handleGroupClick(group.groupKey)}
                   className={cn(
                     "flex-shrink-0 flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all duration-200 group relative focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
