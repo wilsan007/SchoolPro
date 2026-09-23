@@ -56,6 +56,70 @@ const files = walk(SRC);
 // declared as `t` (or the only one if there's just one).
 const NS_DECL =
   /const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:useTranslations|getTranslations)\s*\(\s*(?:"([^"]+)"|'([^']+)'|\{\s*namespace:\s*"([^"]+)"\s*\})/g;
+
+// Destructured declarations, e.g.
+//   const [session, t] = await Promise.all([auth(), getTranslations("ns")]);
+//   const [t, session] = await Promise.all([getTranslations({ namespace: "ns" }), auth()]);
+// A very common pattern in this codebase (56 occurrences) that NS_DECL alone
+// cannot see: `t` is bound by position inside the array, not by a direct
+// assignment. Missing it meant whole pages had ZERO checked keys — the keys
+// they use were silently skipped, so a missing translation (conseilAugmente
+// .title) reached production with the audit still reporting "0 missing".
+const NS_DESTRUCTURED =
+  /const\s*\[([^\]]+)\]\s*=\s*(?:await\s+)?Promise\.all\s*\(\s*\[([\s\S]*?)\]\s*\)/g;
+const NS_CALL = /(?:useTranslations|getTranslations)\s*\(\s*(?:"([^"]+)"|'([^']+)'|\{\s*namespace:\s*"([^"]+)"\s*\})/;
+
+/**
+ * Splits a `Promise.all([a, b, c])` argument list on top-level commas only.
+ * A naive `split(",")` would break on the commas inside nested calls such as
+ * `getTranslations({ namespace: "x", locale: "fr" })`.
+ */
+function splitTopLevel(src) {
+  const parts = [];
+  let depth = 0;
+  let courant = "";
+  for (const ch of src) {
+    if ("([{".includes(ch)) depth++;
+    else if (")]}".includes(ch)) depth--;
+    if (ch === "," && depth === 0) {
+      parts.push(courant);
+      courant = "";
+    } else {
+      courant += ch;
+    }
+  }
+  parts.push(courant);
+  return parts;
+}
+
+/** varName -> namespace, for both direct and destructured declarations. */
+function collectNamespaces(src) {
+  const varToNs = new Map();
+  let m;
+
+  NS_DECL.lastIndex = 0;
+  while ((m = NS_DECL.exec(src)) !== null) {
+    const ns = m[2] || m[3] || m[4];
+    if (ns) varToNs.set(m[1], ns);
+  }
+
+  NS_DESTRUCTURED.lastIndex = 0;
+  while ((m = NS_DESTRUCTURED.exec(src)) !== null) {
+    const vars = m[1].split(",").map((v) => v.trim().replace(/^\.\.\./, ""));
+    const args = splitTopLevel(m[2]);
+    // Position is the only binding: args[i] initialises vars[i].
+    for (let i = 0; i < vars.length; i++) {
+      const arg = args[i];
+      if (!arg || !vars[i]) continue;
+      const call = arg.match(NS_CALL);
+      if (!call) continue;
+      const ns = call[1] || call[2] || call[3];
+      if (ns) varToNs.set(vars[i], ns);
+    }
+  }
+
+  return varToNs;
+}
 // Match any identifier followed by ( with a string/template arg
 const CALL = /\b([A-Za-z_$][\w$]*)\s*\(\s*("([^"]+)"|'([^']+)'|`([^`]+)`)/g;
 
@@ -66,19 +130,12 @@ const unresolvedCalls = []; // calls with no matching namespace var
 
 for (const file of files) {
   const src = fs.readFileSync(file, "utf8");
-  // Build map of varName -> namespace
-  const varToNs = new Map();
-  let m;
-  NS_DECL.lastIndex = 0;
-  while ((m = NS_DECL.exec(src)) !== null) {
-    const varName = m[1];
-    const ns = m[2] || m[3] || m[4];
-    if (!ns) continue;
-    varToNs.set(varName, ns);
-  }
+  // Build map of varName -> namespace (direct assignments + destructuring)
+  const varToNs = collectNamespaces(src);
   if (varToNs.size === 0) continue;
 
   // For each call, resolve against the var's namespace
+  let m;
   CALL.lastIndex = 0;
   while ((m = CALL.exec(src)) !== null) {
     const varName = m[1];

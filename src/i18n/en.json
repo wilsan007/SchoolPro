@@ -5210,6 +5210,8 @@
     "selectPrompt": "Select a class and period to generate the augmented council.",
     "signalsSynthesis": "Signal synthesis",
     "subjectsInDifficulty": "Subjects in difficulty",
+    "title": "Augmented council",
+    "subtitle": "Pedagogical synthesis by class and term",
     "mentoratType": {
       "ACADEMIQUE": "Academic",
       "PROFESSIONNEL": "Professional",

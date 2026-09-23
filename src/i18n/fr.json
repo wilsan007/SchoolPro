@@ -5210,6 +5210,8 @@
     "selectPrompt": "Sélectionnez une classe et une période pour générer le conseil augmenté.",
     "signalsSynthesis": "Synthèse des signaux",
     "subjectsInDifficulty": "Matières en difficulté",
+    "title": "Conseil augmenté",
+    "subtitle": "Synthèse pédagogique par classe et par période",
     "mentoratType": {
       "ACADEMIQUE": "Académique",
       "PROFESSIONNEL": "Professionnel",
