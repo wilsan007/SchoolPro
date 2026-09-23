@@ -52,6 +52,7 @@
     "demo:verifier": "node scripts/guard-target-db.cjs --quiet && tsx scripts/demo/verifier-demo.ts",
     "demo:parcours": "node scripts/demo/audit-parcours.mjs",
     "demo:ui": "node scripts/demo/audit-ui-complet.mjs",
+    "demo:verifier-deploiement": "node scripts/demo/verifier-deploiement.mjs",
     "seed:check": "node prisma/sql/generate-sql.mjs && node prisma/sql/_audit/validate.mjs",
     "verify": "pnpm run lint && tsc --noEmit && vitest run && pnpm prisma validate && pnpm audit --prod",
     "verify:ci": "pnpm run lint && tsc --noEmit && vitest run && pnpm prisma validate && pnpm audit --prod",
