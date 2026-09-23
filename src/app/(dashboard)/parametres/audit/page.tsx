@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import {
   Shield, ShieldAlert, ShieldCheck, Search, Download,
   ChevronLeft, ChevronRight, Filter,
@@ -33,8 +31,6 @@ interface Pagination {
 
 export default function AuditJournalPage() {
   const ta = useTranslations("audit");
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,19 +67,20 @@ export default function AuditJournalPage() {
     }
   }, [page, filters, ta]);
 
+  // Chargement initial.
+  //
+  // POURQUOI PLUS DE GARDE ICI — elle était assurée par `useSession()` de
+  // next-auth, qui exige un `<SessionProvider>` en amont. L'application n'en a
+  // jamais posé : la page levait donc « useSession must be wrapped in a
+  // <SessionProvider /> » et affichait une erreur serveur pour TOUT LE MONDE,
+  // administrateur compris. L'authentification et la permission `audit:read`
+  // sont déjà vérifiées en amont par le middleware (`canAccessRoute` →
+  // `/acces-bloque`), et `/api/audit` les revérifie pour son propre compte.
+  // Le garde client était une troisième barrière, redondante — et la seule
+  // qui cassait l'écran.
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-      return;
-    }
-    if (status === "loading") return;
-    const role = session?.user?.role;
-    if (role !== "SUPER_ADMIN" && role !== "TENANT_ADMIN") {
-      router.push("/dashboard");
-      return;
-    }
     fetchLogs();
-  }, [status, session, router, fetchLogs]);
+  }, [fetchLogs]);
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +111,7 @@ export default function AuditJournalPage() {
     URL.revokeObjectURL(url);
   };
 
-  if (status === "loading" || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />

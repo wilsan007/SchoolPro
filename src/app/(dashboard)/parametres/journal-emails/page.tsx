@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import {
   Mail, MailCheck, MailX, MailOpen, AlertCircle, Search,
   ChevronLeft, ChevronRight, Filter, Clock,
@@ -43,8 +41,6 @@ const STATUT_CONFIG: Record<string, { label: string; color: string; icon: typeof
 };
 
 export default function JournalEmailsPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const [logs, setLogs] = useState<EmailLogEntry[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -83,19 +79,16 @@ export default function JournalEmailsPage() {
     }
   }, [page, filters]);
 
+  // Chargement initial.
+  //
+  // Cf. `/parametres/audit` : le garde `useSession()` a été retiré. Sans
+  // `<SessionProvider>` — que l'application n'a jamais posé — ce hook levait
+  // « useSession must be wrapped in a <SessionProvider /> » et faisait échouer
+  // l'écran pour tout le monde. Le middleware (`canAccessRoute`) et
+  // `/api/emails/journal` assurent déjà l'authentification et la permission.
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-      return;
-    }
-    if (status === "loading") return;
-    const role = session?.user?.role;
-    if (role !== "SUPER_ADMIN" && role !== "TENANT_ADMIN") {
-      router.push("/dashboard");
-      return;
-    }
     fetchLogs();
-  }, [status, session, router, fetchLogs]);
+  }, [fetchLogs]);
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +96,7 @@ export default function JournalEmailsPage() {
     fetchLogs();
   };
 
-  if (status === "loading" || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
