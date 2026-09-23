@@ -10,7 +10,8 @@ import {
   Route, Sparkles, Check, X, Loader2, CalendarClock, User,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { formatDate } from "@/lib/format-date";
 import { texteErreur } from "@/lib/erreurs-client";
 import { cn } from "@/lib/utils";
 import { TexteRegle } from "@/components/learnos/TexteRegle";
@@ -44,6 +45,7 @@ export interface PlanAValider {
 export function PlansAValider({ plans }: { plans: PlanAValider[] }) {
   const t = useTranslations("learnos.plans");
   const tc = useTranslations("learnos.commun");
+  const locale = useLocale();
   const te = useTranslations("learnos.erreurs");
   const router = useRouter();
   const [enCours, demarrer] = useTransition();
@@ -143,7 +145,7 @@ export function PlansAValider({ plans }: { plans: PlanAValider[] }) {
                           <>
                             {" · "}
                             <CalendarClock className="h-3 w-3" />
-                            {new Date(e.echeance).toLocaleDateString()}
+                            {formatDate(e.echeance, locale)}
                           </>
                         )}
                       </span>
@@ -155,7 +157,7 @@ export function PlansAValider({ plans }: { plans: PlanAValider[] }) {
                 <p className="text-xs text-muted-foreground">
                   {plan.dateRevue &&
                     t("pointEtape", {
-                      date: new Date(plan.dateRevue).toLocaleDateString(),
+                      date: formatDate(plan.dateRevue, locale),
                     })}
                 </p>
                 <div className="flex gap-2">

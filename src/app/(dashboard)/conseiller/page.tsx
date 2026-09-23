@@ -5,7 +5,8 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { guardPage } from "@/lib/guard-page";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
+import { formatDate } from "@/lib/format-date";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getDemoNow } from "@/lib/demo-now";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
@@ -18,9 +19,13 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
  * l'écran où agir.
  */
 export default async function ConseillerPage() {
-  const [session, t] = await Promise.all([
+  const [session, t, locale] = await Promise.all([
     auth(),
     getTranslations("conseiller"),
+    // Locale explicite : sans elle, `toLocaleDateString()` suit celle du runtime
+    // Node (souvent en-US) et affiche « 9/23/2026 » dans une application
+    // française (cf. src/lib/format-date.ts).
+    getLocale(),
   ]);
   await guardPage(session);
 
@@ -290,7 +295,7 @@ export default async function ConseillerPage() {
                       return (
                         <tr key={ent.id} className="border-b last:border-0">
                           <td className="py-2 pr-4 whitespace-nowrap">
-                            {new Date(ent.date).toLocaleDateString()}
+                            {formatDate(ent.date, locale)}
                           </td>
                           <td className="py-2 pr-4">
                             <span className="font-medium">

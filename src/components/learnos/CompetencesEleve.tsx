@@ -7,7 +7,8 @@ import {
   Target, TrendingUp, TrendingDown, Minus, Loader2, HelpCircle,
   AlertTriangle, Sparkles, Link2, ChevronDown, ChevronRight,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { TexteRegle } from "@/components/learnos/TexteRegle";
 
@@ -122,6 +123,7 @@ function Tendance({ valeur, t }: { valeur: string; t: (k: string) => string }) {
 
 export function CompetencesEleve({ eleveId }: { eleveId: string }) {
   const t = useTranslations("learnos.competencesEleve");
+  const locale = useLocale();
   const [chargement, setChargement] = useState(true);
   const [profils, setProfils] = useState<Profil[]>([]);
   const [recos, setRecos] = useState<Recommandation[]>([]);
@@ -389,7 +391,7 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
                       {p.lastEvidenceAt && (
                         <p className="text-xs text-muted-foreground">
                           {t("derniereEvaluation", {
-                            date: new Date(p.lastEvidenceAt).toLocaleDateString(),
+                            date: formatDate(p.lastEvidenceAt, locale),
                           })}
                         </p>
                       )}

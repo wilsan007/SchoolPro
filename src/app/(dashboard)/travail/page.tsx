@@ -5,7 +5,8 @@ import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { guardPage } from "@/lib/guard-page";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
+import { formatDate } from "@/lib/format-date";
 import {
   eleveScopeFilter,
   siteFilterForModel,
@@ -27,9 +28,10 @@ export default async function TravailPage({
 }: {
   searchParams: Promise<{ enfant?: string }>;
 }) {
-  const [session, t] = await Promise.all([
+  const [session, t, locale] = await Promise.all([
     auth(),
     getTranslations("travail"),
+    getLocale(),
   ]);
   await guardPage(session);
   if (!session?.user?.tenantId) redirect("/login");
@@ -174,7 +176,7 @@ export default async function TravailPage({
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {t("aRendre")}{" "}
-                          {d.dateRendu.toLocaleDateString(undefined, {
+                          {formatDate(d.dateRendu, locale, {
                             weekday: "short",
                             day: "numeric",
                             month: "short",

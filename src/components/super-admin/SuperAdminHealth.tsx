@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { localeICU } from "@/lib/format-date";
 import { toast } from "sonner";
 import {
   HeartPulse, AlertCircle, ShieldCheck, LogIn, Users, GraduationCap,
@@ -56,6 +57,7 @@ export function SuperAdminHealth({
   auditLogs: AuditRow[];
 }) {
   const t = useTranslations("superAdmin");
+  const locale = useLocale();
   const [isPending, startTransition] = useTransition();
   const [impersonatingTenant, setImpersonatingTenant] = useState<string | null>(null);
 
@@ -86,7 +88,9 @@ export function SuperAdminHealth({
 
   const formatDate = (iso: string | null) => {
     if (!iso) return t("jamais");
-    return new Date(iso).toLocaleDateString(undefined, {
+    // Locale imposée : `undefined` laisserait le navigateur choisir la sienne
+    // et diverger du rendu serveur (cf. src/lib/format-date.ts).
+    return new Date(iso).toLocaleDateString(localeICU(locale), {
       day: "2-digit",
       month: "short",
       year: "numeric",

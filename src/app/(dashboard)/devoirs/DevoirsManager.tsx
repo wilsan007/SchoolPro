@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,10 @@ export function DevoirsManager({
   canWrite?: boolean;
 }) {
   const t = useTranslations("devoirs");
+  // Locale explicite : sans elle, `toLocaleDateString()` suit celle du runtime
+  // et le serveur rend « 23/09/2026 » là où le navigateur rend « 9/23/2026 » —
+  // divergence d'hydratation constatée sur cet écran (cf. src/lib/format-date.ts).
+  const locale = useLocale();
   const [devoirs, setDevoirs] = useState<DevoirItem[]>(initial);
   const [pending, startTransition] = useTransition();
 
@@ -221,7 +226,7 @@ export function DevoirsManager({
                       <span>·</span>
                       <span className="text-muted-foreground/80">
                         {t("dateRendu")} :{" "}
-                        {new Date(d.dateRendu).toLocaleDateString()}
+                        {formatDate(d.dateRendu, locale)}
                       </span>
                     </div>
                     {d.description && (

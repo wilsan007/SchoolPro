@@ -13,7 +13,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { FileText, CheckCircle2, XCircle, Eye, Clock } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
 interface PropositionResume {
@@ -46,6 +47,7 @@ export function PropositionsIaValidation({
   canValidate: boolean;
 }) {
   const t = useTranslations("learnos.propositionsIa");
+  const locale = useLocale();
   const [propositions, setPropositions] = useState<{
     plans: PropositionResume[];
     rubriques: PropositionResume[];
@@ -166,7 +168,7 @@ export function PropositionsIaValidation({
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {t(p.type === "plan_lecon" ? "type.plan" : "type.rubrique")} ·{" "}
-                  {new Date(p.createdAt).toLocaleDateString()}
+                  {formatDate(p.createdAt, locale)}
                 </p>
               </div>
 
