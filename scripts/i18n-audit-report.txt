@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-22T08:04:22.714Z
+SchoolPro i18n audit — 2026-09-23T13:48:49.626Z
 
 Referenced keys missing from fr.json: 0
 
@@ -10,8 +10,10 @@ en.json extra keys (not in fr.json): 0
 
 so.json extra keys (not in fr.json): 0
 
-Dynamic template-literal t() calls (manual review): 218
-  src/app/(dashboard)/parametres/audit/page.tsx:62  `/api/audit?${params.toString()}`
+Dynamic template-literal t() calls (manual review): 220
+  src/app/(dashboard)/mon-espace/page.tsx:525  `${eleve.id}|${comp.id}`
+  src/app/(dashboard)/parametres/audit/page.tsx:58  `/api/audit?${params.toString()}`
+  src/app/(dashboard)/recommandations/page.tsx:205  `${f.eleve.id}|${f.competenceAttesteeId}`
   src/app/(dashboard)/test-telegram/page.tsx:36  `${data.chats.length} chat(s) trouvé(s)`
   src/components/absences/AbsencesList.tsx:114  `${absence.eleve.prenom} ${absence.eleve.nom}`
   src/components/absences/AppelInterface.tsx:119  `${dateJour}T12:00:00Z`
@@ -138,8 +140,8 @@ Dynamic template-literal t() calls (manual review): 218
   src/components/learnos/CompetencesClasse.tsx:599  `${el.id}:${c.id}`
   src/components/learnos/CompetencesClasse.tsx:671  `${el.id}:${c.id}`
   src/components/learnos/CompetencesClasse.tsx:783  `${el.id}:${c.id}`
-  src/components/learnos/CompetencesEleve.tsx:133  `/api/learnos/eleves/${eleveId}/competences`
-  src/components/learnos/CompetencesEleve.tsx:289  `statut${p.masteryStatus}`
+  src/components/learnos/CompetencesEleve.tsx:135  `/api/learnos/eleves/${eleveId}/competences`
+  src/components/learnos/CompetencesEleve.tsx:291  `statut${p.masteryStatus}`
   src/components/learnos/CopiesPapier.tsx:103  `moteur_${ocr.moteur}`
   src/components/learnos/CopiesPapier.tsx:696  `anomalie_${a.motif}`
   src/components/learnos/DossierEnfant.tsx:151  `type_${plan.type}`
@@ -150,11 +152,11 @@ Dynamic template-literal t() calls (manual review): 218
   src/components/learnos/EvolutionEleve.tsx:324  `trajectoireAide.${s.trajectoire}`
   src/components/learnos/GrilleKpi.tsx:79  `${kpi.cle}Aide`
   src/components/learnos/IntelligencePedagogique.tsx:344  `type_${j.typeAnalyse}`
-  src/components/learnos/PlansAValider.tsx:58  `/api/learnos/plans/${id}`
-  src/components/learnos/PlansAValider.tsx:141  `responsable_${e.responsable}`
-  src/components/learnos/PropositionsIaValidation.tsx:65  `/api/learnos/propositions${params}`
-  src/components/learnos/PropositionsIaValidation.tsx:122  `statut.${statut}`
-  src/components/learnos/PropositionsIaValidation.tsx:141  `statut.${s}`
+  src/components/learnos/PlansAValider.tsx:60  `/api/learnos/plans/${id}`
+  src/components/learnos/PlansAValider.tsx:143  `responsable_${e.responsable}`
+  src/components/learnos/PropositionsIaValidation.tsx:67  `/api/learnos/propositions${params}`
+  src/components/learnos/PropositionsIaValidation.tsx:124  `statut.${statut}`
+  src/components/learnos/PropositionsIaValidation.tsx:143  `statut.${s}`
   src/components/learnos/RecommandationsView.tsx:105  `/api/learnos/recommandations/${id}`
   src/components/learnos/RevisionSemaine.tsx:61  `/api/learnos/revision-semaine?${params}`
   src/components/learnos/RevisionSemaineStaff.tsx:102  `/api/eleves?classeId=${classeId}&pageSize=200`
