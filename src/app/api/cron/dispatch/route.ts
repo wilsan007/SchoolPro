@@ -17,6 +17,7 @@ import { calibrerSeuils } from "@/lib/learnos/calibration";
 import { getAnneeCourante } from "@/lib/annee-scolaire";
 import { analyserPatternsAbsence } from "@/lib/learnos/pattern-absence";
 import { withSystemContext } from "@/lib/rls-context";
+import { dejaExecutee } from "@/lib/cron-idempotence";
 
 /**
  * Cron unique — répartiteur des tâches planifiées.
@@ -232,36 +233,9 @@ const QuerySchema = z.object({
   force: z.string().min(1).optional(),
 });
 
-/**
- * AUT-H1 (audit v2) — Vérifie si une tâche a déjà été exécutée dans sa fenêtre
- * d'idempotence. Si oui, retourne `true` (sauter). Sinon, enregistre l'exécution
- * et retourne `false` (exécuter).
- *
- * La fenêtre est arrondie au début de la période (ex: 6 h UTC pour une fenêtre
- * d'1 h à 6 h). L'enregistrement est atomique via `upsert` + `@@unique`.
- */
-async function dejaExecutee(
-  nom: string,
-  idempotenceSec: number
-): Promise<boolean> {
-  const now = Date.now();
-  const fenetreMs = idempotenceSec * 1000;
-  const fenetre = new Date(now - (now % fenetreMs));
-
-  try {
-     
-    await prisma.tacheCronExecution.upsert({
-      where: { nom_fenetre: { nom, fenetre } },
-      create: { nom, fenetre, resultat: { skipped: false } },
-      update: {}, // no-op : si l'enregistrement existe déjà, on ne fait rien
-    });
-    return false; // pas d'enregistrement existant → exécuter
-  } catch (e) {
-    console.warn("[non-fatal]", e);
-    // L'upsert échoue si l'enregistrement existe déjà (race condition) → sauter.
-    return true;
-  }
-}
+// AUT-H1 / AUT-C1 : la garde d'idempotence vit dans `@/lib/cron-idempotence`
+// (écriture sous contexte système RLS + distinction stricte entre « déjà
+// exécutée » et « erreur technique »). Voir ses tests dédiés.
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -289,7 +263,7 @@ export async function GET(req: NextRequest) {
   for (const tache of aExecuter) {
     // AUT-H1 : idempotence. Les tâches `force`es bypass l'idempotence.
     if (!forcee && tache.idempotenceSec) {
-      const skip = await dejaExecutee(tache.nom, tache.idempotenceSec);
+      const skip = await dejaExecutee(prisma, tache.nom, tache.idempotenceSec);
       if (skip) {
         resultats[tache.nom] = { skipped: true, reason: "already_executed_in_window" };
         continue;
