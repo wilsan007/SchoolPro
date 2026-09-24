@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import { roleHasPermission } from "@/lib/permissions";
 
 /**
  * GET /api/sync/config
@@ -32,10 +33,7 @@ const UpdateConfigSchema = z.object({
 
 function requireAdmin(session: any) {
   if (!session?.user?.tenantId) return false;
-  return (
-    session.user.role === "TENANT_ADMIN" ||
-    session.user.role === "SUPER_ADMIN"
-  );
+  return roleHasPermission(session.user.role, "parametres:admin");
 }
 
 /** Génère une clé API sécurisée de 40 caractères. */

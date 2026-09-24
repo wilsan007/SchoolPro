@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   // Génération de comptes de connexion : action d'écriture sur les élèves.
   // Sans cette garde, n'importe quel utilisateur authentifié (y compris
   // PARENT ou STUDENT) pouvait créer des comptes pour toute une classe.
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = await checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
   const body = await req.json();

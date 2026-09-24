@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   // API-C2 : permission requise. `eleves:write` est détenue par TENANT_ADMIN,
   // PRINCIPAL, SECRETARY et ACCOUNTANT. Faire confirmer par la direction si
   // un comptable doit pouvoir changer un élève de classe.
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = await checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
   const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });

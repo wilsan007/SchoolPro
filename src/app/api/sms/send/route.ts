@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "communication:send");
+  const denied = await checkPermission(session.user.role, "communication:send");
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;

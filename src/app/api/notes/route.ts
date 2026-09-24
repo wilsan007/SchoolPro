@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "notes:read");
+    const denied = await checkPermission(session.user.role, "notes:read");
     if (denied) return denied;
 
     const { searchParams } = new URL(req.url);
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "notes:write");
+    const denied = await checkPermission(session.user.role, "notes:write");
     if (denied) return denied;
     const eleveFilter = siteFilterForModel("eleve", session.user);
 

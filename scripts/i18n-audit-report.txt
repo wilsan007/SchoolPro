@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-23T13:48:49.626Z
+SchoolPro i18n audit — 2026-09-23T22:52:31.981Z
 
 Referenced keys missing from fr.json: 0
 
@@ -16,8 +16,8 @@ Dynamic template-literal t() calls (manual review): 220
   src/app/(dashboard)/recommandations/page.tsx:205  `${f.eleve.id}|${f.competenceAttesteeId}`
   src/app/(dashboard)/test-telegram/page.tsx:36  `${data.chats.length} chat(s) trouvé(s)`
   src/components/absences/AbsencesList.tsx:114  `${absence.eleve.prenom} ${absence.eleve.nom}`
-  src/components/absences/AppelInterface.tsx:119  `${dateJour}T12:00:00Z`
-  src/components/absences/AppelInterface.tsx:395  `${eleve.prenom} ${eleve.nom}`
+  src/components/absences/AppelInterface.tsx:128  `${dateJour}T12:00:00Z`
+  src/components/absences/AppelInterface.tsx:418  `${eleve.prenom} ${eleve.nom}`
   src/components/admissions/AdmissionsView.tsx:594  `/api/admissions/${candidature.id}`
   src/components/admissions/AdmissionsView.tsx:627  `/api/admissions/${candidature.id}`
   src/components/admissions/AdmissionsView.tsx:655  `/api/admissions/${candidature.id}`
@@ -229,5 +229,5 @@ Dynamic template-literal t() calls (manual review): 220
   src/components/vie-scolaire/ConvocationForm.tsx:135  `convocationMotifs.${m}`
   src/components/vie-scolaire/HistoriqueDisciplinaireDialog.tsx:79  `/api/vie-scolaire/historique-disciplinaire?eleveId=${eleveId}`
   src/components/vie-scolaire/VieScolaireView.tsx:218  `/api/vie-scolaire/incidents/${incident.id}`
-  src/components/workspace/Dock.tsx:218  `[data-tab-id="${activeWindowId}"]`
-  src/components/workspace/DockSearch.tsx:211  `[data-index="${selectedIndex}"]`
+  src/components/workspace/Dock.tsx:100  `[data-tab-id="${activeWindowId}"]`
+  src/components/workspace/DockSearch.tsx:119  `[data-index="${selectedIndex}"]`

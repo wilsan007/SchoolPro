@@ -9,6 +9,7 @@ import {
   appliquerImportPersonnelAdmin,
 } from "@/lib/import-unifie";
 import { validerEntetes } from "@/lib/import-modeles";
+import { checkPermission } from "@/lib/rbac";
 
 const ApplySchema = z.object({
   file: z.instanceof(File),
@@ -23,9 +24,8 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    return erreurJson("PERMISSIONS_INSUFFISANTES");
-  }
+  const denied = await checkPermission(session.user.role, "imports:gerer");
+  if (denied) return denied;
 
   const formData = await req.formData().catch((e) => { console.warn("[non-fatal]", e); return null; });
   if (!formData) return erreurJson("DONNEES_INVALIDES");

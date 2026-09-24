@@ -13,6 +13,7 @@ import { WindowManagerProvider } from "@/components/workspace/WindowManager";
 import { Workspace } from "@/components/workspace/Workspace";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { NiveauProvider } from "@/lib/niveau-context";
+import { overridesPour } from "@/lib/effective-permissions";
 
 // Détection mobile simple via User-Agent (server-side, pas de hydration mismatch)
 function isMobileDevice(userAgent: string): boolean {
@@ -144,6 +145,13 @@ export default async function DashboardLayout({
   const availableRoles: Role[] = session.user.availableRoles ?? [session.user.role];
   const currentRole: Role = session.user.role;
 
+  // Dérogations par utilisateur (`user_permission`), lues UNE fois pour tout
+  // l'écran. La navigation, `guardPage` et les gardes d'API appliquent ainsi la
+  // même décision : un `deny` retire l'entrée du menu en même temps qu'il
+  // ferme la page, un `grant` l'y ajoute. Avant, la table était écrite mais
+  // jamais lue — le menu et l'API ne voyaient que la matrice des rôles.
+  const permissionOverrides = await overridesPour(session.user.id, session.user.tenantId ?? null);
+
   const roleLabels: Record<string, string> = {
     SUPER_ADMIN: tRoles("SUPER_ADMIN"),
     TENANT_ADMIN: tRoles("TENANT_ADMIN"),
@@ -191,7 +199,7 @@ export default async function DashboardLayout({
   if (isMobileDevice(userAgent)) {
     return (
       <NiveauProvider modele={modeleNiveaux}>
-        <MobileLayout roleKey={session.user.role} userName={session.user.name}>
+        <MobileLayout roleKey={session.user.role} userName={session.user.name} permissionOverrides={permissionOverrides}>
           {children}
         </MobileLayout>
       </NiveauProvider>
@@ -234,6 +242,7 @@ export default async function DashboardLayout({
             isSiteAdmin={isSiteAdmin}
             availableRoles={availableRoles}
             currentRole={currentRole}
+            permissionOverrides={permissionOverrides}
           />
         </div>
         <PWAInstallPrompt />

@@ -34,6 +34,10 @@ export default async function ParametresPage() {
   // matrice : il consulte la configuration de l'établissement sans la
   // modifier. `canManage` contrôle tous les boutons de création/édition/
   // suppression (utilisateurs, classes, matières, périodes, sites…).
+  //
+  // Les onglets dont l'ÉCRITURE est refusée ne sont pas rendus du tout
+  // (`ParametresTabs` les filtre par `roleKey`) : on ne montre pas un onglet
+  // dont le formulaire répondra 403.
   const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
 
   const [etablissement, users, parents, eleves, classes, matieres, regles, periodes, sites, annees] = await Promise.all([
@@ -71,6 +75,7 @@ export default async function ParametresPage() {
           sites={sites}
           annees={annees}
           canManage={canManage}
+          roleKey={session.user.role}
           availableTenants={session.user.availableTenants}
         />
       </div>

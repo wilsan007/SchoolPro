@@ -3,7 +3,27 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { canAccessSite } from "@/lib/site-filter";
 import { siteFilterForModel } from "@/lib/site-scope";
+import { checkPermission } from "@/lib/rbac";
 
+/**
+ * Impression d'une facture de l'établissement.
+ *
+ * POURQUOI CETTE GARDE A ÉTÉ AJOUTÉE
+ *
+ * La route ne vérifiait que l'authentification, le `tenantId` et le site. Or
+ * `siteFilterForModel` est **neutre** pour PARENT/STUDENT (périmètre
+ * « RELATION ») et `canAccessSite` renvoie `true` pour ces rôles — son contrat
+ * est que « le lien personnel est vérifié séparément par l'appelant », ce que
+ * cette route ne faisait pas. Un parent connaissant un `id` de facture pouvait
+ * donc ouvrir la facture d'une **autre famille**, avec le nom, le téléphone et
+ * l'email du tuteur légal.
+ *
+ * Le document imprimé est un acte de gestion (entête, signature, détail des
+ * paiements) : `finance:read` le réserve au personnel financier. Un affichage
+ * destiné aux familles, s'il est souhaité, doit passer par une route dédiée
+ * appliquant `eleveScopeFilter(..., { gardienOnly: true })` — comme
+ * `/parent/factures/<id>`.
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,6 +33,9 @@ export async function GET(
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
+
+    const denied = await checkPermission(session.user.role, "finance:read");
+    if (denied) return denied;
 
     const { id } = await params;
     const facture = await prisma.facture.findFirst({

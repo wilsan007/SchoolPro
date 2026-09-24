@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec vie-scolaire:write
   // peuvent émettre une convocation.
-  const denied = checkPermission(session.user.role, "vie-scolaire:write");
+  const denied = await checkPermission(session.user.role, "vie-scolaire:write");
   if (denied) return denied;
 
   const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));

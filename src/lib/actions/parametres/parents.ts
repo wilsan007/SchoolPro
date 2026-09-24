@@ -7,6 +7,7 @@ import { z } from "zod";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { auditFire } from "@/lib/audit";
 import type { LienParente } from "@prisma/client";
+import { checkPermission } from "@/lib/rbac";
 
 const ParentSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
@@ -99,9 +100,11 @@ export async function getElevesForLinking() {
 export async function createParent(data: ParentFormData & { eleveIds?: string[] }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parsed = ParentSchema.safeParse(data);
   if (!parsed.success) {
@@ -159,9 +162,11 @@ export async function createParent(data: ParentFormData & { eleveIds?: string[] 
 export async function linkParentToEleves(parentId: string, eleveIds: string[], lien: string = "TUTEUR") {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   // Isolation portée par la relation enfants → élève (voir `parentSiteScope`).
   // eslint-disable-next-line ecolpro/require-site-filter
@@ -206,9 +211,11 @@ export async function linkParentToEleves(parentId: string, eleveIds: string[], l
 export async function unlinkParentFromEleve(parentId: string, eleveId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
    
   await prisma.eleveParent.delete({
@@ -222,9 +229,11 @@ export async function unlinkParentFromEleve(parentId: string, eleveId: string) {
 export async function updateParentPhone(parentId: string, phone: string, telegramChatId?: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parent = await prisma.parent.findFirst({
     where: { id: parentId, tenantId: session.user.tenantId, ...siteFilterForModel("parent", session.user) },
@@ -246,9 +255,11 @@ export async function updateParentPhone(parentId: string, phone: string, telegra
 export async function deleteParent(parentId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parent = await prisma.parent.findFirst({
     where: { id: parentId, tenantId: session.user.tenantId, ...siteFilterForModel("parent", session.user) },
@@ -273,9 +284,11 @@ export async function deleteParent(parentId: string) {
 export async function updateUserPhone(userId: string, phone: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId: session.user.tenantId, ...siteFilterForModel("user", session.user) },

@@ -19,7 +19,7 @@ export async function GET(
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "bulletins:read");
+    const denied = await checkPermission(session.user.role, "bulletins:read");
     if (denied) return denied;
 
     const { id } = await params;

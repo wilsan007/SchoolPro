@@ -40,7 +40,7 @@ export async function POST(
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "cahier-journal:write");
+    const denied = await checkPermission(session.user.role, "cahier-journal:write");
     if (denied) return denied;
 
     const { id } = await params;
@@ -104,7 +104,7 @@ export async function DELETE(
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "cahier-journal:write");
+    const denied = await checkPermission(session.user.role, "cahier-journal:write");
     if (denied) return denied;
 
     const { id } = await params;

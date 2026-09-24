@@ -39,7 +39,7 @@ export async function PUT(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "evaluations:write");
+  const denied = await checkPermission(session.user.role, "evaluations:write");
   if (denied) return denied;
 
   const parsed = PutSchema.safeParse(await req.json());
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "evaluations:read");
+  const denied = await checkPermission(session.user.role, "evaluations:read");
   if (denied) return denied;
 
   const { searchParams } = new URL(req.url);

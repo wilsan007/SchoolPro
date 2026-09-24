@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
+import { checkPermission } from "@/lib/rbac";
 
 const EtablissementSchema = z.object({
   name: z.string().min(2, "Le nom est requis"),
@@ -29,9 +30,11 @@ export type EtablissementFormData = z.infer<typeof EtablissementSchema>;
 export async function updateEtablissement(data: EtablissementFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parsed = EtablissementSchema.safeParse(data);
   if (!parsed.success) {

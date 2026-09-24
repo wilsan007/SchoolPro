@@ -2,7 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { canAccessSite } from "@/lib/site-filter";
+import { checkPermission } from "@/lib/rbac";
 
+/**
+ * Reçu de paiement (document de gestion).
+ *
+ * Même correctif que `/api/factures/<id>/pdf` : `canAccessSite` renvoie `true`
+ * pour un PARENT (périmètre « RELATION », où le site ne discrimine pas et où
+ * le lien familial doit être vérifié par l'appelant). Cette route ne le
+ * vérifiait pas — un parent connaissant un `id` de paiement lisait le reçu
+ * d'une autre famille (élève, classe, coordonnées du tuteur légal).
+ * `finance:read` la réserve au personnel financier, qui est le seul à
+ * l'ouvrir depuis `/facturation/<id>`.
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,6 +24,9 @@ export async function GET(
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
+
+    const denied = await checkPermission(session.user.role, "finance:read");
+    if (denied) return denied;
 
     const { id } = await params;
     // eslint-disable-next-line ecolpro/require-site-filter -- findUnique par id only; contrôle tenantId ligne 49 + contrôle site via canAccessSite(facture.siteId) ligne 56

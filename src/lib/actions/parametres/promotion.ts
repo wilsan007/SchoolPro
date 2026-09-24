@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { applyRlsContext } from "@/lib/prisma-rls";
+import { checkPermission } from "@/lib/rbac";
 
 /// Table de correspondance niveau → niveau suivant.
 /// Inspiré de Pronote (préparation de l'année N+1) et Eduka (copy structure from previous year).
@@ -61,9 +62,11 @@ export async function previewPromotion(anneeSource: string, anneeCible: string) 
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permission refusée : réservé aux administrateurs");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permission refusée : réservé aux administrateurs");
 
   const classes = await prisma.classe.findMany({
     where: {
@@ -113,9 +116,11 @@ export async function executePromotion(
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permission refusée : réservé aux administrateurs");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permission refusée : réservé aux administrateurs");
 
   const classes = await prisma.classe.findMany({
     where: {
@@ -205,9 +210,11 @@ export async function copyStructureToNewYear(anneeSource: string, anneeCible: st
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permission refusée : réservé aux administrateurs");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permission refusée : réservé aux administrateurs");
 
   const classes = await prisma.classe.findMany({
     where: {

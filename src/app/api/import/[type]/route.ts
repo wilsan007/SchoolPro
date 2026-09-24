@@ -49,7 +49,7 @@ export async function POST(
   }
 
   if (type === "personnel-admin") {
-    const denied = checkPermission(session.user.role, "rh:write");
+    const denied = await checkPermission(session.user.role, "rh:write");
     if (denied) return denied;
   }
 

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auditFire } from "@/lib/audit";
+import { checkPermission } from "@/lib/rbac";
 
 const AnneeScolaireSchema = z.object({
   libelle: z.string().min(1, "Le libellé est requis"),
@@ -25,9 +26,11 @@ export async function getAnneesScolaires() {
 export async function createAnneeScolaire(data: z.infer<typeof AnneeScolaireSchema>) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parsed = AnneeScolaireSchema.safeParse(data);
   if (!parsed.success) {
@@ -66,9 +69,11 @@ export async function createAnneeScolaire(data: z.infer<typeof AnneeScolaireSche
 export async function activateAnneeScolaire(anneeId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const annee = await prisma.anneesScolaires.findFirst({
     where: { id: anneeId, tenantId: session.user.tenantId },
@@ -97,9 +102,11 @@ export async function activateAnneeScolaire(anneeId: string) {
 export async function deleteAnneeScolaire(anneeId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const annee = await prisma.anneesScolaires.findFirst({
     where: { id: anneeId, tenantId: session.user.tenantId },

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "emploi-du-temps:read");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:read");
     if (denied) return denied;
 
     if (isRelationScopedRole(session.user.role)) {

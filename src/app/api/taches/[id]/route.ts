@@ -28,7 +28,7 @@ export async function GET(
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "taches:read");
+  const denied = await checkPermission(session.user.role, "taches:read");
   if (denied) return denied;
 
   const { id } = await params;
@@ -65,7 +65,7 @@ export async function PATCH(
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "taches:write");
+  const denied = await checkPermission(session.user.role, "taches:write");
   if (denied) return denied;
 
   const { id } = await params;
@@ -191,7 +191,7 @@ export async function DELETE(
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "taches:delete");
+  const denied = await checkPermission(session.user.role, "taches:delete");
   if (denied) return denied;
 
   const { id } = await params;

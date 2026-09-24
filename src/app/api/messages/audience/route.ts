@@ -36,7 +36,7 @@ export async function GET() {
     if (!session?.user?.id || !session.user.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "messages:write");
+    const denied = await checkPermission(session.user.role, "messages:write");
     if (denied) return denied;
 
     const options = await listTargetingOptions({
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.id || !session.user.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "messages:write");
+    const denied = await checkPermission(session.user.role, "messages:write");
     if (denied) return denied;
 
     const parsed = PreviewSchema.safeParse(await req.json());

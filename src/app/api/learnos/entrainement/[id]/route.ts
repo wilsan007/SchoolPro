@@ -19,7 +19,7 @@ export async function GET(
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "entrainement:read");
+  const denied = await checkPermission(session.user.role, "entrainement:read");
   if (denied) return denied;
 
   const { id } = await params;

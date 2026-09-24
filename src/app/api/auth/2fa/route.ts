@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { erreurJson } from "@/lib/erreurs-api";
+import { corpsErreur, erreurJson, statutErreur } from "@/lib/erreurs-api";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import {
   setup2FA,
@@ -35,10 +35,12 @@ export async function POST(req: NextRequest) {
     key: `2fa:${session.user.id}:${ip}`,
   });
   if (!rl.allowed) {
-    return NextResponse.json(
-      { success: false, error: "rate_limited" },
-      { status: 429, headers: { "Retry-After": "60" } }
-    );
+    // 429 + `Retry-After` : le code remplace la chaîne figée `rate_limited`,
+    // que le client devait reconnaître mot pour mot pour la traduire.
+    return NextResponse.json(corpsErreur("TROP_DE_TENTATIVES"), {
+      status: statutErreur("TROP_DE_TENTATIVES"),
+      headers: { "Retry-After": "60" },
+    });
   }
 
   const raw = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
@@ -50,29 +52,33 @@ export async function POST(req: NextRequest) {
   try {
     switch (action) {
       case "setup": {
-        const result = await setup2FA(session.user.id);
-        return Response.json(result);
+        try {
+          const result = await setup2FA(session.user.id);
+          return Response.json(result);
+        } catch (e) {
+          // « Déjà active » n'est pas une panne serveur mais un état métier :
+          // code dédié (409), que le client traduit dans la langue active.
+          // Le message du service est le seul discriminant disponible ; il est
+          // figé par `src/lib/two-factor.test.ts`.
+          const message = e instanceof Error ? e.message : "";
+          if (message.includes("déjà active")) {
+            return erreurJson("DEUX_FACTEURS_DEJA_ACTIF");
+          }
+          throw e;
+        }
       }
 
       case "verify": {
         if (!token) return erreurJson("DONNEES_INVALIDES");
         const success = await verify2FA(session.user.id, token);
-        if (!success) {
-          return erreurJson("STATUT_INVALIDE", undefined, {
-            detail: "Code TOTP invalide",
-          });
-        }
+        if (!success) return erreurJson("TOTP_INVALIDE");
         return Response.json({ success: true });
       }
 
       case "backup": {
         if (!code) return erreurJson("DONNEES_INVALIDES");
         const success = await verifyBackupCode(session.user.id, code);
-        if (!success) {
-          return erreurJson("STATUT_INVALIDE", undefined, {
-            detail: "Code de secours invalide",
-          });
-        }
+        if (!success) return erreurJson("CODE_SECOURS_INVALIDE");
         return Response.json({ success: true });
       }
 
@@ -81,10 +87,7 @@ export async function POST(req: NextRequest) {
         // contrôle est ICI et pas seulement dans l'interface : masquer un
         // bouton n'empêche personne d'appeler l'API directement.
         if (deuxFacteursObligatoire(session.user.role)) {
-          return erreurJson("STATUT_INVALIDE", undefined, {
-            detail:
-              "La double authentification est obligatoire pour ce rôle et ne peut pas être désactivée.",
-          });
+          return erreurJson("DEUX_FACTEURS_OBLIGATOIRE");
         }
 
         // Un code valide est exigé : sinon, une session volée suffirait à
@@ -94,11 +97,7 @@ export async function POST(req: NextRequest) {
         // le 2FA en cas de succès — l'appeler ici revenait à l'activer juste
         // avant de le désactiver.
         const success = await verifierCodeConnexion(session.user.id, token);
-        if (!success) {
-          return erreurJson("STATUT_INVALIDE", undefined, {
-            detail: "Code TOTP invalide",
-          });
-        }
+        if (!success) return erreurJson("TOTP_INVALIDE");
         await disable2FA(session.user.id);
         return Response.json({ success: true });
       }
@@ -107,8 +106,20 @@ export async function POST(req: NextRequest) {
         return erreurJson("DONNEES_INVALIDES");
     }
   } catch (e) {
+    const message = e instanceof Error ? e.message : "";
+
+    // La clé de chiffrement des secrets TOTP n'est pas configurée : sans elle,
+    // aucune configuration n'est possible. Le message brut
+    // (« TWO_FACTOR_SECRET manquant… ») ne dit pas quoi faire ; celui-ci, si.
+    if (message.includes("TWO_FACTOR_SECRET")) {
+      console.error("[2fa] configuration serveur incomplète :", message);
+      return erreurJson("DEUX_FACTEURS_NON_CONFIGURE");
+    }
+
+    // `detail` reste dans le corps pour le diagnostic (journaux, support) ;
+    // il n'est plus affiché tel quel : l'interface traduit le code.
     return erreurJson("ERREUR_SERVEUR", undefined, {
-      detail: e instanceof Error ? e.message : undefined,
+      detail: message || undefined,
     });
   }
 }
@@ -129,10 +140,10 @@ export async function GET(req: NextRequest) {
     key: `2fa:${session.user.id}:${ip}`,
   });
   if (!rl.allowed) {
-    return NextResponse.json(
-      { success: false, error: "rate_limited" },
-      { status: 429, headers: { "Retry-After": "60" } }
-    );
+    return NextResponse.json(corpsErreur("TROP_DE_TENTATIVES"), {
+      status: statutErreur("TROP_DE_TENTATIVES"),
+      headers: { "Retry-After": "60" },
+    });
   }
 
   // Importer prisma ici pour éviter de l'importer au niveau du module

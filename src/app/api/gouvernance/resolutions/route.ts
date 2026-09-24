@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "gouvernance:read");
+    const denied = await checkPermission(session.user.role, "gouvernance:read");
     if (denied) return denied;
 
     const { searchParams } = new URL(req.url);
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "gouvernance:write");
+    const denied = await checkPermission(session.user.role, "gouvernance:write");
     if (denied) return denied;
 
     const body = await req.json();

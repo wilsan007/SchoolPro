@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "examens:write");
+    const denied = await checkPermission(session.user.role, "examens:write");
     if (denied) return denied;
 
     const { id } = await params;

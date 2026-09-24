@@ -35,7 +35,7 @@ const Schema = z.object({
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "ai:teacher");
+  const denied = await checkPermission(session.user.role, "ai:teacher");
   if (denied) return denied;
 
   const parsed = Schema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));

@@ -11,7 +11,7 @@ export async function GET() {
 
   // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec parametres:read
   // peuvent exporter le catalogue des classes.
-  const denied = checkPermission(session.user.role, "parametres:read");
+  const denied = await checkPermission(session.user.role, "parametres:read");
   if (denied) return denied;
 
   const classes = await getClassesForExport();

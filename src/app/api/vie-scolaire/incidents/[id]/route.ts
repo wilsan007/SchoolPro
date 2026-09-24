@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "vie-scolaire:write");
+    const denied = await checkPermission(session.user.role, "vie-scolaire:write");
     if (denied) return denied;
 
     const { id } = await params;
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "vie-scolaire:write");
+    const denied = await checkPermission(session.user.role, "vie-scolaire:write");
     if (denied) return denied;
 
     const { id } = await params;

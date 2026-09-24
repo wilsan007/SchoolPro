@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireSiteIdForCreate } from "@/lib/site-scope";
 import { preparerPlan } from "@/lib/import-eleves-server";
+import { checkPermission } from "@/lib/rbac";
 
 /**
  * POST /api/import/eleves/analyze
@@ -20,9 +21,8 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Permissions insuffisantes" }, { status: 403 });
-    }
+    const denied = await checkPermission(session.user.role, "imports:gerer");
+    if (denied) return denied;
     const siteError = requireSiteIdForCreate(session.user);
     if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
 

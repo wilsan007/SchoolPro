@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
-    const denied = checkPermission(session.user.role, scope);
+    const denied = await checkPermission(session.user.role, scope);
     if (denied) return denied;
 
     const ip = getClientIP(req);
@@ -343,8 +343,8 @@ export async function POST(req: NextRequest) {
     // /api/emploi-du-temps existante. Jamais exposés au scope "ai:parent" :
     // ces outils ne filtrent pas par élève, seulement par tenant.
     const staffScope = scope === "ai:admin" || scope === "ai:teacher";
-    const canScheduleRead = staffScope && checkPermission(session.user.role, "emploi-du-temps:read") === null;
-    const canScheduleWrite = scope === "ai:admin" && checkPermission(session.user.role, "emploi-du-temps:write") === null;
+    const canScheduleRead = staffScope && (await checkPermission(session.user.role, "emploi-du-temps:read")) === null;
+    const canScheduleWrite = scope === "ai:admin" && (await checkPermission(session.user.role, "emploi-du-temps:write")) === null;
     const tools: ToolDefinition[] = [];
     if (canScheduleRead) {
       tools.push(LISTER_TOOL, LISTER_CLASSES_TOOL, LISTER_ENSEIGNANTS_TOOL, LISTER_SALLES_TOOL, SUGGERER_TOOL);

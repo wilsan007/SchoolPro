@@ -49,7 +49,7 @@ async function matiereAccessible(
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = await checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
   const parsed = ProposerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = await checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
   const parsed = AppliquerSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));

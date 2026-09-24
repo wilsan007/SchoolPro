@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "cours:read");
+  const denied = await checkPermission(session.user.role, "cours:read");
   if (denied) return denied;
 
   // Les familles accèdent aux devoirs via la page `/travail` qui applique
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "notes:write");
+  const denied = await checkPermission(session.user.role, "notes:write");
   if (denied) return denied;
 
   const body = await req.json();
@@ -188,7 +188,7 @@ export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "notes:write");
+  const denied = await checkPermission(session.user.role, "notes:write");
   if (denied) return denied;
 
   const body = await req.json();

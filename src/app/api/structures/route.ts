@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { StructureType } from "@prisma/client";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { erreurJson } from "@/lib/erreurs-api";
+import { checkPermission } from "@/lib/rbac";
 
 const STRUCTURE_TYPES: StructureType[] = ["MATERNELLE", "PRIMAIRE", "COLLEGE", "LYCEE"];
 
@@ -43,9 +44,8 @@ export async function POST(req: NextRequest) {
       return erreurJson("NON_AUTORISE");
     }
 
-    if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-      return erreurJson("PERMISSIONS_INSUFFISANTES");
-    }
+    const denied = await checkPermission(session.user.role, "parametres:admin");
+    if (denied) return denied;
 
     const json = await req.json();
     const { types, siteId = null } = CreateSchema.parse(json);
@@ -116,9 +116,8 @@ export async function DELETE(req: NextRequest) {
       return erreurJson("NON_AUTORISE");
     }
 
-    if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-      return erreurJson("PERMISSIONS_INSUFFISANTES");
-    }
+    const denied = await checkPermission(session.user.role, "parametres:admin");
+    if (denied) return denied;
 
     const { searchParams } = new URL(req.url);
     const structureId = searchParams.get("id");

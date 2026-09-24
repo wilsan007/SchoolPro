@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "bulletins:read");
+    const denied = await checkPermission(session.user.role, "bulletins:read");
     if (denied) return denied;
     // `bulletins:read` est accordé à PARENT et STUDENT. Pour ces rôles à
     // périmètre relationnel, `siteFilterForModel` renvoie un fragment VIDE

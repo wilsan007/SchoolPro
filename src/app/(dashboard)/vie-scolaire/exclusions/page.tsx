@@ -5,6 +5,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { ExclusionsView } from "@/components/vie-scolaire/ExclusionsView";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { getDemoNow } from "@/lib/demo-now";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
@@ -112,6 +113,7 @@ export default async function ExclusionsPage() {
           classes={classes}
           hierarchie={hierarchie}
           dateReference={maintenant.toISOString()}
+          canWrite={roleHasPermission(session.user.role, "vie-scolaire:write")}
         />
       </div>
     </div>

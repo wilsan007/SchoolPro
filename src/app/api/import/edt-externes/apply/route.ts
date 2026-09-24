@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const denied = checkPermission(session.user.role, "emploi-du-temps:write");
+  const denied = await checkPermission(session.user.role, "emploi-du-temps:write");
   if (denied) return denied;
 
   const body = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });

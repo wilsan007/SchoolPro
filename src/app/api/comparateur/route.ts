@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const denied = checkPermission(session.user.role, "analytics:read");
+  const denied = await checkPermission(session.user.role, "analytics:read");
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;

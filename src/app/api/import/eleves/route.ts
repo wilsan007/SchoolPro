@@ -13,6 +13,7 @@ import { identityKey } from "@/lib/eleve-identity";
 import { resoudreIdentiteKey } from "@/lib/eleve-identity-server";
 import { normalizePhone } from "@/lib/phone";
 import { randomUUID } from "crypto";
+import { checkPermission } from "@/lib/rbac";
 
 // Schéma de validation des décisions d'import : { "12": "CREER", "13": "IGNORER" }
 const DecisionsSchema = z.record(
@@ -48,9 +49,11 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Permissions insuffisantes" }, { status: 403 });
-    }
+    // Autorisation : source unique de vérité dans `@/lib/permissions`.
+    // `eleves:importer` reproduit exactement l'ancienne liste [TENANT_ADMIN,
+    // SUPER_ADMIN] — mêmes détenteurs, mais déclarés une seule fois.
+    const denied = await checkPermission(session.user.role, "imports:gerer");
+    if (denied) return denied;
     const siteError = requireSiteIdForCreate(session.user);
     if (siteError) return NextResponse.json({ error: siteError }, { status: 400 });
 

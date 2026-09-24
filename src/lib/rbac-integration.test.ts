@@ -3,10 +3,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 /**
  * Tests d'intégration du RBAC — checkPermission et authorize.
  *
- * `checkPermission` est une garde synchrone qui retourne `null` si la
- * permission est accordée, ou une `NextResponse` 403 si refusée.
- * `authorize` est la garde asynchrone qui vérifie aussi la session (401
- * si non authentifié).
+ * `checkPermission` est une garde **asynchrone** : elle lit la session puis les
+ * dérogations par utilisateur (`user_permission`) avant d'appliquer la matrice.
+ * Elle retourne `null` si la permission est accordée, ou une `NextResponse` 403
+ * si refusée. `authorize` est la garde complète, qui vérifie aussi le périmètre
+ * (401 si non authentifié, 403 sans établissement).
  */
 
 // ------------------------------------------------------------
@@ -15,6 +16,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
+}));
+
+// Les dérogations ne sont pas l'objet de ces tests : on les neutralise pour
+// que la matrice des rôles soit la seule variable. Le module réel charge
+// Prisma, inutile ici.
+vi.mock("@/lib/effective-permissions", () => ({
+  overridesPour: vi.fn(async () => ({})),
 }));
 
 vi.mock("@/lib/audit", () => ({
@@ -81,46 +89,46 @@ beforeEach(() => {
 // ------------------------------------------------------------
 
 describe("checkPermission", () => {
-  it("retourne null si la permission est accordée", () => {
+  it("retourne null si la permission est accordée", async () => {
     // TENANT_ADMIN a "eleves:*" → "eleves:write" est accordée
-    const result = checkPermission("TENANT_ADMIN" as Role, "eleves:write");
+    const result = await checkPermission("TENANT_ADMIN" as Role, "eleves:write");
     expect(result).toBeNull();
   });
 
-  it("retourne null pour SUPER_ADMIN (toutes permissions via '*')", () => {
-    const result = checkPermission("SUPER_ADMIN" as Role, "finance:delete");
+  it("retourne null pour SUPER_ADMIN (toutes permissions via '*')", async () => {
+    const result = await checkPermission("SUPER_ADMIN" as Role, "finance:delete");
     expect(result).toBeNull();
   });
 
-  it("retourne null pour une permission de module large (eleves:*)", () => {
+  it("retourne null pour une permission de module large (eleves:*)", async () => {
     // TEACHER a "eleves:read" mais pas "eleves:write"
-    const result = checkPermission("TEACHER" as Role, "eleves:read");
+    const result = await checkPermission("TEACHER" as Role, "eleves:read");
     expect(result).toBeNull();
   });
 
-  it("retourne une Response 403 si la permission est refusée", () => {
+  it("retourne une Response 403 si la permission est refusée", async () => {
     // TEACHER n'a pas "eleves:write"
-    const result = checkPermission("TEACHER" as Role, "eleves:write");
+    const result = await checkPermission("TEACHER" as Role, "eleves:write");
     expect(result).not.toBeNull();
     expect(result).toBeInstanceOf(Response);
   });
 
-  it("la Response 403 a le bon statut HTTP", () => {
-    const result = checkPermission("TEACHER" as Role, "eleves:write");
+  it("la Response 403 a le bon statut HTTP", async () => {
+    const result = await checkPermission("TEACHER" as Role, "eleves:write");
     expect(result).not.toBeNull();
     expect((result as Response).status).toBe(403);
   });
 
   it("la Response 403 contient un message d'erreur", async () => {
-    const result = checkPermission("TEACHER" as Role, "finance:write");
+    const result = await checkPermission("TEACHER" as Role, "finance:write");
     expect(result).not.toBeNull();
     const body = await (result as Response).json();
     expect(body).toHaveProperty("error");
     expect(typeof body.error).toBe("string");
   });
 
-  it("journalise le refus via auditFire", () => {
-    const result = checkPermission("TEACHER" as Role, "eleves:write");
+  it("journalise le refus via auditFire", async () => {
+    const result = await checkPermission("TEACHER" as Role, "eleves:write");
     expect(result).not.toBeNull();
     expect(auditFire).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -137,22 +145,22 @@ describe("checkPermission", () => {
     expect(auditFire).not.toHaveBeenCalled();
   });
 
-  it("refuse une permission inexistante pour un rôle sans wildcard", () => {
+  it("refuse une permission inexistante pour un rôle sans wildcard", async () => {
     // NURSE n'a pas "finance:read"
-    const result = checkPermission("NURSE" as Role, "finance:read");
+    const result = await checkPermission("NURSE" as Role, "finance:read");
     expect(result).not.toBeNull();
     expect((result as Response).status).toBe(403);
   });
 
-  it("refuse un rôle inconnu (non présent dans la matrice)", () => {
-    const result = checkPermission("ROLE_INEXISTANT" as Role, "eleves:read");
+  it("refuse un rôle inconnu (non présent dans la matrice)", async () => {
+    const result = await checkPermission("ROLE_INEXISTANT" as Role, "eleves:read");
     expect(result).not.toBeNull();
     expect((result as Response).status).toBe(403);
   });
 
-  it("accorde une permission via wildcard de module (notes:*)", () => {
+  it("accorde une permission via wildcard de module (notes:*)", async () => {
     // TENANT_ADMIN a "notes:*"
-    const result = checkPermission("TENANT_ADMIN" as Role, "notes:delete");
+    const result = await checkPermission("TENANT_ADMIN" as Role, "notes:delete");
     expect(result).toBeNull();
   });
 });

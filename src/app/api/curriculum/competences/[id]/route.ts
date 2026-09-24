@@ -69,7 +69,7 @@ export async function PATCH(
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "evaluations:write");
+  const denied = await checkPermission(session.user.role, "evaluations:write");
   if (denied) return denied;
 
   const { id } = await params;
@@ -127,7 +127,7 @@ export async function DELETE(
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "evaluations:delete");
+  const denied = await checkPermission(session.user.role, "evaluations:delete");
   if (denied) return denied;
 
   const { id } = await params;

@@ -224,9 +224,11 @@ function PanneauTraitement({
 function LigneExclusion({
   exclusion,
   onMaj,
+  canWrite,
 }: {
   exclusion: Exclusion;
   onMaj: (id: string, maj: Partial<Exclusion>) => void;
+  canWrite: boolean;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const etat = ETAT_CONFIG[exclusion.etat];
@@ -321,7 +323,7 @@ function LigneExclusion({
             )}
           </div>
 
-          {exclusion.etat !== "CLOSE" && (
+          {exclusion.etat !== "CLOSE" && canWrite && (
             <PanneauTraitement
               exclusion={exclusion}
               onMaj={(maj) => onMaj(exclusion.id, maj)}
@@ -338,11 +340,19 @@ export function ExclusionsView({
   classes,
   hierarchie,
   dateReference,
+  canWrite,
 }: {
   exclusions: Exclusion[];
   classes: { id: string; nom: string }[];
   hierarchie?: ClassesHierarchie;
   dateReference: string;
+  /**
+   * `vie-scolaire:write` du rôle connecté. Faux ⇒ le registre reste consultable
+   * mais aucun panneau de traitement n'est rendu : `/vie-scolaire/exclusions`
+   * s'ouvre avec `vie-scolaire:read`, que détiennent aussi des rôles qui ne
+   * peuvent ni donner de travail, ni accuser réception, ni réintégrer.
+   */
+  canWrite: boolean;
 }) {
   const [exclusions, setExclusions] = useState(initiales);
   const [filtreEtat, setFiltreEtat] = useState<EtatExclusion | "TOUTES">("EN_COURS");
@@ -375,6 +385,13 @@ export function ExclusionsView({
 
   return (
     <div className="space-y-6">
+      {!canWrite && (
+        <p className="rounded-lg border bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
+          Registre en lecture seule : votre rôle permet de consulter les
+          exclusions, pas d&apos;enregistrer le travail donné, l&apos;accusé de
+          réception ou la réintégration.
+        </p>
+      )}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Exclusions en cours"
@@ -472,7 +489,7 @@ export function ExclusionsView({
             </p>
           ) : (
             visibles.map((e) => (
-              <LigneExclusion key={e.id} exclusion={e} onMaj={majExclusion} />
+              <LigneExclusion key={e.id} exclusion={e} onMaj={majExclusion} canWrite={canWrite} />
             ))
           )}
         </CardContent>

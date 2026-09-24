@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "admissions:read");
+  const denied = await checkPermission(session.user.role, "admissions:read");
   if (denied) return denied;
 
   const { searchParams } = new URL(req.url);

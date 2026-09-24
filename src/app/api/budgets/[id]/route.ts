@@ -35,7 +35,7 @@ export async function GET(
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "finance:read");
+  const denied = await checkPermission(session.user.role, "finance:read");
   if (denied) return denied;
 
   const { id } = await params;
@@ -67,7 +67,7 @@ export async function PATCH(
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "finance:write");
+  const denied = await checkPermission(session.user.role, "finance:write");
   if (denied) return denied;
 
   const { id } = await params;
@@ -124,7 +124,7 @@ export async function DELETE(
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "finance:delete");
+  const denied = await checkPermission(session.user.role, "finance:delete");
   if (denied) return denied;
 
   const { id } = await params;

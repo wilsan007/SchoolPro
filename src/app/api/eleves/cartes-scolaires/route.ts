@@ -3,13 +3,22 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { siteFilterForModel } from "@/lib/site-scope";
+import { siteFilterForModel, personalScopeFilter } from "@/lib/site-scope";
+import { checkPermission } from "@/lib/rbac";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+
+  // Cette route liste un effectif complet (nom, prénom, matricule, date de
+  // naissance, photo) : c'est `eleves:read` qui la gouverne, comme l'écran
+  // `/eleves` qui la consomme. Sans ce contrôle, tout compte authentifié du
+  // tenant — PARENT et STUDENT compris — obtenait l'annuaire d'une classe
+  // entière en appelant `?classeId=…` : le middleware ne filtre pas `/api/*`.
+  const denied = await checkPermission(session.user.role, "eleves:read");
+  if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
   const classeId = searchParams.get("classeId");
@@ -21,12 +30,22 @@ export async function GET(req: NextRequest) {
 
   const classeFilter = siteFilterForModel("classe", session.user);
   const eleveFilter = siteFilterForModel("eleve", session.user);
+  // Deuxième barrière : pour PARENT/STUDENT le filtre de site est neutre
+  // (`siteWhere` renvoie `{}` pour le périmètre « RELATION ») — c'est le lien
+  // familial qui borne les données, jamais le site.
+  const lienFilter = personalScopeFilter(session.user);
   const [classe, eleves, tenant] = await Promise.all([
     prisma.classe.findFirst({
       where: { id: classeId, tenantId: session.user.tenantId, ...classeFilter },
     }),
     prisma.eleve.findMany({
-      where: { classeId, tenantId: session.user.tenantId, ...eleveFilter, statut: "ACTIF" },
+      where: {
+        classeId,
+        tenantId: session.user.tenantId,
+        ...eleveFilter,
+        ...lienFilter,
+        statut: "ACTIF",
+      },
       select: { id: true, nom: true, prenom: true, matricule: true, dateNaissance: true, photoUrl: true },
       orderBy: { prenom: "asc" },
     }),

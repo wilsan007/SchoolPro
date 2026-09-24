@@ -9,6 +9,7 @@ import { niveauRequiresProfPrincipal } from "@/lib/utils-classe";
 import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { applyRlsContext } from "@/lib/prisma-rls";
+import { checkPermission } from "@/lib/rbac";
 
 const UpdateClasseSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
@@ -180,9 +181,11 @@ export async function transferClasse(classeId: string, targetSiteId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permission refusée : réservé aux administrateurs");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permission refusée : réservé aux administrateurs");
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classe = await prisma.classe.findFirst({
@@ -236,9 +239,11 @@ export async function mergeClasses(sourceIds: string[], targetClasseId: string) 
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permission refusée : réservé aux administrateurs");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permission refusée : réservé aux administrateurs");
 
   if (sourceIds.includes(targetClasseId)) {
     throw new Error("La classe cible ne peut pas être une des classes sources");
@@ -337,9 +342,11 @@ export async function splitClasse(
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permission refusée : réservé aux administrateurs");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permission refusée : réservé aux administrateurs");
 
   if (newClasses.length === 0) {
     throw new Error("Au moins une nouvelle classe est requise");

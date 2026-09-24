@@ -29,7 +29,7 @@ export async function GET() {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const denied = checkPermission(session.user.role, "parametres:read");
+  const denied = await checkPermission(session.user.role, "parametres:read");
   if (denied) return denied;
 
   const regles = await prisma.reglesAppreciation.findMany({
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const denied = checkPermission(session.user.role, "parametres:write");
+  const denied = await checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
   const parsed = RegleSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
@@ -70,7 +70,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const denied = checkPermission(session.user.role, "parametres:write");
+  const denied = await checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
   const parsed = PutSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
@@ -94,7 +94,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const denied = checkPermission(session.user.role, "parametres:write");
+  const denied = await checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
   const { searchParams } = new URL(req.url);

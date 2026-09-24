@@ -11,6 +11,15 @@ export interface ReponseErreur {
   code?: string;
   error?: string;
   params?: Record<string, string | number>;
+  /**
+   * Cause technique renvoyée par le serveur (`erreurJson(code, _, { detail })`).
+   *
+   * Destinée au diagnostic, jamais à l'affichage — sauf quand le client n'a
+   * rien de meilleur à montrer : une panne serveur dont le `detail` porte la
+   * raison réelle (« Quota dépassé », « … ») informe davantage que la
+   * traduction générique du code « Erreur serveur ».
+   */
+  detail?: string;
 }
 
 /** Traducteur minimal accepté — compatible avec celui de next-intl. */

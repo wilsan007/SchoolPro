@@ -11,6 +11,7 @@ import { normaliserEmail } from "@/lib/email";
 import { generateRandomPassword } from "@/lib/security/password";
 import { auditFire } from "@/lib/audit";
 import { publishEvent, type UtilisateurInvitePayload } from "@/lib/learnos/events";
+import { checkPermission } from "@/lib/rbac";
 
 const UserSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -94,9 +95,11 @@ export async function getUsersForTenant() {
 export async function createUser(data: UserFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parsed = UserSchema.safeParse(data);
   if (!parsed.success) {
@@ -261,9 +264,11 @@ export async function createUser(data: UserFormData) {
 export async function toggleUserActive(userId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const user = await prisma.user.findFirst({
     where: {
@@ -286,9 +291,11 @@ export async function toggleUserActive(userId: string) {
 export async function deleteUser(userId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   if (userId === session.user.id) throw new Error("Vous ne pouvez pas supprimer votre propre compte");
 

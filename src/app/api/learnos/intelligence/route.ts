@@ -39,7 +39,7 @@ const intelligenceSchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "entrainement:read");
+  const denied = await checkPermission(session.user.role, "entrainement:read");
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "ai:teacher");
+  const denied = await checkPermission(session.user.role, "ai:teacher");
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;

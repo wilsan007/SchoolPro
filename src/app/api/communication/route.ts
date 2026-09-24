@@ -25,7 +25,7 @@ const NotifSchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "communication:read");
+  const denied = await checkPermission(session.user.role, "communication:read");
   if (denied) return denied;
 
   // La console de communication est un outil du personnel : un PARENT / STUDENT
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "communication:send");
+  const denied = await checkPermission(session.user.role, "communication:send");
   if (denied) return denied;
 
   // Rate limit: 10 notifications per minute per user

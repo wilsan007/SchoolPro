@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "messages:read");
+    const denied = await checkPermission(session.user.role, "messages:read");
     if (denied) return denied;
 
     const { id } = await params;
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     // Répondre dans une conversation existante exige messages:reply (les élèves l'ont)
-    const denied = checkPermission(session.user.role, "messages:reply");
+    const denied = await checkPermission(session.user.role, "messages:reply");
     if (denied) return denied;
 
     const { id } = await params;

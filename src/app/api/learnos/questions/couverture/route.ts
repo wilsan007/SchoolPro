@@ -20,7 +20,7 @@ import { siteFilterForModel, siteFilterForRelation } from "@/lib/site-scope";
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "entrainement:read");
+  const denied = await checkPermission(session.user.role, "entrainement:read");
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;

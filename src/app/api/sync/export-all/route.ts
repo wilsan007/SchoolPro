@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateFullExportZip } from "@/lib/sync-export";
+import { roleHasPermission } from "@/lib/permissions";
 
 /**
  * GET /api/sync/export-all
@@ -107,8 +108,7 @@ export async function GET(request: NextRequest) {
 
       // Vérifier les permissions (TENANT_ADMIN ou SUPER_ADMIN)
       if (
-        session.user.role !== "TENANT_ADMIN" &&
-        session.user.role !== "SUPER_ADMIN"
+        !roleHasPermission(session.user.role, "parametres:admin")
       ) {
         return NextResponse.json(
           { error: "Permissions insuffisantes" },

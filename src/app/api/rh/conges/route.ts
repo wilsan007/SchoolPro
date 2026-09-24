@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "rh:read");
+  const denied = await checkPermission(session.user.role, "rh:read");
   if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "rh:write");
+  const denied = await checkPermission(session.user.role, "rh:write");
   if (denied) return denied;
 
   const body = await req.json();

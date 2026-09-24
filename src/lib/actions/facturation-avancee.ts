@@ -8,6 +8,7 @@ import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
 import { anneeActiveId } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
+import { checkPermission } from "@/lib/rbac";
 
 // ============================================================
 // TARIFS PAR NIVEAU
@@ -40,9 +41,11 @@ export async function getTarifsForTenant() {
 export async function createTarif(data: TarifFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "tarifs:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parsed = TarifSchema.safeParse(data);
   if (!parsed.success) {
@@ -73,9 +76,11 @@ export async function createTarif(data: TarifFormData) {
 export async function deleteTarif(tarifId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "tarifs:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const existant = await prisma.tarifNiveau.findFirst({
     where: { id: tarifId, tenantId: session.user.tenantId },
@@ -103,9 +108,11 @@ export async function genererMensualites(params: {
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "factures:generer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const tenantId = session.user.tenantId;
   const { mois, annee, inclureCantine = false, inclureTransport = false } = params;
@@ -212,9 +219,11 @@ export async function genererFraisInscription(params: {
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "factures:generer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const tenantId = session.user.tenantId;
   const { eleveIds, type, annee } = params;
@@ -298,9 +307,11 @@ export async function genererFraisInscription(params: {
 export async function envoyerRelance(factureId: string, canal: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "factures:relancer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const facture = await prisma.facture.findFirst({
     where: mergeFilters(
@@ -402,9 +413,11 @@ export async function exclureEleve(params: {
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "exclusions:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const { eleveId, motif, details } = params;
 
@@ -449,9 +462,11 @@ export async function exclureEleve(params: {
 export async function leverExclusion(exclusionId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "exclusions:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const exclusion = await prisma.exclusionEleve.findFirst({
     where: { id: exclusionId, tenantId: session.user.tenantId, dateFin: null },

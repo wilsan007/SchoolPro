@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { DeuxFacteursPanel } from "@/components/profil/DeuxFacteursPanel";
@@ -16,12 +17,15 @@ import { deuxFacteursObligatoire } from "@/lib/two-factor-policy";
  * enfermés dehors par la mesure censée les protéger. `/profil` est ouvert
  * à tout compte authentifié, ce qui est de toute façon la bonne place :
  * la sécurité d'un compte est personnelle, pas administrative.
+ *
+ * Le `Header` étant un composant client, il reçoit ses libellés traduits
+ * d'ici (namespace `twoFactor`) et non via `useTranslations`.
  */
 export default async function SecuritePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-   
+  const t = await getTranslations("twoFactor");
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: { twoFactorEnabled: true, twoFactorVerifiedAt: true },
@@ -29,7 +33,7 @@ export default async function SecuritePage() {
 
   return (
     <>
-      <Header title="Sécurité du compte" />
+      <Header title={t("title")} subtitle={t("subtitle")} />
       <div className="p-4 sm:p-6 max-w-2xl space-y-6">
         <DeuxFacteursPanel
           actifInitial={user.twoFactorEnabled}

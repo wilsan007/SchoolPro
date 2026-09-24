@@ -16,7 +16,7 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-  const denied = checkPermission(session.user.role, "parametres:write");
+  const denied = await checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
   const { id } = ParamsSchema.parse(await params);

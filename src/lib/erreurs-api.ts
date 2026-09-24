@@ -292,6 +292,31 @@ const CATALOGUE = {
     statut: 400,
     fr: "Le mot de passe actuel est incorrect",
   },
+
+  // — Double authentification (TOTP) —
+  //
+  // Codes dédiés plutôt que `STATUT_INVALIDE` + `detail` en français : le
+  // client choisit le bon message en lisant `code`, sans avoir à reconnaître
+  // des phrases françaises — reconnaissance qui casse au premier changement
+  // de virgule, et qui ne peut pas fonctionner dans une autre langue.
+  TOTP_INVALIDE: { statut: 400, fr: "Code TOTP invalide" },
+  CODE_SECOURS_INVALIDE: { statut: 400, fr: "Code de secours invalide" },
+  DEUX_FACTEURS_DEJA_ACTIF: {
+    statut: 409,
+    fr: "La double authentification est déjà active. La désactiver avant d'enregistrer un nouveau compte.",
+  },
+  DEUX_FACTEURS_OBLIGATOIRE: {
+    statut: 403,
+    fr: "La double authentification est obligatoire pour ce rôle et ne peut pas être désactivée.",
+  },
+  DEUX_FACTEURS_NON_CONFIGURE: {
+    statut: 500,
+    fr: "Le service de double authentification n'est pas configuré sur ce serveur. Signalez-le à l'administrateur.",
+  },
+  TROP_DE_TENTATIVES: {
+    statut: 429,
+    fr: "Trop de tentatives. Réessayez dans une minute.",
+  },
 } as const satisfies Record<string, Definition>;
 
 export type CodeErreur = keyof typeof CATALOGUE;
@@ -311,6 +336,28 @@ export function statutErreur(code: CodeErreur): number {
 }
 
 /**
+ * Corps d'erreur normalisé, sans statut HTTP.
+ *
+ * Sert aux réponses qui doivent fixer leurs propres en-têtes — un 429 avec
+ * `Retry-After`, par exemple — tout en portant un code traduisible. Sans cette
+ * sortie, ces routes renvoyaient `{ success: false, error: "rate_limited" }` :
+ * une chaîne anglaise figée que le client devait reconnaître pour la traduire,
+ * exactement ce que ce module existe pour éviter.
+ */
+export function corpsErreur(
+  code: CodeErreur,
+  params?: ParamsErreur,
+  extra?: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    code,
+    error: messageErreurFr(code, params),
+    ...(params ? { params } : {}),
+    ...extra,
+  };
+}
+
+/**
  * Réponse d'erreur normalisée.
  *
  * @param extra champs additionnels (ex. `details` d'un schéma Zod), jamais
@@ -321,13 +368,7 @@ export function erreurJson(
   params?: ParamsErreur,
   extra?: Record<string, unknown>
 ) {
-  return NextResponse.json(
-    {
-      code,
-      error: messageErreurFr(code, params),
-      ...(params ? { params } : {}),
-      ...extra,
-    },
-    { status: statutErreur(code) }
-  );
+  return NextResponse.json(corpsErreur(code, params, extra), {
+    status: statutErreur(code),
+  });
 }

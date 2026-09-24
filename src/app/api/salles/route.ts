@@ -16,7 +16,7 @@ export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:read");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:read");
     if (denied) return denied;
     // Les salles sont un outil du personnel : aucune raison pour qu'un PARENT /
     // STUDENT voie l'inventaire des salles du tenant.
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:write");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:write");
     if (denied) return denied;
 
     const siteError = requireSiteIdForCreate(session.user);

@@ -25,7 +25,7 @@ const QuerySchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "cours:read");
+  const denied = await checkPermission(session.user.role, "cours:read");
   if (denied) return denied;
 
   // La liste des cours est un outil du personnel : un PARENT / STUDENT qui a
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "cours:write");
+  const denied = await checkPermission(session.user.role, "cours:write");
   if (denied) return denied;
 
   const siteError = requireSiteIdForCreate(session.user);

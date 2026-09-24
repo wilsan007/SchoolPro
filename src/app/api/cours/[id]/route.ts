@@ -32,7 +32,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "cours:read");
+  const denied = await checkPermission(session.user.role, "cours:read");
   if (denied) return denied;
 
   const { id } = await params;
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "cours:write");
+  const denied = await checkPermission(session.user.role, "cours:write");
   if (denied) return denied;
 
   const { id } = await params;
@@ -149,7 +149,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const denied = checkPermission(session.user.role, "cours:delete");
+  const denied = await checkPermission(session.user.role, "cours:delete");
   if (denied) return denied;
 
   const { id } = await params;

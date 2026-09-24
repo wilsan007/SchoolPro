@@ -7,7 +7,9 @@
  *
  *   1. `src/middleware.ts`  — runtime Edge, pas de Prisma possible.
  *   2. `src/lib/rbac.ts`    — routes API (Node).
- *   3. `src/components/layout/Sidebar.tsx` — composant client (navigation).
+ *   3. `src/components/workspace/Dock.tsx` + `DockSearch.tsx` +
+ *      `src/components/layout/MobileLayout.tsx` — navigation (client), qui
+ *      dérivent leur inventaire de `@/lib/nav-items`.
  *
  * Avant, chacun portait sa propre copie de la matrice : trois vérités qui
  * divergeaient silencieusement. Une permission ajoutée ici ne s'appliquait
@@ -62,6 +64,26 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "entrainement:read", "entrainement:valider",
     // Gouvernance, mentorat et tâches : pilotage de l'établissement.
     "gouvernance:*", "mentorat:*", "taches:*",
+    // Actes réservés à la direction — auparavant listés en dur dans les
+    // Server Actions et les routes API (`role !== "TENANT_ADMIN" && …`).
+    // Chaque permission reproduit EXACTEMENT l'ensemble de rôles qu'elle
+    // remplace : ce n'est pas un élargissement, c'est un rapatriement dans la
+    // matrice de la seule vérité d'autorisation.
+    "reinscription:gerer", "reinscription:inviter",
+    "lien-parent:valider",
+    // Ces quatre-là vivent dans des namespaces volontairement distincts de
+    // `finance:*` et `vie-scolaire:*` : ces wildcards appartiennent à des rôles
+    // qui ne doivent PAS générer de factures ni exclure un élève (CAISSIER,
+    // CLASS_TEACHER, COUNSELOR, SUPERVISOR). Les nommer séparément est ce qui
+    // rend l'ensemble de détenteurs exactement égal à l'ancienne liste en dur.
+    "tarifs:gerer", "factures:generer", "factures:relancer", "exclusions:gerer",
+    // Import en masse d'élèves et de personnel (fichier Excel/CSV) : acte
+    // technique et irréversible, resté jusqu'ici réservé par une liste en dur
+    // dans `/api/import/*`. Le namespace `imports:` est volontairement distinct
+    // de `eleves:` : `eleves:*` appartient aussi au secrétariat et au chef
+    // d'établissement pour la saisie unitaire, qui ne doivent pas hériter d'un
+    // import de masse par wildcard.
+    "imports:gerer",
   ],
 
   // Chef d'établissement — pédagogie et vie scolaire complètes ;
@@ -78,6 +100,13 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "entrainement:read", "entrainement:valider",
     // Gouvernance, mentorat et tâches : pilotage de l'établissement.
     "gouvernance:*", "mentorat:*", "taches:*",
+    // Actes de direction rapatriés dans la matrice (cf. TENANT_ADMIN).
+    // `parametres:valider` et non `parametres:write` : le chef d'établissement
+    // administre les utilisateurs, les classes et les sites, il ne détient pas
+    // l'administration technique des paramètres (`parametres:admin`).
+    "parametres:valider",
+    "tarifs:gerer", "factures:generer", "factures:relancer",
+    "exclusions:gerer", "lien-parent:valider",
   ],
 
   // Secrétariat — administratif. Ni pédagogie fine, ni finance, ni paramètres.
@@ -88,6 +117,10 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "admissions:*", "examens:read", "inventaire:read",
     "documents:*", "alumni:read", "bulletins:read", "rapports:read",
     "taches:*",
+    // Le secrétariat est le guichet des inscriptions : il envoie les
+    // invitations de réinscription et relance les familles (cf. l'ancienne
+    // liste en dur dans `campagne-reinscription.ts`).
+    "reinscription:inviter",
   ],
 
   // Enseignant — sa pédagogie, de bout en bout.
@@ -156,6 +189,10 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     "parametres:read", "parametres:write",
     "analytics:read", "rapports:read", "messages:*", "documents:read",
     "taches:*",
+    // Le comptable pilote la campagne de réinscription et les relances de
+    // factures (cf. les anciennes listes en dur de `campagne-reinscription.ts`
+    // et `facturation-avancee.ts`).
+    "factures:relancer", "reinscription:gerer", "reinscription:inviter",
   ],
 
   // Caissier — saisie des recettes (encaissements), remise de caisse.
@@ -252,7 +289,43 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 // ============================================================
 // 2. Vérification de permission
 // ============================================================
-export function roleHasPermission(role: RoleKey | string, permission: Permission): boolean {
+
+/**
+ * Dérogations par utilisateur, en plus du rôle (table `user_permission`).
+ *
+ * `grants` accorde une permission que le rôle ne porte pas, `denies` en retire
+ * une que le rôle porte. **`denies` l'emporte sur `grants`** : une révocation
+ * explicite ne peut pas être contournée par un octroi de même portée.
+ *
+ * Le type est volontairement structurel (et non un import Prisma) : il circule
+ * jusqu'au middleware Edge, qui ne peut charger ni Prisma ni la base.
+ */
+export type PermissionOverrides = {
+  grants?: readonly string[];
+  denies?: readonly string[];
+};
+
+/** `list` couvre-t-elle `permission`, directement ou par wildcard de module ? */
+function permissionCouverte(
+  list: readonly string[] | undefined,
+  permission: Permission
+): boolean {
+  if (!list || list.length === 0) return false;
+  if (list.includes(permission)) return true;
+  const moduleName = permission.split(":")[0];
+  return list.includes(`${moduleName}:*`) || list.includes("*");
+}
+
+export function roleHasPermission(
+  role: RoleKey | string,
+  permission: Permission,
+  overrides?: PermissionOverrides
+): boolean {
+  // 1. Révocation explicite — elle prime sur tout, y compris sur `*`.
+  if (permissionCouverte(overrides?.denies, permission)) return false;
+  // 2. Octroi explicite — pour une permission que le rôle ne porte pas.
+  if (permissionCouverte(overrides?.grants, permission)) return true;
+  // 3. Le rôle, seule source de vérité par défaut.
   const perms = ROLE_PERMISSIONS[role as RoleKey] ?? [];
   if (perms.includes("*")) return true;
   if (perms.includes(permission)) return true;
@@ -263,10 +336,11 @@ export function roleHasPermission(role: RoleKey | string, permission: Permission
 /** Vrai si le rôle satisfait au moins une des permissions demandées (OU logique). */
 export function roleHasAnyPermission(
   role: RoleKey | string,
-  permission: Permission | Permission[]
+  permission: Permission | Permission[],
+  overrides?: PermissionOverrides
 ): boolean {
   const needed = Array.isArray(permission) ? permission : [permission];
-  return needed.some((p) => roleHasPermission(role, p));
+  return needed.some((p) => roleHasPermission(role, p, overrides));
 }
 
 /** Toutes les permissions distinctes de la matrice, triées, pour l'UI d'override. */
@@ -396,6 +470,22 @@ export const ROUTE_RULES: RouteRule[] = [
   { pattern: /^\/eleves\/transfert/, permission: "eleves:write", roles: [
     "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY",
   ] },
+  // — Écritures sur la fiche élève —
+  // `/eleves/nouveau` et `/eleves/<id>/modifier` sont des écrans de MUTATION.
+  // Les laisser sous la règle `eleves:read` de leur parent `/eleves` ouvrait la
+  // création et la modification d'un élève à onze rôles en lecture (NURSE,
+  // CAISSIER, INSPECTOR, TEACHER, SUBJECT_LEAD, SITE_MANAGER…), et le bouton
+  // « Nouvel élève » masqué dans `/eleves` ne protégeait pas l'URL directe.
+  // `eleves:write` est exactement la permission qui décide de l'affichage de ce
+  // bouton : les deux ne peuvent plus diverger.
+  { pattern: /^\/eleves\/nouveau/, permission: "eleves:write" },
+  { pattern: /^\/eleves\/[^/]+\/modifier/, permission: "eleves:write" },
+  // Cartes scolaires et attestations de scolarité : documents officiels de
+  // l'établissement (logos, cachet, signature du chef). Ce sont des actes
+  // administratifs, pas de la consultation d'annuaire.
+  { pattern: /^\/eleves\/(cartes|attestations)/, permission: "eleves:write", roles: [
+    "SUPER_ADMIN", "TENANT_ADMIN", "PRINCIPAL", "SECRETARY",
+  ] },
   { pattern: /^\/eleves/, permission: "eleves:read" },
   { pattern: /^\/parents/, permission: "parents:read" },
   // `/notes/bulletins` reste **avant** `/notes` : c'est la console de
@@ -519,6 +609,11 @@ export const ROUTE_RULES: RouteRule[] = [
 
   // — Configuration —
   { pattern: /^\/parametres\/audit/, permission: "audit:read" },
+  // Journal des emails transactionnels : il expose l'intégralité des envois de
+  // l'établissement (destinataires, statuts, erreurs). `/api/emails/journal` le
+  // réserve déjà à la direction ; sans cette règle la page s'ouvrait avec
+  // `parametres:read` (comptable compris) puis affichait un 403.
+  { pattern: /^\/parametres\/journal-emails/, permission: "audit:read" },
   { pattern: /^\/parametres\/demandes-lien/, permission: "parametres:read" },
   { pattern: /^\/parametres/, permission: "parametres:read" },
 
@@ -626,10 +721,14 @@ export function findRouteRule(pathname: string): RouteRule | null {
  * Une route absente du registre est **refusée** : ajouter une page sans
  * déclarer sa règle ne doit pas l'ouvrir à tout le monde par défaut.
  */
-export function canAccessRoute(role: RoleKey | string, pathname: string): boolean {
+export function canAccessRoute(
+  role: RoleKey | string,
+  pathname: string,
+  overrides?: PermissionOverrides
+): boolean {
   const rule = findRouteRule(pathname);
   if (!rule) return false;
   if (rule.roles && !rule.roles.includes(role as RoleKey)) return false;
   if (rule.permission === null) return true;
-  return roleHasAnyPermission(role, rule.permission);
+  return roleHasAnyPermission(role, rule.permission, overrides);
 }

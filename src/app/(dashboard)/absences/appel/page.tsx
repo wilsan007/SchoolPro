@@ -5,6 +5,7 @@ import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { AppelInterface } from "@/components/absences/AppelInterface";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
@@ -97,6 +98,11 @@ export default async function AppelPage() {
           hierarchie={hierarchie}
           creneauxEdt={creneaux}
           maintenantISO={maintenant.toISOString()}
+          // `absences:read` ouvre cet écran (l'assiduité est le dossier de suivi
+          // de plusieurs rôles) ; seule `absences:write` autorise la saisie.
+          // La même permission décide ici de l'affichage et dans
+          // `/api/absences/appel` de l'enregistrement.
+          canWrite={roleHasPermission(session.user.role, "absences:write")}
         />
       </div>
     </div>

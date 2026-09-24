@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   // API-H1 (audit v2) : contrôle de rôle — la feuille de présence est un
   // outil du personnel.
-  const denied = checkPermission(session.user.role, "absences:read");
+  const denied = await checkPermission(session.user.role, "absences:read");
   if (denied) return denied;
 
   // ISO-H1 (audit v2) : les familles ne peuvent pas accéder à la feuille

@@ -15,6 +15,7 @@ import { Monitor, Columns2, Rows2, Grid2x2, School, Search, Command, User, LogOu
 import { signOut } from "next-auth/react";
 import type { Role } from "@prisma/client";
 import type { AvailableTenant } from "@/auth.config";
+import type { PermissionOverrides } from "@/lib/permissions";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { SiteSwitcher } from "@/components/layout/SiteSwitcher";
 import { RoleSwitcher } from "@/components/layout/RoleSwitcher";
@@ -41,6 +42,12 @@ interface WorkspaceProps {
   isSiteAdmin?: boolean;
   availableRoles?: Role[];
   currentRole?: Role;
+  /**
+   * Dérogations par utilisateur, calculées une fois par le layout serveur.
+   * Elles traversent la barre de modules et la recherche Cmd+K pour que
+   * l'inventaire affiché corresponde exactement à ce que le serveur autorise.
+   */
+  permissionOverrides?: PermissionOverrides;
 }
 
 export function Workspace({
@@ -56,6 +63,7 @@ export function Workspace({
   isSiteAdmin = false,
   availableRoles = [],
   currentRole,
+  permissionOverrides,
 }: WorkspaceProps) {
   const {
     visibleWindows,
@@ -262,10 +270,15 @@ export function Workspace({
       </div>
 
       {/* Dock en bas d'écran — barre divisée catégories | pages */}
-      <Dock roleKey={roleKey} />
+      <Dock roleKey={roleKey} permissionOverrides={permissionOverrides} />
 
       {/* Recherche de modules Cmd+K */}
-      <DockSearchTrigger open={searchOpen} onOpenChange={setSearchOpen} roleKey={roleKey} />
+      <DockSearchTrigger
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        roleKey={roleKey}
+        permissionOverrides={permissionOverrides}
+      />
     </div>
   );
 }
@@ -295,7 +308,17 @@ function EmptyWorkspace() {
  * Trigger pour DockSearch — gère l'état ouvert/fermé et le raccourci clavier.
  * Séparé pour éviter de re-render tout le Workspace à chaque frappe dans la recherche.
  */
-function DockSearchTrigger({ open, onOpenChange, roleKey }: { open: boolean; onOpenChange: (v: boolean) => void; roleKey: string }) {
+function DockSearchTrigger({
+  open,
+  onOpenChange,
+  roleKey,
+  permissionOverrides,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  roleKey: string;
+  permissionOverrides?: PermissionOverrides;
+}) {
   // Raccourci clavier global Cmd+K / Ctrl+K
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -309,7 +332,7 @@ function DockSearchTrigger({ open, onOpenChange, roleKey }: { open: boolean; onO
   }, [onOpenChange]);
 
   if (!open) return null;
-  return <DockSearch roleKey={roleKey} open={open} onClose={() => onOpenChange(false)} />;
+  return <DockSearch roleKey={roleKey} open={open} onClose={() => onOpenChange(false)} permissionOverrides={permissionOverrides} />;
 }
 
 /**

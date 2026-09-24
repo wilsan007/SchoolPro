@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec eleves:write
     // peuvent uploader une photo d'élève.
-    const denied = checkPermission(session.user.role, "eleves:write");
+    const denied = await checkPermission(session.user.role, "eleves:write");
     if (denied) return denied;
 
     // Rate limit: 10 uploads per minute per user

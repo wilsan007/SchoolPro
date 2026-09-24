@@ -69,6 +69,13 @@ vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }));
 
+// `checkPermission` est désormais asynchrone : il lit les dérogations par
+// utilisateur. On les neutralise ici — ces tests portent sur la logique de
+// campagne, pas sur le RBAC, dont la matrice est déjà la seule variable.
+vi.mock("@/lib/effective-permissions", () => ({
+  overridesPour: vi.fn(async () => ({})),
+}));
+
 // Le périmètre site est neutralisé : son comportement est testé ailleurs.
 vi.mock("@/lib/site-scope", () => ({
   siteFilterForModel: vi.fn(() => ({})),

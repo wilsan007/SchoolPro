@@ -17,7 +17,8 @@ import { NextResponse } from "next/server";
 import type { Role } from "@prisma/client";
 import type { Session } from "next-auth";
 import { auditFire } from "@/lib/audit";
-import { ROLE_PERMISSIONS, roleHasPermission, type Permission } from "@/lib/permissions";
+import { ROLE_PERMISSIONS, roleHasPermission, type Permission, type PermissionOverrides } from "@/lib/permissions";
+import { overridesPour } from "@/lib/effective-permissions";
 
 export { ROLE_PERMISSIONS, roleHasPermission };
 export type { Permission };
@@ -87,7 +88,11 @@ export async function authorize(
     const needed = Array.isArray(opts.permission)
       ? opts.permission
       : [opts.permission];
-    const allowed = needed.some((p) => roleHasPermission(role, p));
+    // Dérogations par utilisateur : un `deny` posé dans l'administration doit
+    // retirer l'accès ici aussi, sinon l'API resterait ouverte alors que la
+    // navigation et `guardPage` l'ont fermée.
+    const overrides = await overridesPour(session.user.id, tenantId ?? null);
+    const allowed = needed.some((p) => roleHasPermission(role, p, overrides));
     if (!allowed) {
       auditFire({
         userId: session.user.id,
@@ -121,20 +126,42 @@ export async function authorize(
  * Garde légère pour les routes qui conservent leur propre `await auth()`.
  * Retourne une réponse 403 si le rôle n'a pas la permission, sinon `null`.
  *
- *   const denied = checkPermission(session.user.role, "eleves:write");
+ *   const denied = await checkPermission(session.user.role, "eleves:write");
  *   if (denied) return denied;
+ *
+ * **Async depuis l'audit d'autorisation** : la fonction lit les dérogations
+ * par utilisateur (`user_permission`). Sans cette lecture, un `deny` posé dans
+ * l'interface d'administration n'avait aucun effet — la matrice des rôles
+ * seule ne le voyait pas. L'identité est reprise de la session par défaut ;
+ * passer `identity` évite une seconde résolution quand l'appelant la connaît
+ * déjà (routes qui chargent la session elles-mêmes).
  */
-export function checkPermission(
+export async function checkPermission(
   role: Role,
-  permission: Permission
-): NextResponse | null {
-  if (!roleHasPermission(role, permission)) {
+  permission: Permission,
+  identity?: { userId?: string | null; tenantId?: string | null }
+): Promise<NextResponse | null> {
+  let overrides: PermissionOverrides = {};
+  if (identity) {
+    overrides = await overridesPour(identity.userId ?? null, identity.tenantId ?? null);
+  } else {
+    const session = await auth();
+    if (session?.user?.id) {
+      overrides = await overridesPour(session.user.id, session.user.tenantId ?? null);
+    }
+  }
+
+  if (!roleHasPermission(role, permission, overrides)) {
     auditFire({
       action: "auth:check",
       verdict: "DENIED",
       resource: permission,
       reason: "Privilèges insuffisants",
-      metadata: { role },
+      metadata: {
+        role,
+        denies: overrides.denies,
+        grants: overrides.grants,
+      },
     });
     return NextResponse.json(
       { error: "Accès refusé : privilèges insuffisants" },

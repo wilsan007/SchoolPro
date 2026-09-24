@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec eleves:write
   // peuvent créer une dispense.
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = await checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
   const parsed = CreateSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
@@ -70,7 +70,7 @@ export async function DELETE(req: NextRequest) {
 
   // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec eleves:write
   // peuvent supprimer une dispense.
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = await checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
   const { searchParams } = new URL(req.url);

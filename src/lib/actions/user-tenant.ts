@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
 import { normaliserEmail } from "@/lib/email";
 import { generateRandomPassword } from "@/lib/security/password";
+import { checkPermission } from "@/lib/rbac";
 
 /**
  * Ajoute un utilisateur existant (par email) à un tenant.
@@ -36,9 +37,10 @@ export async function addUserToTenant(params: {
   const email = normaliserEmail(params.email);
 
   // Seuls TENANT_ADMIN et SUPER_ADMIN peuvent ajouter des utilisateurs
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Administration des rattachements : `parametres:admin` reproduit
+  // exactement l'ancienne liste [TENANT_ADMIN, SUPER_ADMIN].
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   // Un TENANT_ADMIN ne peut agir que sur un établissement dont il est
   // effectivement administrateur : sans ce contrôle, l'admin de l'école A
@@ -279,9 +281,10 @@ export async function removeUserFromTenant(userId: string, tenantId: string) {
     throw new Error("Non autorisé");
   }
 
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Administration des rattachements : `parametres:admin` reproduit
+  // exactement l'ancienne liste [TENANT_ADMIN, SUPER_ADMIN].
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   // Ne pas se retirer soi-même
   if (userId === session.user.id) {

@@ -24,7 +24,7 @@ export async function GET(
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const denied = checkPermission(session.user.role, "parametres:read");
+  const denied = await checkPermission(session.user.role, "parametres:read");
   if (denied) return denied;
 
   const { id } = await params;
@@ -66,7 +66,7 @@ export async function PATCH(
   // API-C1 (audit v2) : permission dédiée annees:gerer.
   // `parametres:write` ne suffit pas : ACCOUNTANT le possède, or un
   // comptable ne doit pas pouvoir clôturer l'année scolaire.
-  const denied = checkPermission(session.user.role, "annees:gerer");
+  const denied = await checkPermission(session.user.role, "annees:gerer");
   if (denied) return denied;
 
   const { id } = await params;

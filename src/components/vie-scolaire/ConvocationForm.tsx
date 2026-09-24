@@ -45,7 +45,7 @@ interface TenantInfo {
   currentYear: string;
 }
 
-export function ConvocationForm({ classes, tenant, hierarchie }: { classes: Classe[]; tenant: TenantInfo; hierarchie?: ClassesHierarchie }) {
+export function ConvocationForm({ classes, tenant, hierarchie, canWrite }: { classes: Classe[]; tenant: TenantInfo; hierarchie?: ClassesHierarchie; canWrite: boolean }) {
   const t = useTranslations("vieScolaire");
   const libelleNiveau = useLibelleNiveau();
   const [classeId, setClasseId] = useState("");
@@ -166,11 +166,20 @@ export function ConvocationForm({ classes, tenant, hierarchie }: { classes: Clas
           </div>
         )}
 
-        <div className="flex justify-end w-full sm:w-auto">
-          <Button onClick={handlePrint} disabled={!eleveId || generating} className="gap-2">
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-            {t("convocationPrint")}
-          </Button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+          {/* Convoquer un parent est un acte de vie scolaire : `vie-scolaire:write`.
+              Un rôle qui ne l'a pas ne voit pas le bouton — il n'a pas non plus
+              de message d'erreur à découvrir après avoir rempli le formulaire. */}
+          {canWrite ? (
+            <Button onClick={handlePrint} disabled={!eleveId || generating} className="gap-2">
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+              {t("convocationPrint")}
+            </Button>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("convocationReadOnly")}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

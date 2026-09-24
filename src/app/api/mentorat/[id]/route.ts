@@ -24,7 +24,7 @@ export async function GET(
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "mentorat:read");
+    const denied = await checkPermission(session.user.role, "mentorat:read");
     if (denied) return denied;
 
     const { id } = await params;
@@ -56,7 +56,7 @@ export async function PATCH(
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "mentorat:write");
+    const denied = await checkPermission(session.user.role, "mentorat:write");
     if (denied) return denied;
 
     const { id } = await params;

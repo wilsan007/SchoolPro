@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { validateMagicBytes } from "@/lib/security/magic-bytes";
+import { roleHasPermission } from "@/lib/permissions";
 
 // Téléverse une signature ou un cachet et renvoie une data URL base64
 // (même stratégie de stockage que /api/eleves/upload-photo).
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
+    if (!roleHasPermission(session.user.role, "parametres:admin")) {
       return NextResponse.json({ error: "Permissions insuffisantes" }, { status: 403 });
     }
 

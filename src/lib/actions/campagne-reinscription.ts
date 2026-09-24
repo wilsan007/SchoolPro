@@ -11,6 +11,7 @@ import { cloturerAnnee } from "@/lib/annee-scolaire";
 import { sendWhatsAppMessage } from "@/lib/notifications/whatsapp";
 import { notifyDirection } from "@/lib/notifications/notify-direction";
 import crypto from "crypto";
+import { checkPermission } from "@/lib/rbac";
 
 // API-H3 (audit v2) : génère un token aléatoire de 32 bytes (64 hex).
 function genererTokenInvitation(): string {
@@ -77,9 +78,11 @@ export async function creerCampagne(params: {
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   // Vérifier qu'aucune campagne n'est déjà en cours
   const existante = await prisma.campagneReinscription.findFirst({
@@ -168,9 +171,11 @@ export async function creerCampagne(params: {
 export async function avancerEtape(campagneId: string, etape: number) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   await prisma.campagneReinscription.update({
     where: { id: campagneId, tenantId: session.user.tenantId },
@@ -188,9 +193,11 @@ export async function avancerEtape(campagneId: string, etape: number) {
 export async function annulerCampagne(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   await prisma.campagneReinscription.update({
     where: { id: campagneId, tenantId: session.user.tenantId },
@@ -208,9 +215,11 @@ export async function annulerCampagne(campagneId: string) {
 export async function clôturerAncienneAnnee(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const campagne = await prisma.campagneReinscription.findFirst({
     where: { id: campagneId, tenantId: session.user.tenantId },
@@ -252,9 +261,11 @@ export async function executerPromotionCampagne(
 ) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const campagne = await prisma.campagneReinscription.findFirst({
     where: { id: campagneId, tenantId: session.user.tenantId },
@@ -303,9 +314,11 @@ export async function executerPromotionCampagne(
 export async function envoyerInvitations(campagneId: string, canal: "WHATSAPP" | "SMS" | "EMAIL" = "WHATSAPP") {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT" && session.user.role !== "SECRETARY") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:inviter");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const campagne = await prisma.campagneReinscription.findFirst({
     where: { id: campagneId, tenantId: session.user.tenantId },
@@ -356,9 +369,11 @@ export async function envoyerInvitations(campagneId: string, canal: "WHATSAPP" |
 export async function envoyerRelance(invitationId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT" && session.user.role !== "SECRETARY") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:inviter");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const invitation = await prisma.invitationReinscription.findFirst({
     where: { id: invitationId, tenantId: session.user.tenantId },
@@ -389,9 +404,11 @@ export async function envoyerRelance(invitationId: string) {
 export async function confirmerReinscription(invitationId: string, confirme: boolean) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT" && session.user.role !== "SECRETARY") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:inviter");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const invitation = await prisma.invitationReinscription.findFirst({
     where: { id: invitationId, tenantId: session.user.tenantId },
@@ -434,9 +451,11 @@ export async function confirmerReinscription(invitationId: string, confirme: boo
 export async function marquerSansReponse(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   // Marquer toutes les invitations encore INVITE comme SANS_REPONSE
   const result = await prisma.invitationReinscription.updateMany({
@@ -483,9 +502,11 @@ export async function marquerSansReponse(campagneId: string) {
 export async function genererFraisRenouvellement(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const campagne = await prisma.campagneReinscription.findFirst({
     where: { id: campagneId, tenantId: session.user.tenantId },
@@ -529,9 +550,11 @@ export async function genererFraisRenouvellement(campagneId: string) {
 export async function genererMensualitesCampagne(campagneId: string, mois: number) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const campagne = await prisma.campagneReinscription.findFirst({
     where: { id: campagneId, tenantId: session.user.tenantId },
@@ -554,9 +577,11 @@ export async function genererMensualitesCampagne(campagneId: string, mois: numbe
 export async function activerNouvelleAnnee(campagneId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "ACCOUNTANT") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "reinscription:gerer");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const campagne = await prisma.campagneReinscription.findFirst({
     where: { id: campagneId, tenantId: session.user.tenantId },

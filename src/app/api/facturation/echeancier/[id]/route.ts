@@ -28,7 +28,7 @@ export async function PATCH(
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const denied = checkPermission(session.user.role, "finance:write");
+  const denied = await checkPermission(session.user.role, "finance:write");
   if (denied) return denied;
 
   const { id } = await params;

@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   // API-H1 (audit v2) : contrôle de rôle — seuls les rôles avec rapports:read
   // peuvent générer un classeur PDF nominatif.
-  const denied = checkPermission(session.user.role, "rapports:read");
+  const denied = await checkPermission(session.user.role, "rapports:read");
   if (denied) return denied;
 
   const raw = await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; });

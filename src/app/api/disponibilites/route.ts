@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:read");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:read");
     if (denied) return denied;
     // Les disponibilités enseignants sont un outil du personnel : un PARENT /
     // STUDENT n'a pas à voir les disponibilités des enseignants du tenant.
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:write");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:write");
     if (denied) return denied;
 
     const siteError = requireSiteIdForCreate(session.user);

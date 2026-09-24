@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   // Génération de comptes parents : action d'écriture sur les élèves.
   // Sans cette garde, n'importe quel utilisateur authentifié pouvait
   // créer des comptes pour les parents d'une classe entière.
-  const denied = checkPermission(session.user.role, "eleves:write");
+  const denied = await checkPermission(session.user.role, "eleves:write");
   if (denied) return denied;
 
   const body = await req.json();

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { LienParente } from "@prisma/client";
+import { checkPermission } from "@/lib/rbac";
 
 const DemandeLienSchema = z.object({
   matricule: z.string().min(1, "Le matricule est requis"),
@@ -150,14 +151,11 @@ export async function getDemandesLienEnAttente() {
     throw new Error("Non autorisé");
   }
 
-  if (
-    session.user.role !== "TENANT_ADMIN" &&
-    session.user.role !== "SUPER_ADMIN" &&
-    session.user.role !== "PRINCIPAL" &&
-    session.user.role !== "SECRETARY"
-  ) {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parents:write");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   return prisma.demandeLienParent.findMany({
     where: {
@@ -193,13 +191,11 @@ export async function validerDemandeLien(demandeId: string, lien: LienParente = 
     throw new Error("Non autorisé");
   }
 
-  if (
-    session.user.role !== "TENANT_ADMIN" &&
-    session.user.role !== "SUPER_ADMIN" &&
-    session.user.role !== "PRINCIPAL"
-  ) {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "lien-parent:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const demande = await prisma.demandeLienParent.findFirst({
     where: { id: demandeId, tenantId: session.user.tenantId, statut: "EN_ATTENTE" },
@@ -280,13 +276,11 @@ export async function refuserDemandeLien(demandeId: string, motifRefus: string) 
     throw new Error("Non autorisé");
   }
 
-  if (
-    session.user.role !== "TENANT_ADMIN" &&
-    session.user.role !== "SUPER_ADMIN" &&
-    session.user.role !== "PRINCIPAL"
-  ) {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "lien-parent:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const demande = await prisma.demandeLienParent.findFirst({
     where: { id: demandeId, tenantId: session.user.tenantId, statut: "EN_ATTENTE" },

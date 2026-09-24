@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "eleves:read");
+  const denied = await checkPermission(session.user.role, "eleves:read");
   if (denied) return denied;
 
   const { searchParams } = new URL(req.url);

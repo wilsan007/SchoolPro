@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Settings, Users, GraduationCap, BookOpen, UserCog, Settings2, Calendar, CalendarDays, Stamp, Building2,
@@ -29,6 +29,7 @@ import { DisponibilitesTab } from "./DisponibilitesTab";
 import { ImportModelesTab } from "./ImportModelesTab";
 
 import type { AvailableTenant } from "@/auth.config";
+import { roleHasPermission, type Permission } from "@/lib/permissions";
 
 type Tab =
   | "etablissement"
@@ -51,7 +52,17 @@ type Tab =
   | "sync"
   | "userPermissions";
 
-type TabDef = { id: Tab; labelKey: string; icon: typeof Settings };
+/**
+ * `perm` est la permission exigée par les **écritures** de l'onglet — celle que
+ * réclament déjà son API ou sa Server Action. `null` signifie « aucune exigence
+ * propre » : l'onglet est consultable dès lors que `/parametres` est ouvert, et
+ * `canManage` neutralise ses boutons.
+ *
+ * Un onglet dont l'écriture est refusée n'est plus affiché du tout : avant,
+ * un comptable voyait « Permissions utilisateur », « Synchronisation » ou
+ * « Signature » et remplissait des formulaires qui répondaient 403.
+ */
+type TabDef = { id: Tab; labelKey: string; icon: typeof Settings; perm: Permission | null };
 
 type TabGroup = {
   groupKey: string;
@@ -64,43 +75,43 @@ const tabGroups: TabGroup[] = [
     groupKey: "groupEtablissement",
     icon: School,
     tabs: [
-      { id: "etablissement", labelKey: "etablissement", icon: Settings },
-      { id: "annees", labelKey: "anneesScolaires", icon: Calendar },
-      { id: "calendrier", labelKey: "calendrierScolaire", icon: CalendarDays },
-      { id: "sites", labelKey: "sites", icon: Building2 },
-      { id: "import", labelKey: "importModeles", icon: Upload },
-      { id: "signature", labelKey: "signature", icon: Stamp },
-      { id: "sync", labelKey: "syncBackup", icon: HardDrive },
+      { id: "etablissement", labelKey: "etablissement", icon: Settings, perm: null },
+      { id: "annees", labelKey: "anneesScolaires", icon: Calendar, perm: null },
+      { id: "calendrier", labelKey: "calendrierScolaire", icon: CalendarDays, perm: null },
+      { id: "sites", labelKey: "sites", icon: Building2, perm: "parametres:admin" },
+      { id: "import", labelKey: "importModeles", icon: Upload, perm: "parametres:admin" },
+      { id: "signature", labelKey: "signature", icon: Stamp, perm: "parametres:admin" },
+      { id: "sync", labelKey: "syncBackup", icon: HardDrive, perm: "parametres:admin" },
     ],
   },
   {
     groupKey: "groupUsers",
     icon: UsersRound,
     tabs: [
-      { id: "utilisateurs", labelKey: "users", icon: Users },
-      { id: "parents", labelKey: "parents", icon: UserCog },
-      { id: "userPermissions", labelKey: "userPermissions", icon: ShieldCheck },
-      { id: "doublons", labelKey: "doublons", icon: CopyCheck },
+      { id: "utilisateurs", labelKey: "users", icon: Users, perm: null },
+      { id: "parents", labelKey: "parents", icon: UserCog, perm: null },
+      { id: "userPermissions", labelKey: "userPermissions", icon: ShieldCheck, perm: "parametres:admin" },
+      { id: "doublons", labelKey: "doublons", icon: CopyCheck, perm: "parametres:admin" },
     ],
   },
   {
     groupKey: "groupPedagogie",
     icon: BookOpenCheck,
     tabs: [
-      { id: "classes", labelKey: "classes", icon: GraduationCap },
-      { id: "matieres", labelKey: "matieres", icon: BookOpen },
-      { id: "enseignants", labelKey: "enseignantsAffectation", icon: ClipboardList },
-      { id: "salles", labelKey: "salles", icon: DoorOpen },
-      { id: "disponibilites", labelKey: "disponibilites", icon: CalendarClock },
-      { id: "appreciations", labelKey: "appreciations", icon: Settings2 },
-      { id: "periodes", labelKey: "periodes", icon: Calendar },
+      { id: "classes", labelKey: "classes", icon: GraduationCap, perm: null },
+      { id: "matieres", labelKey: "matieres", icon: BookOpen, perm: null },
+      { id: "enseignants", labelKey: "enseignantsAffectation", icon: ClipboardList, perm: null },
+      { id: "salles", labelKey: "salles", icon: DoorOpen, perm: null },
+      { id: "disponibilites", labelKey: "disponibilites", icon: CalendarClock, perm: null },
+      { id: "appreciations", labelKey: "appreciations", icon: Settings2, perm: "parametres:write" },
+      { id: "periodes", labelKey: "periodes", icon: Calendar, perm: "parametres:write" },
     ],
   },
   {
     groupKey: "groupFinance",
     icon: DollarSign,
     tabs: [
-      { id: "tarifs", labelKey: "tarifs", icon: DollarSign },
+      { id: "tarifs", labelKey: "tarifs", icon: DollarSign, perm: "tarifs:gerer" },
     ],
   },
 ];
@@ -117,6 +128,8 @@ interface ParametresTabsProps {
   sites: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getSitesForSettings>>;
   annees: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getAnneesScolaires>>;
   canManage: boolean;
+  /** Rôle actif : décide quels onglets sont affichés (cf. `TabDef.perm`). */
+  roleKey: string;
   availableTenants?: AvailableTenant[];
 }
 
@@ -132,13 +145,29 @@ export function ParametresTabs({
   sites,
   annees,
   canManage,
+  roleKey,
   availableTenants,
 }: ParametresTabsProps) {
   const t = useTranslations("parametres");
   const [activeTab, setActiveTab] = useState<Tab>("etablissement");
 
+  // Un onglet dont les écritures sont refusées au rôle n'est **pas affiché** :
+  // c'est la même règle que le menu — on ne montre pas ce qui mènera à un refus.
+  const groupes = useMemo(
+    () =>
+      tabGroups
+        .map((g) => ({
+          ...g,
+          tabs: g.tabs.filter(
+            (tab) => tab.perm === null || roleHasPermission(roleKey, tab.perm)
+          ),
+        }))
+        .filter((g) => g.tabs.length > 0),
+    [roleKey]
+  );
+
   // Trouver le groupe actif
-  const activeGroup = tabGroups.find((g) => g.tabs.some((tab) => tab.id === activeTab)) ?? tabGroups[0];
+  const activeGroup = groupes.find((g) => g.tabs.some((tab) => tab.id === activeTab)) ?? groupes[0];
   const [activeGroupId, setActiveGroupId] = useState(activeGroup.groupKey);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(activeGroup.groupKey);
 
@@ -155,7 +184,7 @@ export function ParametresTabs({
     <div className="space-y-4">
       {/* Niveau 1: Onglets de groupe */}
       <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-1">
-        {tabGroups.map((group) => (
+        {groupes.map((group) => (
           <button
             key={group.groupKey}
             onClick={() => handleGroupClick(group)}
@@ -181,7 +210,7 @@ export function ParametresTabs({
       {/* Niveau 2: Sous-onglets du groupe actif */}
       {expandedGroup && (
         <div className="flex gap-1.5 overflow-x-auto scrollbar-thin border-b pb-px">
-          {tabGroups
+          {groupes
             .find((g) => g.groupKey === expandedGroup)
             ?.tabs.map((tab) => (
               <button

@@ -143,6 +143,11 @@ Le pre-commit hook (installer avec `node scripts/install-hooks.mjs`) exécute
   - `CRON_SECRET` — secret pour les tâches planifiées
   - `RESEND_API_KEY` — emails transactionnels
   - `RESEND_FROM` — adresse d'envoi
+  - `TWO_FACTOR_SECRET` — chiffrement des secrets TOTP (`openssl rand -hex 32`).
+    Obligatoire dès que la double authentification est utilisée : sans elle,
+    aucun utilisateur ne peut configurer son second facteur. La changer rend
+    inutilisables toutes les configurations 2FA existantes. `docker-compose`
+    retombe sur `AUTH_SECRET` ; ce repli n'existe PAS hors Docker.
 
 ### Procédure de déploiement
 

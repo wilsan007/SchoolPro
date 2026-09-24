@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "absences:read");
+  const denied = await checkPermission(session.user.role, "absences:read");
   if (denied) return denied;
 
   // ISO-H1 (audit v2) : la veille assiduité est un outil du personnel. Les

@@ -160,6 +160,14 @@ export async function createEleve(
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
+  // Le bouton « Nouvel élève » n'est rendu qu'aux détenteurs de `eleves:write`
+  // (voir `/eleves`) et la route `/eleves/nouveau` exige la même permission.
+  // Sans ce contrôle, masquer le bouton ne protégeait rien : un rôle en lecture
+  // seule (TEACHER, NURSE, CAISSIER, INSPECTOR…) appelait l'action directement
+  // et créait un élève.
+  const denied = await checkPermission(session.user.role, "eleves:write");
+  if (denied) throw new Error("Permissions insuffisantes");
+
   const tenantId = session.user.tenantId;
   const siteError = requireSiteIdForCreate(session.user);
   if (siteError) throw new Error(siteError);
@@ -321,6 +329,11 @@ export async function updateEleve(
 ): Promise<ResultatEleve> {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+
+  // Même exigence que `createEleve` : la modification d'une fiche est une
+  // écriture, `/eleves/<id>/modifier` est désormais régi par `eleves:write`.
+  const denied = await checkPermission(session.user.role, "eleves:write");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const tenantId = session.user.tenantId;
   const parsed = EleveFormSchema.safeParse(data);
@@ -484,7 +497,7 @@ export async function deleteEleve(id: string, reason?: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  const denied = checkPermission(session.user.role, "eleves:delete");
+  const denied = await checkPermission(session.user.role, "eleves:delete");
   if (denied) throw new Error("Permission refusée");
 
   const tenantId = session.user.tenantId;
@@ -550,7 +563,7 @@ export async function restoreEleve(id: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
 
-  const denied = checkPermission(session.user.role, "eleves:delete");
+  const denied = await checkPermission(session.user.role, "eleves:delete");
   if (denied) throw new Error("Permission refusée");
 
   const tenantId = session.user.tenantId;

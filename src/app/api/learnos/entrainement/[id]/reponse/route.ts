@@ -37,7 +37,7 @@ export async function POST(
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "entrainement:write");
+  const denied = await checkPermission(session.user.role, "entrainement:write");
   if (denied) return denied;
 
   const { id: feuilleId } = await params;

@@ -4,18 +4,11 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useWindowManager } from "./WindowManager";
-import { canAccessRoute } from "@/lib/permissions";
+import { canAccessRoute, type PermissionOverrides } from "@/lib/permissions";
 import { accueilPourRole } from "@/lib/accueil-par-role";
-import {
-  LayoutDashboard, Users, ClipboardList, BookOpen, Target, Sparkles,
-  Gauge, HandHeart, Calendar, GraduationCap, MessageSquare, Receipt,
-  Settings, UserCheck, BarChart3, Shield, ShieldCheck, UserPlus,
-  Briefcase, Bell, FileText, Compass, Archive, Package, Crown, PlayCircle,
-  ListTodo, NotebookPen, Sun, Wrench, ClipboardCheck, BookOpenCheck,
-  Grid3x3, GitCompare, Wallet, Gavel, HeartHandshake, CheckSquare, Activity,
-  Brain, School, Search, Command,
-} from "lucide-react";
+import { Command, Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { NAV_GROUPS } from "@/lib/nav-items";
 
 interface SearchItem {
   labelKey: string;
@@ -26,107 +19,22 @@ interface SearchItem {
   groupAccent: string;
 }
 
-const allSearchItems: { groupKey: string; groupLabelKey: string; groupAccent: string; items: Omit<SearchItem, "groupKey" | "groupLabelKey" | "groupAccent">[] }[] = [
-  {
-    groupKey: "accueil", groupLabelKey: "accueil", groupAccent: "200 70% 46%",
-    items: [
-      { labelKey: "dashboard", icon: LayoutDashboard, href: "/dashboard" },
-      { labelKey: "direction", icon: Gauge, href: "/direction" },
-      { labelKey: "monEspace", icon: Briefcase, href: "/mon-espace" },
-      { labelKey: "maClasse", icon: Users, href: "/ma-classe" },
-      { labelKey: "maMatiere", icon: Target, href: "/ma-matiere" },
-      { labelKey: "couverture", icon: ShieldCheck, href: "/couverture" },
-      { labelKey: "devoirs", icon: NotebookPen, href: "/devoirs" },
-      { labelKey: "monParcours", icon: HandHeart, href: "/parent" },
-      { labelKey: "monParcoursEleve", icon: Target, href: "/eleve" },
-      { labelKey: "monEmploi", icon: Calendar, href: "/mon-emploi" },
-      { labelKey: "travail", icon: ListTodo, href: "/travail" },
-      { labelKey: "maJournee", icon: Sun, href: "/ma-journee" },
-      { labelKey: "entrainement", icon: Sparkles, href: "/entrainement" },
-      { labelKey: "revisionSemaine", icon: BookOpenCheck, href: "/revision-semaine" },
-      { labelKey: "secretariat", icon: FileText, href: "/secretariat" },
-      { labelKey: "conseiller", icon: Compass, href: "/conseiller" },
-      { labelKey: "infirmerie", icon: HandHeart, href: "/infirmerie" },
-      { labelKey: "comptabilite", icon: Receipt, href: "/comptabilite" },
-      { labelKey: "exploitation", icon: Wrench, href: "/exploitation" },
-      { labelKey: "inspection", icon: ClipboardCheck, href: "/inspection" },
-    ],
-  },
-  {
-    groupKey: "groupPedagogie", groupLabelKey: "groupPedagogie", groupAccent: "186 55% 42%",
-    items: [
-      { labelKey: "eleves", icon: Users, href: "/eleves" },
-      { labelKey: "notes", icon: BookOpen, href: "/notes" },
-      { labelKey: "cahierJournal", icon: NotebookPen, href: "/cahier-journal" },
-      { labelKey: "curriculum", icon: Target, href: "/curriculum" },
-      { labelKey: "recommandations", icon: Sparkles, href: "/recommandations" },
-      { labelKey: "plansLecon", icon: BookOpenCheck, href: "/plans-lecon" },
-      { labelKey: "rubriquesEvaluation", icon: Grid3x3, href: "/rubriques-evaluation" },
-      { labelKey: "propositionsIa", icon: ClipboardCheck, href: "/propositions-ia" },
-      { labelKey: "examens", icon: GraduationCap, href: "/evaluations" },
-      { labelKey: "sessionsExamens", icon: ClipboardCheck, href: "/examens" },
-      { labelKey: "conseilAugmente", icon: Brain, href: "/conseil-augmente" },
-      { labelKey: "mentorat", icon: HeartHandshake, href: "/mentorat" },
-      { labelKey: "cours", icon: PlayCircle, href: "/cours" },
-      { labelKey: "emploi", icon: Calendar, href: "/emploi-du-temps" },
-      { labelKey: "fournitures", icon: Package, href: "/fournitures" },
-    ],
-  },
-  {
-    groupKey: "groupVieScolaire", groupLabelKey: "groupVieScolaire", groupAccent: "220 60% 50%",
-    items: [
-      { labelKey: "absences", icon: ClipboardList, href: "/absences" },
-      { labelKey: "veilleAssiduite", icon: Activity, href: "/veille-assiduite" },
-      { labelKey: "vieScolaire", icon: Shield, href: "/vie-scolaire" },
-      { labelKey: "parents", icon: UserCheck, href: "/parents" },
-    ],
-  },
-  {
-    groupKey: "groupGestion", groupLabelKey: "groupGestion", groupAccent: "188 55% 45%",
-    items: [
-      { labelKey: "admissions", icon: UserPlus, href: "/admissions" },
-      { labelKey: "facturation", icon: Receipt, href: "/facturation" },
-      { labelKey: "caisse", icon: Wallet, href: "/caisse" },
-      { labelKey: "rh", icon: Briefcase, href: "/rh" },
-      { labelKey: "inventaire", icon: Package, href: "/inventaire" },
-      { labelKey: "gouvernance", icon: Gavel, href: "/gouvernance" },
-    ],
-  },
-  {
-    groupKey: "groupCommunication", groupLabelKey: "groupCommunication", groupAccent: "260 55% 58%",
-    items: [
-      { labelKey: "messages", icon: MessageSquare, href: "/messages" },
-      { labelKey: "communication", icon: Bell, href: "/communication" },
-    ],
-  },
-  {
-    groupKey: "groupRapports", groupLabelKey: "groupRapports", groupAccent: "245 50% 55%",
-    items: [
-      { labelKey: "rapports", icon: FileText, href: "/rapports" },
-      { labelKey: "analytics", icon: BarChart3, href: "/analytics" },
-      { labelKey: "intelligence", icon: Brain, href: "/intelligence" },
-      { labelKey: "comparateur", icon: GitCompare, href: "/comparateur" },
-      { labelKey: "orientation", icon: Compass, href: "/orientation" },
-      { labelKey: "alumni", icon: Archive, href: "/alumni" },
-    ],
-  },
-  {
-    groupKey: "systeme", groupLabelKey: "systeme", groupAccent: "210 18% 45%",
-    items: [
-      { labelKey: "taches", icon: CheckSquare, href: "/taches" },
-      { labelKey: "superAdmin", icon: Crown, href: "/super-admin" },
-      { labelKey: "parametres", icon: Settings, href: "/parametres" },
-    ],
-  },
-];
+const allSearchItems = NAV_GROUPS.map((g) => ({
+  groupKey: g.groupKey,
+  groupLabelKey: g.groupKey,
+  groupAccent: g.accent,
+  items: g.items,
+}));
 
 interface DockSearchProps {
   roleKey: string;
   open: boolean;
   onClose: () => void;
+  /** Dérogations utilisateur : la recherche ne propose que le réellement autorisé. */
+  permissionOverrides?: PermissionOverrides;
 }
 
-export function DockSearch({ roleKey, open, onClose }: DockSearchProps) {
+export function DockSearch({ roleKey, open, onClose, permissionOverrides }: DockSearchProps) {
   const t = useTranslations("nav");
   const { openWindow } = useWindowManager();
   const [query, setQuery] = useState("");
@@ -140,7 +48,7 @@ export function DockSearch({ roleKey, open, onClose }: DockSearchProps) {
     for (const group of allSearchItems) {
       for (const item of group.items) {
         if (item.href === "/dashboard" && accueilPourRole(roleKey)) continue;
-        if (!canAccessRoute(roleKey, item.href)) continue;
+        if (!canAccessRoute(roleKey, item.href, permissionOverrides)) continue;
         items.push({
           ...item,
           groupKey: group.groupKey,
@@ -150,7 +58,7 @@ export function DockSearch({ roleKey, open, onClose }: DockSearchProps) {
       }
     }
     return items;
-  }, [roleKey]);
+  }, [roleKey, permissionOverrides]);
 
   // Filtrer par recherche
   const filteredItems = useMemo(() => {

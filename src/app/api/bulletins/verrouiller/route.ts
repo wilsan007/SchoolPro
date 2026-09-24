@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     // Déverrouiller = modifier un bulletin verrouillé → réservé à l'admin
     if (action === "deverrouiller") {
-      const denied = checkPermission(session.user.role, "bulletins:write");
+      const denied = await checkPermission(session.user.role, "bulletins:write");
       if (denied) return denied;
       if (!["TENANT_ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
         return NextResponse.json(
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // Verrouiller : permission standard
-      const denied = checkPermission(session.user.role, "bulletins:write");
+      const denied = await checkPermission(session.user.role, "bulletins:write");
       if (denied) return denied;
     }
 

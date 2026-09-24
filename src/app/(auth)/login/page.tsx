@@ -104,7 +104,7 @@ function LoginForm() {
         reinitialiserWidget();
       } else if (code.includes("2fa_invalide")) {
         setDemande2FA(true);
-        setErreur2FA("Code de vérification incorrect ou expiré.");
+        setErreur2FA(t("totpInvalide"));
         setForm((f) => ({ ...f, totp: "" }));
         reinitialiserWidget();
       } else if (code.includes("erreur_turnstile")) {
@@ -120,7 +120,7 @@ function LoginForm() {
         // des identifiants invalides.
         reinitialiserWidget();
       } else {
-        toast.success(t("title") === "Sign In" ? "Signed in!" : "Connexion réussie !");
+        toast.success(t("signedIn"));
         router.push("/select-tenant");
         router.refresh();
       }
@@ -185,7 +185,7 @@ function LoginForm() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors rounded-lg p-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              aria-label={showPassword ? t("hidePassword") : t("showPassword")}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -199,15 +199,18 @@ function LoginForm() {
         {demande2FA && (
           <div className="space-y-1.5">
             <label className="text-sm font-medium" htmlFor="totp">
-              Code de vérification
+              {t("totpLabel")}
             </label>
             <Input
               id="totp"
               name="totp"
-              /* inputMode numeric : ouvre le pavé numérique sur mobile.
-                 Le type reste `text` car un code de secours contient un
-                 tiret et des lettres. */
-              inputMode="numeric"
+              /* `inputMode="text"` et non `numeric` : un code de secours
+                 (XXXX-XXXX) contient des lettres, et un pavé numérique — iOS
+                 comme Android — n'en propose aucune. Le champ ouvrait donc un
+                 clavier incapable de saisir la seule issue disponible quand le
+                 téléphone est perdu, ce qui revenait à fermer la porte de
+                 secours. Le type reste `text` pour la même raison. */
+              inputMode="text"
               autoComplete="one-time-code"
               autoFocus
               placeholder="123456"
@@ -216,8 +219,7 @@ function LoginForm() {
               className={erreur2FA ? "border-destructive" : ""}
             />
             <p className="text-muted-foreground text-xs">
-              Code à 6 chiffres de votre application d&apos;authentification,
-              ou l&apos;un de vos codes de secours.
+              {t("totpHint")}
             </p>
             {erreur2FA && (
               <p className="text-xs text-destructive">{erreur2FA}</p>
@@ -257,6 +259,8 @@ function LoginForm() {
 
 // ─── Page principale avec Suspense (requis par Next.js 15 pour useSearchParams) ─
 export default function LoginPage() {
+  const t = useTranslations("login");
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* Panneau gauche — gradient turquoise → violet (caché sur mobile) */}
@@ -272,13 +276,13 @@ export default function LoginPage() {
           </div>
           <div className="max-w-md">
             <h2 className="text-4xl xl:text-5xl font-display font-bold leading-tight mb-4">
-              La gestion scolaire de nouvelle génération
+              {t("heroTitle")}
             </h2>
             <p className="text-white/80 text-lg leading-relaxed">
-              Élèves, notes, absences, IA pédagogique LEARNOS — tout réuni dans une plateforme fluide et moderne.
+              {t("heroSubtitle")}
             </p>
           </div>
-          <p className="text-white/60 text-sm">© SchoolPro — Djibouti</p>
+          <p className="text-white/60 text-sm">{t("copyright")}</p>
         </div>
       </div>
 

@@ -28,7 +28,7 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const denied = checkPermission(session.user.role, "parametres:read");
+  const denied = await checkPermission(session.user.role, "parametres:read");
   if (denied) return denied;
 
   const annees = await listerAnneesAvecResume(session.user.tenantId);
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
 
-  const denied = checkPermission(session.user.role, "parametres:write");
+  const denied = await checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
   const parsed = PostSchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));

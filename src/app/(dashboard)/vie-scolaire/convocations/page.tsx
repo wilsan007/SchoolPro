@@ -5,6 +5,7 @@ import { siteFilterForModel } from "@/lib/site-scope";
 import { Header } from "@/components/layout/Header";
 import { ConvocationForm } from "@/components/vie-scolaire/ConvocationForm";
 import { guardPage } from "@/lib/guard-page";
+import { roleHasPermission } from "@/lib/permissions";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 
@@ -63,7 +64,12 @@ export default async function ConvocationsPage() {
         userAvatar={session.user.image ?? undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
-        <ConvocationForm classes={classes} tenant={tenant} hierarchie={hierarchie} />
+        <ConvocationForm
+          classes={classes}
+          tenant={tenant}
+          hierarchie={hierarchie}
+          canWrite={roleHasPermission(session.user.role, "vie-scolaire:write")}
+        />
       </div>
     </div>
   );

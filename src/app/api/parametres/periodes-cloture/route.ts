@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const denied = checkPermission(session.user.role, "parametres:write");
+  const denied = await checkPermission(session.user.role, "parametres:write");
   if (denied) return denied;
 
   const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));

@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "examens:write");
+    const denied = await checkPermission(session.user.role, "examens:write");
     if (denied) return denied;
 
     const { id } = await params;
@@ -72,7 +72,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "examens:delete");
+    const denied = await checkPermission(session.user.role, "examens:delete");
     if (denied) return denied;
 
     const { id } = await params;

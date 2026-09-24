@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   // Permission : cahier-journal:read (détenu par la direction, l'inspection et
   // les enseignants). Le tableau de suivi est une vue agrégée du cahier-journal.
-  const denied = checkPermission(session.user.role, "cahier-journal:read");
+  const denied = await checkPermission(session.user.role, "cahier-journal:read");
   if (denied) return denied;
 
   const tenantId = session.user.tenantId;

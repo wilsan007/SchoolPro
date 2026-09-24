@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { mergeFilters, siteFilterForModel } from "@/lib/site-scope";
 import { revalidateTag, revalidatePath } from "next/cache";
+import { checkPermission } from "@/lib/rbac";
 
 const Schema = z.object({ importBatchId: z.string().min(1) });
 
@@ -28,9 +29,8 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Permissions insuffisantes" }, { status: 403 });
-    }
+    const denied = await checkPermission(session.user.role, "imports:gerer");
+    if (denied) return denied;
 
     const parsed = Schema.safeParse(await req.json());
     if (!parsed.success) {

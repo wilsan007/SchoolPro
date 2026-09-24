@@ -19,7 +19,7 @@ export async function GET(
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "evaluations:read");
+    const denied = await checkPermission(session.user.role, "evaluations:read");
     if (denied) return denied;
 
     const evaluationId = (await params).id;
@@ -83,7 +83,7 @@ export async function PUT(
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "evaluations:write");
+    const denied = await checkPermission(session.user.role, "evaluations:write");
     if (denied) return denied;
 
     const evaluationId = (await params).id;

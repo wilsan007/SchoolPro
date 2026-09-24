@@ -84,6 +84,7 @@ export function AppelInterface({
   hierarchie,
   creneauxEdt = [],
   maintenantISO,
+  canWrite,
 }: {
   classes: Classe[];
   tenantId: string;
@@ -91,6 +92,14 @@ export function AppelInterface({
   creneauxEdt?: CreneauEdt[];
   /** Horloge de référence (Time Machine en démo). */
   maintenantISO?: string;
+  /**
+   * `absences:write` du rôle connecté. Faux ⇒ l'écran se rend en **consultation
+   * seule** : ni bouton de validation, ni « tous présents », ni sélection de
+   * présence. La route `/absences` est ouverte à des rôles qui ne font que
+   * lire (NURSE) : leur montrer un formulaire complet pour répondre 403 à
+   * l'envoi était le défaut corrigé ici.
+   */
+  canWrite: boolean;
 }) {
   const t = useTranslations("absences");
   const locale = useLocale();
@@ -128,6 +137,9 @@ export function AppelInterface({
   };
 
   function setPresence(eleveId: string, status: Presence) {
+    // Ceinture et bretelles : l'interface désactive déjà les boutons, et
+    // l'API revérifie `absences:write`. Une seule règle, trois barrières.
+    if (!canWrite) return;
     setPresences((prev) => ({ ...prev, [eleveId]: status }));
     if (status === "retard" && creneau && !heuresArrivee[eleveId]) {
       // Pré-remplit avec l'heure courante quand l'appel porte sur le créneau en cours.
@@ -183,6 +195,7 @@ export function AppelInterface({
   }
 
   async function soumettre() {
+    if (!canWrite) return;
     if (stats.nonSaisis > 0) {
       toast.warning(t("appelNotSetWarn", { count: stats.nonSaisis }));
       return;
@@ -299,27 +312,37 @@ export function AppelInterface({
           </Card>
         ) : (
           <Card>
+            {/* Consultation seule : le rôle n'a pas `absences:write`. On le dit
+                une fois, plutôt que de laisser un formulaire actif répondre 403
+                au moment de l'envoi. */}
+            {!canWrite && (
+              <p className="border-b bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground sm:px-5">
+                {t("appelReadOnly")}
+              </p>
+            )}
             {/* En-tête */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 sm:px-5 py-4 border-b">
               <div>
                 <h2 className="font-semibold">{selectedClasse.nom}</h2>
                 <p className="text-sm text-muted-foreground">{t("appelStudents", { count: eleves.length })}</p>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button variant="outline" size="sm" className="gap-2" onClick={marquerTousPresents}>
-                  <Users className="h-4 w-4" />
-                  {t("appelAllPresent")}
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-2"
-                  onClick={soumettre}
-                  disabled={isPending}
-                >
-                  <CheckCheck className="h-4 w-4" />
-                  {isPending ? t("appelSubmitting") : t("appelSubmit")}
-                </Button>
-              </div>
+              {canWrite && (
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={marquerTousPresents}>
+                    <Users className="h-4 w-4" />
+                    {t("appelAllPresent")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={soumettre}
+                    disabled={isPending}
+                  >
+                    <CheckCheck className="h-4 w-4" />
+                    {isPending ? t("appelSubmitting") : t("appelSubmit")}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Séance : jour + créneau */}
@@ -418,9 +441,10 @@ export function AppelInterface({
                     <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={() => setPresence(eleve.id, "present")}
+                        disabled={!canWrite}
                         title={t("appelPresent")}
                         className={cn(
-                          "p-1.5 rounded-lg transition-all",
+                          "p-1.5 rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-50",
                           status === "present"
                             ? "bg-green-500 text-white"
                             : "hover:bg-green-100 text-green-600 dark:hover:bg-green-900/30"
@@ -430,9 +454,10 @@ export function AppelInterface({
                       </button>
                       <button
                         onClick={() => setPresence(eleve.id, "retard")}
+                        disabled={!canWrite}
                         title={t("appelLate")}
                         className={cn(
-                          "p-1.5 rounded-lg transition-all",
+                          "p-1.5 rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-50",
                           status === "retard"
                             ? "bg-yellow-500 text-white"
                             : "hover:bg-yellow-100 text-yellow-600 dark:hover:bg-yellow-900/30"
@@ -442,9 +467,10 @@ export function AppelInterface({
                       </button>
                       <button
                         onClick={() => setPresence(eleve.id, "absent")}
+                        disabled={!canWrite}
                         title={t("appelAbsentTitle")}
                         className={cn(
-                          "p-1.5 rounded-lg transition-all",
+                          "p-1.5 rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-50",
                           status === "absent"
                             ? "bg-red-500 text-white"
                             : "hover:bg-red-100 text-red-600 dark:hover:bg-red-900/30"

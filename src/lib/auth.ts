@@ -294,10 +294,15 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   },
   providers: [
     Credentials({
+      // Libellés des champs du formulaire intégré de NextAuth. L'application
+      // n'affiche jamais ce formulaire (`pages.signIn: "/login"`), et cette
+      // configuration statique ne peut pas connaître la langue de la requête :
+      // on les garde donc neutres plutôt qu'en français, seule langue que le
+      // reste de l'écran n'utilise pas forcément.
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Mot de passe", type: "password" },
-        totp: { label: "Code de vérification", type: "text" },
+        password: { label: "Password", type: "password" },
+        totp: { label: "TOTP", type: "text" },
         turnstileToken: { label: "Turnstile", type: "text" },
       },
       async authorize(credentials) {

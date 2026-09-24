@@ -25,7 +25,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "bulletins:write");
+    const denied = await checkPermission(session.user.role, "bulletins:write");
     if (denied) return denied;
 
     const { id } = await params;
@@ -97,7 +97,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-    const denied = checkPermission(session.user.role, "bulletins:delete");
+    const denied = await checkPermission(session.user.role, "bulletins:delete");
     if (denied) return denied;
 
     const { id } = await params;

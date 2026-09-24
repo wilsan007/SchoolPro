@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Non autorise" }, { status: 401 });
   }
-  const denied = checkPermission(session.user.role, "admissions:write");
+  const denied = await checkPermission(session.user.role, "admissions:write");
   if (denied) return denied;
 
   // Rate limit : 20 uploads / minute / utilisateur (plusieurs pieces par dossier)

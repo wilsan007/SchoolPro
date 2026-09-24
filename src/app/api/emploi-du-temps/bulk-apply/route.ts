@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:write");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:write");
     if (denied) return denied;
     const siteFilter = siteFilterForModel("classe", session.user);
 

@@ -62,7 +62,7 @@ export async function GET(
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "evaluations:read");
+  const denied = await checkPermission(session.user.role, "evaluations:read");
   if (denied) return denied;
 
   const { id } = await params;
@@ -115,7 +115,7 @@ export async function PUT(
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = checkPermission(session.user.role, "evaluations:write");
+  const denied = await checkPermission(session.user.role, "evaluations:write");
   if (denied) return denied;
 
   const { id } = await params;

@@ -5,6 +5,9 @@ import { vi } from "vitest";
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
   getTranslations: async () => (key: string) => key,
+  // `useLocale` est utilisé par les composants qui formatent des dates ou des
+  // nombres : sans lui, tout test qui en importe un casse au premier rendu.
+  useLocale: () => "fr",
 }));
 
 // Mock next/navigation

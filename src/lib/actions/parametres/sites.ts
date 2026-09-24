@@ -7,6 +7,7 @@ import { z } from "zod";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import type { Role } from "@prisma/client";
+import { checkPermission } from "@/lib/rbac";
 
 const SiteSchema = z.object({
   nom: z.string().min(2, "Le nom du site est requis"),
@@ -52,9 +53,11 @@ export async function getSitesForSettings() {
 export async function createSite(data: SiteFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parsed = SiteSchema.safeParse(data);
   if (!parsed.success) {
@@ -82,9 +85,11 @@ export async function createSite(data: SiteFormData) {
 export async function updateSite(siteId: string, data: Partial<SiteFormData>) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const site = await prisma.site.findFirst({
     where: { id: siteId, tenantId: session.user.tenantId },
@@ -133,9 +138,11 @@ export type DeleteSiteFormData = z.infer<typeof DeleteSiteSchema>;
 export async function deleteSite(siteId: string, data: DeleteSiteFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const parsed = DeleteSiteSchema.safeParse(data);
   if (!parsed.success) {
@@ -190,9 +197,11 @@ export async function deleteSite(siteId: string, data: DeleteSiteFormData) {
 export async function restoreSite(siteId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:admin");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const site = await prisma.site.findFirst({
     where: { id: siteId, tenantId: session.user.tenantId, deletedAt: { not: null } },
@@ -228,7 +237,7 @@ export async function restoreSite(siteId: string) {
 export async function getDeletedSites() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN") return [];
+  if (await checkPermission(session.user.role, "parametres:admin")) return [];
 
   return prisma.site.findMany({
     where: {
@@ -257,9 +266,11 @@ export async function getDeletedSites() {
 export async function assignUserSites(userId: string, sites: { siteId: string; role?: string | null }[]) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
-  if (session.user.role !== "TENANT_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "PRINCIPAL") {
-    throw new Error("Permissions insuffisantes");
-  }
+  // Autorisation : source unique de vérité dans `@/lib/permissions`.
+  // La liste de rôles qui vivait ici est remplacée par une permission nommée —
+  // mêmes détenteurs, mais testable et auditable.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
 
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId: session.user.tenantId, ...siteFilterForModel("user", session.user) },

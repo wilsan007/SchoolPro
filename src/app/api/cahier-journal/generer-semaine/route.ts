@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return erreurJson("NON_AUTORISE");
-    const denied = checkPermission(session.user.role, "cahier-journal:write");
+    const denied = await checkPermission(session.user.role, "cahier-journal:write");
     if (denied) return denied;
 
     const tenantId = session.user.tenantId;

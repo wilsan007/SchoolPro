@@ -9,7 +9,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:write");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:write");
     if (denied) return denied;
     const siteFilter = siteFilterForModel("salle", session.user);
 

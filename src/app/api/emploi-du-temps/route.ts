@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:read");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:read");
     if (denied) return denied;
 
     // L'EDT est un outil du personnel : un PARENT / STUDENT qui a
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const denied = checkPermission(session.user.role, "emploi-du-temps:write");
+    const denied = await checkPermission(session.user.role, "emploi-du-temps:write");
     if (denied) return denied;
 
     const body = await req.json();
