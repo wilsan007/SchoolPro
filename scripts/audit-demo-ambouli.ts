@@ -75,7 +75,10 @@ async function compte(model: string, siteId: string, date: Date | null) {
   const horizon = date ? filtreHorizon(MODEL_PRISMA[model], "count", date) : null;
   const base = SANS_TENANT.has(model) ? {} : { tenantId: T };
   const where = mergeFilters(base, site, horizon ? { AND: [horizon] } : null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // `any` assumé (AGENTS.md, règle 4) : accès dynamique par nom de modèle.
+  // La directive `eslint-disable-next-line @typescript-eslint/no-explicit-any`
+  // a été retirée : le plugin TypeScript n'étant pas chargé pour `scripts/`,
+  // ESLint signalait la règle comme inexistante (erreur « rule not found »).
   return (prisma as any)[model].count({ where });
 }
 

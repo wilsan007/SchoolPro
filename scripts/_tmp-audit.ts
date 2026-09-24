@@ -33,7 +33,10 @@ async function main() {
   console.log("  modèle".padEnd(28) + "n".padStart(9) + "   étendue de la date métier");
   console.log("  " + "-".repeat(72));
   for (const [m, champ] of cibles) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // `any` assumé (AGENTS.md, règle 4) : accès dynamique par nom de modèle.
+    // La directive `eslint-disable-next-line @typescript-eslint/no-explicit-any`
+    // a été retirée : le plugin TypeScript n'étant pas chargé pour `scripts/`,
+    // ESLint signalait la règle comme inexistante (erreur « rule not found »).
     const d = (db as any)[m];
     if (!d) { console.log(`  ${m.padEnd(26)} (modèle absent)`); continue; }
     let n = 0;
