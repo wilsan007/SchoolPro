@@ -132,7 +132,10 @@ Le pre-commit hook (installer avec `node scripts/install-hooks.mjs`) exécute
 
 ### Application
 
-- **Hébergement** : Vercel (Next.js App Router) ou Docker standalone (VPS)
+- **Hébergement** : Fly.io — app `schoolpro`, région `cdg` (https://schoolpro.fly.dev).
+  Conteneur Docker standalone (`Dockerfile`) embarquant supercronic pour les tâches
+  planifiées. Vercel (`ecolpro` → https://ecolpro.vercel.app) est une cible
+  secondaire, sur plan **Hobby**.
 - **Build** : `pnpm build`
 - **Variables d'environnement requises** :
   - `DATABASE_URL` — pooler Supabase (port 6543)
@@ -149,13 +152,31 @@ Le pre-commit hook (installer avec `node scripts/install-hooks.mjs`) exécute
     inutilisables toutes les configurations 2FA existantes. `docker-compose`
     retombe sur `AUTH_SECRET` ; ce repli n'existe PAS hors Docker.
 
+### Tâches planifiées
+
+- **Fly.io (production)** : `crontab.txt` exécuté par supercronic dans le conteneur —
+  `dispatch` et `dispatch-scheduled` toutes les 5 minutes, purges quotidiennes.
+  `fly.toml` fixe `min_machines_running = 1` et `auto_stop_machines = false` :
+  sans machine allumée, les crons ne tournent pas.
+- **Vercel (plan Hobby)** : les entrées `crons` de `vercel.json` DOIVENT rester
+  **quotidiennes**. Le plan Hobby refuse toute expression plus fréquente
+  (« Hobby accounts are limited to daily cron jobs ») et le déploiement échoue
+  alors avec `errorCode: invalid_routes` à l'étape `process-and-upload-routes`.
+  L'erreur est invisible dans les logs du CLI (le build réussit, puis
+  « Deploying outputs... » puis `status ● Error`) — elle n'est lisible que via
+  l'API REST (`GET /v13/deployments/{id}`). C'est la cause de l'échec de **tous**
+  les déploiements Vercel entre le 9 sept. 2026 (`e6e086c`, passage à `*/5`) et
+  le 24 sept. 2026. Le nombre de crons n'est pas limité (100 sur Hobby).
+
 ### Procédure de déploiement
 
 1. Vérifier : `pnpm verify` (lint + tsc + tests + prisma validate)
 2. Déployer les migrations : `pnpm prisma migrate deploy` (ou `pnpm prisma db execute` si le pooler bloque)
 3. Build : `pnpm build`
-4. Déployer sur Vercel (git push) ou Docker (`docker compose up -d`)
-5. Vérifier le health check : `curl https://<app-url>/api/health`
+4. Déployer :
+   - **Fly.io (production)** : `fly deploy -a schoolpro` (build Docker + release)
+   - **Vercel (cible secondaire)** : `vercel deploy --prod --project ecolpro`
+5. Vérifier le health check : `curl https://schoolpro.fly.dev/api/health`
 
 ### Procédure de rollback
 
