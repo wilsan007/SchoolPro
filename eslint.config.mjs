@@ -30,6 +30,7 @@ const eslintConfig = [
     rules: {
       "ecolpro/require-tenant-id": "off",
       "ecolpro/require-site-filter": "off",
+      "ecolpro/require-annee-filter": "off",
     },
   },
 
@@ -43,6 +44,14 @@ const eslintConfig = [
     rules: {
       "ecolpro/require-tenant-id": "error",
       "ecolpro/require-site-filter": "error",
+      // ÉTAPE 1 — « warn », et non « error » : mesure du 29/09/2026,
+      // 380 appels de lecture ne portent pas encore de filtre d'année. Les
+      // corriger mécaniquement serait pire que la dette — chaque requête doit
+      // être relue (lecture inter-années légitime, ou oubli réel).
+      // Métrique de suivi (ratchet) : `pnpm audit:annee`.
+      // Objectif : passer en « error » quand le compte atteint 0
+      // (règle non négociable n°2, AGENTS.md).
+      "ecolpro/require-annee-filter": "warn",
     },
   },
 
@@ -60,6 +69,7 @@ const eslintConfig = [
     rules: {
       "ecolpro/require-tenant-id": "off",
       "ecolpro/require-site-filter": "off",
+      "ecolpro/require-annee-filter": "off",
     },
   },
 
