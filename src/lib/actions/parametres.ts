@@ -18,6 +18,10 @@ export {
   createUser,
   toggleUserActive,
   deleteUser,
+  type ResultatInvitation,
+  inviterUtilisateur,
+  revoquerInvitationAction,
+  getInvitationsEnAttente,
 } from "./parametres/utilisateurs";
 
 export {

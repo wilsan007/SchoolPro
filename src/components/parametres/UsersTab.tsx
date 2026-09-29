@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin, AlertTriangle, Search, Shield, GraduationCap, Briefcase, Users as UsersIcon } from "lucide-react";
-import { createUser, toggleUserActive, deleteUser, updateUserPhone, assignUserSites, getUserSites, type UserFormData } from "@/lib/actions/parametres";
+import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin, AlertTriangle, Search, Shield, GraduationCap, Briefcase, Users as UsersIcon, Mail } from "lucide-react";
+import { createUser, toggleUserActive, deleteUser, updateUserPhone, assignUserSites, getUserSites, inviterUtilisateur, type UserFormData } from "@/lib/actions/parametres";
 import { addUserToTenant } from "@/lib/actions/user-tenant";
 import { useTranslations } from "next-intl";
 import { useLibelleNiveau } from "@/lib/niveau-context";
 import type { AvailableTenant } from "@/auth.config";
 import type { Role } from "@prisma/client";
+import { INVITABLE_ROLES } from "@/lib/invitations";
 import { cn } from "@/lib/utils";
 
 interface UserItem {
@@ -53,6 +54,12 @@ const roleKeys: Record<string, string> = {
   PARENT: "roleParent",
   STUDENT: "roleStudent",
 };
+
+// Rôles proposés par le formulaire d'invitation — SOURCE UNIQUE :
+// `INVITABLE_ROLES` (src/lib/invitations.ts), qui est aussi ce que le serveur
+// vérifie. Recopier la liste ici créerait deux vérités, et l'on proposerait un
+// rôle que le serveur refuserait.
+const INVITABLE_ROLE_OPTIONS: string[] = [...INVITABLE_ROLES];
 
 type UserCategory = "all" | "admin" | "teachers" | "staff";
 
@@ -95,6 +102,17 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
   const [phoneValue, setPhoneValue] = useState("");
   const [activeCategory, setActiveCategory] = useState<UserCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Invitation par email : ouvre un panneau plutôt qu'une fenêtre modale, pour
+  // rester dans la même logique que le formulaire de création (`showForm`).
+  const [showInvite, setShowInvite] = useState(false);
+  const [isInvitePending, setIsInvitePending] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    email: "",
+    name: "",
+    role: "TEACHER",
+    siteId: "",
+  });
 
   const filteredUsers = users.filter((u) => {
     const matchesCategory =
@@ -346,6 +364,43 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
     setShowTenantModal(true);
   }
 
+  /**
+   * Envoie une invitation. Aucun mot de passe n'est saisi ici — c'est tout
+   * l'intérêt : l'administration ne manipule jamais le secret de l'utilisateur,
+   * et l'ouverture du lien prouvera la possession de l'adresse.
+   */
+  async function soumettreInvitation(e: React.FormEvent) {
+    e.preventDefault();
+    setIsInvitePending(true);
+    try {
+      const result = await inviterUtilisateur({
+        email: inviteForm.email,
+        name: inviteForm.name || undefined,
+        role: inviteForm.role,
+        siteId: inviteForm.siteId || undefined,
+      });
+
+      if (!result.success) {
+        // Le motif est une CLÉ de traduction : le message affiché reste dans la
+        // langue de l'utilisateur, y compris pour les refus métier.
+        toast.error(t(result.motif));
+        return;
+      }
+
+      toast.success(
+        result.emailEnvoye
+          ? t("invitationEnvoyee", { email: result.email })
+          : t("invitationCreeeSansEmail", { email: result.email })
+      );
+      setInviteForm({ email: "", name: "", role: "TEACHER", siteId: "" });
+      setShowInvite(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("genericError"));
+    } finally {
+      setIsInvitePending(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {canManage && (
@@ -360,7 +415,109 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
             <Plus className="h-4 w-4" />
             {t("addUser")}
           </Button>
+          {/* Invitation : la voie recommandée — le mot de passe ne transite
+              jamais par l'administration. */}
+          <Button
+            size="sm"
+            variant="secondary"
+            className="gap-2"
+            onClick={() => setShowInvite(!showInvite)}
+          >
+            <Mail className="h-4 w-4" />
+            {t("inviterUtilisateur")}
+          </Button>
         </div>
+      )}
+
+      {/* Panneau : inviter un utilisateur par email */}
+      {showInvite && canManage && (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Mail className="h-4 w-4 text-primary" />
+              {t("inviterUtilisateur")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={soumettreInvitation} className="space-y-3">
+              <p className="text-xs text-slate-500">{t("invitationExplication")}</p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="invite-email">{t("email")}</Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    required
+                    value={inviteForm.email}
+                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="invite-name">{t("fullName")}</Label>
+                  <Input
+                    id="invite-name"
+                    value={inviteForm.name}
+                    onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="invite-role">{t("role")}</Label>
+                  <select
+                    id="invite-role"
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    value={inviteForm.role}
+                    onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+                  >
+                    {/* Seuls les rôles INVITABLES sont proposés : `SUPER_ADMIN` et
+                        `STUDENT` sont exclus côté serveur (cf. lib/invitations.ts),
+                        les afficher ici ne créerait qu'un refus évitable. */}
+                    {INVITABLE_ROLE_OPTIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {t(roleKeys[r] ?? r)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="invite-site">{t("site")}</Label>
+                  <select
+                    id="invite-site"
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                    value={inviteForm.siteId}
+                    onChange={(e) => setInviteForm({ ...inviteForm, siteId: e.target.value })}
+                  >
+                    <option value="">{t("invitationSansSite")}</option>
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowInvite(false)}
+                >
+                  {t("cancel")}
+                </Button>
+                <Button type="submit" size="sm" disabled={isInvitePending} className="gap-2">
+                  {isInvitePending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  {t("invitationEnvoyer")}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
       {/* Modal: Ajouter un user à un autre tenant */}

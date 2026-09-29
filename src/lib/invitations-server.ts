@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auditFire } from "@/lib/audit";
 import { sendEmail } from "@/lib/notifications/email";
 import { withSystemContext } from "@/lib/rls-context";
+import { publishEvent, type UtilisateurInvitePayload } from "@/lib/learnos/events";
 import { type SessionSiteClaims } from "@/lib/site-scope";
 import { validerMotDePasse } from "@/lib/password-validation";
 import {
@@ -388,6 +389,34 @@ export async function accepterInvitation(
       verdict: "ALLOWED",
       resource: "invitation",
       resourceId: invitation.id,
+    });
+
+    // LEARNOS : l'arrivée d'un utilisateur est un fait que le moteur consomme
+    // (handler `onUtilisateurInvite`, branché sur `utilisateur.invite`).
+    // Publié ICI, à l'acceptation, et non à la création de l'invitation : le
+    // payload exige un `userId`, qui n'existe qu'une fois le compte créé. Le
+    // publier plus tôt obligerait à inventer un identifiant — et le handler
+    // rejetterait l'événement faute de `userId` valide.
+    const ecole = await prisma.tenant.findUnique({
+      where: { id: invitation.tenantId },
+      select: { name: true },
+    });
+    await publishEvent({
+      tenantId: invitation.tenantId,
+      siteId: invitation.siteId,
+      eventType: "utilisateur.invite",
+      aggregateType: "user",
+      aggregateId: nouvelUtilisateur.id,
+      payload: {
+        userId: nouvelUtilisateur.id,
+        email: invitation.email,
+        nom: invitation.name ?? invitation.email,
+        role: invitation.role,
+        siteId: invitation.siteId,
+        ecoleNom: ecole?.name ?? "",
+        inviteParId: null,
+        dateInvitation: new Date().toISOString(),
+      } satisfies UtilisateurInvitePayload,
     });
 
     return { ok: true, email: invitation.email } as const;

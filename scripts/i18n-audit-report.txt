@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-29T13:40:22.348Z
+SchoolPro i18n audit — 2026-09-29T18:05:32.606Z
 
 Referenced keys missing from fr.json: 0
 

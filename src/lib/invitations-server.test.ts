@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => {
     invitation,
     user,
     enseignant,
+    // Le nom de l'établissement est lu pour l'événement LEARNOS.
+    tenant: { findUnique: vi.fn() },
     $transaction: vi.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
   };
   return { prisma, tx };
@@ -38,6 +40,9 @@ vi.mock("@/lib/audit", () => ({ auditFire: vi.fn() }));
 vi.mock("@/lib/notifications/email", () => ({
   sendEmail: vi.fn(async () => ({ success: true, sent: 1 })),
 }));
+// Le bus LEARNOS est simulé : ses handlers ont leur propre suite de tests, et
+// l'appeler ici ferait dépendre ces tests de l'ordre de drainage des événements.
+vi.mock("@/lib/learnos/events", () => ({ publishEvent: vi.fn(async () => undefined) }));
 vi.mock("@/lib/rls-context", () => ({
   withSystemContext: vi.fn(async (_r: string, fn: () => Promise<unknown>) => fn()),
 }));
@@ -76,6 +81,7 @@ beforeEach(() => {
   mocks.prisma.invitation.update.mockResolvedValue({});
   mocks.prisma.enseignant.create.mockResolvedValue({});
   mocks.prisma.user.findFirst.mockResolvedValue(null);
+  mocks.prisma.tenant.findUnique.mockResolvedValue({ name: "École de test" });
 });
 
 describe("accepterInvitation", () => {

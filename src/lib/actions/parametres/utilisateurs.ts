@@ -12,6 +12,7 @@ import { generateRandomPassword } from "@/lib/security/password";
 import { auditFire } from "@/lib/audit";
 import { publishEvent, type UtilisateurInvitePayload } from "@/lib/learnos/events";
 import { checkPermission } from "@/lib/rbac";
+import { creerInvitation, revoquerInvitation } from "@/lib/invitations-server";
 
 const UserSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -344,4 +345,114 @@ export async function deleteUser(userId: string) {
 
   revalidatePath("/parametres");
   return { success: true };
+}
+// ============================================================
+// INVITATION D'UN UTILISATEUR PAR EMAIL
+// ============================================================
+//
+// POURQUOI CETTE ACTION EXISTE
+// La création directe (`createUser`) fait choisir un mot de passe à
+// l'administration et le lui fait communiquer hors de l'application (au
+// téléphone, de vive voix). L'invitation renverse le flux : l'administration ne
+// connaît jamais le secret, et l'ouverture du lien par le destinataire prouve
+// qu'il possède bien l'adresse.
+//
+// L'action n'est qu'une ENVELOPPE : elle vérifie la session, la permission et
+// le périmètre, puis délègue à `@/lib/invitations-server`, où vit la règle. Une
+// seconde implémentation de l'invitation serait une seconde vérité sur la durée
+// de validité du jeton et sur les rôles autorisés.
+
+export type ResultatInvitation =
+  | { success: true; email: string; emailEnvoye: boolean }
+  | { success: false; motif: string };
+
+/** Traduit une raison de refus en clé de libellé (stable, traduisible). */
+function cleMotifInvitation(raison: string): string {
+  switch (raison) {
+    case "ROLE_NON_INVITABLE":
+      return "invitationRoleNonInvitable";
+    case "EMAIL_DEJA_UTILISE":
+      return "invitationEmailDejaUtilise";
+    case "INVITATION_DEJA_EN_ATTENTE":
+      return "invitationDejaEnAttente";
+    case "EMAIL_INVALIDE":
+      return "invitationEmailInvalide";
+    default:
+      return "genericError";
+  }
+}
+
+export async function inviterUtilisateur(data: {
+  email: string;
+  name?: string;
+  role: string;
+  phone?: string;
+  siteId?: string;
+}): Promise<ResultatInvitation> {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  // Même permission que la création de compte : inviter, c'est créer un accès.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisances");
+
+  const origine = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+  const resultat = await creerInvitation(
+    {
+      email: data.email,
+      name: data.name ?? null,
+      role: data.role,
+      phone: data.phone ?? null,
+      // Le site vient du formulaire, jamais d'un défaut implicite : une
+      // invitation sans site est légitime (direction), mais elle doit être un
+      // choix visible.
+      siteId: data.siteId ?? null,
+    },
+    { ...session.user, tenantId: session.user.tenantId },
+    origine
+  );
+
+  if (!resultat.ok) {
+    return { success: false, motif: cleMotifInvitation(resultat.raison) };
+  }
+
+  revalidatePath("/parametres");
+  return {
+    success: true,
+    email: resultat.invitation.email,
+    emailEnvoye: resultat.invitation.emailEnvoye,
+  };
+}
+
+/** Révoque une invitation encore en attente. */
+export async function revoquerInvitationAction(invitationId: string): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
+
+  const ok = await revoquerInvitation(invitationId, session.user.tenantId);
+  if (ok) revalidatePath("/parametres");
+  return ok;
+}
+
+/** Invitations en attente de l'établissement (pour l'affichage de suivi). */
+export async function getInvitationsEnAttente() {
+  const session = await auth();
+  if (!session?.user?.tenantId) return [];
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) return [];
+
+  return prisma.invitation.findMany({
+    where: { tenantId: session.user.tenantId, status: "PENDING" },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      expiresAt: true,
+      site: { select: { nom: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 }
