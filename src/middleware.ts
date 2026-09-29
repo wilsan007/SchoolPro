@@ -24,6 +24,12 @@ const PUBLIC_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  // Acceptation d'une invitation : le destinataire n'a PAS encore de compte —
+  // il vient précisément d'en créer un. Sans cette entrée, le lien reçu par
+  // email renvoyait vers /login, et l'invitation ne pouvait jamais aboutir.
+  // Trouvé par le test de bout en bout `tests/e2e/invitation.spec.ts`, qui
+  // attendait le formulaire et tombait sur la page de connexion.
+  "/accept-invitation",
 ];
 
 /** Chemins publics en correspondance exacte. */
