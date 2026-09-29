@@ -44,13 +44,14 @@ const eslintConfig = [
     rules: {
       "ecolpro/require-tenant-id": "error",
       "ecolpro/require-site-filter": "error",
-      // ÉTAPE 1 — « warn », et non « error » : mesure du 29/09/2026,
-      // 380 appels de lecture ne portent pas encore de filtre d'année. Les
-      // corriger mécaniquement serait pire que la dette — chaque requête doit
-      // être relue (lecture inter-années légitime, ou oubli réel).
-      // Métrique de suivi (ratchet) : `pnpm audit:annee`.
-      // Objectif : passer en « error » quand le compte atteint 0
-      // (règle non négociable n°2, AGENTS.md).
+      // ÉTAPE 1 — « warn », et non « error ». Mesure du 29/09/2026 : le premier
+      // passage a signalé 380 appels de lecture, mais 319 étaient des faux
+      // positifs de la règle (variables `filtreAnnee*`, idiome
+      // `annee ? { annee } : {}`, filtre par période — cf. l'en-tête de la
+      // règle). Après correction : 61 signalements réels, à relire un par un
+      // (filtre oublié, ou lecture inter-années légitime → disable motivé).
+      // Métrique de suivi (ratchet) : `pnpm audit:annee`, plafond 61.
+      // Objectif : 0, puis passage en « error » (règle n°2, AGENTS.md).
       "ecolpro/require-annee-filter": "warn",
     },
   },

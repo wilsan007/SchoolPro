@@ -30,14 +30,35 @@
  *   `parcoursScolaire` — l'historique de l'élève couvre PAR CONSTRUCTION
  *   plusieurs années ; le filtrer sur l'année courante le viderait de son sens.
  *
- * ÉTAT DE L'APPLICATION (mesuré le 29/09/2026 par la règle elle-même)
- * 380 appels de lecture sans filtre d'année. La règle est donc activée en
- * « warn » : elle guide la relecture sans bloquer le développement — les
- * corriger mécaniquement serait pire que la dette, chaque requête devant être
- * relue (lecture inter-années légitime, ou oubli réel).
- * Objectif : la passer en « error » quand `pnpm audit:annee` annonce 0.
- * Cette métrique est un RATCHET : `scripts/audit-annee-filter.mjs` échoue si
- * le nombre remonte, donc la dette ne peut que décroître.
+ * ÉTAT DE L'APPLICATION ET HISTORIQUE DE LA MESURE (29/09/2026)
+ *
+ *   Premier passage .................. 380 signalements, 162 fichiers
+ *   Après correction des faux positifs ..  61 signalements,  38 fichiers
+ *
+ * Les 319 signalements disparus n'étaient PAS des oublis : c'étaient des
+ * angles morts de la règle elle-même, révélés en la confrontant au code réel.
+ * Chacun a été corrigé avec sa justification :
+ *
+ *   1. variables du dépôt (`filtreAnneeString`, `filtreAnneeViaClasse`…) —
+ *      reconnues par leur NOM, comme la règle sœur le fait pour les sites ;
+ *   2. `anneeLibelle ? { annee } : {}` — l'idiome officiel « année non
+ *      définie » (cf. `scopedWhere`), qui exigeait à tort les deux branches ;
+ *   3. `anneeCourante && { … }` — même idiome écrit avec `&&` ;
+ *   4. `periodeId` / `periode` — une période appartient à UNE année
+ *      (`Periode.anneeId`) : filtrer par trimestre est équivalent et plus
+ *      précis. C'est ce qui blanchissait à tort `src/lib/pdf/bulletin-generator.ts`,
+ *      le fichier qui produit les bulletins remis aux familles.
+ *
+ * Morale, et c'est le vrai enseignement de ce chantier : une règle de lint qui
+ * signale du code correct ne protège rien — elle apprend à ignorer ses
+ * avertissements. La moitié du travail a consisté à la rendre digne de foi.
+ *
+ * Les 61 signalements restants sont à traiter par lots, chacun exigeant une
+ * relecture : filtre réellement oublié (compteurs, listes), ou lecture
+ * inter-années légitime (cohortes, historique) — auquel cas un
+ * `eslint-disable-next-line` motivé est la bonne réponse.
+ * Métrique de suivi (ratchet) : `pnpm audit:annee`, plafond 61 — il ne peut que
+ * BAISSER. Objectif : 0, puis passage de la règle en « error ».
  *
  * Règle 4 — exemption explicite et motivée :
  *   // eslint-disable-next-line ecolpro/require-annee-filter -- lecture
@@ -79,6 +100,21 @@ const METHODES_LECTURE = new Set([
 /** Clés de `where` qui portent un filtre d'année. */
 const CLES_ANNEE = ["annee", "anneeId", "anneeScolaireId", "anneeCible"];
 
+/**
+ * Clés qui déterminent l'année PAR APPARTENANCE.
+ *
+ * `Periode.anneeId` est une contrainte du schéma : une période (un trimestre)
+ * appartient à UNE seule année scolaire. Filtrer par période est donc
+ * équivalent — et souvent plus précis — que filtrer par année : les bulletins
+ * d'un trimestre ne peuvent pas appartenir à deux années.
+ *
+ * Relevé du 29/09/2026 : sans cette clé, les 6 requêtes de
+ * `src/lib/pdf/bulletin-generator.ts` — les plus sensibles du dépôt, puisqu'elles
+ * produisent les bulletins remis aux familles — étaient signalées alors que
+ * chacune vérifie la période ET l'année en amont.
+ */
+const CLES_PERIODE = ["periodeId", "periode"];
+
 /** Fonctions qui produisent un filtre d'année (src/lib/domain/scoped-where.ts). */
 const FONCTIONS_ANNEE = new Set(["scopedWhere", "scopedWhereAnnee"]);
 
@@ -88,6 +124,24 @@ const IDENTIFIANTS_ANNEE = new Set([
   "anneeFilter",
   "anneeWhere",
 ]);
+
+/**
+ * Un identifiant dont le NOM contient « annee » porte un filtre d'année.
+ *
+ * POURQUOI UN MOTIF ET NON UNE LISTE
+ * Le dépôt nomme ces variables d'après leur rôle — relevé du 29/09/2026 :
+ * `filtreAnneeString`, `filtreAnneeViaClasse`, `filtreAnneeViaEleveClasse`,
+ * `filtreAnneeBulletin`, `filtreAnneeClasse`, `filtreAnneeEleve`,
+ * `filtreAnneeEmploi`. Une liste fermée produirait un faux positif à chaque
+ * nouveau nom, et l'exigence de précision finissait par être plus coûteuse que
+ * le défaut signalé.
+ *
+ * Compromis ASSUMÉ : un nom trompeur (une variable nommée « annee… » qui ne
+ * filtre rien) laisserait passer un vrai oubli. En échange, la règle cesse de
+ * signaler du code correct — et une règle qui crie à tort finit désactivée,
+ * ce qui coûte bien plus cher.
+ */
+const IDENTIFIANT_ANNEE_RE = /annee/i;
 
 const PROFONDEUR_MAX = 8;
 
@@ -178,17 +232,45 @@ function contientFiltreAnnee(node, scope, depth = 0) {
     if (IDENTIFIANTS_ANNEE.has(callee)) return true;
   }
 
-  // `cond ? filtreA : filtreB` — les DEUX branches doivent filtrer.
+  // `cond ? filtreEnAnnee : {}`
+  //
+  // DIVERGENCE ASSUMÉE avec `require-site-filter`, qui exige que les DEUX
+  // branches filtrent. Ici, la branche vide est l'idiome OFFICIEL du dépôt :
+  //
+  //   const filtreAnneeViaClasse = anneeLibelle ? { eleve: { classe: { annee: anneeLibelle } } } : {};
+  //
+  // et `scopedWhere` documente ce cas : « Sans année (début d'année non définie)
+  // → pas de filtre d'année, mais tenantId toujours présent ». Exiger les deux
+  // branches signalerait donc le motif le plus courant du dépôt — relevé du
+  // 29/09/2026 : 11 occurrences dans `action-counts.ts` seul.
+  // Le risque n'est pas le même que pour le site : une année non définie ne
+  // fait pas fuiter de données d'un autre établissement.
   if (node.type === "ConditionalExpression") {
     return (
-      contientFiltreAnnee(node.consequent, scope, depth + 1) &&
+      contientFiltreAnnee(node.consequent, scope, depth + 1) ||
       contientFiltreAnnee(node.alternate, scope, depth + 1)
     );
   }
 
-  // Variable : on suit son initialisation.
+  // `...(anneeCourante && { eleve: { classe: { annee: anneeCourante } } })`
+  // Deuxième écriture du même idiome, très répandue (relevé du 29/09/2026 :
+  // 4 occurrences dans `src/app/(dashboard)/parent/page.tsx` seul).
+  //   • `&&` : la GAUCHE est la condition, jamais un `where` — seule la droite
+  //     peut porter le filtre ;
+  //   • `||` : n'importe laquelle des deux branches peut être retenue à
+  //     l'exécution, donc les deux doivent filtrer (même exigence que la règle
+  //     sœur sur les sites).
+  if (node.type === "LogicalExpression") {
+    return node.operator === "&&"
+      ? contientFiltreAnnee(node.right, scope, depth + 1)
+      : contientFiltreAnnee(node.left, scope, depth + 1) &&
+          contientFiltreAnnee(node.right, scope, depth + 1);
+  }
+
+  // Variable : on suit son initialisation ; à défaut, on se fie à son nom.
   if (node.type === "Identifier") {
     if (IDENTIFIANTS_ANNEE.has(node.name)) return true;
+    if (IDENTIFIANT_ANNEE_RE.test(node.name)) return true;
     const init = resolveInit(node, scope);
     return init ? contientFiltreAnnee(init, scope, depth + 1) : false;
   }
@@ -205,8 +287,9 @@ function contientFiltreAnnee(node, scope, depth = 0) {
 
     const cle = prop.key.name || prop.key.value;
 
-    // 1. La clé elle-même est un filtre d'année.
+    // 1. La clé elle-même est un filtre d'année (directe ou par la période).
     if (CLES_ANNEE.includes(cle)) return true;
+    if (CLES_PERIODE.includes(cle)) return true;
 
     // 2. Filtre imbriqué dans une relation (`classe: { annee }`) ou un `AND`.
     if (prop.value && typeof prop.value.type === "string") {

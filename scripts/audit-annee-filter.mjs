@@ -31,8 +31,12 @@ import { fileURLToPath } from "node:url";
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REGLE = "ecolpro/require-annee-filter";
 
-/** Plafond de référence — mesuré le 29/09/2026. À BAISSER, jamais à monter. */
-const PLAFOND_PAR_DEFAUT = 380;
+/**
+ * Plafond de référence — mesuré le 29/09/2026 APRÈS correction des faux
+ * positifs de la règle (le premier passage en annonçait 380 ; 319 étaient des
+ * angles morts de la règle, cf. son en-tête). À BAISSER, jamais à monter.
+ */
+const PLAFOND_PAR_DEFAUT = 61;
 
 const args = process.argv.slice(2);
 const json = args.includes("--json");

@@ -54,9 +54,9 @@ async function fetchDashboardData(
     }),
     // Inutile d'interroger la base pour un périmètre relationnel : le filtre
     // est de toute façon fail-closed (cf. `buildDashboardWheres`).
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
     wheres.relationScoped ? Promise.resolve(0) : prisma.classe.count({ where: wheres.classe }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
     prisma.absence.count({
       where: {
         ...wheres.absence,
@@ -66,11 +66,11 @@ async function fetchDashboardData(
         },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
     prisma.absence.count({
       where: { ...wheres.absence, statut: "INJUSTIFIEE" },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
     prisma.note.findMany({
       where: wheres.note,
       orderBy: { createdAt: "desc" },
