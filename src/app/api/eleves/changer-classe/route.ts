@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
 
   const classeFilter = siteFilterForModel("classe", session.user);
   const eleveFilter = siteFilterForModel("eleve", session.user);
+  // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de la classe cible
   const targetClasse = await prisma.classe.findFirst({
     where: { id: nouvelleClasseId, tenantId, ...classeFilter },
   });
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest) {
     try {
       const anciennesIds = [...new Set(result.transferts.map((t) => t.ancienneClasseId).filter((id): id is string => !!id))];
       const anciennesClasses = anciennesIds.length > 0
+  // eslint-disable-next-line ecolpro/require-annee-filter -- relecture des classes d'origine, désignées par identifiant
         ? await prisma.classe.findMany({ where: { id: { in: anciennesIds }, tenantId, ...classeFilter }, select: { id: true, nom: true } })
         : [];
       const nomParId = new Map(anciennesClasses.map((c) => [c.id, c.nom]));
@@ -183,6 +185,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Récupérer l'ancien nom de classe depuis l'historique clôturé
+  // eslint-disable-next-line ecolpro/require-annee-filter -- historique d'un élève identifié (tous ses transferts)
     const historiques = await prisma.historiqueClasse.findMany({
       where: {
         eleveId: { in: result.okIds ?? eleveIds },

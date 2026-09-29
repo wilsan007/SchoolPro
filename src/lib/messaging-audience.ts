@@ -352,7 +352,7 @@ async function siteIdsForScope(actor: Actor, scope: AudienceScope): Promise<stri
   if (classeIds.length === 0) return [];
   // `classeIds` sort de `classeIdsForScope`, qui applique déjà
   // `siteFilterForModel("classe", actor)` : la portée est acquise en amont.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter
   const classes = await prisma.classe.findMany({
     where: { id: { in: classeIds }, tenantId: actor.tenantId },
     select: { siteId: true },
@@ -436,7 +436,7 @@ async function resolveEnseignants(actor: Actor, scope: AudienceScope) {
   // et à l'année active.
   const anneeCourante = await getAnneeCouranteLibelle(actor.tenantId);
   const [classes, creneaux] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter
     prisma.classe.findMany({
       where: { id: { in: classeIds }, tenantId: actor.tenantId },
       select: { profPrincipal: { select: { userId: true } } },
@@ -609,8 +609,15 @@ export async function listTargetingOptions(actor: Actor): Promise<TargetingOptio
   const siteScope = resolveSiteScope(actor);
   const authorizedSiteIds = siteScope.kind === "SITES" ? siteScope.siteIds : null;
 
+  // `Classe` porte une colonne `annee` SANS contrainte unique l'incluant : une
+  // requête sans filtre d'année renvoie les classes de TOUTES les promotions.
+  // Le sélecteur d'audience proposait donc « 6ème A » de 2024-2025 à côté de
+  // celle de l'année en cours, et l'on pouvait diffuser un message à une classe
+  // qui n'existe plus. Même défaut que le graphique « élèves par classe »
+  // d'`api/analytics`, corrigé pour la même raison.
+  const anneeCourante = await getAnneeCouranteLibelle(actor.tenantId);
   const classeWhere = mergeFilters(
-    { tenantId: actor.tenantId },
+    { tenantId: actor.tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
     siteFilterForModel("classe", actor),
     await teacherClasseFilter(actor),
     await parentClasseFilter(actor)

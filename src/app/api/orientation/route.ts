@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { annee: "desc" },
       }),
+  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par eleveId (dossier d'un élève identifié)
       prisma.note.findMany({
         where: {
           eleveId,
@@ -71,6 +72,7 @@ export async function GET(req: NextRequest) {
         select: { valeur: true, noteMax: true, coefficient: true, matiere: { select: { nom: true, code: true } }, createdAt: true },
         orderBy: { createdAt: "desc" },
       }),
+  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par eleveId (dossier d'un élève identifié)
       prisma.absence.count({
         where: {
           eleveId,
@@ -79,6 +81,7 @@ export async function GET(req: NextRequest) {
           ...mergeFilters(siteFilterForModel("absence", session.user), relationScope),
         },
       }),
+  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par eleveId (dossier d'un élève identifié)
       prisma.incident.count({
         where: {
           eleveId,

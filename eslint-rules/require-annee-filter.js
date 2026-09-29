@@ -97,10 +97,27 @@
  *     plusieurs années — filtrer sur l'année courante le viderait de son sens ;
  *   • `recommendation-engine` : borné par un `eleveId` autorisé en amont.
  *
- * À RETENIR : sur ce lot, la part de corrections de la RÈGLE reste supérieure à
- * celle du code applicatif. Une règle de lint jeune doit être confrontée au code
- * réel avant qu'on puisse lui faire confiance — c'est le prix d'un garde-fou
- * crédible, et il se paie une fois.
+ * TROISIÈME LOT — messagerie et routes API : 37 → 22
+ *
+ * Une CORRECTION RÉELLE, de la même famille que celle d'`api/analytics` :
+ * `listTargetingOptions` (sélecteur d'audience de la messagerie) listait les
+ * classes SANS filtre d'année. Or `Classe` porte une colonne `annee` sans
+ * contrainte unique l'incluant : le sélecteur proposait donc « 6ème A » de
+ * 2024-2025 à côté de celle de l'année en cours, et l'on pouvait diffuser un
+ * message à une classe qui n'existe plus.
+ *
+ * Les autres cas sont EXEMPTÉS AVEC MOTIF, tous de la même nature :
+ *   • accès par IDENTIFIANT — `changer-classe` (classe cible, classes
+ *     d'origine, historique d'un élève), `orientation` (dossier d'un élève),
+ *     `messaging-audience` (portée désignée par `scope.id`) ;
+ *   • `messaging-audience` : `classeIds` sortent de `classeIdsForScope`, qui
+ *     applique DÉJÀ le site et l'année active ;
+ *   • `teacher-delays` : borné par `fenetreDebut = annee.dateDebut` ;
+ *   • `conseil-augmente` : borné par les `eleveIds` de la période et une plage
+ *     de dates.
+ *
+ * Trois de ces fichiers portaient déjà des exemptions `require-site-filter`
+ * pour la même raison : l'exemption a été ÉTENDUE plutôt que dupliquée.
  *
  * Règle 4 — exemption explicite et motivée :
  *   // eslint-disable-next-line ecolpro/require-annee-filter -- lecture

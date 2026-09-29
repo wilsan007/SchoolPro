@@ -33,16 +33,17 @@ const REGLE = "ecolpro/require-annee-filter";
 
 /**
  * Plafond de référence — mesuré le 29/09/2026 APRÈS correction des faux
- * positifs de la règle et de deux lots de corrections réelles.
+ * positifs de la règle et de trois lots de corrections réelles.
  *
- *   Premier passage .............. 380   (dont 319 faux positifs de la règle)
- *   Après correction règle ........  61
- *   Après lot « src/app/api » .....  54
- *   Après lot « src/lib/learnos » ..  37
+ *   Premier passage ................. 380   (dont 319 faux positifs de la règle)
+ *   Après correction règle ...........  61
+ *   Après lot « src/app/api » ........  54
+ *   Après lot « src/lib/learnos » ....  37
+ *   Après lot « messagerie + API » ...  22
  *
  * À BAISSER, jamais à monter.
  */
-const PLAFOND_PAR_DEFAUT = 37;
+const PLAFOND_PAR_DEFAUT = 22;
 
 const args = process.argv.slice(2);
 const json = args.includes("--json");
