@@ -18,6 +18,20 @@ overrides:
   # GHSA-ggr8-5vv4-36mx : épuisement de pile sur objets récursifs.
   # Seul deepmerge-ts <8.0.0 (vulnérable) est forcé à 8.0.2.
   "deepmerge-ts@<8.0.0": "8.0.2"
+  # chromedriver — `@axe-core/cli@4.13.0` dépend de `chromedriver: "latest"`.
+  # Un DIST-TAG ne peut pas être figé : à chaque `pnpm install`, pnpm
+  # redemande au registre « la dernière version publiée », la compare au
+  # lockfile et le réécrit (bump 153.0.3 → 154.0.0 observé à CHAQUE commande,
+  # y compris `pnpm tsc`). C'est la cause du réalignement du commit f2cc153,
+  # réapparu depuis : le lockfile ne pourra JAMAIS être stable tant que ce
+  # dist-tag reste libre. On l'épingle donc ici, comme les correctifs CVE.
+  #
+  # POUR MONTER DE VERSION (délibérément, jamais par accident) :
+  #   1. installer le Chrome correspondant sur le poste de développement ;
+  #   2. `pnpm audit:axe` sur une page de l'application, et vérifier le rapport ;
+  #   3. mettre à jour cette épingle ET package.json, puis `pnpm install`,
+  #      et committer le lockfile dans le MÊME commit.
+  chromedriver: 153.0.3
 
 onlyBuiltDependencies:
   - "@prisma/client"

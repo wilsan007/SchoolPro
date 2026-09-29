@@ -173,7 +173,7 @@
     "@vitest/coverage-v8": "^5.0.0",
     "autoprefixer": "^10.6.0",
     "axe-core": "^4.13.0",
-    "chromedriver": "^153.0.0",
+    "chromedriver": "153.0.3",
     "dependency-cruiser": "^18.2.0",
     "docx": "^9.7.1",
     "eslint": "^9.39.5",

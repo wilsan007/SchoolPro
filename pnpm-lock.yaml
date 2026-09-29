@@ -14,6 +14,7 @@ overrides:
   uuid@<11.1.1: 11.1.1
   js-yaml@>=4.0.0 <4.3.1: 4.3.1
   deepmerge-ts@<8.0.0: 8.0.2
+  chromedriver: 153.0.3
 
 importers:
 
@@ -267,8 +268,8 @@ importers:
         specifier: ^4.13.0
         version: 4.13.0
       chromedriver:
-        specifier: ^153.0.0
-        version: 153.0.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
+        specifier: 153.0.3
+        version: 153.0.3(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
       dependency-cruiser:
         specifier: ^18.2.0
         version: 18.2.0
@@ -3722,11 +3723,6 @@ packages:
   chrome-launcher@1.2.1:
     resolution: {integrity: sha512-qmFR5PLMzHyuNJHwOloHPAHhbaNglkfeV/xDtt5b7xiFFyU1I+AZZX0PYseMuhenJSSirgxELYIbswcoc+5H4A==}
     engines: {node: '>=12.13.0'}
-    hasBin: true
-
-  chromedriver@153.0.0:
-    resolution: {integrity: sha512-FZUJuwmmttB3g4u8u3sYjFcWINNf8kh8xRiH6BNd9MRoGuJrBPt1N/qcHQqN2pdew1Omi1U6Y2L+S4pRSIbqTg==}
-    engines: {node: '>=22'}
     hasBin: true
 
   chromedriver@153.0.3:
@@ -10936,20 +10932,6 @@ snapshots:
       is-wsl: 2.2.0
       lighthouse-logger: 2.0.2(supports-color@7.2.0)
     transitivePeerDependencies:
-      - supports-color
-
-  chromedriver@153.0.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
-    dependencies:
-      '@testim/chrome-version': 1.1.4
-      adm-zip: 0.6.0
-      axios: 1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
-      compare-versions: 6.1.1
-      proxy-agent: 8.0.2(supports-color@7.2.0)
-      proxy-from-env: 2.1.0
-      tcp-port-used: 1.0.3(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - debug
-      - kerberos
       - supports-color
 
   chromedriver@153.0.3(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
