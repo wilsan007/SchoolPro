@@ -5033,6 +5033,32 @@
     "sending": "Envoi en cours…",
     "submit": "Envoyer le lien"
   },
+  "invitation": {
+    "titre": "Activez votre accès",
+    "chargement": "Vérification de votre invitation…",
+    "intro": "Vous avez été invité(e) avec l'adresse {email}. Choisissez votre mot de passe pour activer votre accès.",
+    "etablissement": "Établissement : {nom}",
+    "role": "Rôle prévu : {role}",
+    "motDePasse": "Nouveau mot de passe",
+    "confirmation": "Confirmer le mot de passe",
+    "reglesMotDePasse": "Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un caractère spécial.",
+    "valider": "Activer mon accès",
+    "envoiEnCours": "Activation en cours…",
+    "succesTitre": "Accès activé",
+    "succesTexte": "Votre compte est prêt. Connectez-vous avec votre adresse email et le mot de passe que vous venez de choisir.",
+    "allerConnexion": "Se connecter",
+    "erreurs": {
+      "tokenManquant": "Ce lien est incomplet : le jeton d'invitation est absent.",
+      "jetonInconnu": "Cette invitation est inconnue. Vérifiez que vous avez ouvert le lien complet reçu par email.",
+      "expiree": "Cette invitation a expiré. Demandez-en une nouvelle à votre établissement.",
+      "dejaAcceptee": "Cette invitation a déjà été utilisée. Connectez-vous, ou demandez un nouveau lien.",
+      "revoquee": "Cette invitation a été annulée par votre établissement.",
+      "emailDejaUtilise": "Un compte existe déjà avec cette adresse. Connectez-vous plutôt.",
+      "motDePasseFaible": "Le mot de passe ne respecte pas les règles, ou les deux saisies diffèrent.",
+      "rateLimited": "Trop de tentatives. Réessayez dans quinze minutes.",
+      "generique": "Une erreur est survenue. Réessayez, ou contactez votre établissement."
+    }
+  },
   "verifyEmail": {
     "verifying": "Vérification en cours…",
     "title": "Email vérifié",

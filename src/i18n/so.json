@@ -5033,6 +5033,32 @@
     "sending": "Waxaa la dirayaa…",
     "submit": "Dir xiriirinta"
   },
+  "invitation": {
+    "titre": "Dhaqaaji gelitaankaaga",
+    "chargement": "Waa la hubinayaa casuumaaddaada…",
+    "intro": "Waxaa lagugu casuumay ciwaanka {email}. Dooro furahaaga sirta ah si aad u dhaqaajiso gelitaankaaga.",
+    "etablissement": "Dugsiga: {nom}",
+    "role": "Doorka la qorsheeyay: {role}",
+    "motDePasse": "Furaha sirta ah ee cusub",
+    "confirmation": "Xaqiiji furaha sirta ah",
+    "reglesMotDePasse": "Ugu yaraan 8 xaraf, oo leh xaraf weyn, xaraf yar, lambar iyo calaamad gaar ah.",
+    "valider": "Dhaqaaji gelitaankayga",
+    "envoiEnCours": "Waa la dhaqaajinayaa…",
+    "succesTitre": "Gelitaanka waa la dhaqaajiyay",
+    "succesTexte": "Akoonkaaga waa diyaar. Ku gal ciwaankaaga iimaylka iyo furaha sirta ah ee aad hadda dooratay.",
+    "allerConnexion": "Gal",
+    "erreurs": {
+      "tokenManquant": "Xiriirkan waa dhiman yahay: calaamadda casuumaadda ma jirto.",
+      "jetonInconnu": "Casuumaaddan lama aqoon. Hubi inaad furatay xiriirka buuxa ee iimaylka lagugu soo diray.",
+      "expiree": "Casuumaaddan waqtigeedii wuu dhammaaday. Weydiiso mid cusub dugsigaaga.",
+      "dejaAcceptee": "Casuumaaddan hore ayaa loo isticmaalay. Gal, ama weydiiso xiriir cusub.",
+      "revoquee": "Dugsigaagu wuu joojiyay casuumaaddan.",
+      "emailDejaUtilise": "Akoon hore ayaa u jira ciwaankan. Fadlan gal.",
+      "motDePasseFaible": "Furaha sirta ahi ma buuxiyo shuruudaha, ama labada gelin isku mid ma aha.",
+      "rateLimited": "Isku dayo badan. Ku celi shan iyo toban daqiiqo kadib.",
+      "generique": "Khalad ayaa dhacay. Ku celi, ama la xiriir dugsigaaga."
+    }
+  },
   "verifyEmail": {
     "verifying": "Waxaa la xaqiijiyaa…",
     "title": "Emailka waa la xaqiijiyay",

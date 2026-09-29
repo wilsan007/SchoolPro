@@ -5033,6 +5033,32 @@
     "sending": "Sending…",
     "submit": "Send link"
   },
+  "invitation": {
+    "titre": "Activate your access",
+    "chargement": "Checking your invitation…",
+    "intro": "You have been invited with the address {email}. Choose your password to activate your access.",
+    "etablissement": "School: {nom}",
+    "role": "Planned role: {role}",
+    "motDePasse": "New password",
+    "confirmation": "Confirm password",
+    "reglesMotDePasse": "At least 8 characters, including an uppercase letter, a lowercase letter, a digit and a special character.",
+    "valider": "Activate my access",
+    "envoiEnCours": "Activating…",
+    "succesTitre": "Access activated",
+    "succesTexte": "Your account is ready. Sign in with your email address and the password you just chose.",
+    "allerConnexion": "Sign in",
+    "erreurs": {
+      "tokenManquant": "This link is incomplete: the invitation token is missing.",
+      "jetonInconnu": "This invitation is unknown. Please check that you opened the full link you received by email.",
+      "expiree": "This invitation has expired. Ask your school for a new one.",
+      "dejaAcceptee": "This invitation has already been used. Sign in, or ask for a new link.",
+      "revoquee": "This invitation was cancelled by your school.",
+      "emailDejaUtilise": "An account already exists with this address. Please sign in instead.",
+      "motDePasseFaible": "The password does not meet the rules, or the two entries differ.",
+      "rateLimited": "Too many attempts. Please try again in fifteen minutes.",
+      "generique": "Something went wrong. Please try again, or contact your school."
+    }
+  },
   "verifyEmail": {
     "verifying": "Verifying…",
     "title": "Email verified",

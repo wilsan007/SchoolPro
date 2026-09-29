@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-23T22:52:31.981Z
+SchoolPro i18n audit — 2026-09-29T13:40:22.348Z
 
 Referenced keys missing from fr.json: 0
 
@@ -10,7 +10,8 @@ en.json extra keys (not in fr.json): 0
 
 so.json extra keys (not in fr.json): 0
 
-Dynamic template-literal t() calls (manual review): 220
+Dynamic template-literal t() calls (manual review): 221
+  src/app/(auth)/accept-invitation/page.tsx:73  `/api/auth/invitation?token=${encodeURIComponent(token)}`
   src/app/(dashboard)/mon-espace/page.tsx:525  `${eleve.id}|${comp.id}`
   src/app/(dashboard)/parametres/audit/page.tsx:58  `/api/audit?${params.toString()}`
   src/app/(dashboard)/recommandations/page.tsx:205  `${f.eleve.id}|${f.competenceAttesteeId}`
