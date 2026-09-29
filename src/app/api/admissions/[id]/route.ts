@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { choisirTarif } from "@/lib/domain/tarifs";
 import { notifyDirection } from "@/lib/notifications/notify-direction";
 import { revalidateTag } from "next/cache";
 import { applyRlsContext } from "@/lib/prisma-rls";
@@ -148,28 +149,21 @@ export async function PATCH(
         niveauTarif = classeForNiveau.niveau;
       }
 
-      // c) Recherche du tarif : priorité au tarif spécifique au site, fallback partagé.
-      // On ne peut pas utiliser `orderBy: { siteId: "desc" }` car sur Postgres,
-      // DESC trie les NULL en premier (NULLS FIRST par défaut) — le tarif
-      // partagé (siteId: null) serait retourné avant le tarif spécifique.
-      // On fait deux requêtes : d'abord le spécifique, puis le partagé.
-      const tarif = await prisma.tarifNiveau.findFirst({
-        where: {
-          tenantId,
-          niveau: niveauTarif,
-          annee: candidature.annee,
-          actif: true,
-          siteId: candidature.siteId ?? null,
-        },
-      }) ?? await prisma.tarifNiveau.findFirst({
-        where: {
-          tenantId,
-          niveau: niveauTarif,
-          annee: candidature.annee,
-          actif: true,
-          siteId: null,
-        },
+      // c) Recherche du tarif. Deux pièges se cumulaient ici :
+      //   — `niveauTarif` est une ANNÉE (« 6ème ») alors que la grille est
+      //     libellée par CYCLE (« Collège ») : la comparaison de chaînes ne
+      //     correspondait jamais, et l'admission était refusée avec un message
+      //     trompeur (« Aucun tarif configuré pour ce niveau ») ;
+      //   — l'ordre « site spécifique puis partagé » devait être codé à la main,
+      //     car `orderBy: { siteId: "desc" }` trie les NULL en premier sur
+      //     Postgres (NULLS FIRST).
+      // `choisirTarif` règle les deux : rapprochement par clé canonique, puis
+      // tarif du site de la candidature avant le tarif global. Le tarif d'un
+      // autre site n'est jamais retenu.
+      const tarifs = await prisma.tarifNiveau.findMany({
+        where: { tenantId, annee: candidature.annee, actif: true },
       });
+      const tarif = choisirTarif(tarifs, candidature.siteId, niveauTarif)?.tarif ?? null;
 
       // d) Garde-fou tarif : blocage hard si tarif manquant ou montant ≤ 0
       const fraisInscription = tarif?.fraisInscription ?? 0;

@@ -9,7 +9,7 @@ const mockPrismaObj = vi.hoisted(() => {
     candidature: { findFirst: vi.fn(), update: vi.fn() },
     facture: { findFirst: vi.fn(), create: vi.fn(), count: vi.fn(), update: vi.fn() },
     classe: { findFirst: vi.fn() },
-    tarifNiveau: { findFirst: vi.fn() },
+    tarifNiveau: { findMany: vi.fn() },
     eleve: { count: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     parent: { findFirst: vi.fn(), create: vi.fn() },
     eleveParent: { create: vi.fn() },
@@ -239,12 +239,23 @@ describe("PATCH /api/admissions/[id]", () => {
     mockPrisma.facture.findFirst.mockResolvedValue(null);
     // Résolution classe → niveau
     mockPrisma.classe.findFirst.mockResolvedValue({ niveau: "6ème" });
-    // Tarif trouvé
-    mockPrisma.tarifNiveau.findFirst.mockResolvedValue({
-      fraisInscription: 50000,
-      mensualite: 30000,
-      devise: "DJF",
-    });
+    // Tarif trouvé — la grille est libellée par CYCLE (« Collège ») alors que
+    // la classe porte une ANNÉE (« 6ème ») : le rapprochement canonique doit
+    // les faire correspondre.
+    mockPrisma.tarifNiveau.findMany.mockResolvedValue([
+      {
+        id: "tarif-1",
+        niveau: "Collège",
+        siteId: "s1",
+        annee: "2025-2026",
+        fraisInscription: 50000,
+        mensualite: 30000,
+        fraisRenouvellement: 0,
+        devise: "DJF",
+        nbMois: 10,
+        actif: true,
+      },
+    ]);
     mockPrisma.facture.count.mockResolvedValue(0);
     mockPrisma.facture.create.mockResolvedValue({ id: "fac-1" });
 
@@ -280,7 +291,7 @@ describe("PATCH /api/admissions/[id]", () => {
     mockPrisma.candidature.findFirst.mockResolvedValue(candidature({ statut: "EN_EXAMEN" }));
     mockPrisma.facture.findFirst.mockResolvedValue(null);
     mockPrisma.classe.findFirst.mockResolvedValue({ niveau: "6ème" });
-    mockPrisma.tarifNiveau.findFirst.mockResolvedValue(null);
+    mockPrisma.tarifNiveau.findMany.mockResolvedValue([]);
 
     const res = await PATCH(
       req("http://l", { statut: "ADMIS" }) as never,
@@ -295,11 +306,20 @@ describe("PATCH /api/admissions/[id]", () => {
     mockPrisma.candidature.findFirst.mockResolvedValue(candidature({ statut: "EN_EXAMEN" }));
     mockPrisma.facture.findFirst.mockResolvedValue(null);
     mockPrisma.classe.findFirst.mockResolvedValue({ niveau: "6ème" });
-    mockPrisma.tarifNiveau.findFirst.mockResolvedValue({
-      fraisInscription: 0,
-      mensualite: 0,
-      devise: "DJF",
-    });
+    mockPrisma.tarifNiveau.findMany.mockResolvedValue([
+      {
+        id: "tarif-1",
+        niveau: "Collège",
+        siteId: "s1",
+        annee: "2025-2026",
+        fraisInscription: 0,
+        mensualite: 0,
+        fraisRenouvellement: 0,
+        devise: "DJF",
+        nbMois: 10,
+        actif: true,
+      },
+    ]);
 
     const res = await PATCH(
       req("http://l", { statut: "ADMIS" }) as never,

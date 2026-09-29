@@ -3,6 +3,13 @@ import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import {
+  choisirTarif,
+  cycleDuNiveau,
+  montantPourTypeFrais,
+  normaliserTypeFrais,
+  type TypeFrais,
+} from "@/lib/domain/tarifs";
 
 /**
  * Tarif applicable pour une classe — version mobile de /api/facturation/tarif.
@@ -22,7 +29,9 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const classeId = searchParams.get("classeId");
-  const type = searchParams.get("type") ?? "MENSUALITE";
+  // Type de frais normalisé : toute valeur inconnue retombe sur MENSUALITE,
+  // comme avant (contrat d'API inchangé).
+  const typeFrais = normaliserTypeFrais(searchParams.get("type"));
 
   if (!classeId) {
     return NextResponse.json({ error: "classeId requis" }, { status: 400 });
@@ -44,58 +53,57 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
   }
 
-  const tarif = await prisma.tarifNiveau.findFirst({
+  // Le niveau est saisi librement des deux côtés, et PAS dans le même
+  // référentiel : la classe porte une ANNÉE (« 6ème », « Terminale A ») quand
+  // la grille tarifaire est libellée par CYCLE (« Collège », « Lycée »).
+  // L'ancienne comparaison de chaînes ne correspondait jamais : l'application
+  // mobile recevait donc toujours « found: false ». `choisirTarif` ramène les
+  // deux écritures à une clé canonique puis applique la règle : tarif du site
+  // de l'élève, sinon tarif global.
+  const tarifs = await prisma.tarifNiveau.findMany({
     where: {
       tenantId: user.tenantId,
-      niveau: classe.niveau,
       annee: anneeCourante ?? new Date().getFullYear().toString(),
       actif: true,
       OR: [{ siteId: null }, { siteId: classe.siteId ?? undefined }],
     },
-    orderBy: { siteId: "desc" },
   });
 
-  if (!tarif) {
+  const choix = choisirTarif(tarifs, classe.siteId, classe.niveau);
+
+  if (!choix) {
+    // Aucun tarif utilisable : on refuse de facturer plutôt que de deviner.
+    const cycle = cycleDuNiveau(classe.niveau);
     return NextResponse.json({
       found: false,
-      message: `Aucun tarif trouvé pour le niveau ${classe.niveau}`,
+      message: cycle
+        ? `Aucun tarif trouvé pour le niveau ${classe.niveau}`
+        : `Niveau « ${classe.niveau} » non reconnu : aucun tarif appliqué`,
     });
   }
 
-  let montant = 0;
-  let libelleAuto = "";
-  switch (type) {
-    case "MENSUALITE":
-      montant = tarif.mensualite;
-      libelleAuto = `Scolarité ${anneeCourante ?? ""}`;
-      break;
-    case "INSCRIPTION":
-      montant = tarif.fraisInscription;
-      libelleAuto = `Frais d'inscription ${anneeCourante ?? ""}`;
-      break;
-    case "RENOUVELLEMENT":
-      montant = tarif.fraisRenouvellement;
-      libelleAuto = `Frais de renouvellement ${anneeCourante ?? ""}`;
-      break;
-    case "CANTINE":
-      montant = tarif.fraisCantine ?? 0;
-      libelleAuto = `Cantine ${anneeCourante ?? ""}`;
-      break;
-    case "TRANSPORT":
-      montant = tarif.fraisTransport ?? 0;
-      libelleAuto = `Transport ${anneeCourante ?? ""}`;
-      break;
-    default:
-      montant = tarif.mensualite;
-      libelleAuto = `Scolarité ${anneeCourante ?? ""}`;
-  }
+  const { tarif } = choix;
+
+  // 0 = frais non proposé par la grille (contrat d'API conservé).
+  const montant = montantPourTypeFrais(tarif, typeFrais) ?? 0;
+
+  const libelles: Record<TypeFrais, string> = {
+    MENSUALITE: `Scolarité ${anneeCourante ?? ""}`,
+    INSCRIPTION: `Frais d'inscription ${anneeCourante ?? ""}`,
+    RENOUVELLEMENT: `Frais de renouvellement ${anneeCourante ?? ""}`,
+    CANTINE: `Cantine ${anneeCourante ?? ""}`,
+    TRANSPORT: `Transport ${anneeCourante ?? ""}`,
+  };
 
   return NextResponse.json({
     found: true,
     montant,
     devise: tarif.devise,
-    libelleAuto,
+    libelleAuto: libelles[typeFrais],
     niveau: classe.niveau,
+    cycleNiveau: cycleDuNiveau(classe.niveau),
+    niveauTarif: tarif.niveau,
+    sourceTarif: choix.source,
     nbMois: tarif.nbMois,
   });
 }

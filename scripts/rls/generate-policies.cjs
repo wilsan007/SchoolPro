@@ -115,6 +115,26 @@ const EXCLUDED = {
     "Table NextAuth (sessions JWT : de facto inutilisée). Même raison qu'Account.",
   VerificationToken:
     "Jetons de vérification e-mail, consommés avant authentification. Même raison.",
+  ImpersonationGrant:
+    "Autorisation d'usurpation : lue et écrite par le callback `jwt` (AUTH-1), au moment " +
+    "précis où le contexte de tenant n'est PAS établi — c'est lui que le grant sert à " +
+    "changer. La rattacher à `targetTenantId` la rendrait invisible pendant la bascule et " +
+    "casserait l'usurpation. Réservée aux routes SUPER_ADMIN (exception documentée de la " +
+    "règle 1), jamais exposée par une route tenant-scopée. " +
+    "À RÉEXAMINER : une politique dédiée `is_super_admin()` serait préférable dès qu'un " +
+    "test d'isolation aura prouvé le contexte de lecture du grant.",
+  RateLimitCounter:
+    "Compteur de rate-limit des routes critiques (login, set-password), lu et écrit AVANT " +
+    "toute authentification : aucun contexte de tenant n'existe encore. Sa clé est " +
+    "technique (route + IP ou identifiant), sans donnée d'école. Le rendre tenant-scopé " +
+    "empêcherait la protection de fonctionner — donc de protéger. Même famille qu'Account.",
+  TacheCronExecution:
+    "Registre d'idempotence du répartiteur cron : chaque tâche planifiée y inscrit sa " +
+    "fenêtre d'exécution (contrainte `(nom, fenetre)`). Une seule passe du répartiteur " +
+    "traite TOUS les établissements : il n'existe pas de contexte de tenant unique qui " +
+    "puisse les représenter. " +
+    "À RÉEXAMINER : la colonne `resultat` ne doit JAMAIS recevoir de donnée nominative " +
+    "ou propre à un tenant.",
 };
 
 // ============================================================

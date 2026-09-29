@@ -31,11 +31,11 @@
 -- pourrait insérer une ligne au nom d'un autre tenant — invisible pour
 -- lui, bien réelle pour la victime.
 --
--- Couverture : 119 tables
---    55 tenant + site
---    39 tenant seul
+-- Couverture : 121 tables
+--    56 tenant + site
+--    40 tenant seul
 --    25 rattachées via un parent
---     7 exclues (motivées ci-dessous)
+--    10 exclues (motivées ci-dessous)
 --
 -- Exclusions :
 --   • Tenant — Table des tenants elle-même : elle porte une politique dédiée (voir plus bas), sans quoi la connexion et le changement d'établissement deviendraient impossibles.
@@ -45,6 +45,9 @@
 --   • Account — Table NextAuth, lue AVANT toute authentification : aucun contexte de tenant n'existe encore à ce stade. Protégée par le fait qu'elle n'est jamais exposée par une route.
 --   • Session — Table NextAuth (sessions JWT : de facto inutilisée). Même raison qu'Account.
 --   • VerificationToken — Jetons de vérification e-mail, consommés avant authentification. Même raison.
+--   • ImpersonationGrant — Autorisation d'usurpation : lue et écrite par le callback `jwt` (AUTH-1), au moment précis où le contexte de tenant n'est PAS établi — c'est lui que le grant sert à changer. La rattacher à `targetTenantId` la rendrait invisible pendant la bascule et casserait l'usurpation. Réservée aux routes SUPER_ADMIN (exception documentée de la règle 1), jamais exposée par une route tenant-scopée. À RÉEXAMINER : une politique dédiée `is_super_admin()` serait préférable dès qu'un test d'isolation aura prouvé le contexte de lecture du grant.
+--   • RateLimitCounter — Compteur de rate-limit des routes critiques (login, set-password), lu et écrit AVANT toute authentification : aucun contexte de tenant n'existe encore. Sa clé est technique (route + IP ou identifiant), sans donnée d'école. Le rendre tenant-scopé empêcherait la protection de fonctionner — donc de protéger. Même famille qu'Account.
+--   • TacheCronExecution — Registre d'idempotence du répartiteur cron : chaque tâche planifiée y inscrit sa fenêtre d'exécution (contrainte `(nom, fenetre)`). Une seule passe du répartiteur traite TOUS les établissements : il n'existe pas de contexte de tenant unique qui puisse les représenter. À RÉEXAMINER : la colonne `resultat` ne doit JAMAIS recevoir de donnée nominative ou propre à un tenant.
 -- ============================================================
 
 BEGIN;
@@ -559,6 +562,19 @@ CREATE POLICY eleves_isolation ON public."eleves"
       AND site_matches("siteId")
   );
 
+-- EmailLog
+ALTER TABLE public."email_logs" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS email_logs_isolation ON public."email_logs";
+CREATE POLICY email_logs_isolation ON public."email_logs"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      ("tenantId" IS NULL OR tenant_matches("tenantId"))
+  )
+  WITH CHECK (
+      ("tenantId" IS NULL OR tenant_matches("tenantId"))
+  );
+
 -- EmploiTemps
 ALTER TABLE public."emplois_temps" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS emplois_temps_isolation ON public."emplois_temps";
@@ -932,6 +948,21 @@ CREATE POLICY learnos_etapes_plan_isolation ON public."learnos_etapes_plan"
 ALTER TABLE public."learnos_evaluation_competences" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS learnos_evaluation_competences_isolation ON public."learnos_evaluation_competences";
 CREATE POLICY learnos_evaluation_competences_isolation ON public."learnos_evaluation_competences"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  );
+
+-- LearnosEventDeadletter
+ALTER TABLE public."learnos_event_deadletters" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS learnos_event_deadletters_isolation ON public."learnos_event_deadletters";
+CREATE POLICY learnos_event_deadletters_isolation ON public."learnos_event_deadletters"
   FOR ALL
   TO ecolpro_app
   USING (

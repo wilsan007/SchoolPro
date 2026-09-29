@@ -12,6 +12,7 @@ import { sendWhatsAppMessage } from "@/lib/notifications/whatsapp";
 import { notifyDirection } from "@/lib/notifications/notify-direction";
 import crypto from "crypto";
 import { checkPermission } from "@/lib/rbac";
+import { choisirTarif, montantPourTypeFrais } from "@/lib/domain/tarifs";
 
 // API-H3 (audit v2) : génère un token aléatoire de 32 bytes (64 hex).
 function genererTokenInvitation(): string {
@@ -668,17 +669,18 @@ export async function getStatsCampagne(campagneId: string) {
   const tarifs = await prisma.tarifNiveau.findMany({
     where: { tenantId: session.user.tenantId, annee: campagne.anneeCible, actif: true },
   });
-  const tarifMap = new Map<string, typeof tarifs[0]>();
-  for (const t of tarifs) {
-    tarifMap.set(t.niveau.toLowerCase(), t);
-  }
 
   let revenusPrevus = 0;
   for (const eleve of reinscrits) {
+    // Le niveau de la classe est une ANNÉE (« 6ème ») quand la grille est
+    // libellée par CYCLE (« Collège ») : la comparaison de chaînes qui vivait
+    // ici ne correspondait jamais, et la prévision de revenus valait donc
+    // toujours 0. Un élève sans tarif applicable est ignoré — le total reste
+    // une PRÉVISION, il ne doit pas inclure un montant deviné.
     const niveau = eleve.classe?.niveau ?? "Inconnu";
-    const tarif = tarifMap.get(niveau.toLowerCase());
-    if (tarif) {
-      revenusPrevus += tarif.fraisRenouvellement;
+    const choix = choisirTarif(tarifs, eleve.siteId, niveau);
+    if (choix) {
+      revenusPrevus += montantPourTypeFrais(choix.tarif, "RENOUVELLEMENT") ?? 0;
     }
   }
 

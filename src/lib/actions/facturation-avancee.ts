@@ -9,6 +9,7 @@ import { anneeActiveId } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { choisirTarif, montantPourTypeFrais, montantMensuel } from "@/lib/domain/tarifs";
 
 // ============================================================
 // TARIFS PAR NIVEAU
@@ -132,27 +133,28 @@ export async function genererMensualites(params: {
     include: { classe: { select: { niveau: true, nom: true } } },
   });
 
-  // Récupérer les tarifs par niveau
+  // Récupérer la grille tarifaire du tenant pour l'année
   const tarifs = await prisma.tarifNiveau.findMany({
     where: { tenantId, annee, actif: true },
   });
-
-  // Indexer les tarifs par niveau
-  const tarifMap = new Map<string, typeof tarifs[0]>();
-  for (const t of tarifs) {
-    tarifMap.set(t.niveau.toLowerCase(), t);
-  }
 
   let count = 0;
   let skipped = 0;
 
   for (const eleve of eleves) {
+    // Le niveau de la classe est une ANNÉE (« 6ème », « Terminale A ») alors que
+    // la grille est libellée par CYCLE (« Collège », « Lycée »). La comparaison
+    // de chaînes qui vivait ici ne correspondait donc JAMAIS : chaque élève
+    // était compté en `skipped` et la génération annonçait « 0 facture » sans
+    // le moindre message. `choisirTarif` fait le rapprochement et retient en
+    // plus le tarif du SITE de l'élève, jamais celui d'un autre site.
     const niveau = eleve.classe?.niveau ?? "Inconnu";
-    const tarif = tarifMap.get(niveau.toLowerCase());
-    if (!tarif) {
+    const choix = choisirTarif(tarifs, eleve.siteId, niveau);
+    if (!choix) {
       skipped++;
       continue;
     }
+    const tarif = choix.tarif;
 
     // Vérifier si une facture existe déjà pour cet élève et ce mois
     const libelle = `Scolarité ${moisNom} ${annee}`;
@@ -168,10 +170,13 @@ export async function genererMensualites(params: {
       continue;
     }
 
-    // Calculer le montant total
-    let montant = tarif.mensualite;
-    if (inclureCantine && tarif.fraisCantine) montant += tarif.fraisCantine;
-    if (inclureTransport && tarif.fraisTransport) montant += tarif.fraisTransport;
+    // Mensualité + options réellement tarifées. Une option absente de la
+    // grille n'ajoute rien : le domaine ne remplace jamais un montant manquant
+    // par un zéro implicite.
+    const montant = montantMensuel(tarif, {
+      cantine: inclureCantine,
+      transport: inclureTransport,
+    });
 
     // Échéance = fin du mois
     const echeance = new Date(parseInt(annee.split("-")[0]), mois, 0);
@@ -237,10 +242,6 @@ export async function genererFraisInscription(params: {
   const tarifs = await prisma.tarifNiveau.findMany({
     where: { tenantId, annee, actif: true },
   });
-  const tarifMap = new Map<string, typeof tarifs[0]>();
-  for (const t of tarifs) {
-    tarifMap.set(t.niveau.toLowerCase(), t);
-  }
 
   let count = 0;
   let skipped = 0;
@@ -252,9 +253,12 @@ export async function genererFraisInscription(params: {
     });
     if (!eleve) { skipped++; continue; }
 
+    // Rapprochement année ↔ cycle, puis tarif du SITE de l'élève
+    // (même règle que genererMensualites, cf. lib/domain/tarifs).
     const niveau = eleve.classe?.niveau ?? "Inconnu";
-    const tarif = tarifMap.get(niveau.toLowerCase());
-    if (!tarif) { skipped++; continue; }
+    const choix = choisirTarif(tarifs, eleve.siteId, niveau);
+    if (!choix) { skipped++; continue; }
+    const tarif = choix.tarif;
 
     const libelle = type === "INSCRIPTION"
       ? `Frais d'inscription ${annee}`
@@ -270,7 +274,11 @@ export async function genererFraisInscription(params: {
     });
     if (existing) { skipped++; continue; }
 
-    const montant = type === "INSCRIPTION" ? tarif.fraisInscription : tarif.fraisRenouvellement;
+    // INSCRIPTION et RENOUVELLEMENT reposent sur des colonnes non nulles : le
+    // `null` est donc impossible ici. On refuse malgré tout de continuer plutôt
+    // que d'écrire un montant absent — un 0 silencieux serait une facture fausse.
+    const montant = montantPourTypeFrais(tarif, type);
+    if (montant === null) { skipped++; continue; }
     // Compteur tenant-wide volontaire (voir genererMensualites ci-dessus).
     // eslint-disable-next-line ecolpro/require-site-filter
     const factureCount = await prisma.facture.count({ where: { tenantId } });

@@ -769,8 +769,10 @@ describe("getStatsCampagne", () => {
       { id: "e2", classe: { niveau: "5eme" } },
     ]);
     mockPrisma.tarifNiveau.findMany.mockResolvedValue([
-      { niveau: "6eme", fraisRenouvellement: 50000 },
-      { niveau: "5eme", fraisRenouvellement: 55000 },
+      // `actif` et `siteId` sont OBLIGATOIRES : une ligne Prisma les porte
+      // toujours, et `choisirTarif` ignore un tarif désactivé.
+      { niveau: "6eme", siteId: null, fraisRenouvellement: 50000, actif: true },
+      { niveau: "5eme", siteId: null, fraisRenouvellement: 55000, actif: true },
     ]);
 
     const res = await getStatsCampagne("camp-1");

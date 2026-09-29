@@ -47,3 +47,15 @@ export {
   modeleFiltrableParAnnee,
   MODELES_TENANT_SCOPES,
 } from "./scoped-where";
+
+export {
+  cycleDuNiveau,
+  choisirTarif,
+  montantPourTypeFrais,
+  montantMensuel,
+  normaliserTypeFrais,
+  TYPES_FRAIS,
+  LIBELLE_CYCLE,
+} from "./tarifs";
+
+export type { Cycle, TypeFrais, TarifLike, TarifChoisi } from "./tarifs";
