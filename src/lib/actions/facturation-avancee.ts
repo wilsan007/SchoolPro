@@ -10,6 +10,7 @@ import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { choisirTarif, montantPourTypeFrais, montantMensuel } from "@/lib/domain/tarifs";
+import { estViolationUnicite } from "@/lib/cron-idempotence";
 
 // ============================================================
 // TARIFS PAR NIVEAU
@@ -188,24 +189,40 @@ export async function genererMensualites(params: {
     const factureCount = await prisma.facture.count({ where: { tenantId } });
     const numero = `FAC-${annee.split("-")[0]}-${String(factureCount + 1).padStart(5, "0")}`;
 
-    await prisma.facture.create({
-      data: {
-        tenantId,
-        siteId: eleve.siteId,
-        eleveId: eleve.id,
-        anneeId: anneeRecord?.id ?? null,
-        numero,
-        libelle,
-        montant,
-        devise: tarif.devise,
-        statut: "EN_ATTENTE",
-        echeance,
-        type: "MENSUALITE",
-        mois: `${annee.split("-")[0]}-${String(mois).padStart(2, "0")}`,
-        createdById: session.user.id,
-      },
-    });
-    count++;
+    try {
+      await prisma.facture.create({
+        data: {
+          tenantId,
+          siteId: eleve.siteId,
+          eleveId: eleve.id,
+          anneeId: anneeRecord?.id ?? null,
+          numero,
+          libelle,
+          montant,
+          devise: tarif.devise,
+          statut: "EN_ATTENTE",
+          echeance,
+          type: "MENSUALITE",
+          mois: `${annee.split("-")[0]}-${String(mois).padStart(2, "0")}`,
+          createdById: session.user.id,
+        },
+      });
+      count++;
+    } catch (e) {
+      if (estViolationUnicite(e)) {
+        // L'index partiel `factures_unicite_mensuelle` a refusé un doublon :
+        // entre notre lecture (aucune facture) et notre écriture, un autre
+        // passage — second onglet, seconde instance — a facturé ce mois.
+        // C'est exactement ce que la contrainte doit faire. On le compte comme
+        // « déjà facturé », jamais comme une erreur : refuser tout le lot
+        // laisserait les autres élèves sans facture.
+        skipped++;
+        continue;
+      }
+      // Toute autre erreur reste bloquante : un échec inattendu ne doit pas
+      // passer pour un « déjà facturé » silencieux.
+      throw e;
+    }
   }
 
   revalidatePath("/facturation");
