@@ -50,7 +50,7 @@ export async function onEvaluationCompleted(event: DrainedEvent): Promise<void> 
   // Étape 2 : détecter si une proportion significative d'élèves est en difficulté.
   if (p.eleveIds.length === 0) return;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, evaluationId, eleveIds)
+  // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- événement drainé, borné par (tenantId, evaluationId, eleveIds)
   const notes = await prisma.note.findMany({
     where: {
       tenantId: event.tenantId,
@@ -86,7 +86,7 @@ async function creerRecommandationRemediationCollective(
   proportion: number
 ): Promise<void> {
   // Vérifier qu'une recommandation collective n'existe pas déjà pour cette évaluation.
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, regleDeclenchee, motifParams)
+  // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- événement drainé, borné par (tenantId, regleDeclenchee, motifParams)
   const existante = await prisma.recommandation.findFirst({
     where: {
       tenantId,

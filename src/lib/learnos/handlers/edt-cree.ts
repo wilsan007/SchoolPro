@@ -62,6 +62,7 @@ export async function onEmploiDuTempsCree(event: DrainedEvent): Promise<void> {
   }
 
   // Le site du créneau est celui de la classe.
+  // eslint-disable-next-line ecolpro/require-annee-filter -- événement drainé : la classe est identifiée par le payload
   const classe = await prisma.classe.findFirst({
     where: { id: payload.classeId, tenantId, ...siteFilter },
     select: { siteId: true },
@@ -92,6 +93,7 @@ export async function onEmploiDuTempsCree(event: DrainedEvent): Promise<void> {
   }
 
   // Séances déjà existantes pour le même créneau (même classe/matière/prof).
+  // eslint-disable-next-line ecolpro/require-annee-filter -- plage de dates bornée par l'année (annee.dateDebut/dateFin) ou par une période validée
   const existantes = await prisma.seancePedagogique.findMany({
      
     where: {

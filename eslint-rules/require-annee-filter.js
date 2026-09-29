@@ -70,11 +70,37 @@
  *     `eleves/cartes-scolaires/route.ts` : accès par IDENTIFIANT (une entité
  *     déjà datée, choisie par l'utilisateur).
  *
- * Ce lot illustre pourquoi la dette restante ne peut pas être soldée
- * mécaniquement : sur sept signalements, quatre appelaient un `disable` — un
- * filtre d'année ajouté « pour faire baisser le compteur » aurait introduit des
- * bugs silencieux (suppression de structures, correction de notes rendue
- * impossible).
+ * DEUXIÈME LOT — `src/lib/learnos` (LEARNOS) : 54 → 37
+ *
+ * Ce lot a d'abord servi à corriger la RÈGLE, trois fois, avant de toucher au
+ * code. Les requêtes signalées étaient correctes :
+ *
+ *   • filtre FABRIQUÉ par une fonction de tableau :
+ *       const scopesAnnuels = anneesParTenant.flatMap(({ tenantId, annee }) =>
+ *         annee ? [{ tenantId, classe: { tenantId, annee } }] : []);
+ *       prisma.devoir.findMany({ where: { OR: scopesAnnuels } })
+ *     → la règle inspecte désormais les `return` des callbacks `.map/.flatMap/
+ *       .filter/.concat/.reduce` ;
+ *   • appel dont le NOM porte l'année (`borneAnneeCourante(tenantId)`) : reconnu
+ *     comme les variables `filtreAnnee*` ;
+ *   • `const bornes = await borneAnneeCourante(...)` : `resolveInit` renvoyait un
+ *     `AwaitExpression`, que la règle ne déballait pas.
+ *
+ * Restaient des cas légitimes, chacun EXEMPTÉ AVEC MOTIF :
+ *   • handlers d'événements (`absence-recorded`, `devoir-enretard`, `edt-cree`,
+ *     `evaluation-completed`, `decalage-detecte`, `boucle-cahier-journal`) :
+ *     l'entité est identifiée par le payload — l'année n'est pas le
+ *     discriminant, et l'exiger rendrait le handler inopérant ;
+ *   • requêtes bornées par une PLAGE DE DATES déjà dérivée de l'année
+ *     (`edt-cree`, `climat-bien-etre`, `pattern-absence`) ;
+ *   • `trajectoires-cohortes` : l'objet du module EST la comparaison de
+ *     plusieurs années — filtrer sur l'année courante le viderait de son sens ;
+ *   • `recommendation-engine` : borné par un `eleveId` autorisé en amont.
+ *
+ * À RETENIR : sur ce lot, la part de corrections de la RÈGLE reste supérieure à
+ * celle du code applicatif. Une règle de lint jeune doit être confrontée au code
+ * réel avant qu'on puisse lui faire confiance — c'est le prix d'un garde-fou
+ * crédible, et il se paie une fois.
  *
  * Règle 4 — exemption explicite et motivée :
  *   // eslint-disable-next-line ecolpro/require-annee-filter -- lecture
@@ -241,11 +267,21 @@ function contientFiltreAnnee(node, scope, depth = 0) {
     return contientFiltreAnnee(node.expression, scope, depth + 1);
   }
 
+  // `await borneAnneeCourante(tenantId)` : l'initialisation d'une variable est
+  // souvent une PROMESSE attendue, donc un `AwaitExpression` — pas directement
+  // l'appel. Sans ce déballage, `const bornes = await borneAnneeCourante(...)`
+  // n'était pas reconnu, et une requête correctement bornée par l'année était
+  // signalée (cas relevé dans `src/lib/learnos/climat-bien-etre.ts`).
+  if (node.type === "AwaitExpression") {
+    return contientFiltreAnnee(node.argument, scope, depth + 1);
+  }
+
   // Appel : scopedWhere(...), mergeFilters(…, scopedWhere(...)), helper local.
   if (node.type === "CallExpression") {
     if (estAppelFiltreAnnee(node, scope, depth)) return true;
     const callee = node.callee.name || (node.callee.property && node.callee.property.name);
-    if (IDENTIFIANTS_ANNEE.has(callee)) return true;
+    if (callee && IDENTIFIANTS_ANNEE.has(callee)) return true;
+    if (callee && IDENTIFIANT_ANNEE_RE.test(callee)) return true;
   }
 
   // `cond ? filtreEnAnnee : {}`
@@ -262,10 +298,33 @@ function contientFiltreAnnee(node, scope, depth = 0) {
   // Le risque n'est pas le même que pour le site : une année non définie ne
   // fait pas fuiter de données d'un autre établissement.
   if (node.type === "ConditionalExpression") {
-    return (
+    // Cas 1 : le filtre est DANS une branche (`annee ? { annee } : {}`).
+    if (
       contientFiltreAnnee(node.consequent, scope, depth + 1) ||
       contientFiltreAnnee(node.alternate, scope, depth + 1)
-    );
+    ) {
+      return true;
+    }
+    // Cas 2 : le filtre est la CONDITION elle-même, et les branches ne portent
+    // que ses bornes :
+    //
+    //   const bornes = await borneAnneeCourante(tenantId);
+    //   where: { ...(bornes ? { date: { gte: bornes.debut, lte: bornes.fin } } : {}) }
+    //
+    // Restriction volontaire : on n'accepte que si la condition se résout en un
+    // APPEL dont le nom désigne l'année. Une simple variable nommée « annee… »
+    // ne suffirait pas à garantir que les branches soient les bornes de cette
+    // année — ce serait une heuristique trop large.
+    const condition = node.test;
+    const viaVariable =
+      condition && condition.type === "Identifier" ? resolveInit(condition, scope) : condition;
+    if (
+      viaVariable &&
+      viaVariable.type === "CallExpression" &&
+      estAppelFiltreAnnee(viaVariable, scope, depth + 1)
+    ) {
+      return true;
+    }
   }
 
   // `...(anneeCourante && { eleve: { classe: { annee: anneeCourante } } })`
@@ -322,11 +381,46 @@ function estAppelFiltreAnnee(node, scope, depth = 0) {
   const callee = node.callee.name || (node.callee.property && node.callee.property.name);
 
   if (FONCTIONS_ANNEE.has(callee)) return true;
+  // Un appel dont le NOM contient « annee » : `borneAnneeCourante(tenantId)`,
+  // `anneeFilterForModel(...)`. Même compromis que pour les variables (voir
+  // IDENTIFIANT_ANNEE_RE) — et même bénéfice : `climat-bien-etre.ts` bornait
+  // ses requêtes par une plage de dates dérivée de l'année et était signalé.
+  if (callee && IDENTIFIANT_ANNEE_RE.test(callee)) return true;
   if (IDENTIFIANTS_ANNEE.has(callee) && !resolveFunction(node.callee, scope)) return true;
 
   // `mergeFilters(a, b, …)` propage : un seul argument filtré suffit.
   if (callee === "mergeFilters" || callee === "scopedWhere") {
     return node.arguments.some((a) => contientFiltreAnnee(a, scope, depth + 1));
+  }
+
+  // Filtre CONSTRUIT par une fonction de tableau : `.map`, `.flatMap`,
+  // `.filter`, `.concat`. Le filtre d'année n'est pas écrit dans le `where`,
+  // il est FABRIQUÉ juste avant — motif fréquent pour les tâches qui balaient
+  // plusieurs tenants :
+  //
+  //   const scopesAnnuels = anneesParTenant.flatMap(({ tenantId, annee }) =>
+  //     annee ? [{ tenantId, classe: { tenantId, annee } }] : []
+  //   );
+  //   prisma.devoir.findMany({ where: { OR: scopesAnnuels } })
+  //
+  // Relevé du 29/09/2026 : sans cette inspection, `devoirs-retard-check.ts`
+  // — la tâche qui détecte les devoirs non rendus — était signalée alors
+  // qu'elle filtre bien par année, tenant par tenant.
+  const CONSTRUCTEURS_TABLEAU = new Set(["map", "flatMap", "filter", "concat", "reduce"]);
+  if (CONSTRUCTEURS_TABLEAU.has(callee)) {
+    for (const argument of node.arguments) {
+      if (!argument || typeof argument.type !== "string") continue;
+      if (
+        argument.type !== "ArrowFunctionExpression" &&
+        argument.type !== "FunctionExpression"
+      ) {
+        continue;
+      }
+      const sorties = returnExpressions(argument);
+      if (sorties.length > 0 && sorties.every((s) => contientFiltreAnnee(s, scope, depth + 1))) {
+        return true;
+      }
+    }
   }
 
   // Helper local : toutes ses sorties doivent porter le filtre (fail-closed).

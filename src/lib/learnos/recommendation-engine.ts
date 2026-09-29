@@ -370,7 +370,7 @@ export async function recalculerRecommandation(
   });
 
   const bande = evaluerBande(profil, seuils);
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const existante = await prisma.recommandation.findFirst({
     where: { tenantId, eleveId, competenceId },
     select: { id: true, statut: true },

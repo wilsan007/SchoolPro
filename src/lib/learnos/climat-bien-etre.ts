@@ -347,6 +347,7 @@ export async function analyserCorrelationInfirmerie(
   const ids = eleves.map((e) => e.id);
 
   // --- 3. Comptage des passages infirmerie par élève (batch) ---
+  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par la plage de dates de l'année courante (borneAnneeCourante)
   const passagesParEleve = await prisma.passageInfirmerie.groupBy({
     by: ["eleveId"],
     where: {
@@ -474,6 +475,7 @@ export async function identifierHotspotsIncidents(
   const bornes = await borneAnneeCourante(tenantId);
 
   // --- 1. Récupération de tous les incidents sur l'année ---
+  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par la plage de dates de l'année courante (borneAnneeCourante)
   const incidents = await prisma.incident.findMany({
     where: {
       tenantId,
@@ -759,6 +761,7 @@ export async function analyserNotificationParents(
   const bornes = await borneAnneeCourante(tenantId);
 
   // --- 1. Récupération de tous les incidents avec leurs sanctions ---
+  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par la plage de dates de l'année courante (borneAnneeCourante)
   const incidents = await prisma.incident.findMany({
     where: {
       tenantId,

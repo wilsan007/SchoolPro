@@ -30,6 +30,7 @@ export async function onDevoirEnRetard(event: DrainedEvent): Promise<void> {
   const siteFilter = siteFilterFromSession("TENANT_ADMIN", siteId, [], true);
 
   // Récupérer le devoir pour son titre et la matière.
+  // eslint-disable-next-line ecolpro/require-annee-filter -- événement drainé : le devoir est identifié par le payload
   const devoir = await prisma.devoir.findFirst({
     where: { id: payload.devoirId, tenantId },
     select: { titre: true, matiere: { select: { nom: true } } },

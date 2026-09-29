@@ -82,6 +82,7 @@ async function mettreAJourPlanificationChapitre(
   // fiable. Sinon, on retrouve la planification par chapitre + classe + année.
   // Événement drainé : borné par tenantId, et par les identifiants du payload.
    
+  // eslint-disable-next-line ecolpro/require-annee-filter -- événement drainé : la séance est identifiée par le payload
   const seance = await prisma.seancePedagogique.findFirst({
     where: { id: p.seanceId, tenantId },
     select: { planificationId: true },

@@ -39,7 +39,7 @@ export async function onDecalageDetecte(event: DrainedEvent): Promise<void> {
   });
 
   const classe = payload.classeId
-    ? // eslint-disable-next-line ecolpro/require-site-filter -- handler event-bus, pas de session
+    ? // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- handler event-bus, pas de session
       await prisma.classe.findFirst({
         where: { id: payload.classeId, tenantId },
         select: { nom: true },
