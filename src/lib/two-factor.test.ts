@@ -15,6 +15,19 @@
  * Le module `qrcode` est remplacé par un faux : en environnement jsdom il lui
  * faudrait un canvas. Ce que ces tests vérifient, c'est le secret, son
  * chiffrement et les codes — pas le rendu du PNG.
+ *
+ * POURQUOI DES DÉLAIS DE 90 s (et non 30 s)
+ * Les codes de secours sont hachés par `scryptSync` — une dérivation
+ * VOLONTAIREMENT coûteuse, qu'on ne réduit pas ici : affaiblir le coût pour
+ * accélérer les tests ferait passer les tests sur un code qui n'est plus celui
+ * de la production. Or chaque test enchaîne une vingtaine de dérivations
+ * (10 codes à l'activation, puis un `scrypt` par entrée stockée à la
+ * vérification), et `scrypt` s'exécute dans le pool de threads de libuv :
+ * quand 139 fichiers de test tournent en parallèle, cette attente est multipliée
+ * par la contention. Mesuré le 29/09/2026 : 5 à 22 s par test en charge, avec
+ * des dépassements du délai de 30 s — un échec ALÉATOIRE, donc un blocage de
+ * CI sans rapport avec le code testé. D'où 90 s, et
+ * `UV_THREADPOOL_SIZE=8` dans le script `test` (voir package.json).
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -105,7 +118,7 @@ describe("setup2FA", () => {
     // enregistrée fonctionne.
     expect(etat.user.twoFactorEnabled).toBe(false);
     expect(resultat.backupCodes).toHaveLength(10);
-  }, 30_000);
+  }, 90_000);
 
   it("réaffiche le MÊME secret quand la configuration est reprise", async () => {
     // Régression : un second clic sur « Configurer maintenant » tirait un
@@ -118,14 +131,14 @@ describe("setup2FA", () => {
     expect(second.qrCodeUri).toBe(premier.qrCodeUri);
     // Le secret du premier scan continue donc de produire des codes valides.
     expect(await verify2FA("u1", codeCourant(premier.secretBase32))).toBe(true);
-  }, 30_000);
+  }, 90_000);
 
   it("refuse d'écraser une configuration déjà active", async () => {
     await setup2FA("u1");
     etat.user.twoFactorEnabled = true;
 
     await expect(setup2FA("u1")).rejects.toThrow(/déjà active/);
-  }, 30_000);
+  }, 90_000);
 });
 
 
@@ -139,14 +152,14 @@ describe("verify2FA — activation", () => {
     expect(await verify2FA("u1", avecEspace)).toBe(true);
     expect(etat.user.twoFactorEnabled).toBe(true);
     expect(await twoFactorRequis("u1")).toBe(true);
-  }, 30_000);
+  }, 90_000);
 
   it("refuse un code vide ou non numérique", async () => {
     await setup2FA("u1");
     expect(await verify2FA("u1", "")).toBe(false);
     expect(await verify2FA("u1", "ABCDEF")).toBe(false);
     expect(etat.user.twoFactorEnabled).toBe(false);
-  }, 30_000);
+  }, 90_000);
 });
 
 describe("verifyBackupCode — la sortie de secours", () => {
@@ -158,14 +171,14 @@ describe("verifyBackupCode — la sortie de secours", () => {
     expect(etat.user.backupCodes).toHaveLength(9);
     // Usage unique : le même code ne doit plus rien ouvrir.
     expect(await verifyBackupCode("u1", code)).toBe(false);
-  }, 30_000);
+  }, 90_000);
 
   it("accepte le code recopié sans tiret et en minuscules", async () => {
     const { backupCodes } = await setup2FA("u1");
     const sansTiret = backupCodes[1].replace("-", "").toLowerCase();
 
     expect(await verifyBackupCode("u1", sansTiret)).toBe(true);
-  }, 30_000);
+  }, 90_000);
 
   it("refuse un code étranger sans consommer la liste", async () => {
     await setup2FA("u1");
@@ -173,7 +186,7 @@ describe("verifyBackupCode — la sortie de secours", () => {
 
     expect(await verifyBackupCode("u1", "ZZZZ-ZZZZ")).toBe(false);
     expect(etat.user.backupCodes).toEqual(avant);
-  }, 30_000);
+  }, 90_000);
 });
 
 describe("verifierCodeConnexion — à la connexion", () => {
@@ -181,7 +194,7 @@ describe("verifierCodeConnexion — à la connexion", () => {
     const { secretBase32 } = await setup2FA("u1");
     expect(await verifierCodeConnexion("u1", codeCourant(secretBase32))).toBe(true);
     expect(etat.user.twoFactorVerifiedAt).toBeInstanceOf(Date);
-  }, 30_000);
+  }, 90_000);
 
   it("accepte un code de secours tapé sans tiret", async () => {
     // Régression : l'ancien routage testait la présence d'un tiret, si bien
@@ -191,13 +204,13 @@ describe("verifierCodeConnexion — à la connexion", () => {
     const compact = backupCodes[0].replace("-", "");
 
     expect(await verifierCodeConnexion("u1", compact)).toBe(true);
-  }, 30_000);
+  }, 90_000);
 
   it("refuse un code invalide sans lever", async () => {
     await setup2FA("u1");
     expect(await verifierCodeConnexion("u1", "123456")).toBe(false);
     expect(await verifierCodeConnexion("u1", "")).toBe(false);
-  }, 30_000);
+  }, 90_000);
 
   it("refuse sans lever si le secret stocké est illisible", async () => {
     // TWO_FACTOR_SECRET changé (ou valeur altérée) : laisser l'exception
@@ -210,7 +223,7 @@ describe("verifierCodeConnexion — à la connexion", () => {
     expect(await verifierCodeConnexion("u1", "123456")).toBe(false);
     expect(silence).toHaveBeenCalled();
     silence.mockRestore();
-  }, 30_000);
+  }, 90_000);
 });
 
 describe("disable2FA", () => {
@@ -225,5 +238,5 @@ describe("disable2FA", () => {
     expect(etat.user.totpSecret).toBeNull();
     expect(etat.user.totpSecretIv).toBeNull();
     expect(etat.user.backupCodes).toEqual([]);
-  }, 30_000);
+  }, 90_000);
 });
