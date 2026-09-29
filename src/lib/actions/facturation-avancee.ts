@@ -9,8 +9,8 @@ import { anneeActiveId } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
-import { choisirTarif, montantPourTypeFrais, montantMensuel } from "@/lib/domain/tarifs";
-import { estViolationUnicite } from "@/lib/cron-idempotence";
+import { choisirTarif, montantPourTypeFrais } from "@/lib/domain/tarifs";
+import { genererMensualitesPourTenant } from "@/lib/factures/mensualites";
 
 // ============================================================
 // TARIFS PAR NIVEAU
@@ -102,6 +102,16 @@ export async function deleteTarif(tarifId: string) {
 // GÉNÉRATION AUTOMATIQUE DE FACTURES (MENSUALITÉS)
 // ============================================================
 
+
+/**
+ * Génération à la demande (Paramètres → Facturation).
+ *
+ * Le cœur de la règle vit dans `@/lib/factures/mensualites` : la tâche
+ * planifiée du 1er du mois applique EXACTEMENT la même, sans seconde vérité
+ * sur les montants (rapprochement année ↔ cycle, tarif du site, idempotence).
+ * Cette action n'ajoute que ce qui relève d'une requête utilisateur : la
+ * session, la permission, et le périmètre de l'utilisateur.
+ */
 export async function genererMensualites(params: {
   mois: number; // 1-12
   annee: string; // "2025-2026"
@@ -116,118 +126,21 @@ export async function genererMensualites(params: {
   const denied = await checkPermission(session.user.role, "factures:generer");
   if (denied) throw new Error("Permissions insuffisantes");
 
-  const tenantId = session.user.tenantId;
-  const { mois, annee, inclureCantine = false, inclureTransport = false } = params;
-
-  // Résoudre l'ID de l'année scolaire depuis le libellé
-  const anneeRecord = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, libelle: annee },
-    select: { id: true },
+  const resultat = await genererMensualitesPourTenant({
+    tenantId: session.user.tenantId,
+    annee: params.annee,
+    mois: params.mois,
+    inclureCantine: params.inclureCantine,
+    inclureTransport: params.inclureTransport,
+    // Périmètre : un secrétaire de site ne facture que SON site, la direction
+    // voit tous les sites du tenant. Le filtre est résolu dans le cœur partagé.
+    portee: session.user,
+    createdById: session.user.id,
   });
-
-  const moisNoms = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-  const moisNom = moisNoms[mois - 1] ?? `Mois ${mois}`;
-
-  // Récupérer tous les élèves actifs avec leur classe (pour le niveau)
-  const eleves = await prisma.eleve.findMany({
-    where: mergeFilters({ tenantId, statut: "ACTIF" }, siteFilterForModel("eleve", session.user)),
-    include: { classe: { select: { niveau: true, nom: true } } },
-  });
-
-  // Récupérer la grille tarifaire du tenant pour l'année
-  const tarifs = await prisma.tarifNiveau.findMany({
-    where: { tenantId, annee, actif: true },
-  });
-
-  let count = 0;
-  let skipped = 0;
-
-  for (const eleve of eleves) {
-    // Le niveau de la classe est une ANNÉE (« 6ème », « Terminale A ») alors que
-    // la grille est libellée par CYCLE (« Collège », « Lycée »). La comparaison
-    // de chaînes qui vivait ici ne correspondait donc JAMAIS : chaque élève
-    // était compté en `skipped` et la génération annonçait « 0 facture » sans
-    // le moindre message. `choisirTarif` fait le rapprochement et retient en
-    // plus le tarif du SITE de l'élève, jamais celui d'un autre site.
-    const niveau = eleve.classe?.niveau ?? "Inconnu";
-    const choix = choisirTarif(tarifs, eleve.siteId, niveau);
-    if (!choix) {
-      skipped++;
-      continue;
-    }
-    const tarif = choix.tarif;
-
-    // Vérifier si une facture existe déjà pour cet élève et ce mois
-    const libelle = `Scolarité ${moisNom} ${annee}`;
-    const existing = await prisma.facture.findFirst({
-      where: mergeFilters(
-        { tenantId, eleveId: eleve.id, libelle, ...(anneeRecord ? { anneeId: anneeRecord.id } : {}) },
-        siteFilterForModel("facture", session.user)
-      ),
-      select: { id: true },
-    });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-
-    // Mensualité + options réellement tarifées. Une option absente de la
-    // grille n'ajoute rien : le domaine ne remplace jamais un montant manquant
-    // par un zéro implicite.
-    const montant = montantMensuel(tarif, {
-      cantine: inclureCantine,
-      transport: inclureTransport,
-    });
-
-    // Échéance = fin du mois
-    const echeance = new Date(parseInt(annee.split("-")[0]), mois, 0);
-
-    // Compteur de numérotation volontairement tenant-wide (voir facture.ts createFacture) :
-    // "numero" ne porte aucune contrainte d'unicité en base et préserve une séquence globale
-    // continue entre sites plutôt que de la fragmenter silencieusement.
-    // eslint-disable-next-line ecolpro/require-site-filter
-    const factureCount = await prisma.facture.count({ where: { tenantId } });
-    const numero = `FAC-${annee.split("-")[0]}-${String(factureCount + 1).padStart(5, "0")}`;
-
-    try {
-      await prisma.facture.create({
-        data: {
-          tenantId,
-          siteId: eleve.siteId,
-          eleveId: eleve.id,
-          anneeId: anneeRecord?.id ?? null,
-          numero,
-          libelle,
-          montant,
-          devise: tarif.devise,
-          statut: "EN_ATTENTE",
-          echeance,
-          type: "MENSUALITE",
-          mois: `${annee.split("-")[0]}-${String(mois).padStart(2, "0")}`,
-          createdById: session.user.id,
-        },
-      });
-      count++;
-    } catch (e) {
-      if (estViolationUnicite(e)) {
-        // L'index partiel `factures_unicite_mensuelle` a refusé un doublon :
-        // entre notre lecture (aucune facture) et notre écriture, un autre
-        // passage — second onglet, seconde instance — a facturé ce mois.
-        // C'est exactement ce que la contrainte doit faire. On le compte comme
-        // « déjà facturé », jamais comme une erreur : refuser tout le lot
-        // laisserait les autres élèves sans facture.
-        skipped++;
-        continue;
-      }
-      // Toute autre erreur reste bloquante : un échec inattendu ne doit pas
-      // passer pour un « déjà facturé » silencieux.
-      throw e;
-    }
-  }
 
   revalidatePath("/facturation");
   revalidateTag("dashboard-data");
-  return { success: true, generated: count, skipped };
+  return { success: true, ...resultat };
 }
 
 // ============================================================

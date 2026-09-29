@@ -9,6 +9,14 @@
 - Prisma : `pnpm prisma <cmd>` (ou `npx prisma` reste acceptable si pnpm pose problème)
 - Ne jamais utiliser `npm install`, `npm run`, `npx` pour des scripts du projet
 
+**Ne pas retirer l'épingle `chromedriver` de `pnpm-workspace.yaml`** :
+`@axe-core/cli@4.13.0` dépend de `chromedriver: "latest"`, un *dist-tag* qui ne
+peut jamais être figé dans un lockfile. Sans cette épingle, chaque `pnpm install`
+(et même `pnpm tsc`) redemande « la dernière version publiée », la compare au
+lockfile et le **réécrit** : le dépôt devient impossible à garder propre. Le même
+raisonnement vaut pour toute dépendance qui déclare `latest` ou une plage
+ouverte : l'épingler dans `overrides`, en documentant la procédure de montée.
+
 ## Stack technique
 
 - Next.js 15 (App Router)
@@ -167,6 +175,24 @@ Le pre-commit hook (installer avec `node scripts/install-hooks.mjs`) exécute
   l'API REST (`GET /v13/deployments/{id}`). C'est la cause de l'échec de **tous**
   les déploiements Vercel entre le 9 sept. 2026 (`e6e086c`, passage à `*/5`) et
   le 24 sept. 2026. Le nombre de crons n'est pas limité (100 sur Hobby).
+
+- **Facturation mensuelle automatique** : la tâche `facturation-mensuelle` du
+  répartiteur (`src/app/api/cron/dispatch/route.ts`) s'exécute **le 1er de
+  chaque mois à 02:00 UTC = 05:00 à Djibouti** (`jourDuMois: 1`, `heures: [2]`),
+  donc avant l'ouverture du secrétariat et au *début* du mois facturé.
+  Sa fenêtre d'idempotence est le **début du mois UTC** (`idempotenceMois`), et
+  non une durée : le répartiteur appelle la route toutes les 5 minutes, et un
+  mois ne doit être régénéré qu'une seule fois. Rejeu volontaire :
+  `GET /api/cron/dispatch?force=facturation-mensuelle` (`force` contourne
+  l'idempotence, à dessein).
+  L'unicité `(tenantId, eleveId, type, mois)` est garantie **en base** par
+  l'index partiel `factures_unicite_mensuelle` (migration
+  `20260929120000_add_facture_mensualite_unicite`) — jamais par un contrôle
+  applicatif seul. Seuls les établissements `status = ACTIVE` sont traités ; un
+  élève non `ACTIF` ou archivé (`deletedAt`) n'est jamais facturé.
+  Le cœur de la règle est partagé avec l'action manuelle : il vit dans
+  `src/lib/factures/mensualites.ts`, pour qu'il n'existe pas deux vérités sur un
+  même montant.
 
 ### Procédure de déploiement
 

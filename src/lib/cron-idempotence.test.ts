@@ -121,6 +121,51 @@ describe("fenetreIdempotence", () => {
     expect(appels[0].fenetre.toISOString()).toBe(fenetreIdempotence(3600, t).toISOString());
     expect(appels[0].nom).toBe("devoirs-retard-check");
   });
+
+  // ── Fenêtre mensuelle (tâches du 1er, ex. facturation-mensuelle) ──
+  it("« mois » ramène au 1er du mois UTC à minuit", () => {
+    const premierOctobre = Date.UTC(2026, 9, 1, 2, 0, 0);
+    expect(fenetreIdempotence("mois", premierOctobre).toISOString()).toBe(
+      "2026-10-01T00:00:00.000Z"
+    );
+  });
+
+  it("tous les passages du même mois partagent la même fenêtre", () => {
+    // Le répartiteur appelle la tâche à chacun de ses passages de 2 h : le
+    // premier écrit la fenêtre du mois, les suivants doivent être sautés.
+    const passages = [
+      Date.UTC(2026, 9, 1, 2, 0, 0),
+      Date.UTC(2026, 9, 1, 2, 5, 0),
+      Date.UTC(2026, 9, 1, 2, 55, 0),
+      Date.UTC(2026, 9, 31, 23, 59, 59),
+    ].map((t) => fenetreIdempotence("mois", t).toISOString());
+
+    expect(new Set(passages).size).toBe(1);
+  });
+
+  it("change de fenêtre au 1er du mois suivant (mois courts et longs inclus)", () => {
+    const fevrier = fenetreIdempotence("mois", Date.UTC(2026, 1, 28, 2, 0, 0));
+    const mars = fenetreIdempotence("mois", Date.UTC(2026, 2, 1, 2, 0, 0));
+    const janvier = fenetreIdempotence("mois", Date.UTC(2026, 0, 1, 2, 0, 0));
+
+    expect(fevrier.toISOString()).toBe("2026-02-01T00:00:00.000Z");
+    expect(mars.toISOString()).toBe("2026-03-01T00:00:00.000Z");
+    // Une durée de 30 jours n'aurait pas suivi ce découpage (février = 28).
+    expect(mars.getTime()).toBeGreaterThan(fevrier.getTime());
+    expect(janvier.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("« mois » est bien la fenêtre écrite en base pour la facturation", async () => {
+    const { journal, appels } = journalFactice("ok");
+    await dejaExecutee(
+      journal,
+      "facturation-mensuelle",
+      "mois",
+      Date.UTC(2026, 9, 1, 2, 17, 42)
+    );
+    expect(appels[0].fenetre.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(appels[0].nom).toBe("facturation-mensuelle");
+  });
 });
 
 describe("estViolationUnicite", () => {

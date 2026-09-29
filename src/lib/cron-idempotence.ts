@@ -25,9 +25,32 @@ import { withSystemContext } from "@/lib/rls-context";
  * les dépendances sont injectées (client Prisma, horloge).
  */
 
+/**
+ * Fenêtre d'idempotence.
+ *
+ *   • une DURÉE en secondes (3600 = heure, 86400 = jour) : fenêtre glissante
+ *     alignée sur des multiples d'epoch ;
+ *   • `"mois"` : début du mois calendaire UTC.
+ *
+ * POURQUOI `"mois"` EXISTE
+ * Une durée ne convient pas aux tâches mensuelles : 30 jours ne s'alignent ni
+ * sur le 1er du mois ni sur un mois de 28, 29 ou 31 jours, et la fenêtre
+ * dériverait d'un mois sur l'autre. Le début de mois UTC, lui, est stable :
+ * la tâche « 1er du mois à 2 h UTC » s'exécute une fois, et les passages
+ * suivants de la même heure sont reconnus comme déjà faits.
+ */
+export type FenetreIdempotence = number | "mois";
+
 /** Fenêtre d'idempotence arrondie au début de la période, en UTC. */
-export function fenetreIdempotence(idempotenceSec: number, now = Date.now()): Date {
-  const fenetreMs = idempotenceSec * 1000;
+export function fenetreIdempotence(
+  config: FenetreIdempotence,
+  now = Date.now()
+): Date {
+  if (config === "mois") {
+    const d = new Date(now);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  }
+  const fenetreMs = config * 1000;
   return new Date(now - (now % fenetreMs));
 }
 
@@ -64,10 +87,10 @@ export interface JournalIdempotence {
 export async function dejaExecutee(
   journal: JournalIdempotence,
   nom: string,
-  idempotenceSec: number,
+  idempotence: FenetreIdempotence,
   now = Date.now()
 ): Promise<boolean> {
-  const fenetre = fenetreIdempotence(idempotenceSec, now);
+  const fenetre = fenetreIdempotence(idempotence, now);
 
   try {
     // `withSystemContext` : tâche planifiée, hors session HTTP, balayant

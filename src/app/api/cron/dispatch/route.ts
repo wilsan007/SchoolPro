@@ -18,6 +18,7 @@ import { getAnneeCourante } from "@/lib/annee-scolaire";
 import { analyserPatternsAbsence } from "@/lib/learnos/pattern-absence";
 import { withSystemContext } from "@/lib/rls-context";
 import { dejaExecutee } from "@/lib/cron-idempotence";
+import { genererMensualitesDuMois } from "@/lib/factures/mensualites";
 
 /**
  * Cron unique — répartiteur des tâches planifiées.
@@ -40,12 +41,25 @@ interface Tache {
   /** Heures UTC d'exécution. `null` = à chaque passage. */
   heures: number[] | null;
   /**
+   * Jour du mois UTC (1-31). Absent = tous les jours. Combiné à `heures`, il
+   * permet les tâches mensuelles (« le 1er à 2 h UTC ») sans ordonnanceur
+   * supplémentaire : le répartiteur, appelé toutes les 5 minutes, laisse
+   * simplement passer la tâche les autres jours.
+   */
+  jourDuMois?: number;
+  /**
    * AUT-H1 (audit v2) : durée d'idempotence en secondes. Si une exécution
    * existe déjà dans cette fenêtre, la tâche est sautée. Par défaut 3600 (1 h)
    * pour les tâches horaires, 86400 (24 h) pour les tâches quotidiennes.
    * `null` = pas d'idempotence (ex: learnos-events qui tourne à chaque passage).
    */
   idempotenceSec?: number;
+  /**
+   * Fenêtre d'idempotence MENSUELLE (début du mois UTC) — pour les tâches du
+   * 1er : la fenêtre horaire ne suffirait pas, la tâche tournant 12 fois dans
+   * l'heure prévue.
+   */
+  idempotenceMois?: boolean;
   executer: () => Promise<unknown>;
 }
 
@@ -227,6 +241,29 @@ const TACHES: Tache[] = [
       return { tenants: tenants.length, patternsRecurrents: totalPatterns };
     },
   },
+  {
+    // FACTURATION MENSUELLE — LE 1er du mois à 2 h UTC (5 h à Djibouti, UTC+3
+    // sans heure d'été). Les mensualités du mois sont ainsi créées avant
+    // l'ouverture du secrétariat, et les familles reçoivent leur facture au
+    // DÉBUT du mois facturé, pas à la fin.
+    //
+    // `jourDuMois: 1` : le répartiteur appelle cette tâche à chacun de ses
+    // passages de 2 h (toutes les 5 minutes). `idempotenceMois` fait que le
+    // PREMIER passage écrit la fenêtre du mois ; les onze suivants sont sautés,
+    // et le mois entier ne pourra plus être regénéré par accident.
+    //
+    // Rejeu volontaire : GET /api/cron/dispatch?force=facturation-mensuelle
+    // (la route `force` contourne l'idempotence, à dessein).
+    //
+    // L'unicité (tenantId, eleveId, type, mois) est garantie EN BASE par
+    // l'index partiel `factures_unicite_mensuelle` : un second passage, même
+    // concurrent, ne peut pas créer de doublon.
+    nom: "facturation-mensuelle",
+    heures: [2],
+    jourDuMois: 1,
+    idempotenceMois: true,
+    executer: () => genererMensualitesDuMois(),
+  },
 ];
 
 const QuerySchema = z.object({
@@ -248,11 +285,18 @@ export async function GET(req: NextRequest) {
   const { force: forcee } = QuerySchema.parse({
     force: new URL(req.url).searchParams.get("force") ?? undefined,
   });
-  const heure = new Date().getUTCHours();
+  const maintenant = new Date();
+  const heure = maintenant.getUTCHours();
+  const jour = maintenant.getUTCDate();
 
   const aExecuter = forcee
     ? TACHES.filter((t) => t.nom === forcee)
-    : TACHES.filter((t) => t.heures === null || t.heures.includes(heure));
+    : TACHES.filter(
+        (t) =>
+          (t.heures === null || t.heures.includes(heure)) &&
+          // Tâche mensuelle : hors du jour prévu, elle n'est pas candidate.
+          (t.jourDuMois === undefined || t.jourDuMois === jour)
+      );
 
   if (forcee && aExecuter.length === 0) {
     return NextResponse.json({ error: `Tâche inconnue : ${forcee}` }, { status: 400 });
@@ -262,8 +306,11 @@ export async function GET(req: NextRequest) {
 
   for (const tache of aExecuter) {
     // AUT-H1 : idempotence. Les tâches `force`es bypass l'idempotence.
-    if (!forcee && tache.idempotenceSec) {
-      const skip = await dejaExecutee(prisma, tache.nom, tache.idempotenceSec);
+    // `idempotenceMois` (tâches du 1er) prime : la fenêtre est le début du mois
+    // UTC, sinon la tâche tournerait douze fois dans l'heure prévue.
+    const configFenetre = tache.idempotenceMois ? "mois" : tache.idempotenceSec;
+    if (!forcee && configFenetre) {
+      const skip = await dejaExecutee(prisma, tache.nom, configFenetre);
       if (skip) {
         resultats[tache.nom] = { skipped: true, reason: "already_executed_in_window" };
         continue;
@@ -283,5 +330,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, heure, resultats });
+  return NextResponse.json({ success: true, heure, jour, resultats });
 }
