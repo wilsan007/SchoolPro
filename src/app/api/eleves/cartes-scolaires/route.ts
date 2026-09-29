@@ -35,6 +35,11 @@ export async function GET(req: NextRequest) {
   // familial qui borne les données, jamais le site.
   const lienFilter = personalScopeFilter(session.user);
   const [classe, eleves, tenant] = await Promise.all([
+    // Accès par IDENTIFIANT (une classe précise, choisie par l'utilisateur).
+    // Une classe appartient de toute façon à une seule année (`Classe.annee`) :
+    // ajouter un filtre d'année empêcherait seulement de réimprimer les cartes
+    // d'une classe archivée, sans rien protéger de plus.
+    // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant d'une entité déjà datée
     prisma.classe.findFirst({
       where: { id: classeId, tenantId: session.user.tenantId, ...classeFilter },
     }),

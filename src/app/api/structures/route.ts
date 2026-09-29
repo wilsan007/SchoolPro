@@ -134,6 +134,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Vérifier qu'il n'y a pas de classes rattachées
+    // PAS de filtre d'année, et c'est délibéré : ce comptage est un GARDE AVANT
+    // SUPPRESSION. Il doit voir les classes de TOUTES les années — restreindre à
+    // l'année courante répondrait « 0 classe » alors que la structure est encore
+    // référencée par les promotions passées, et la suppression laisserait des
+    // classes orphelines (ou échouerait en contrainte de clé étrangère).
+    // eslint-disable-next-line ecolpro/require-annee-filter -- garde de suppression : doit couvrir toutes les années
     const classCount = await prisma.classe.count({
       where: { structureId, tenantId: session.user.tenantId, ...siteFilterForModel("classe", session.user) },
     });

@@ -31,8 +31,8 @@
 -- pourrait insérer une ligne au nom d'un autre tenant — invisible pour
 -- lui, bien réelle pour la victime.
 --
--- Couverture : 121 tables
---    56 tenant + site
+-- Couverture : 122 tables
+--    57 tenant + site
 --    40 tenant seul
 --    25 rattachées via un parent
 --    10 exclues (motivées ci-dessous)
@@ -829,6 +829,21 @@ CREATE POLICY invitation_reinscription_isolation ON public."invitation_reinscrip
   )
   WITH CHECK (
       tenant_matches("tenantId")
+  );
+
+-- Invitation
+ALTER TABLE public."invitations" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS invitations_isolation ON public."invitations";
+CREATE POLICY invitations_isolation ON public."invitations"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
   );
 
 -- AiDecisionLog

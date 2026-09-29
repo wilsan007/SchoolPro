@@ -247,6 +247,11 @@ export const SITE_PATHS: Record<string, SitePath> = {
   campagneReinscription: "tenant",
   invitationReinscription: { one: "eleve" },
 
+  // --- Invitation d'utilisateur : porte tenantId ET siteId optionnel ---
+  // « column » : le site est directement sur la ligne (null = invitation
+  // émise par une direction, sans rattachement à un site).
+  invitation: "column",
+
   // --- Impersonation (global, pas de tenantId ni siteId) ---
   impersonationGrant: "tenant",
 

@@ -53,12 +53,28 @@
  * signale du code correct ne protège rien — elle apprend à ignorer ses
  * avertissements. La moitié du travail a consisté à la rendre digne de foi.
  *
- * Les 61 signalements restants sont à traiter par lots, chacun exigeant une
- * relecture : filtre réellement oublié (compteurs, listes), ou lecture
- * inter-années légitime (cohortes, historique) — auquel cas un
- * `eslint-disable-next-line` motivé est la bonne réponse.
- * Métrique de suivi (ratchet) : `pnpm audit:annee`, plafond 61 — il ne peut que
- * BAISSER. Objectif : 0, puis passage de la règle en « error ».
+ * PREMIER LOT DE CORRECTIONS RÉELLES (src/app/api) — 61 → 54
+ * Chaque cas a été relu, et le sort réservé à chacun est instructif :
+ *
+ *   • CORRIGÉ — `analytics/route.ts` : `classeFilter` ne portait que le
+ *     périmètre de SITES ; le graphique « élèves par classe » additionnait donc
+ *     les effectifs de toutes les promotions.
+ *   • CORRIGÉ — `import/eleves/route.ts` (×2) : la classe était résolue par son
+ *     NOM pour réutiliser la ligne existante. Sans filtre d'année, l'import
+ *     s'accrochait à la classe homonyme d'une AUTRE année et inscrivait les
+ *     élèves dans la promotion précédente.
+ *   • DISABLE MOTIVÉ — `structures/route.ts` : le comptage de classes est un
+ *     GARDE AVANT SUPPRESSION ; il doit voir TOUTES les années, sinon on
+ *     supprime une structure encore référencée.
+ *   • DISABLE MOTIVÉ — `notes/[id]/route.ts` (×2) et
+ *     `eleves/cartes-scolaires/route.ts` : accès par IDENTIFIANT (une entité
+ *     déjà datée, choisie par l'utilisateur).
+ *
+ * Ce lot illustre pourquoi la dette restante ne peut pas être soldée
+ * mécaniquement : sur sept signalements, quatre appelaient un `disable` — un
+ * filtre d'année ajouté « pour faire baisser le compteur » aurait introduit des
+ * bugs silencieux (suppression de structures, correction de notes rendue
+ * impossible).
  *
  * Règle 4 — exemption explicite et motivée :
  *   // eslint-disable-next-line ecolpro/require-annee-filter -- lecture

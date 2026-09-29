@@ -43,6 +43,12 @@ export async function PATCH(
     }
 
     // Récupérer la note ancienne pour le snapshot et valider le périmètre.
+    // Accès par IDENTIFIANT : on charge UNE note précise pour la corriger. Une
+    // correction doit rester possible sur une note d'une année antérieure
+    // (rattrapage après clôture) ; exiger l'année courante rendrait ces notes
+    // immuables tout en n'apportant aucune isolation supplémentaire (tenantId +
+    // périmètre de site sont déjà appliqués, et la permission est vérifiée).
+    // eslint-disable-next-line ecolpro/require-annee-filter -- correction ciblée d'une note identifiée
     const noteAncienne = await prisma.note.findFirst({
       where: {
         id: noteId,
@@ -142,6 +148,7 @@ export async function DELETE(
 
     const noteId = (await params).id;
 
+    // eslint-disable-next-line ecolpro/require-annee-filter -- suppression ciblée d'une note identifiée
     const note = await prisma.note.findFirst({
       where: {
         id: noteId,

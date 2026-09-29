@@ -52,8 +52,11 @@ export async function GET(req: NextRequest) {
     prisma.eleve.count({ where: { tenantId, ...eleveFilter, statut: "ACTIF" } }),
 
     // Élèves par classe
+    // `classeFilter` ne porte QUE le périmètre de sites : les classes de toutes
+    // les années s'y mélangeaient, et ce graphique comptait les effectifs des
+    // promotions passées avec ceux de l'année en cours.
     prisma.classe.findMany({
-      where: { tenantId, ...classeFilter },
+      where: { tenantId, ...classeFilter, ...(anneeCourante ? { annee: anneeCourante } : {}) },
       select: {
         nom: true, niveau: true,
         _count: { select: { eleves: { where: { statut: "ACTIF" } } } },

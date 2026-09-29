@@ -216,8 +216,14 @@ export async function POST(req: NextRequest) {
       "classe",
       targetSiteId ? { ...session.user, siteId: targetSiteId } : session.user
     );
+    // `annee` est INDISPENSABLE ici : on résout une classe par son NOM pour
+    // réutiliser la ligne existante. Sans ce filtre, l'import s'accrochait à la
+    // classe homonyme d'une AUTRE année (« 6ème A » de 2024-2025), et les
+    // élèves étaient inscrits dans la promotion précédente — sans erreur, sans
+    // avertissement, et invisible à l'écran tant que les deux années ont la
+    // même structure de classes.
     const existingClasses = await prisma.classe.findMany({
-      where: mergeFilters({ tenantId }, classeFilter),
+      where: mergeFilters({ tenantId, annee }, classeFilter),
       select: { id: true, nom: true, siteId: true },
     });
     const classByName = new Map(existingClasses.map((c) => [c.nom, { id: c.id, siteId: c.siteId }]));
@@ -241,7 +247,9 @@ export async function POST(req: NextRequest) {
       });
       const created = await prisma.classe.findMany({
         where: mergeFilters(
-          { tenantId, nom: { in: classesToCreate } },
+          // Même raison que ci-dessus : la relecture doit porter sur l'année
+          // d'import, sinon elle ramène les homonymes des autres années.
+          { tenantId, nom: { in: classesToCreate }, annee },
           siteFilterForModel("classe", session.user)
         ),
         select: { id: true, nom: true, siteId: true },

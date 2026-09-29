@@ -192,6 +192,9 @@ model Tenant {
   // Impersonation : grants ciblant ce tenant
   impersonationGrants ImpersonationGrant[]
 
+  // Invitations d'utilisateurs par email (jeton à usage unique)
+  invitations Invitation[]
+
   // Synchronisation locale (sauvegarde automatique sur PC du principal)
   syncConfig SyncConfig?
 
@@ -654,6 +657,10 @@ model Site {
   demandesFournitures DemandeFourniture[]
   listesFournitures   ListeFournitureClasse[]
 
+  // INVITATIONS rattachées à ce site (siteId nullable : une direction peut
+  // inviter sans borner à un site).
+  invitations Invitation[]
+
   // Soft-delete / purge planifiée (Option B — industry standard)
   deletedAt        DateTime?
   deletedBy        String?
@@ -1032,6 +1039,10 @@ model User {
   // Notifications envoyées
   notificationsEnvoyees Notification[] @relation("NotificationSender")
 
+  // Invitations d'utilisateurs émises par ce compte (traçabilité : qui a
+  // invité qui, et quand — la révocation garde l'entrée).
+  invitationsEnvoyees Invitation[] @relation("InvitationInvitedBy")
+
   // Appareils mobiles (push)
   devices DeviceToken[] @relation("UserDevices")
 
@@ -1302,6 +1313,72 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+// ============================================================
+// INVITATION — entrée d'un utilisateur par email (jeton à usage unique)
+// ============================================================
+//
+// POURQUOI CE MODÈLE EXISTE
+// Jusqu'ici, un compte était créé par l'administration avec un mot de passe
+// provisoire communiqué hors de l'application (oralement, par téléphone), et
+// `mustChangePassword` forçait son remplacement à la première connexion. Ce
+// circuit a deux défauts : le secret transite par un canal non maîtrisé, et
+// rien ne prouve que l'adresse email appartient bien à son destinataire.
+//
+// L'invitation renverse le flux : l'administration saisit l'adresse, un jeton
+// à usage unique part par email, et c'est le destinataire qui définit SON mot
+// de passe. Aucun secret ne circule en clair.
+//
+// SÉCURITÉ
+//   • le jeton n'est JAMAIS stocké en clair : seule son empreinte SHA-256
+//     (`tokenHash`) est persistée. Un vol de la table ne permet pas de rejouer
+//     une invitation ;
+//   • le jeton est aléatoire (256 bits) et à usage unique (`acceptedAt`) ;
+//   • il expire (`expiresAt`, 72 h par défaut) ;
+//   • il est révocable sans suppression (`revokedAt`), pour garder la trace.
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+model Invitation {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Site d'affectation prévu. Nullable : une direction peut inviter sans
+  // borner à un site (le périmètre est alors celui du rôle).
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  email String
+  name  String?
+  role  Role    @default(TEACHER)
+  phone String?
+
+  /// Empreinte SHA-256 (hex) du jeton transmis par email — jamais le jeton brut.
+  tokenHash String           @unique
+  status    InvitationStatus @default(PENDING)
+  expiresAt DateTime
+
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  invitedById String?
+  invitedBy   User?   @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Suivi courant : « les invitations en attente de cet établissement »,
+  // et détection d'un renvoi vers la même adresse.
+  @@index([tenantId, status])
+  @@index([tenantId, email])
+  @@map("invitations")
 }
 
 // ============================================================
