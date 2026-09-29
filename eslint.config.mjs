@@ -53,9 +53,9 @@ const eslintConfig = [
       // règle) ; 61 après correction de la règle, puis 54, 37, 22, 0 après
       // quatre lots de relecture un par un.
       //
-      // Sur ces 380, la règle a servi : elle a fait sortir CINQ bugs réels
-      // — chaque fois le même motif, « liste de classes sans année » ou une
-      // année oubliée dans une requête qui en portait l'intention :
+      // Sur ces 380, la règle a servi : elle a fait sortir SIX bugs réels. Cinq sont
+      // le même motif — une année que la requête avait l'intention de porter et
+      // qui manquait :
       //   • graphique « élèves par classe » (`api/analytics`) ;
       //   • sélecteur d'audience de la messagerie (`messaging-audience`) ;
       //   • moteur de remplacements (`rh/moteur-remplacements` : la charge
@@ -63,6 +63,10 @@ const eslintConfig = [
       //   • export des bulletins (`sync-export/notes-bulletins`) ;
       //   • aperçu de l'import d'élèves (`import-eleves-server` : l'aperçu
       //     annonçait le contraire de ce que l'import allait faire).
+      // Le sixième est d'une autre nature, mais c'est la règle qui l'a fait
+      // remonter — un filtre qui se LÈVE au lieu de refuser :
+      //   • `(dashboard)/cahier-journal/page.tsx` : liste de classes vide ⇒
+      //     aucune restriction, donc les séances de toutes les années.
       //
       // Toute nouvelle violation DOIT être corrigée, ou exemptée avec un motif
       // écrit sur la ligne. Métrique de suivi : `pnpm audit:annee`, plafond 0.

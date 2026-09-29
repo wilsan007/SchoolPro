@@ -146,6 +146,13 @@ que la requête avait l'intention de porter et qui manquait :
 | `lib/sync-export/notes-bulletins` | export des bulletins mêlant les promotions |
 | `lib/import-eleves-server` | l'aperçu d'import annonçait le contraire de ce que l'import allait faire |
 
+Un **sixième bug**, d'une autre nature, est remonté par la même relecture :
+`(dashboard)/cahier-journal/page.tsx` levait son filtre quand la liste des classes
+de l'année était vide, au lieu de tout refuser — la page chargeait alors les
+séances de toutes les années. C'est le cas d'école du **fail-open** que la règle
+n°6 interdit : un `[]` doit refuser, jamais ouvrir. Corrigé avec la sentinelle
+`{ id: "__none__" }` déjà employée par `scopeSeanceFilter` dans ce composant.
+
 Leçon retenue : sur une règle de lint jeune, **le travail de calibration de la
 règle dépasse le travail de correction du code** (319 faux positifs contre 5 bugs
 sur 380 signalements). Une règle qui accuse à tort se fait désactiver ; mieux
