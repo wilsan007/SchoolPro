@@ -131,10 +131,54 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_ALERT_CHAT_ID=
 
 # --- Sauvegarde hors site (Cloudflare R2) — fortement recommandé -------
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-PGBACKREST_R2_BUCKET=ecolpro-backups
+# NOMS IMPOSÉS : ce sont ceux que docker-compose.yml transmet à pgBackRest
+# (R2_S3_ENDPOINT → PGBACKREST_REPO2_S3_ENDPOINT, R2_BACKUP_ACCESS_KEY_ID →
+# PGBACKREST_REPO2_S3_KEY, etc.). Ne pas les renommer sans renommer
+# docker-compose.yml : sans les quatre premières, le dépôt distant reste
+# INACTIF EN SILENCE — la sauvegarde ne quitte jamais le VPS, et `make audit`
+# le classe CRITIQUE. Procédure : RUNBOOK.md § « Activation du dépôt de
+# sauvegarde hors site ». Jeton R2 limité à ce seul bucket, permission
+# Object Read & Write (jamais un jeton de compte).
+R2_S3_ENDPOINT=
+R2_BACKUP_BUCKET=ecolpro-backups
+R2_BACKUP_ACCESS_KEY_ID=
+R2_BACKUP_SECRET_ACCESS_KEY=
+# Facultatifs : les valeurs par défaut conviennent à R2.
+R2_BACKUP_REGION=auto
+R2_BACKUP_PATH=/ecolpro
+R2_BACKUP_RETENTION_FULL=8
+
+# --- Isolation multi-tenant en base (Row Level Security) ----------------
+# off → warn → enforce (progression détaillée : AGENTS.md, règle n°6, et
+# docs/audit-2026-09-11/02-isolation-tenant-site-annee.md).
+# Tant que cette valeur reste à « off », PostgreSQL n'applique AUCUN
+# cloisonnement entre établissements : les règles vivent alors uniquement
+# dans le code applicatif. La valeur par défaut est volontairement « off »,
+# mais elle doit être un CHOIX lisible ici, pas un oubli — ce fichier est le
+# seul endroit où le déploiement VPS peut la fixer.
+RLS_MODE=off
+
+# --- Double authentification -------------------------------------------
+# Chiffre (AES-256-GCM) les secrets TOTP stockés en base. Sans elle,
+# PERSONNE ne peut configurer son second facteur. La CHANGER rend
+# inutilisables toutes les configurations 2FA existantes : après mise en
+# service, la traiter exactement comme AUTH_SECRET.
+# Générée ici (openssl rand -hex 32) plutôt que dérivée d'AUTH_SECRET : le
+# repli sur AUTH_SECRET n'existe QUE dans Docker, il ne faut pas en dépendre.
+TWO_FACTOR_SECRET=$(gen_hex)
+# 0 = pas d'obligation d'activation (la vérification d'un 2FA déjà activé
+# reste toujours en vigueur). Au-delà de 0, le middleware redirige les rôles
+# sensibles vers l'écran de configuration : si TWO_FACTOR_SECRET est vide,
+# l'accès est alors bloqué sans issue.
+TWO_FACTOR_GRACE_DAYS=0
+
+# --- Signal de vie (dead man's switch) ---------------------------------
+# C'est l'ABSENCE de ping qui déclenche l'alerte, chez un tiers : seul
+# dispositif capable de signaler que le VPS — ou son propre système
+# d'alerte — s'est tu. Facultatif, mais une surveillance qui ne crie pas
+# quand elle meurt n'est pas une surveillance.
+HEARTBEAT_BACKUP_URL=
+HEARTBEAT_RESTORE_TEST_URL=
 
 # --- Courriel (Resend) --------------------------------------------------
 RESEND_API_KEY=
@@ -227,6 +271,8 @@ cmd_rotate() {
   warn "AUTH_SECRET n'est PAS touché : le modifier déconnecterait tout le monde."
   warn "PGBACKREST_CIPHER_PASS n'est PAS touché : le modifier rendrait les"
   warn "sauvegardes existantes illisibles."
+  warn "TWO_FACTOR_SECRET n'est PAS touché : le modifier rendrait toutes les"
+  warn "configurations 2FA existantes inutilisables."
   echo
   read -r -p "Continuer ? (oui/non) : " confirm
   [ "${confirm}" = "oui" ] || err "Rotation annulée."
@@ -310,9 +356,24 @@ cmd_check() {
     problems=$((problems + 1))
   fi
 
-  # Sauvegarde hors site.
-  if [ -z "$(grep '^R2_ACCESS_KEY_ID=' "${plain}" | cut -d= -f2-)" ]; then
+  # Sauvegarde hors site. Les noms testés sont ceux que docker-compose.yml
+  # transmet réellement à pgBackRest : tester un autre nom ferait taire
+  # l'alerte alors que le dépôt distant n'est pas configuré.
+  if [ -z "$(grep '^R2_BACKUP_ACCESS_KEY_ID=' "${plain}" | cut -d= -f2-)" ]; then
     echo "${YELLOW}[~]${NC} aucune sauvegarde hors site (R2) : la perte du VPS ferait perdre les sauvegardes"
+  elif [ -z "$(grep '^R2_S3_ENDPOINT=' "${plain}" | cut -d= -f2-)" ]; then
+    echo "${RED}[!]${NC} R2_BACKUP_ACCESS_KEY_ID renseigné mais R2_S3_ENDPOINT vide : le dépôt distant restera inactif"
+    problems=$((problems + 1))
+  fi
+
+  # Double authentification.
+  if [ -z "$(grep '^TWO_FACTOR_SECRET=' "${plain}" | cut -d= -f2-)" ]; then
+    echo "${YELLOW}[~]${NC} TWO_FACTOR_SECRET vide : personne ne pourra configurer son second facteur"
+  fi
+
+  # Cloisonnement en base : c'est un choix, mais il doit être vu.
+  if [ "$(grep '^RLS_MODE=' "${plain}" | cut -d= -f2-)" = "off" ]; then
+    echo "${YELLOW}[~]${NC} RLS_MODE=off : PostgreSQL n'applique aucun cloisonnement entre établissements"
   fi
 
   # Alertes.

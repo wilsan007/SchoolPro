@@ -44,8 +44,8 @@ jobs:
       # Garde-fous qui ne dépendent ni de la base ni du réseau : ils vérifient
       # que le dépôt reste cohérent avec lui-même. Étape séparée de `verify:ci`
       # pour que l'échec dise immédiatement LAQUELLE des règles a cédé.
-      - name: Garde-fous (tâches planifiées, filtre d'année)
-        run: pnpm check:crons && pnpm audit:annee
+      - name: Garde-fous (tâches planifiées, filtre d'année, secrets)
+        run: pnpm check:crons && pnpm audit:annee && pnpm check:secrets
 
   build:
     name: Production Build

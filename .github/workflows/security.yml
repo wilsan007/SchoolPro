@@ -89,11 +89,18 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: docker-compose est-il valide et complet ?
-        # Détecte une variable référencée par le compose mais absente du
-        # fichier d'exemple — le déploiement échouerait alors sur le VPS,
-        # au pire moment.
-        run: docker compose --env-file .env.production.example config -q
+      - name: docker-compose est-il valide ET complet ?
+        # ATTENTION : `docker compose config -q` valide la syntaxe et la
+        # résolution des variables, mais PAS leur présence. Toute variable
+        # consommée avec un défaut (`${VAR:-}`) est valide même absente — le
+        # contrôle de complétude que ce commentaire annonçait autrefois
+        # n'existait donc pas, et c'est précisément pour cela qu'un bloc de
+        # sauvegarde hors site jamais câblé a pu passer inaperçu.
+        # `check-secrets-names.mjs` fait le vrai contrôle : il compare ce que
+        # le compose consomme à ce que le modèle de secrets engendre.
+        run: |
+          docker compose --env-file .env.production.example config -q
+          node scripts/ci/check-secrets-names.mjs
 
       - name: Aucun port publié sur l'hôte
         # La stack ne doit exposer AUCUN port : le trafic entre par un

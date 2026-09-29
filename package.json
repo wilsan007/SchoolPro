@@ -64,6 +64,7 @@
     "rls:generate": "node scripts/rls/generate-policies.cjs",
     "rls:check": "node scripts/rls/generate-policies.cjs --check",
     "check:crons": "node scripts/ci/check-cron-schedules.mjs",
+    "check:secrets": "node scripts/ci/check-secrets-names.mjs",
     "guard:db": "node scripts/guard-target-db.cjs",
     "audit:full": "node scripts/run-audit.mjs",
     "audit:quick": "node scripts/run-audit.mjs --quick",

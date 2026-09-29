@@ -713,6 +713,12 @@ Rien d'autre à modifier : la phrase de chiffrement du dépôt distant est
 la même que celle du dépôt local (`PGBACKREST_CIPHER_PASS`) — un secret
 de moins à conserver, sans rien perdre en protection.
 
+Ces quatre noms sont **imposés** : `docker-compose.yml` les mappe vers
+`PGBACKREST_REPO2_S3_*`, et un nom différent laisse le dépôt distant
+inactif sans le moindre message. `pnpm check:secrets` vérifie cette
+correspondance en CI, et `make audit` signale l'absence de dépôt distant
+comme une anomalie CRITIQUE.
+
 ### 3. Déployer, puis initialiser
 
 ```bash
