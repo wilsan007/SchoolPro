@@ -10,9 +10,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, ""),
   poweredByHeader: false,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // L'option `eslint` de `next.config` a été RETIRÉE en Next 16 (avec
+  // `next lint`) : la clé `eslint: { ignoreDuringBuilds }` n'existe plus. Le
+  // lint est de toute façon lancé explicitement (`pnpm lint` → ESLint 9 en
+  // flat config), localement comme en CI — le dupliquer dans le build
+  // n'apportait rien et masquait les erreurs de lint derrière un build vert.
   // Le type checking est désactivé pendant le build Docker pour éviter
   // l'OOM sur le builder Fly.io/Depot (2 GB RAM). Il est déjà vérifié
   // localement via `pnpm tsc --noEmit` et le pre-commit hook.

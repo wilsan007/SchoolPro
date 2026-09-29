@@ -109,9 +109,9 @@ export async function createClasse(data: ClasseFormData) {
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true };
 }
 
@@ -150,9 +150,9 @@ export async function deleteClasse(
     });
     revalidatePath("/parametres");
     revalidatePath("/eleves");
-    revalidateTag("classes-list");
-    revalidateTag("dashboard-data");
-    revalidateTag("eleves-stats");
+    revalidateTag("classes-list", { expire: 0 });
+    revalidateTag("dashboard-data", { expire: 0 });
+    revalidateTag("eleves-stats", { expire: 0 });
     return { success: true, action: "archived" };
   }
 
@@ -243,8 +243,8 @@ export async function deleteClasse(
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true, action: strategy };
 }

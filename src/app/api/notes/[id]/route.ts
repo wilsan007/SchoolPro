@@ -124,7 +124,7 @@ export async function PATCH(
       } satisfies NoteUpdatedPayload,
     });
 
-    revalidateTag("dashboard-data");
+    revalidateTag("dashboard-data", { expire: 0 });
 
     return NextResponse.json({ success: true, note: noteModifiee });
   } catch (error) {
@@ -207,7 +207,7 @@ export async function DELETE(
       } satisfies NoteDeletedPayload,
     });
 
-    revalidateTag("dashboard-data");
+    revalidateTag("dashboard-data", { expire: 0 });
 
     return NextResponse.json({ success: true });
   } catch (error) {

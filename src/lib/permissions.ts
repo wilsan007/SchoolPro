@@ -5,7 +5,8 @@
  * C'est ce qui lui permet d'être chargé à trois endroits qui ne peuvent pas
  * partager de code lourd :
  *
- *   1. `src/middleware.ts`  — runtime Edge, pas de Prisma possible.
+ *   1. `src/proxy.ts`       — ex-`middleware.ts` (renommé en Next 16), au bord
+ *      de l'application, avant tout accès aux données.
  *   2. `src/lib/rbac.ts`    — routes API (Node).
  *   3. `src/components/workspace/Dock.tsx` + `DockSearch.tsx` +
  *      `src/components/layout/MobileLayout.tsx` — navigation (client), qui

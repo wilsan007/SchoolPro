@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       resourceId: id,
     });
 
-    revalidateTag("dashboard-data");
+    revalidateTag("dashboard-data", { expire: 0 });
 
     return NextResponse.json({
       success: true,

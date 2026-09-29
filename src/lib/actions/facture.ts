@@ -258,7 +258,7 @@ export async function createFacture(data: FactureFormData) {
   });
 
   revalidatePath("/facturation");
-  revalidateTag("dashboard-data");
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true, id: facture.id };
 }
 
@@ -433,7 +433,7 @@ export async function createFacturesCombinees(items: FactureBatchItem[]): Promis
   });
 
   revalidatePath("/facturation");
-  revalidateTag("dashboard-data");
+  revalidateTag("dashboard-data", { expire: 0 });
   return { created, blocked };
 }
 
@@ -603,7 +603,7 @@ export async function enregistrerPaiement(factureId: string, data: PaiementFormD
 
   revalidatePath("/facturation");
   revalidatePath(`/facturation/${factureId}`);
-  revalidateTag("dashboard-data");
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true, id: paiement.id };
 }
 
@@ -638,6 +638,6 @@ export async function annulerFacture(factureId: string) {
 
   revalidatePath("/facturation");
   revalidatePath(`/facturation/${factureId}`);
-  revalidateTag("dashboard-data");
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true };
 }

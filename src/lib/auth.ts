@@ -452,7 +452,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           mustChangePassword: user.mustChangePassword,
           // Rôle sensible sans 2FA configurée, délai de tolérance écoulé :
           // l'accès est restreint à la page de configuration (voir
-          // src/middleware.ts). Vaut toujours false tant que
+          // src/proxy.ts, ex-middleware). Vaut toujours false tant que
           // TWO_FACTOR_GRACE_DAYS n'est pas défini — activer la contrainte
           // reste une décision explicite, jamais un effet de bord d'un
           // déploiement.

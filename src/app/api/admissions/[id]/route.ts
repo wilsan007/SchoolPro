@@ -565,8 +565,8 @@ export async function PATCH(
         }
       }
 
-      revalidateTag("eleves-stats");
-      revalidateTag("dashboard-data");
+      revalidateTag("eleves-stats", { expire: 0 });
+      revalidateTag("dashboard-data", { expire: 0 });
 
       // i) Notification à la direction
       await notifyDirection({

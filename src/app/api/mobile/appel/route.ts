@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  revalidateTag("dashboard-data");
+  revalidateTag("dashboard-data", { expire: 0 });
 
   return NextResponse.json({
     success: true,

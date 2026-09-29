@@ -317,8 +317,8 @@ export async function createEleve(
   // Les effectifs par classe sont aussi affichés dans Paramètres → Pédagogie :
   // sans cette invalidation, cet écran garde les chiffres d.avant.
   revalidatePath("/parametres");
-  revalidateTag("eleves-stats");
-  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true, id: eleve.id };
 }
 
@@ -477,8 +477,8 @@ export async function updateEleve(
   // sans cette invalidation, cet écran garde les chiffres d.avant.
   revalidatePath("/parametres");
   revalidatePath(`/eleves/${id}`);
-  revalidateTag("eleves-stats");
-  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true, id };
 }
 
@@ -552,8 +552,8 @@ export async function deleteEleve(id: string, reason?: string) {
   // sans cette invalidation, cet écran garde les chiffres d.avant.
   revalidatePath("/parametres");
   revalidatePath(`/eleves/${id}`);
-  revalidateTag("eleves-stats");
-  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true as boolean, id };
 }
 
@@ -620,7 +620,7 @@ export async function restoreEleve(id: string) {
   // sans cette invalidation, cet écran garde les chiffres d.avant.
   revalidatePath("/parametres");
   revalidatePath(`/eleves/${id}`);
-  revalidateTag("eleves-stats");
-  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true as boolean, id };
 }

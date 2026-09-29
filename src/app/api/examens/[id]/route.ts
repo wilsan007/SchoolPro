@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       resourceId: id,
     });
 
-    revalidateTag("dashboard-data");
+    revalidateTag("dashboard-data", { expire: 0 });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -94,7 +94,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       resourceId: id,
     });
 
-    revalidateTag("dashboard-data");
+    revalidateTag("dashboard-data", { expire: 0 });
 
     return NextResponse.json({ success: true });
   } catch (error) {

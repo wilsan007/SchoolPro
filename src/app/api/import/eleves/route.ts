@@ -444,12 +444,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    revalidateTag("eleves-stats");
+    revalidateTag("eleves-stats", { expire: 0 });
     // Les effectifs par classe affichés dans Paramètres → Pédagogie.
     revalidatePath("/parametres");
     revalidatePath("/eleves");
-    revalidateTag("dashboard-data");
-    revalidateTag("classes-list");
+    revalidateTag("dashboard-data", { expire: 0 });
+    revalidateTag("classes-list", { expire: 0 });
 
     return NextResponse.json({
       success: true,

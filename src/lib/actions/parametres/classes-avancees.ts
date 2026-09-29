@@ -82,9 +82,9 @@ export async function updateClasse(classeId: string, data: UpdateClasseFormData)
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true };
 }
 
@@ -116,9 +116,9 @@ export async function archiveClasse(classeId: string, reason?: string) {
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true };
 }
 
@@ -150,9 +150,9 @@ export async function restoreClasse(classeId: string) {
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true };
 }
 
@@ -229,9 +229,9 @@ export async function transferClasse(classeId: string, targetSiteId: string) {
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true };
 }
 
@@ -329,9 +329,9 @@ export async function mergeClasses(sourceIds: string[], targetClasseId: string) 
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true, merged: sources.length, totalStudents };
 }
 
@@ -406,9 +406,9 @@ export async function splitClasse(
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true, createdCount: newClasses.length };
 }
 
@@ -488,9 +488,9 @@ export async function duplicateClasse(classeId: string, newAnnee: string, copySt
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true, newClasseId: newClasse.id };
 }
 

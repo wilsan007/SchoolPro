@@ -65,7 +65,7 @@ export async function updateEtablissement(data: EtablissementFormData) {
   });
 
   revalidatePath("/parametres");
-  revalidateTag("tenant-modele-niveaux");
+  revalidateTag("tenant-modele-niveaux", { expire: 0 });
   return { success: true };
 }
 

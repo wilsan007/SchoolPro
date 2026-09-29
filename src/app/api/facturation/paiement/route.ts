@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
 
   revalidatePath("/facturation");
   revalidatePath("/admissions");
-  revalidateTag("dashboard-data");
+  revalidateTag("dashboard-data", { expire: 0 });
 
   return NextResponse.json({ paiement: paiement.created, newStatut: paiement.newStatut });
 }

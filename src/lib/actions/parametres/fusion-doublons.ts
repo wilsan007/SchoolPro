@@ -136,7 +136,7 @@ export async function mergeEleves(
 
   revalidatePath("/eleves");
   revalidatePath("/parametres");
-  revalidateTag("eleves-stats");
-  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true };
 }

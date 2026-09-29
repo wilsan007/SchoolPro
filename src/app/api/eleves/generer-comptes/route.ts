@@ -164,8 +164,8 @@ export async function POST(req: NextRequest) {
     created.push(user.id);
   }
 
-  revalidateTag("eleves-stats");
-  revalidateTag("dashboard-data");
+  revalidateTag("eleves-stats", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
 
   return NextResponse.json({
     created: created.length,

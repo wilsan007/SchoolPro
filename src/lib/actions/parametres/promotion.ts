@@ -200,9 +200,9 @@ export async function executePromotion(
 
   revalidatePath("/parametres");
   revalidatePath("/eleves");
-  revalidateTag("classes-list");
-  revalidateTag("dashboard-data");
-  revalidateTag("eleves-stats");
+  revalidateTag("classes-list", { expire: 0 });
+  revalidateTag("dashboard-data", { expire: 0 });
+  revalidateTag("eleves-stats", { expire: 0 });
   return { success: true };
 }
 
@@ -261,6 +261,6 @@ export async function copyStructureToNewYear(anneeSource: string, anneeCible: st
   }
 
   revalidatePath("/parametres");
-  revalidateTag("classes-list");
+  revalidateTag("classes-list", { expire: 0 });
   return { success: true, created };
 }

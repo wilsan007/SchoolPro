@@ -1,3 +1,22 @@
+/**
+ * Proxy de l'application — exécuté avant chaque requête qui n'est pas un
+ * fichier statique (voir `config.matcher`).
+ *
+ * RENOMMAGE Next 16 : ce fichier s'appelait `src/middleware.ts` et exportait
+ * `middleware`. En v16, « Middleware » devient « Proxy » (Next.js écarte le
+ * terme, confondu avec le middleware Express) : la fonction s'exporte
+ * désormais sous le nom `proxy`. Le codemod officiel fait exactement les deux
+ * changements : `npx @next/codemod@canary middleware-to-proxy .`.
+ *
+ * À SAVOIR : le proxy s'exécute par défaut dans le runtime **Node.js** en v16,
+ * alors que le middleware tournait dans le runtime Edge. Ce fichier n'utilise
+ * que `NextResponse`, `getToken` (next-auth/jwt) et du rate limiting en
+ * mémoire : le changement est donc neutre ici. En revanche, le commentaire
+ * plus bas sur `auth()` (« ne remonte pas `role` en Edge ») décrivait une
+ * limite du runtime Edge et mérite d'être réévalué séparément — pas pendant
+ * une montée de version.
+ */
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
@@ -38,7 +57,7 @@ const PUBLIC_EXACT = new Set(["/", "/offline"]);
 /** Familles d'API qui portent leur propre authentification (signature, cron). */
 const SELF_AUTH_API = ["/api/auth", "/api/cron", "/api/webhooks"];
 
-export default async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_EXACT.has(pathname)) return NextResponse.next();

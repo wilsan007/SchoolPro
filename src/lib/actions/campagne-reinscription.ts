@@ -622,7 +622,7 @@ export async function activerNouvelleAnnee(campagneId: string) {
   });
 
   revalidatePath("/parametres/reinscription");
-  revalidateTag("dashboard-data");
+  revalidateTag("dashboard-data", { expire: 0 });
   return { success: true };
 }
 

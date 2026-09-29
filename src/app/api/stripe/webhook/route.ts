@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
             metadata: { amount, method: "carte" },
           });
 
-          revalidateTag("dashboard-data");
+          revalidateTag("dashboard-data", { expire: 0 });
 
           logger.info(`[Stripe] Paiement enregistré pour facture ${facture.numero}: ${amount}`);
           break;

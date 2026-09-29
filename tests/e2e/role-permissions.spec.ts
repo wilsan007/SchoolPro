@@ -4,7 +4,7 @@ import { loginAs } from "./fixtures-roles";
 /**
  * Permissions par rôle — routes autorisées et bloquées
  * ============================================================
- * Vérifie que le middleware (`src/middleware.ts`) et `guardPage`
+ * Vérifie que le proxy (`src/proxy.ts`, ex-`middleware.ts`) et `guardPage`
  * appliquent correctement `ROUTE_RULES` (`src/lib/permissions.ts`).
  *
  * Quand une route est bloquée pour un rôle, l'utilisateur est

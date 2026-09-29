@@ -266,7 +266,7 @@ export async function PUT(
       }
     }
 
-    revalidateTag("dashboard-data");
+    revalidateTag("dashboard-data", { expire: 0 });
 
     return NextResponse.json({ success: true, count: savedNotes.length });
   } catch (error) {
