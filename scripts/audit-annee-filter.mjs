@@ -32,18 +32,20 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REGLE = "ecolpro/require-annee-filter";
 
 /**
- * Plafond de référence — mesuré le 29/09/2026 APRÈS correction des faux
- * positifs de la règle et de trois lots de corrections réelles.
+ * Plafond de référence — ramené à ZÉRO le 29/09/2026, la dette étant éteinte.
  *
  *   Premier passage ................. 380   (dont 319 faux positifs de la règle)
  *   Après correction règle ...........  61
  *   Après lot « src/app/api » ........  54
  *   Après lot « src/lib/learnos » ....  37
  *   Après lot « messagerie + API » ...  22
+ *   Après lot « fin de la dette » ....   0
  *
- * À BAISSER, jamais à monter.
+ * Le plafond reste à 0 : toute nouvelle violation doit être corrigée, ou
+ * exemptée avec un motif écrit sur la ligne concernée. À BAISSER, jamais à
+ * monter.
  */
-const PLAFOND_PAR_DEFAUT = 22;
+const PLAFOND_PAR_DEFAUT = 0;
 
 const args = process.argv.slice(2);
 const json = args.includes("--json");
@@ -113,6 +115,11 @@ if (json) {
       `✓ Dette en baisse : ${plafond - total} requête(s) corrigée(s). ` +
         `Baisser le plafond à ${total} dans ce fichier (et dans eslint.config.mjs ` +
         "si le compte atteint 0)."
+    );
+  } else if (total === 0) {
+    console.log(
+      "✓ Aucune requête sans filtre d'année — la dette est éteinte. Le plafond " +
+        "reste à 0 : toute nouvelle violation est une régression."
     );
   } else {
     console.log("✓ Dette stable — inchangée depuis la dernière mesure.");

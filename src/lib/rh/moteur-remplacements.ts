@@ -120,6 +120,15 @@ export async function chercherCandidatsRemplacement(
   tenantId: string,
   creneau: CreneauImpacte
 ): Promise<CandidatRemplacement[]> {
+  // L'EDT n'a de sens que pour l'année active : `EmploiTemps.annee` existe, et
+  // la fonction voisine `detecterCreneauxImpactes` applique déjà ce filtre.
+  // Sans lui, la charge horaire cumulait les séances de TOUTES les années et un
+  // créneau identique d'une année révolue était compté comme un conflit : le
+  // moteur déclarait indisponible un enseignant qui ne l'était pas, et
+  // `chargeResiduelle` tombait à zéro pour tout le monde — le classement des
+  // remplaçants proposé au chef d'établissement ne voulait plus rien dire.
+  const annee = await getAnneeCouranteLibelle(tenantId);
+
   // Récupérer les enseignants de la même matière
   // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const enseignants = await prisma.enseignant.findMany({
@@ -145,6 +154,7 @@ export async function chercherCandidatsRemplacement(
     const seancesTotales = await prisma.emploiTemps.count({
       where: {
         tenantId,
+        ...(annee ? { annee } : {}),
         enseignantId: ens.id,
       },
     });
@@ -158,6 +168,7 @@ export async function chercherCandidatsRemplacement(
     const conflits = await prisma.emploiTemps.findMany({
       where: {
         tenantId,
+        ...(annee ? { annee } : {}),
         enseignantId: ens.id,
         jour: creneau.jour as Jour,
         heureDebut: creneau.heureDebut,

@@ -693,6 +693,7 @@ export async function scopeLabel(actor: Actor, scope: AudienceScope): Promise<st
       return structure?.nom ?? "structure";
     }
     case "CLASSE": {
+      // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de portée (`scope.id`)
       const classe = await prisma.classe.findFirst({
         where: mergeFilters(
           { id: scope.id, tenantId: actor.tenantId },

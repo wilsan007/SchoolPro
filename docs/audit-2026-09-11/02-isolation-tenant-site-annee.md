@@ -129,11 +129,28 @@ Créer `tests/rls/matrice-routes.test.ts` (sur le labo) :
 2. Pour chaque route GET listée dans l'annexe A et pour chaque rôle (TENANT_ADMIN avec et sans site sélectionné, TEACHER, SECRETARY, ACCOUNTANT, PARENT, STUDENT) : appeler le handler avec une session simulée, puis vérifier que chaque identifiant renvoyé appartient au périmètre attendu (même tenant, site autorisé, enfant du parent).
 3. Faire de même pour les routes `[id]` avec l'identifiant d'un autre tenant ou d'une autre famille : attendre 403 ou 404, jamais 200.
 
-### ISO-6 — Contrôle automatique de la règle « année courante » *(P2, 1,5 j)*
+### ISO-6 — Contrôle automatique de la règle « année courante » *(P2, 1,5 j)* — ✅ LIVRÉ
 
 1. Déclarer dans `src/lib/annee-scope.ts` la liste `MODELES_ANNUALISES` (`note`, `evaluation`, `absence`, `devoir`, `emploiTemps`, `seancePedagogique`, `bulletin`, `facture`…), en la validant avec le métier.
-2. Créer une règle ESLint `ecolpro/require-annee-filter` : un `findMany` ou `count` sur ces modèles doit contenir `annee`, `anneeId` ou `periode`, ou porter une exemption justifiée.
-3. Corriger les violations, ou les justifier une par une.
+2. Créer une règle ESLint `ecolpro/require-annee-filter` : un `findMany` ou `count` sur ces modèles doit contenir `annee`, `anneeId` ou `periode`, ou porter une exemption justifiée. **Fait** le 29/09/2026 (`eslint-rules/require-annee-filter.js`).
+3. Corriger les violations, ou les justifier une par une. **Fait** : 380 signalements au premier passage (dont 319 faux positifs de la règle, corrigés), puis 61 → 54 → 37 → 22 → **0**. La règle est passée en `error`, et le plafond de `pnpm audit:annee` est à **0**.
+
+**Cinq bugs réels** sont sortis de cette relecture — tous du même motif, une année
+que la requête avait l'intention de porter et qui manquait :
+
+| Fichier | Conséquence réelle |
+|---|---|
+| `api/analytics` | graphique « élèves par classe » : classes de toutes les promotions |
+| `lib/messaging-audience` | sélecteur d'audience proposait des classes disparues |
+| `lib/rh/moteur-remplacements` | charge horaire cumulée sur toutes les années → faux conflits, remplaçants classés au hasard |
+| `lib/sync-export/notes-bulletins` | export des bulletins mêlant les promotions |
+| `lib/import-eleves-server` | l'aperçu d'import annonçait le contraire de ce que l'import allait faire |
+
+Leçon retenue : sur une règle de lint jeune, **le travail de calibration de la
+règle dépasse le travail de correction du code** (319 faux positifs contre 5 bugs
+sur 380 signalements). Une règle qui accuse à tort se fait désactiver ; mieux
+vaut la confronter au code réel avant de la croire, et ne la passer en `error`
+qu'une fois le compteur à zéro.
 
 ## 7. Définition de « terminé »
 

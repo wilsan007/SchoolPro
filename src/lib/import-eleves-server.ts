@@ -8,6 +8,7 @@
 
 import prisma from "@/lib/prisma";
 import { siteFilterForModel, mergeFilters, type SessionSiteClaims } from "@/lib/site-scope";
+import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { normalizeName } from "@/lib/eleve-identity";
 import {
   analyzeImport,
@@ -71,6 +72,7 @@ export async function preparerPlan(
   // tenant et l'import « écraserait » les fiches des autres sites.
   const siteFilter = siteScopeFor("eleve", acteur, targetSiteId);
   const classeSiteFilter = siteScopeFor("classe", acteur, targetSiteId);
+  const anneeCourante = await getAnneeCouranteLibelle(acteur.tenantId);
 
   const [existantsBruts, classes, importPrecedent] = await Promise.all([
     prisma.eleve.findMany({
@@ -86,7 +88,15 @@ export async function preparerPlan(
       },
     }),
     prisma.classe.findMany({
-      where: mergeFilters({ tenantId: acteur.tenantId }, classeSiteFilter),
+      // `classesConnues` décide du message montré à l'utilisateur : « la classe
+      // « X » sera créée » ou non. Sans filtre d'année, une classe d'une
+      // promotion révolue était tenue pour connue et l'aperçu annonçait le
+      // contraire de ce que l'import allait faire. `Classe.annee` désigne une
+      // promotion, pas un attribut pérenne de l'établissement.
+      where: mergeFilters(
+        { tenantId: acteur.tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
+        classeSiteFilter
+      ),
       select: { nom: true },
     }),
     // Empreinte du fichier : a-t-il déjà été importé dans cet établissement ?

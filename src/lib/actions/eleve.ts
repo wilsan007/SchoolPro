@@ -392,6 +392,7 @@ export async function updateEleve(
   // classe d'un autre site/tenant à cet élève.
   let resolvedSiteId = existing.siteId;
   if (values.classeId) {
+    // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de la classe (résolution du site de l'élève)
     const classe = await prisma.classe.findFirst({
       where: {
         id: values.classeId,

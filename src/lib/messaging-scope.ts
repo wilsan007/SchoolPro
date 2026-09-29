@@ -416,9 +416,10 @@ async function classeUserFilter(
   tenantId: string,
   classeId: string
 ): Promise<Record<string, unknown>> {
-  // `classeId` est vérifié par l'appelant — la route contrôle
-  // `canAccessSite(actor, classe.siteId)` avant d'ouvrir la conversation.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // accès par identifiant : `classeId` est vérifié par l'appelant — la route
+  // contrôle `canAccessSite(actor, classe.siteId)` avant d'ouvrir la
+  // conversation. Ni le site ni l'année ne se déduisent de cet appel.
+  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter
   const classe = await prisma.classe.findFirst({
     where: { id: classeId, tenantId },
     select: { id: true, profPrincipal: { select: { userId: true } } },
@@ -465,7 +466,7 @@ export async function getClassParticipants(
         parents: { include: { parent: { include: { user: { select: { id: true } } } } } },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- accès par identifiant : `classeId` est vérifié par l'appelant
     prisma.classe.findFirst({
       where: { id: classeId, tenantId },
       include: {

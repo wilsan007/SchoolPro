@@ -28,7 +28,7 @@ export async function rappelerEcheancesTaches(): Promise<{ count: number }> {
     dans3jours.setHours(23, 59, 59, 999);
 
     // Tâche système cron : balaie tous les tenants.
-    // eslint-disable-next-line ecolpro/require-tenant-id
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-annee-filter -- cron système borné par la fenêtre d'échéance (3 jours) ; `Tache` ne porte aucune année
     const taches = await prisma.tache.findMany({
       where: {
         statut: { in: ["A_FAIRE", "EN_COURS"] },

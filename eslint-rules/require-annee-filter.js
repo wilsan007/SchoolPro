@@ -116,8 +116,34 @@
  *   • `conseil-augmente` : borné par les `eleveIds` de la période et une plage
  *     de dates.
  *
- * Trois de ces fichiers portaient déjà des exemptions `require-site-filter`
- * pour la même raison : l'exemption a été ÉTENDUE plutôt que dupliquée.
+ * QUATRIÈME ET DERNIER LOT — fin de la dette : 22 → 0
+ *
+ * Quatre corrections réelles, toutes du même motif : une année que la requête
+ * avait manifestement l'intention de porter, et qui manquait.
+ *
+ *   • `rh/moteur-remplacements` — la charge horaire d'un enseignant se comptait
+ *     sur TOUTES les années, et un créneau identique d'une année révolue était
+ *     compté comme un conflit : le moteur déclarait indisponible un enseignant
+ *     qui ne l'était pas. La fonction voisine du même fichier, elle, filtrait
+ *     déjà par année — l'incohérence se lisait à dix lignes d'écart.
+ *   • `sync-export/notes-bulletins` — les notes étaient bornées par `classe:
+ *     { annee }`, les bulletins non : l'export mêlait les promotions.
+ *   • `import-eleves-server` — `classesConnues` (qui décide du message
+ *     « la classe « X » sera créée ») ignorait l'année : l'aperçu annonçait le
+ *     contraire de ce que l'import allait faire.
+ *   • `(dashboard)/cahier-journal/page.tsx` — `classeIds` vide levait le filtre
+ *     au lieu de tout refuser, chargeant les séances de toutes les années.
+ *     Corrigé en « fail-closed » (règle n°6), avec la sentinelle déjà employée
+ *     par `scopeSeanceFilter` dans le même composant.
+ *
+ * Les 18 derniers signalements sont EXEMPTÉS AVEC MOTIF, sans exception :
+ * requêtes bornées par un identifiant, par une période, ou par une fenêtre de
+ * dates. Quand la requête portait DÉJÀ une exemption sur une autre règle
+ * (`require-site-filter`), l'exemption a été étendue sur place plutôt que
+ * dupliquée — un seul motif, deux règles.
+ *
+ * La règle passe ensuite en `error` : elle garde désormais le code, elle ne le
+ * mesure plus.
  *
  * Règle 4 — exemption explicite et motivée :
  *   // eslint-disable-next-line ecolpro/require-annee-filter -- lecture

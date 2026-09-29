@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // eslint-disable-next-line ecolpro/require-annee-filter -- borné par la période du bulletin et par `eleveId`
     const absences = await prisma.absence.count({
       where: { tenantId, ...siteFilterForModel("absence", session.user),
         eleveId,

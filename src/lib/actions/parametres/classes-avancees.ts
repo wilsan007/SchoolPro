@@ -352,6 +352,7 @@ export async function splitClasse(
     throw new Error("Au moins une nouvelle classe est requise");
   }
 
+  // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de la classe source
   const source = await prisma.classe.findFirst({
     where: {
       id: sourceClasseId,

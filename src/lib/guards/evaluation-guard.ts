@@ -9,7 +9,10 @@ export async function checkEvaluationDeletable(
   evaluationId: string,
   tenantId: string
 ): Promise<string | null> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- guard function, caller is responsible for site filtering
+  // Accès par identifiant (`evaluationId`) : ni le site ni l'année ne se déduisent
+  // d'une évaluation — l'appelant les a validés. Ce garde-fou ne fait qu'une
+  // chose : refuser la suppression d'une évaluation déjà notée.
+  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter
   const noteCount = await prisma.note.count({
     where: { evaluationId, tenantId },
   });

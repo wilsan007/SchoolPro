@@ -260,6 +260,7 @@ export async function POST(req: NextRequest) {
       // (DateTime) mais pas d'heure séparée : on compare donc sur le jour pour
       // éviter les doublons, ce qui suffit car un créneau EDT = une séance.
        
+      // eslint-disable-next-line ecolpro/require-annee-filter -- idempotence : classe + matière + semaine, fenêtre d'un jour
       const existante = await prisma.seancePedagogique.findFirst({
         where: {
           tenantId,

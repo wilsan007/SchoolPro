@@ -205,6 +205,7 @@ export default async function DirectionPage() {
       }),
       // Incidents ouverts : seulement ceux survenus avant `maintenant`
       // et dans la fenêtre de l'année active.
+      // eslint-disable-next-line ecolpro/require-annee-filter -- borné par `fenetreDebut` = début de l'année active
       prisma.incident.count({
         where: {
           tenantId,

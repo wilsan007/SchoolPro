@@ -119,11 +119,17 @@ export default async function CahierJournalPage() {
     // en JavaScript lors de la sérialisation, à partir des données déjà
     // chargées ci-dessus. Les détails (compétences, devoirs, plan leçon,
     // commentaires) sont lazy-loadés via l'API au clic sur une séance.
+    // eslint-disable-next-line ecolpro/require-annee-filter -- `classeIds` = classes de l'ANNÉE COURANTE (getClassesHierarchie), fail-closed si la liste est vide
     prisma.seancePedagogique.findMany({
       where: {
         tenantId,
         ...siteFilterForModel("seancePedagogique", session.user),
-        ...(classeIds.length > 0 ? { classeId: { in: classeIds } } : {}),
+        // Fail-closed : `classeIds` est la liste des classes de l'ANNÉE COURANTE
+        // (voir `getClassesHierarchie` ci-dessus) ; vide, elle signifie « aucune
+        // classe accessible », pas « toutes ». Sans le sentinelle, la page
+        // chargeait les séances de TOUTES les années — même convention que
+        // `scopeSeanceFilter` plus haut.
+        ...(classeIds.length > 0 ? { classeId: { in: classeIds } } : { id: "__none__" }),
         ...scopeSeanceFilter,
         ...filtreFenetreSeances,
       },

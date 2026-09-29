@@ -44,15 +44,29 @@ const eslintConfig = [
     rules: {
       "ecolpro/require-tenant-id": "error",
       "ecolpro/require-site-filter": "error",
-      // ÉTAPE 1 — « warn », et non « error ». Mesure du 29/09/2026 : le premier
-      // passage a signalé 380 appels de lecture, mais 319 étaient des faux
-      // positifs de la règle (variables `filtreAnnee*`, idiome
+      // « error » : la dette est à ZÉRO (mesure du 29/09/2026) — la règle est
+      // désormais un garde-fou, plus un simple thermomètre.
+      //
+      // Parcours : 380 signalements au premier passage, dont 319 faux positifs
+      // de la règle elle-même (variables `filtreAnnee*`, idiome
       // `annee ? { annee } : {}`, filtre par période — cf. l'en-tête de la
-      // règle). Après correction : 61 signalements réels, à relire un par un
-      // (filtre oublié, ou lecture inter-années légitime → disable motivé).
-      // Métrique de suivi (ratchet) : `pnpm audit:annee`, plafond 61.
-      // Objectif : 0, puis passage en « error » (règle n°2, AGENTS.md).
-      "ecolpro/require-annee-filter": "warn",
+      // règle) ; 61 après correction de la règle, puis 54, 37, 22, 0 après
+      // quatre lots de relecture un par un.
+      //
+      // Sur ces 380, la règle a servi : elle a fait sortir CINQ bugs réels
+      // — chaque fois le même motif, « liste de classes sans année » ou une
+      // année oubliée dans une requête qui en portait l'intention :
+      //   • graphique « élèves par classe » (`api/analytics`) ;
+      //   • sélecteur d'audience de la messagerie (`messaging-audience`) ;
+      //   • moteur de remplacements (`rh/moteur-remplacements` : la charge
+      //     horaire cumulait les années, d'où de faux conflits) ;
+      //   • export des bulletins (`sync-export/notes-bulletins`) ;
+      //   • aperçu de l'import d'élèves (`import-eleves-server` : l'aperçu
+      //     annonçait le contraire de ce que l'import allait faire).
+      //
+      // Toute nouvelle violation DOIT être corrigée, ou exemptée avec un motif
+      // écrit sur la ligne. Métrique de suivi : `pnpm audit:annee`, plafond 0.
+      "ecolpro/require-annee-filter": "error",
     },
   },
 

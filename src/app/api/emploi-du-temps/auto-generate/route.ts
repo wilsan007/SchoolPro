@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch all data needed
     const [classe, allMatieres, enseignants, allSalles, existingCreneaux, disponibilites, indisponibilites] = await Promise.all([
+      // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de la classe
       prisma.classe.findFirst({ where: { id: classeId, tenantId, ...classeFilter }, select: { id: true, nom: true, siteId: true } }),
       prisma.matiere.findMany({ where: { tenantId, ...siteFilterForModel("matiere", session.user) }, orderBy: { coefficient: "desc" } }),
       prisma.enseignant.findMany({

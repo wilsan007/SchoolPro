@@ -195,6 +195,7 @@ export async function GET(req: NextRequest) {
     }),
 
     // 6. Recommandations — y compris résolues (historique complet)
+    // eslint-disable-next-line ecolpro/require-annee-filter -- dossier d'un élève identifié (`eleveId`)
     prisma.recommandation.findMany({
       where: baseFilter,
       select: {

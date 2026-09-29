@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
     logger.debug("[generer] step 9: dispenses fetched", { count: dispenses.length });
 
     logger.debug("[generer] step 10: fetching absences");
+    // eslint-disable-next-line ecolpro/require-annee-filter -- borné par la période et par les élèves de la classe
     const absences = await prisma.absence.findMany({
       where: { tenantId, ...siteFilterForModel("absence", session.user),
         eleveId: { in: classe.eleves.map(e => e.id) },

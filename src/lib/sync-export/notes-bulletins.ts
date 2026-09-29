@@ -29,8 +29,17 @@ export async function exportNotesBulletins(
       },
       orderBy: [{ classe: { niveau: "asc" } }, { classe: { nom: "asc" } }, { eleve: { nom: "asc" } }],
     }),
+    // Le `note.findMany` ci-dessus borne déjà par `classe: { annee }` ; les
+    // bulletins, eux, étaient chargés SANS année : l'export mêlait les bulletins
+    // de toutes les promotions dans un fichier censé décrire l'année en cours.
+    // `Bulletin` n'a pas de colonne `annee` — l'année se lit à travers sa
+    // période, qui la porte.
     prisma.bulletin.findMany({
-      where: { tenantId, ...siteFilterForModel("bulletin", claims) },
+      where: {
+        tenantId,
+        ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
+        ...siteFilterForModel("bulletin", claims),
+      },
       include: {
         eleve: { select: { matricule: true, nom: true, prenom: true, classeId: true } },
         periode: { select: { nom: true, annee: { select: { libelle: true } } } },

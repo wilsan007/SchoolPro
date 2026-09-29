@@ -397,6 +397,7 @@ export async function GET(req: NextRequest) {
             deletedAt: null,
           },
         }),
+        // eslint-disable-next-line ecolpro/require-annee-filter -- comparaison historique : `annee` est le paramètre de la boucle, borné par `createdAt` dans la fenêtre de l'année
         prisma.note.aggregate({
           where: {
             tenantId,
@@ -407,6 +408,7 @@ export async function GET(req: NextRequest) {
           _avg: { valeur: true },
           _count: { id: true },
         }),
+        // eslint-disable-next-line ecolpro/require-annee-filter -- comparaison historique : `annee` est le paramètre de la boucle, borné par `date` dans la fenêtre de l'année
         prisma.absence.count({
           where: {
             tenantId,

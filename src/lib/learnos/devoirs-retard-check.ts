@@ -48,7 +48,7 @@ export async function detecterDevoirsEnRetard(
 
     // Tâche système : elle balaie délibérément tous les tenants, comme les
     // autres crons de l'application (cf. api/cron/dispatch, alertes-parent).
-    // eslint-disable-next-line ecolpro/require-tenant-id
+    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-annee-filter -- l'année est filtrée DANS la requête : `OR: scopesAnnuels` croise tenant × année active
     const devoirsEnRetard = await prisma.devoir.findMany({
       where: {
         statut: { in: ["A_FAIRE", "EN_COURS"] },

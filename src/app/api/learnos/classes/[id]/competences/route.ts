@@ -43,6 +43,7 @@ export async function GET(
   const tenantId = session.user.tenantId;
 
   // Vérifier l'accès à la classe
+  // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de la classe
   const classe = await prisma.classe.findFirst({
     where: mergeFilters(
       { id: classeId, tenantId },
