@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import { type AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -743,6 +745,20 @@ export function InscriptionsView({ dossiers: initial }: InscriptionsViewProps) {
     clos: dossiers.filter((d) => d.dossierStatut === "CLOS").length,
   }), [dossiers]);
 
+  const axesDate = useAxesTemporels<DossierInscription>((d) => d.createdAt);
+  const axesDossiers = useMemo<AxeRegroupement<DossierInscription>[]>(
+    () => [
+      { id: "classe", cle: (d) => d.classeVoulue },
+      {
+        id: "statut",
+        cle: (d) => d.dossierStatut,
+        libelle: (statut) => t(STATUT_DOSSIER_CONFIG[statut as StatutDossier].labelKey),
+      },
+      ...axesDate,
+    ],
+    [axesDate, t],
+  );
+
   const filtered = useMemo(() => {
     return dossiers.filter((d) => {
       const q = search.toLowerCase();
@@ -833,11 +849,12 @@ export function InscriptionsView({ dossiers: initial }: InscriptionsViewProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((d) => (
-            <DossierCard key={d.id} dossier={d} onOpen={setSelected} />
-          ))}
-        </div>
+        <ListeGroupee
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+          items={filtered}
+          axes={axesDossiers}
+          rendu={(d) => <DossierCard key={d.id} dossier={d} onOpen={setSelected} />}
+        />
       )}
     </div>
   );

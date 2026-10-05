@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,12 @@ function formatMoney(amount: number, devise: string) {
   const currency = devise === "XOF" ? "DJF" : devise;
   return new Intl.NumberFormat("fr-DJ", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
+
+const AXES_TARIFS: AxeRegroupement<TarifItem>[] = [
+  // Année la plus récente d'abord.
+  { id: "annee", cle: (tarif) => tarif.annee, tri: (a, b) => b.localeCompare(a) },
+  { id: "niveau", cle: (tarif) => tarif.niveau },
+];
 
 export function TarifsTab() {
   const t = useTranslations("parametres");
@@ -212,7 +220,7 @@ export function TarifsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tarifs.map((tarif) => (
+                  {<ListeGroupee variante="table" items={tarifs} axes={AXES_TARIFS} rendu={(tarif) => (
                     <tr key={tarif.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">
                         <div className="flex items-center gap-2">
@@ -233,7 +241,7 @@ export function TarifsTab() {
                         </Button>
                       </td>
                     </tr>
-                  ))}
+                  )} />}
                 </tbody>
               </table>
             </div>

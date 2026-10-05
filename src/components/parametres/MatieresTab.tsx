@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { axeInitiale, type AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +57,15 @@ export function MatieresTab({ matieres, canManage }: { matieres: MatiereItem[]; 
       toast.error(err instanceof Error ? err.message : t("genericError"));
     }
   }
+
+  const axesMatieres = useMemo<AxeRegroupement<MatiereItem>[]>(
+    () => [
+      // Une matière sans niveau vaut pour tous : c'est une catégorie à part entière.
+      { id: "niveau", cle: (m) => m.niveau ?? t("allLevels") },
+      axeInitiale((m) => m.nom),
+    ],
+    [t],
+  );
 
   return (
     <div className="space-y-4">
@@ -132,7 +143,7 @@ export function MatieresTab({ matieres, canManage }: { matieres: MatiereItem[]; 
                 {matieres.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">{t("noMatieres")}</td></tr>
                 ) : (
-                  matieres.map((m) => (
+                  <ListeGroupee variante="table" items={matieres} axes={axesMatieres} rendu={(m) => (
                     <tr key={m.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{m.nom}</td>
                       <td className="px-4 py-3 font-mono text-xs">{m.code}</td>
@@ -154,7 +165,7 @@ export function MatieresTab({ matieres, canManage }: { matieres: MatiereItem[]; 
                         </td>
                       )}
                     </tr>
-                  ))
+                  )} />
                 )}
               </tbody>
             </table>

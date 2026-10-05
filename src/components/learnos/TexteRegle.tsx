@@ -35,6 +35,10 @@ export function TexteRegle({
 
   if (!params || typeof params !== "object") return <>{secours}</>;
 
+  // `t()` ne lève pas sur une clé absente : il journalise une erreur et rend
+  // la clé brute. Le repli doit donc être décidé avant l'appel.
+  if (!t.has(cle)) return <>{secours}</>;
+
   try {
     return <>{t(cle, params as Record<string, string | number>)}</>;
   } catch (e) {

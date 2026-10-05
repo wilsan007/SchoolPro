@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import {
   ListTodo,
   Plus,
@@ -71,6 +73,18 @@ export function TachesView({ taches: initial, users }: Props) {
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState<string>("ALL");
   const [showForm, setShowForm] = useState(false);
+
+  const axesEcheance = useAxesTemporels<Tache>((t) => t.echeance);
+  const axesTaches = useMemo<AxeRegroupement<Tache>[]>(
+    () => [
+      { id: "statut", cle: (t) => t.statut, libelle: (s) => STATUT_LABELS[s] ?? s },
+      { id: "responsable", cle: (t) => t.assigneeA.name ?? t.assigneeA.email },
+      { id: "classe", cle: (t) => t.classe?.nom },
+      { id: "priorite", cle: (t) => t.priorite },
+      ...axesEcheance,
+    ],
+    [axesEcheance],
+  );
 
   const filtered = filter === "ALL"
     ? taches
@@ -167,7 +181,7 @@ export function TachesView({ taches: initial, users }: Props) {
             <p>Aucune tâche {filter !== "ALL" ? "avec ce statut" : ""}.</p>
           </div>
         )}
-        {filtered.map((t) => {
+        <ListeGroupee className="space-y-2" items={filtered} axes={axesTaches} rendu={(t) => {
           const enRetard = t.statut !== "FAIT" && t.statut !== "ANNULE" && t.echeance && new Date(t.echeance) < new Date();
           return (
             <div
@@ -247,7 +261,7 @@ export function TachesView({ taches: initial, users }: Props) {
               )}
             </div>
           );
-        })}
+        }} />
       </div>
     </div>
   );

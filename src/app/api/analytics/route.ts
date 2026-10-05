@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
         valeur: true, noteMax: true, coefficient: true,
         eleve: { select: { id: true, nom: true, prenom: true, classeId: true } },
         matiere: { select: { nom: true } },
-        classe: { select: { nom: true, niveau: true } },
+        classe: { select: { nom: true, niveau: true, structure: { select: { type: true } } } },
         createdAt: true,
       },
     }),
@@ -244,6 +244,7 @@ export async function GET(req: NextRequest) {
   const matieresParClasse = Object.entries(moyennesParMatiereParClasse).map(([classe, matieres]) => ({
     classe,
     niveau: notesPubliees.find((n) => n.classe?.nom === classe)?.classe?.niveau ?? "",
+    structureType: notesPubliees.find((n) => n.classe?.nom === classe)?.classe?.structure?.type ?? null,
     matieres: Object.entries(matieres).map(([matiere, vals]) => ({
       matiere,
       moyenne: Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100,

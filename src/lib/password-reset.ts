@@ -7,10 +7,17 @@ import { incrementerSessionVersion } from "@/lib/tenant-claims";
 
 const EXPIRATION_MS = 60 * 60 * 1000; // 1 heure
 
+/**
+ * La table `verification_tokens` sert aussi à la vérification d'email. Sans
+ * ce préfixe, un lien de vérification (valable 24 h) permettait de changer le
+ * mot de passe, et chaque demande effaçait le jeton en attente de l'autre flux.
+ */
+export const PREFIXE_RESET = "reset-password:";
+
 export async function genererTokenReset(
   email: string
 ): Promise<{ success: boolean; token?: string; error?: string }> {
-  const normalized = normaliserEmail(email);
+  const normalized = `${PREFIXE_RESET}${normaliserEmail(email)}`;
 
   try {
     await prisma.verificationToken.deleteMany({
@@ -39,13 +46,15 @@ export async function verifierTokenReset(
       where: { token },
     });
 
-    if (!record) return { valid: false, error: "Token invalide" };
+    if (!record || !record.identifier.startsWith(PREFIXE_RESET)) {
+      return { valid: false, error: "Token invalide" };
+    }
     if (record.expires < new Date()) {
       await prisma.verificationToken.delete({ where: { token } });
       return { valid: false, error: "Token expiré" };
     }
 
-    return { valid: true, email: record.identifier };
+    return { valid: true, email: record.identifier.slice(PREFIXE_RESET.length) };
   } catch (err) {
     console.error("[password-reset] verifierTokenReset:", err);
     return { valid: false, error: "Erreur serveur" };
@@ -65,7 +74,7 @@ export async function reinitialiserMotDePasse(
     // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- password reset, hors session
     const user = await prisma.user.findFirst({
       where: { email: { equals: verification.email, mode: "insensitive" } },
-      select: { id: true, email: true, isActive: true },
+      select: { id: true, email: true, isActive: true, emailVerified: true },
     });
 
     if (!user || !user.isActive) {
@@ -78,7 +87,14 @@ export async function reinitialiserMotDePasse(
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
-        data: { password: hashedPassword, mustChangePassword: false, sessionVersion: { increment: 1 } },
+        data: {
+          password: hashedPassword,
+          mustChangePassword: false,
+          sessionVersion: { increment: 1 },
+          // Le lien n'a pu être ouvert que depuis la boîte de l'utilisateur :
+          // il vaut preuve de possession de l'adresse.
+          ...(user.emailVerified ? {} : { emailVerified: new Date() }),
+        },
       }),
       prisma.verificationToken.delete({ where: { token } }),
     ]);

@@ -91,7 +91,7 @@ export async function getElevesForLinking() {
       nom: true,
       prenom: true,
       matricule: true,
-      classe: { select: { nom: true, niveau: true } },
+      classe: { select: { nom: true, niveau: true, structure: { select: { type: true } } } },
     },
     orderBy: [{ classe: { nom: "asc" } }, { nom: "asc" }, { prenom: "asc" }],
   });

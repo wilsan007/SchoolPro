@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
       niveau: true,
       filiere: true,
       siteId: true,
+      structure: { select: { type: true } },
       _count: { select: { eleves: { where: { statut: "ACTIF" } } } },
     },
     orderBy: { nom: "asc" },
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
   const parCategorie = new Map<string, Map<string, typeof classes>>();
 
   for (const classe of classes) {
-    const categorie = getSchoolGroup(classe.niveau);
+    const categorie = getSchoolGroup(classe.niveau, classe.nom, classe.structure?.type);
     if (!parCategorie.has(categorie)) parCategorie.set(categorie, new Map());
     const parNiveau = parCategorie.get(categorie)!;
     if (!parNiveau.has(classe.niveau)) parNiveau.set(classe.niveau, []);

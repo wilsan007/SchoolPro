@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +27,11 @@ interface Props {
   sites: Site[];
   canManage: boolean;
 }
+
+const AXES_SALLES: AxeRegroupement<Salle>[] = [
+  { id: "batiment", cle: (s) => s.batiment },
+  { id: "type", cle: (s) => s.type },
+];
 
 export function SallesTab({ canManage }: Props) {
   const [salles, setSalles] = useState<Salle[]>([]);
@@ -168,13 +175,16 @@ export function SallesTab({ canManage }: Props) {
         </form>
       )}
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {salles.length === 0 && (
-          <p className="col-span-full text-center py-8 text-gray-400 text-sm">
-            Aucune salle configurée.
-          </p>
-        )}
-        {salles.map((s) => (
+      {salles.length === 0 && (
+        <p className="text-center py-8 text-gray-400 text-sm">
+          Aucune salle configurée.
+        </p>
+      )}
+      <ListeGroupee
+        className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+        items={salles}
+        axes={AXES_SALLES}
+        rendu={(s) => (
           <div
             key={s.id}
             className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-200 shadow-sm"
@@ -208,8 +218,8 @@ export function SallesTab({ canManage }: Props) {
               </button>
             )}
           </div>
-        ))}
-      </div>
+        )}
+      />
     </div>
   );
 }

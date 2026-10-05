@@ -14,6 +14,7 @@ import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { applyRlsContext } from "@/lib/prisma-rls";
 import { auditFire } from "@/lib/audit";
+import { checkPermission } from "@/lib/rbac";
 
 const ClasseSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
@@ -64,6 +65,10 @@ export async function getEnseignantsForClasse() {
 export async function createClasse(data: ClasseFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  // Une Server Action est appelable par tout compte connecté : masquer le
+  // bouton dans l'écran ne protège rien.
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permission refusée : réservé à la direction");
 
   const siteError = requireSiteIdForCreate(session.user);
   if (siteError) throw new Error(siteError);
@@ -121,6 +126,8 @@ export async function deleteClasse(
 ) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permission refusée : réservé à la direction");
 
   const strategy = options?.strategy ?? "archive";
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
@@ -132,7 +139,9 @@ export async function deleteClasse(
       ...(anneeCourante ? { annee: anneeCourante } : {}),
       ...siteFilterForModel("classe", session.user),
     },
-    include: { _count: { select: { eleves: ELEVE_NON_ARCHIVE } } },
+    include: {
+      _count: { select: { eleves: ELEVE_NON_ARCHIVE, notes: true, evaluations: true, remplacements: true } },
+    },
   });
   if (!classe) throw new Error("Classe non trouvée");
 
@@ -154,6 +163,16 @@ export async function deleteClasse(
     revalidateTag("dashboard-data", { expire: 0 });
     revalidateTag("eleves-stats", { expire: 0 });
     return { success: true, action: "archived" };
+  }
+
+  // Notes, évaluations et remplacements retiennent la classe (clé étrangère
+  // Restrict) : refuser avec un message clair plutôt que laisser remonter une
+  // erreur de base opaque. L'archivage, lui, reste toujours possible.
+  const { notes, evaluations, remplacements } = classe._count;
+  if (notes > 0 || evaluations > 0 || remplacements > 0) {
+    throw new Error(
+      `Suppression définitive impossible : la classe porte ${evaluations} évaluation(s), ${notes} note(s) et ${remplacements} remplacement(s). Archivez-la pour conserver cet historique.`
+    );
   }
 
   // Les stratégies « reassign » et « remove » suppriment définitivement.

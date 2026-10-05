@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { useTranslations } from "next-intl";
 import {
   Shield, ShieldAlert, ShieldCheck, Search, Download,
@@ -32,6 +34,11 @@ interface Pagination {
 export default function AuditJournalPage() {
   const ta = useTranslations("audit");
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const axesDate = useAxesTemporels<AuditLog>((log) => log.createdAt);
+  const axesAudit = useMemo<AxeRegroupement<AuditLog>[]>(
+    () => [...axesDate, { id: "action", cle: (log) => log.action }, { id: "type", cle: (log) => log.resource }],
+    [axesDate],
+  );
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -248,7 +255,7 @@ export default function AuditJournalPage() {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                <ListeGroupee variante="table" items={logs} axes={axesAudit} rendu={(log) => (
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString("fr-FR")}
@@ -280,7 +287,7 @@ export default function AuditJournalPage() {
                       {log.ip ?? "—"}
                     </td>
                   </tr>
-                ))
+                )} />
               )}
             </tbody>
           </table>

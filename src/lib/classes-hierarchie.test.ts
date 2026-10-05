@@ -177,7 +177,7 @@ describe("getClassesHierarchie — organisation par catégorie → niveau → cl
     expect(result[0].categorie).toBe("Primaire");
   });
 
-  it("Structure MATERNELLE → catégorie Autre", async () => {
+  it("Structure MATERNELLE → catégorie Maternelle", async () => {
     vi.mocked(prisma.classe.findMany).mockResolvedValue([
       mockClasse("c1", "Petite Section", "maternelle", { structureType: "MATERNELLE" }),
     ] as never);
@@ -187,7 +187,7 @@ describe("getClassesHierarchie — organisation par catégorie → niveau → cl
       anneeCourante: ANNEE,
     });
 
-    expect(result[0].categorie).toBe("Autre");
+    expect(result[0].categorie).toBe("Maternelle");
   });
 
   it("fallback sur getSchoolGroup(niveau) quand aucune Structure", async () => {

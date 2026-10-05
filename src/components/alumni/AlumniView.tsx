@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { type AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import {
   GraduationCap, Users, Briefcase, TrendingUp, Plus, Search,
@@ -133,6 +135,16 @@ export function AlumniView() {
     });
   };
 
+  const axesAlumni = useMemo<AxeRegroupement<Alumni>[]>(
+    () => [
+      // Promotion la plus récente d'abord.
+      { id: "promotion", cle: (a) => a.anneeDiplome, tri: (x, y) => y.localeCompare(x) },
+      { id: "classe", cle: (a) => a.classeDepart },
+      { id: "statut", cle: (a) => a.statut, libelle: (s) => t(STATUT_CONFIG[s as StatutAlumni].labelKey) },
+    ],
+    [t],
+  );
+
   const filtered = alumni.filter((a) => {
     if (filterStatut !== "all" && a.statut !== filterStatut) return false;
     if (filterAnnee !== "all" && a.anneeDiplome !== filterAnnee) return false;
@@ -218,16 +230,19 @@ export function AlumniView() {
           <p>{t("noResults")}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((a) => (
+        <ListeGroupee
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          items={filtered}
+          axes={axesAlumni}
+          rendu={(a) => (
             <AlumniCard
               key={a.id}
               alumni={a}
               onEdit={() => openEdit(a)}
               onDelete={() => handleDelete(a.id)}
             />
-          ))}
-        </div>
+          )}
+        />
       )}
 
       {/* Modale formulaire */}

@@ -99,7 +99,78 @@ interface Attestation {
 
 type Etat = "chargement" | "prete" | "vide" | "erreur" | "attestation";
 
+interface MatiereEntrainement {
+  id: string;
+  nom: string;
+  couleur: string | null;
+  enCours: boolean;
+}
+
+/**
+ * L'écran d'entraînement : le choix de la matière, puis la séance.
+ *
+ * L'élève choisit OÙ travailler, pas QUOI : dans la matière retenue, les
+ * compétences et les paliers restent ceux du sélecteur. Lui laisser choisir la
+ * compétence reviendrait à lui laisser éviter celles qui lui manquent.
+ */
 export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
+  const t = useTranslations("learnos.entrainement");
+  const [matieres, setMatieres] = useState<MatiereEntrainement[]>([]);
+  const [matiereId, setMatiereId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let actif = true;
+    const url = eleveId
+      ? `/api/learnos/entrainement?eleveId=${encodeURIComponent(eleveId)}`
+      : "/api/learnos/entrainement";
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : { matieres: [] }))
+      .then((data: { matieres: MatiereEntrainement[] }) => {
+        if (actif) setMatieres(data.matieres);
+      })
+      .catch((e) => {
+        // Sans la liste, l'entraînement toutes matières reste servi.
+        console.warn("[non-fatal]", e);
+      });
+    return () => {
+      actif = false;
+    };
+  }, [eleveId]);
+
+  return (
+    <div className="space-y-4">
+      {matieres.length > 1 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("choisirMatiere")}>
+          {[{ id: null, nom: t("toutesMatieres"), couleur: null, enCours: false }, ...matieres].map((m) => (
+            <Button
+              key={m.id ?? "toutes"}
+              size="sm"
+              variant={matiereId === m.id ? "default" : "outline"}
+              aria-pressed={matiereId === m.id}
+              className="rounded-full"
+              onClick={() => setMatiereId(m.id)}
+            >
+              {m.couleur && (
+                <span
+                  className="h-2 w-2 rounded-full mr-2 shrink-0"
+                  style={{ backgroundColor: m.couleur }}
+                  aria-hidden
+                />
+              )}
+              {m.nom}
+              {m.enCours && <span className="sr-only"> — {t("matiereEnCours")}</span>}
+            </Button>
+          ))}
+        </div>
+      )}
+      {/* La clé remonte la séance à chaque changement : aucun état d'une
+          matière ne doit survivre dans la suivante. */}
+      <Seance key={matiereId ?? "toutes"} eleveId={eleveId} matiereId={matiereId} />
+    </div>
+  );
+}
+
+function Seance({ eleveId, matiereId }: { eleveId?: string; matiereId: string | null }) {
   const t = useTranslations("learnos.entrainement");
 
   const [etat, setEtat] = useState<Etat>("chargement");
@@ -160,7 +231,7 @@ export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
       const res = await fetch("/api/learnos/entrainement", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eleveId }),
+        body: JSON.stringify({ eleveId, matiereId }),
       });
       // 204 : rien à travailler. Ce n'est pas une panne, c'est un résultat —
       // le moteur se tait quand il n'a rien d'utile à proposer.
@@ -174,7 +245,7 @@ export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
     } catch (e) {
       setEtat("erreur");
     }
-  }, [eleveId]);
+  }, [eleveId, matiereId]);
 
   useEffect(() => {
     void ouvrir();
@@ -384,6 +455,9 @@ export function SeanceEntrainement({ eleveId }: { eleveId?: string }) {
                   secours={t("motifIndisponible")}
                 />
               </p>
+              {exercice.motifParams?.lectureAllegee ? (
+                <p className="text-xs text-muted-foreground">{t("lectureAllegee")}</p>
+              ) : null}
             </div>
             <span className="text-xs text-muted-foreground whitespace-nowrap">
               {t("exerciceSur", {

@@ -27,6 +27,8 @@ export type UpdateClasseFormData = z.infer<typeof UpdateClasseSchema>;
 export async function updateClasse(classeId: string, data: UpdateClasseFormData) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permission refusée : réservé à la direction");
 
   const parsed = UpdateClasseSchema.safeParse(data);
   if (!parsed.success) {
@@ -91,6 +93,8 @@ export async function updateClasse(classeId: string, data: UpdateClasseFormData)
 export async function archiveClasse(classeId: string, reason?: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permission refusée : réservé à la direction");
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classe = await prisma.classe.findFirst({
@@ -125,6 +129,8 @@ export async function archiveClasse(classeId: string, reason?: string) {
 export async function restoreClasse(classeId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permission refusée : réservé à la direction");
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const classe = await prisma.classe.findFirst({
@@ -415,6 +421,8 @@ export async function splitClasse(
 export async function duplicateClasse(classeId: string, newAnnee: string, copyStudents: boolean = false) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permission refusée : réservé à la direction");
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
   const source = await prisma.classe.findFirst({

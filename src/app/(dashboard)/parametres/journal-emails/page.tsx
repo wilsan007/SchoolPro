@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import {
   Mail, MailCheck, MailX, MailOpen, AlertCircle, Search,
   ChevronLeft, ChevronRight, Filter, Clock,
@@ -42,6 +44,15 @@ const STATUT_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export default function JournalEmailsPage() {
   const [logs, setLogs] = useState<EmailLogEntry[]>([]);
+  const axesDate = useAxesTemporels<EmailLogEntry>((log) => log.createdAt);
+  const axesEmails = useMemo<AxeRegroupement<EmailLogEntry>[]>(
+    () => [
+      ...axesDate,
+      { id: "statut", cle: (log) => log.statut, libelle: (s) => STATUT_CONFIG[s]?.label ?? s },
+      { id: "type", cle: (log) => log.type },
+    ],
+    [axesDate],
+  );
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -241,7 +252,7 @@ export default function JournalEmailsPage() {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => {
+                <ListeGroupee variante="table" items={logs} axes={axesEmails} rendu={(log) => {
                   const cfg = STATUT_CONFIG[log.statut] ?? STATUT_CONFIG.PENDING;
                   const Icon = cfg.icon;
                   return (
@@ -271,7 +282,7 @@ export default function JournalEmailsPage() {
                       </td>
                     </tr>
                   );
-                })
+                }} />
               )}
             </tbody>
           </table>

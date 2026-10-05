@@ -30,7 +30,7 @@ interface Eleve {
   statut: string;
   regime: string | null;
   photoUrl: string | null;
-  classe: { id: string; nom: string; niveau: string; site: { id: string; nom: string } | null } | null;
+  classe: { id: string; nom: string; niveau: string; structure?: { type: string } | null; site: { id: string; nom: string } | null } | null;
   parents: Array<{
     parent: { nom: string; prenom: string; phone: string };
   }>;
@@ -141,7 +141,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, hierarchie, sit
     const classesInGroup = new Map<string, { nom: string; niveau: string; siteId: string | null; siteNom: string | null; eleves: Eleve[] }>();
     for (const eleve of sorted) {
       const classe = eleve.classe;
-      const eleveGroup = classe ? getSchoolGroup(classe.niveau, classe.nom) : "Autre";
+      const eleveGroup = classe ? getSchoolGroup(classe.niveau, classe.nom, classe.structure?.type) : "Autre";
       if (eleveGroup !== group) continue;
 
       const key = classe?.id ?? "__sans_classe__";
@@ -223,7 +223,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, hierarchie, sit
 
   const displayedEleves = sorted.filter((e) => {
     if (!activeGroup) return false;
-    const eleveGroup = e.classe ? getSchoolGroup(e.classe.niveau, e.classe.nom) : "Autre";
+    const eleveGroup = e.classe ? getSchoolGroup(e.classe.niveau, e.classe.nom, e.classe.structure?.type) : "Autre";
     if (eleveGroup !== activeGroup) return false;
     const eleveSiteId = e.classe?.site?.id ?? "__none__";
     if (activeSite !== "all" && eleveSiteId !== activeSite) return false;

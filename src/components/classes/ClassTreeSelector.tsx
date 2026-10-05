@@ -3,12 +3,13 @@
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useLibelleNiveau } from "@/lib/niveau-context";
-import { ChevronRight, ChevronDown, Users, School, GraduationCap, BookOpen, Layers } from "lucide-react";
+import { ChevronRight, ChevronDown, Users, School, GraduationCap, BookOpen, Layers, Baby } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 import type { SchoolGroup } from "@/lib/school-groups";
 
 const CATEGORIE_ICONS: Record<SchoolGroup, typeof School> = {
+  Maternelle: Baby,
   Primaire: School,
   Collège: BookOpen,
   Lycée: GraduationCap,
@@ -16,6 +17,7 @@ const CATEGORIE_ICONS: Record<SchoolGroup, typeof School> = {
 };
 
 const CATEGORIE_COLORS: Record<SchoolGroup, string> = {
+  Maternelle: "text-teal-600 dark:text-teal-400",
   Primaire: "text-emerald-600 dark:text-emerald-400",
   Collège: "text-sky-600 dark:text-sky-400",
   Lycée: "text-violet-600 dark:text-violet-400",
@@ -23,6 +25,7 @@ const CATEGORIE_COLORS: Record<SchoolGroup, string> = {
 };
 
 const CATEGORIE_BG: Record<SchoolGroup, string> = {
+  Maternelle: "bg-teal-50 dark:bg-teal-950/30",
   Primaire: "bg-emerald-50 dark:bg-emerald-950/30",
   Collège: "bg-sky-50 dark:bg-sky-950/30",
   Lycée: "bg-violet-50 dark:bg-violet-950/30",
@@ -30,6 +33,7 @@ const CATEGORIE_BG: Record<SchoolGroup, string> = {
 };
 
 const CATEGORIE_BORDER: Record<SchoolGroup, string> = {
+  Maternelle: "border-teal-200 dark:border-teal-900",
   Primaire: "border-emerald-200 dark:border-emerald-900",
   Collège: "border-sky-200 dark:border-sky-900",
   Lycée: "border-violet-200 dark:border-violet-900",

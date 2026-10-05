@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,6 +108,20 @@ export function FacturesTable({ factures }: FacturesTableProps) {
         ).values()
       ),
     [factures]
+  );
+
+  const axesDate = useAxesTemporels<FactureWithRelations>((f) => f.createdAt);
+  const axesFactures = useMemo<AxeRegroupement<FactureWithRelations>[]>(
+    () => [
+      { id: "classe", cle: (f) => f.eleve?.classe?.nom },
+      ...axesDate,
+      {
+        id: "statut",
+        cle: (f) => f.statut,
+        libelle: (statut) => t(statutConfig[statut]?.labelKey ?? "statusPending"),
+      },
+    ],
+    [axesDate, t],
   );
 
   const filtered = useMemo(() => {
@@ -289,7 +305,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((f) => {
+                  <ListeGroupee variante="table" items={filtered} axes={axesFactures} rendu={(f) => {
                     const paye = f.paiements.reduce((s, p) => s + p.montant, 0);
                     const cfg = statutConfig[f.statut] ?? statutConfig.EN_ATTENTE;
                     return (
@@ -322,7 +338,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                         </td>
                       </tr>
                     );
-                  })
+                  }} />
                 )}
               </tbody>
             </table>

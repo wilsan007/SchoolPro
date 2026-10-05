@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, useCallback, Fragment, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -212,6 +214,16 @@ export function GestionCaisse({ user }: { user: UserSession }) {
     }
   }
 
+  const axesDate = useAxesTemporels<RemiseCaisse>((r) => r.dateRemise);
+  const axesRemises = useMemo<AxeRegroupement<RemiseCaisse>[]>(
+    () => [
+      ...axesDate,
+      { id: "caissier", cle: (r) => r.caissier.name },
+      { id: "site", cle: (r) => r.site?.nom },
+    ],
+    [axesDate],
+  );
+
   // ── Stats ──
   const enAttente = remises.filter((r) => r.statut === "EN_ATTENTE");
   const confirmees = remises.filter((r) => r.statut === "CONFIRME");
@@ -352,7 +364,7 @@ export function GestionCaisse({ user }: { user: UserSession }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {remises.map((r) => {
+                  <ListeGroupee variante="table" items={remises} axes={axesRemises} rendu={(r) => {
                     const cfg = statutConfig[r.statut] ?? statutConfig.EN_ATTENTE;
                     const isEnAttente = r.statut === "EN_ATTENTE";
                     const canConfirmThis = canConfirm && isEnAttente && r.caissierId !== user.id;
@@ -484,7 +496,7 @@ export function GestionCaisse({ user }: { user: UserSession }) {
                         )}
                       </Fragment>
                     );
-                  })}
+                  }} />
                 </tbody>
               </table>
             </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -373,6 +375,12 @@ export function ExclusionsView({
     [exclusions]
   );
 
+  const axesDate = useAxesTemporels<Exclusion>((e) => e.dateDebut);
+  const axesExclusions = useMemo<AxeRegroupement<Exclusion>[]>(
+    () => [{ id: "classe", cle: (e) => e.incident.eleve.classe?.nom }, ...axesDate],
+    [axesDate],
+  );
+
   const visibles = useMemo(
     () =>
       exclusions.filter(
@@ -488,9 +496,14 @@ export function ExclusionsView({
               Aucune exclusion pour ce filtre.
             </p>
           ) : (
-            visibles.map((e) => (
-              <LigneExclusion key={e.id} exclusion={e} onMaj={majExclusion} canWrite={canWrite} />
-            ))
+            <ListeGroupee
+              className="space-y-2"
+              items={visibles}
+              axes={axesExclusions}
+              rendu={(e) => (
+                <LigneExclusion key={e.id} exclusion={e} onMaj={majExclusion} canWrite={canWrite} />
+              )}
+            />
           )}
         </CardContent>
       </Card>

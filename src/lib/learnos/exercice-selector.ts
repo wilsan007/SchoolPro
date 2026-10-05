@@ -48,6 +48,16 @@ import {
 } from "@/lib/learnos/recommendation-engine";
 import { ANTICIPATION_SEMAINES, semaineScolaire } from "@/lib/learnos/planification";
 import { FORMATS_AUTO_CORRIGEABLES } from "@/lib/learnos/formats";
+import { recalculerProfils } from "@/lib/learnos/profile-recompute";
+import { parseStructure } from "@/lib/learnos/entrainement/structure-question";
+import {
+  MATIERES_DE_LANGUE,
+  chargeAccessible,
+  chargeLecture,
+  depassement,
+  niveauComprehension,
+  type NiveauComprehension,
+} from "@/lib/learnos/charge-lecture";
 
 // ------------------------------------------------------------
 // Cœur déterministe — sans base de données, testable seul
@@ -63,8 +73,10 @@ export type RegleExercice =
   | "exercice_etape_plan"
   | "exercice_reprise_critique"
   | "exercice_consolidation_fragile"
+  | "exercice_rattrapage"
   | "exercice_sondage"
-  | "exercice_approfondissement";
+  | "exercice_approfondissement"
+  | "exercice_entretien";
 
 /**
  * Rang de priorité, 1 = servi en premier.
@@ -72,7 +84,8 @@ export type RegleExercice =
  * L'ordre n'est pas arbitraire : il va du plus contraint au plus optionnel.
  * Un chapitre qui démarre dans deux semaines impose une échéance ; une étape
  * signée par un enseignant engage l'établissement ; l'approfondissement, lui,
- * peut toujours attendre la feuille suivante.
+ * peut toujours attendre la feuille suivante. L'entretien ferme la marche : il
+ * ne sert qu'à compléter une feuille que rien de plus pressant ne remplit.
  *
  * `exercice_reprise_prerequis` n'y figure pas : la descente sur prérequis
  * conserve la priorité de la règle qui l'a déclenchée (voir `cibler`), sans
@@ -83,9 +96,17 @@ export const PRIORITE_REGLE: Record<Exclude<RegleExercice, "exercice_reprise_pre
   exercice_etape_plan: 2,
   exercice_reprise_critique: 3,
   exercice_consolidation_fragile: 4,
-  exercice_sondage: 5,
-  exercice_approfondissement: 6,
+  exercice_rattrapage: 5,
+  exercice_sondage: 6,
+  exercice_approfondissement: 7,
+  exercice_entretien: 8,
 };
+
+/**
+ * Règles qui complètent une feuille sans répondre à une urgence. Ce sont les
+ * seules que la composition fait tourner d'une séance à l'autre.
+ */
+const REGLES_DE_FOND: readonly RegleExercice[] = ["exercice_entretien"];
 
 /** Ce que le sélecteur sait d'une compétence, pour UN élève, à UN instant. */
 export interface ContexteCompetence {
@@ -108,6 +129,9 @@ export interface ContexteCompetence {
 
   /** Le chapitre qui l'enseigne est en cours cette semaine. */
   chapitreEnCours: boolean;
+
+  /** Le chapitre qui l'enseigne est derrière la classe : la notion a été vue. */
+  chapitreVu: boolean;
 
   /**
    * Semaines avant le démarrage d'un chapitre qui l'exige comme prérequis.
@@ -193,11 +217,21 @@ function cibler(
  * Le `null` de la bande consolidée est un choix, pas un oubli : un dispositif
  * qui donne des exercices à tout le monde sur tout n'est plus lu. C'est le même
  * silence que celui du moteur de recommandation, pour la même raison.
+ *
+ * `entretien` lève ce silence, et seulement pour l'élève qui OUVRE lui-même une
+ * séance : celui-là demande à travailler, lui répondre « rien à faire » le
+ * renvoie sans rien — qu'il soit en difficulté ou en avance. Tout ce qui a été
+ * enseigné devient alors servable, les lacunes anciennes d'abord, puis de quoi
+ * tenir l'acquis en forme. Les vues adressées à l'enseignant ne l'activent
+ * pas : elles doivent continuer à ne montrer que ce qui appelle une action.
  */
 export function evaluerCible(
   ctx: ContexteCompetence,
-  seuils: Seuils = SEUILS_PAR_DEFAUT
+  seuils: Seuils = SEUILS_PAR_DEFAUT,
+  options: { entretien?: boolean } = {}
 ): CibleExercice | null {
+  const enseignee = ctx.chapitreEnCours || ctx.chapitreVu;
+
   const mesuree =
     ctx.masteryScore !== null &&
     ctx.confidenceScore !== null &&
@@ -207,7 +241,11 @@ export function evaluerCible(
   if (!mesuree) {
     // Sonder n'a de sens que sur ce qui est enseigné maintenant, ou sur ce
     // dont on aura besoin dans quelques semaines. Ailleurs, c'est du bruit.
-    if (!ctx.chapitreEnCours && ctx.semainesAvantChapitreDependant === null) return null;
+    const aSonder =
+      ctx.chapitreEnCours ||
+      ctx.semainesAvantChapitreDependant !== null ||
+      (options.entretien && ctx.chapitreVu);
+    if (!aSonder) return null;
     return {
       competenceId: ctx.competenceId,
       competenceViseeId: null,
@@ -249,8 +287,45 @@ export function evaluerCible(
     return cibler(ctx, "exercice_approfondissement", seuils, { competence: ctx.libelle });
   }
 
+  if (options.entretien && enseignee) {
+    // --- 5. Une lacune laissée derrière : le chapitre est clos, pas le manque. ---
+    if (score < seuils.seuilFragile) {
+      return cibler(ctx, "exercice_rattrapage", seuils, { competence: ctx.libelle });
+    }
+    // --- 8. Acquis : on l'entretient, au palier que la maîtrise autorise. ---
+    return cibler(ctx, "exercice_entretien", seuils, { competence: ctx.libelle });
+  }
+
   // Bande consolidée, ou compétence hors du programme du moment : rien.
   return null;
+}
+
+export type PositionChapitre = "A_VENIR" | "EN_COURS" | "VU";
+
+/**
+ * Où en est la classe sur un chapitre planifié.
+ *
+ * Le statut saisi par l'enseignant fait foi quand il dit quelque chose
+ * (`EN_COURS`, `TRAITE`). Un chapitre resté `PREVU` alors que sa semaine de
+ * démarrage est passée est tenu pour commencé : exiger une saisie pour que le
+ * moindre exercice soit servi rendrait l'entraînement muet dans toute classe
+ * dont le planning n'est pas tenu à jour.
+ *
+ * Sous date simulée, le statut stocké décrit la FIN de l'année — tout y est
+ * `TRAITE` — et ne dit rien de la date affichée : seul le calendrier compte.
+ */
+export function positionChapitre(
+  plan: { statut: string; semaineDebut: number; semaineFin: number },
+  semaineCourante: number,
+  dateSimulee = false
+): PositionChapitre {
+  if (!dateSimulee) {
+    if (plan.statut === "TRAITE") return "VU";
+    if (plan.statut === "EN_COURS") return "EN_COURS";
+    return semaineCourante < plan.semaineDebut ? "A_VENIR" : "EN_COURS";
+  }
+  if (semaineCourante < plan.semaineDebut) return "A_VENIR";
+  return semaineCourante > plan.semaineFin ? "VU" : "EN_COURS";
 }
 
 /**
@@ -330,6 +405,87 @@ export interface OptionsSelection {
    * "fr" pour la rétro-compatibilité avec les questions existantes.
    */
   langue?: string;
+  /**
+   * `aujourdHui` est une date simulée (Time Machine). Les états stockés —
+   * statut des chapitres, profils de maîtrise — décrivent alors la fin de
+   * l'année : la position de la classe est lue dans le calendrier, et les
+   * profils sont recalés sur les preuves connues à cette date.
+   */
+  dateSimulee?: boolean;
+  /** Séance ouverte par l'élève : ne jamais le renvoyer sans rien (cf. `evaluerCible`). */
+  entretien?: boolean;
+}
+
+/**
+ * Recale des profils stockés sur les preuves antérieures à une date simulée.
+ *
+ * Le profil stocké est le bilan de fin d'année. Une compétence sans preuve à la
+ * date demandée n'est pas encore mesurée : son profil est écarté.
+ */
+async function recalerSurLaDate<
+  P extends { competenceId: string; masteryScore: number; masteryStatus: string },
+>(
+  profilsStockes: P[],
+  tenantId: string,
+  eleveId: string,
+  claims: SessionSiteClaims,
+  date: Date
+): Promise<P[]> {
+  const preuves = await prisma.learningEvidence.findMany({
+    where: {
+      tenantId,
+      eleveId,
+      competenceId: { in: profilsStockes.map((p) => p.competenceId) },
+      occurredAt: { lte: date },
+      ...siteFilterForModel("learningEvidence", claims),
+    },
+    select: { competenceId: true, masterySignal: true, occurredAt: true },
+  });
+  const recales = recalculerProfils(
+    preuves.flatMap((e) => (e.competenceId ? [{ ...e, competenceId: e.competenceId }] : []))
+  );
+  return profilsStockes.flatMap((p) => {
+    const recale = recales.get(p.competenceId);
+    return recale
+      ? [{ ...p, masteryScore: recale.masteryScore, masteryStatus: recale.masteryStatus as P["masteryStatus"] }]
+      : [];
+  });
+}
+
+/**
+ * Niveau de compréhension de la langue des énoncés, pour un élève.
+ *
+ * Lu sur la matière qui enseigne cette langue, à la date demandée. `null` tant
+ * que trop peu de ses compétences sont mesurées : on ne restreint pas un élève
+ * sur une difficulté qu'on n'a pas constatée.
+ */
+export async function comprehensionPourEleve(
+  tenantId: string,
+  eleveId: string,
+  claims: SessionSiteClaims,
+  options: Pick<OptionsSelection, "aujourdHui" | "dateSimulee" | "langue">
+): Promise<NiveauComprehension | null> {
+  const codes = MATIERES_DE_LANGUE[options.langue ?? "fr"];
+  if (!codes) return null;
+
+  const stockes = await prisma.studentLearningProfile.findMany({
+    where: {
+      tenantId,
+      eleveId,
+      competence: { chapitre: { matiere: { code: { in: [...codes] } } } },
+      ...siteFilterForModel("studentLearningProfile", claims),
+    },
+    select: { competenceId: true, masteryScore: true, confidenceScore: true, masteryStatus: true },
+  });
+  const profils = options.dateSimulee
+    ? await recalerSurLaDate(stockes, tenantId, eleveId, claims, options.aujourdHui ?? new Date())
+    : stockes;
+
+  const seuils = await resoudreSeuils(tenantId, {});
+  const mesures = profils.filter(
+    (p) => p.masteryStatus !== "UNKNOWN" && p.confidenceScore >= seuils.confianceMinimale
+  );
+  return niveauComprehension(mesures.map((p) => p.masteryScore), seuils);
 }
 
 /**
@@ -399,7 +555,7 @@ export async function contextesPourEleve(
       OR: [{ classeId: eleve.classeId }, { classeId: null }],
       ...siteFilterForModel("planificationChapitre", claims),
     },
-    select: { chapitreId: true, classeId: true, statut: true, semaineDebut: true },
+    select: { chapitreId: true, classeId: true, statut: true, semaineDebut: true, semaineFin: true },
   });
 
   // La planification propre à la classe l'emporte sur celle du niveau.
@@ -436,7 +592,7 @@ export async function contextesPourEleve(
     for (const q of prerequis) tousIds.add(q.competenceId);
   }
 
-  const profils = await prisma.studentLearningProfile.findMany({
+  const profilsStockes = await prisma.studentLearningProfile.findMany({
     where: {
       tenantId,
       eleveId,
@@ -450,6 +606,10 @@ export async function contextesPourEleve(
       masteryStatus: true,
     },
   });
+
+  const profils = options.dateSimulee
+    ? await recalerSurLaDate(profilsStockes, tenantId, eleveId, claims, aujourdHui)
+    : profilsStockes;
   const profilDe = new Map(profils.map((p) => [p.competenceId, p]));
 
   // Étapes restant à faire sur les parcours engagés. Un plan `PROPOSE` n'en
@@ -479,9 +639,9 @@ export async function contextesPourEleve(
   const dependanceDe = new Map<string, { semaines: number; chapitre: string }>();
   for (const chapitre of chapitres) {
     const plan = parChapitre.get(chapitre.id);
-    if (!plan || plan.statut !== "PREVU") continue;
+    if (!plan || positionChapitre(plan, semaineCourante, options.dateSimulee) !== "A_VENIR") continue;
     const semaines = plan.semaineDebut - semaineCourante;
-    if (semaines <= 0 || semaines > fenetre) continue;
+    if (semaines > fenetre) continue;
 
     const internes = new Set(chapitre.competences.map((c) => c.id));
     for (const c of chapitre.competences) {
@@ -502,6 +662,7 @@ export async function contextesPourEleve(
     const profil = profilDe.get(competenceId);
     const chapitreId = chapitreDeCompetence.get(competenceId);
     const plan = chapitreId ? parChapitre.get(chapitreId) : undefined;
+    const position = plan ? positionChapitre(plan, semaineCourante, options.dateSimulee) : null;
     const dependance = dependanceDe.get(competenceId);
 
     // Prérequis dont on SAIT qu'ils ne sont pas en place, du moins maîtrisé au
@@ -534,11 +695,88 @@ export async function contextesPourEleve(
       etapePlan: etapeDe.get(competenceId)
         ? { id: etapeDe.get(competenceId)!.id, echeance: etapeDe.get(competenceId)!.echeance }
         : null,
-      chapitreEnCours: plan?.statut === "EN_COURS",
+      chapitreEnCours: position === "EN_COURS",
+      chapitreVu: position === "VU",
       semainesAvantChapitreDependant: dependance?.semaines ?? null,
       chapitreDependant: dependance?.chapitre ?? null,
     };
   });
+}
+
+export interface MatiereEntrainement {
+  id: string;
+  nom: string;
+  couleur: string | null;
+  /** Un chapitre de cette matière est enseigné en ce moment. */
+  enCours: boolean;
+}
+
+/**
+ * Matières dans lesquelles l'élève peut s'entraîner : celles dont au moins un
+ * chapitre a commencé. Une matière qui n'a pas encore démarré n'aurait rien à
+ * servir, et la proposer mènerait à un écran vide.
+ *
+ * Celles dont un chapitre est en cours viennent d'abord : c'est ce que l'élève
+ * a en tête en ouvrant l'écran.
+ */
+export async function matieresPourEntrainement(
+  tenantId: string,
+  eleveId: string,
+  claims: SessionSiteClaims,
+  options: Pick<OptionsSelection, "anneeId" | "aujourdHui" | "dateSimulee">
+): Promise<MatiereEntrainement[]> {
+  const eleve = await prisma.eleve.findFirst({
+    where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", claims) },
+    select: { classeId: true, classe: { select: { niveau: true } } },
+  });
+  if (!eleve?.classe) return [];
+
+  const annee = await prisma.anneesScolaires.findFirst({
+    where: { id: options.anneeId, tenantId },
+    select: { dateDebut: true },
+  });
+  if (!annee) return [];
+  const semaineCourante = semaineScolaire(options.aujourdHui ?? new Date(), annee.dateDebut);
+
+  const planifications = await prisma.planificationChapitre.findMany({
+    where: {
+      tenantId,
+      anneeId: options.anneeId,
+      chapitre: { niveau: eleve.classe.niveau },
+      OR: [{ classeId: eleve.classeId }, { classeId: null }],
+      ...siteFilterForModel("planificationChapitre", claims),
+    },
+    select: {
+      chapitreId: true,
+      classeId: true,
+      statut: true,
+      semaineDebut: true,
+      semaineFin: true,
+      chapitre: { select: { matiere: { select: { id: true, nom: true, couleur: true } } } },
+    },
+  });
+
+  // La planification propre à la classe l'emporte sur celle du niveau.
+  const parChapitre = new Map<string, (typeof planifications)[number]>();
+  for (const p of planifications) {
+    const existante = parChapitre.get(p.chapitreId);
+    if (!existante || (existante.classeId === null && p.classeId !== null)) {
+      parChapitre.set(p.chapitreId, p);
+    }
+  }
+
+  const matieres = new Map<string, MatiereEntrainement>();
+  for (const p of parChapitre.values()) {
+    const position = positionChapitre(p, semaineCourante, options.dateSimulee);
+    if (position === "A_VENIR") continue;
+    const { id, nom, couleur } = p.chapitre.matiere;
+    const connue = matieres.get(id);
+    matieres.set(id, { id, nom, couleur, enCours: (connue?.enCours ?? false) || position === "EN_COURS" });
+  }
+
+  return [...matieres.values()].sort(
+    (a, b) => Number(b.enCours) - Number(a.enCours) || a.nom.localeCompare(b.nom, "fr")
+  );
 }
 
 /** Cibles retenues pour un élève, prêtes à être servies. */
@@ -554,7 +792,7 @@ export async function ciblesPourEleve(
   const seuils = await resoudreSeuils(tenantId, { matiereId: options.matiereId ?? null });
 
   const cibles = contextes
-    .map((ctx) => evaluerCible(ctx, seuils))
+    .map((ctx) => evaluerCible(ctx, seuils, { entretien: options.entretien }))
     .filter((c): c is CibleExercice => c !== null);
 
   return composerSelection(cibles, options.nombre ?? 5);
@@ -625,8 +863,15 @@ export async function composerFeuille(
     );
   }
 
-  const cibles = await ciblesPourEleve(tenantId, eleveId, claims, options);
-  if (cibles.length === 0) return null;
+  const nombre = options.nombre ?? 5;
+  // En entretien, on demande toutes les cibles et non les `nombre` premières :
+  // la feuille se complète avec les suivantes quand la banque est vide sur une
+  // compétence, et le fond tourne d'une séance à l'autre (voir plus bas).
+  const candidates = await ciblesPourEleve(tenantId, eleveId, claims, {
+    ...options,
+    nombre: options.entretien ? Number.MAX_SAFE_INTEGER : nombre,
+  });
+  if (candidates.length === 0) return null;
 
   // Questions déjà servies à cet élève : on ne resert pas le même énoncé tant
   // que la banque en propose d'autres. Répéter à l'identique mesure la mémoire
@@ -637,36 +882,89 @@ export async function composerFeuille(
   });
   const vues = new Set(dejaServies.map((e) => e.questionId));
 
-  const banque = await prisma.question.findMany({
+  const brute = await prisma.question.findMany({
     where: {
       tenantId,
       actif: true,
-      competenceId: { in: cibles.map((c) => c.competenceId) },
+      competenceId: { in: candidates.map((c) => c.competenceId) },
       langue: options.langue ?? "fr",
       ...(options.autoCorrigeableUniquement
         ? { format: { in: [...FORMATS_AUTO_CORRIGEABLES] } }
         : {}),
       ...siteFilterForModel("question", claims),
     },
-    select: { id: true, competenceId: true, palier: true },
+    select: {
+      id: true,
+      competenceId: true,
+      palier: true,
+      enonce: true,
+      structure: true,
+      competence: { select: { chapitre: { select: { matiere: { select: { code: true } } } } } },
+    },
     // Tri stable : à banque identique, la même feuille est composée deux fois.
     orderBy: { id: "asc" },
   });
 
-  const retenus: { cible: CibleExercice; questionId: string }[] = [];
+  // Charge de lecture de chaque question, et ce que l'élève lit sans peine.
+  // Dans la matière qui enseigne la langue, lire est ce qu'on évalue : rien
+  // n'y est allégé.
+  const comprehension = await comprehensionPourEleve(tenantId, eleveId, claims, options);
+  const accessible = chargeAccessible(comprehension);
+  const codesLangue = MATIERES_DE_LANGUE[options.langue ?? "fr"] ?? [];
+
+  const banque = brute.flatMap((q) => {
+    const structure = parseStructure(q.structure);
+    // En autonomie, une question sans structure exploitable ne peut pas être
+    // affichée : `assembler` l'omet, et la feuille arriverait vide à l'élève.
+    if (options.autoCorrigeableUniquement && !structure) return [];
+    const matiereDeLangue = codesLangue.includes(q.competence.chapitre?.matiere.code ?? "");
+    return [
+      {
+        id: q.id,
+        competenceId: q.competenceId,
+        palier: q.palier,
+        excesLecture: matiereDeLangue ? 0 : depassement(chargeLecture(q.enonce, structure), accessible),
+      },
+    ];
+  });
+
+  // Les exercices de fond dont toutes les questions ont déjà été servies passent
+  // derrière ceux qui ont encore de l'inédit : sans cela, le tri total
+  // resservirait indéfiniment les mêmes compétences à un élève sans urgence.
+  // Les règles pressantes, elles, gardent leur rang quoi qu'il arrive.
+  const aDeLInedit = new Set(banque.filter((q) => !vues.has(q.id)).map((q) => q.competenceId));
+  const epuisee = (c: CibleExercice) =>
+    REGLES_DE_FOND.includes(c.regleDeclenchee) && !aDeLInedit.has(c.competenceId);
+  const cibles = [
+    ...candidates.filter((c) => !epuisee(c)),
+    ...candidates.filter((c) => epuisee(c)),
+  ];
+
+  const retenus: { cible: CibleExercice; questionId: string; lectureAllegee: boolean }[] = [];
   const sansQuestion: FeuilleComposee["ciblesSansQuestion"] = [];
   const prises = new Set<string>();
 
   for (const cible of cibles) {
-    const candidates = banque.filter(
+    if (retenus.length >= nombre) break;
+    const questions = banque.filter(
       (q) => q.competenceId === cible.competenceId && !prises.has(q.id)
     );
 
     let choisie: string | undefined;
+    let lectureAllegee = false;
     for (const palier of paliersDeRepli(cible.palier)) {
-      const auPalier = candidates.filter((q) => q.palier === palier);
+      const auPalier = questions.filter((q) => q.palier === palier);
       // D'abord une question jamais vue ; à défaut, la plus ancienne du palier.
-      choisie = (auPalier.find((q) => !vues.has(q.id)) ?? auPalier[0])?.id;
+      const parDefaut = auPalier.find((q) => !vues.has(q.id)) ?? auPalier[0];
+      // L'énoncé le plus lisible passe devant, à palier ÉGAL : on ne descend
+      // pas d'un palier pour épargner de la lecture. Le tri est stable, donc à
+      // lisibilité égale l'ordre ci-dessus est conservé.
+      const [meilleure] = [...auPalier].sort(
+        (a, b) =>
+          a.excesLecture - b.excesLecture || Number(vues.has(a.id)) - Number(vues.has(b.id))
+      );
+      choisie = meilleure?.id;
+      lectureAllegee = !!meilleure && meilleure.id !== parDefaut?.id;
       if (choisie) break;
     }
 
@@ -678,7 +976,7 @@ export async function composerFeuille(
     }
 
     prises.add(choisie);
-    retenus.push({ cible, questionId: choisie });
+    retenus.push({ cible, questionId: choisie, lectureAllegee });
   }
 
   if (retenus.length === 0) {
@@ -714,14 +1012,18 @@ export async function composerFeuille(
       // vide jusqu'à `validerFeuille`.
       assigneeLe: statut === "ASSIGNEE" ? (options.aujourdHui ?? new Date()) : null,
       exercices: {
-        create: retenus.map(({ cible, questionId }, i) => ({
+        create: retenus.map(({ cible, questionId, lectureAllegee }, i) => ({
           questionId,
           competenceId: cible.competenceId,
           competenceViseeId: cible.competenceViseeId,
           ordre: i + 1,
           palier: cible.palier,
           regleDeclenchee: cible.regleDeclenchee,
-          motifParams: cible.motifParams as unknown as Prisma.InputJsonValue,
+          // Dit à l'élève que l'énoncé a été choisi pour sa lisibilité : un
+          // choix fait pour lui sans le lui dire ne serait pas défendable.
+          motifParams: (lectureAllegee
+            ? { ...cible.motifParams, lectureAllegee: 1 }
+            : cible.motifParams) as unknown as Prisma.InputJsonValue,
           priorite: cible.priorite,
         })),
       },

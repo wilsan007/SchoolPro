@@ -47,7 +47,7 @@ interface EleveItem {
   nom: string;
   prenom: string;
   matricule: string;
-  classe: { nom: string; niveau: string } | null;
+  classe: { nom: string; niveau: string; structure?: { type: string } | null } | null;
 }
 
 export function ParentsTab({
@@ -165,7 +165,7 @@ export function ParentsTab({
       for (const el of list) {
         const classeNom = el.classe?.nom ?? "Sans classe";
         const niveau = el.classe?.niveau ?? "";
-        const elGroup = el.classe ? getSchoolGroup(niveau, classeNom) : "Autre";
+        const elGroup = el.classe ? getSchoolGroup(niveau, classeNom, el.classe.structure?.type) : "Autre";
         if (elGroup !== group) continue;
         if (!classesInGroup.has(classeNom)) classesInGroup.set(classeNom, []);
         classesInGroup.get(classeNom)!.push(el);

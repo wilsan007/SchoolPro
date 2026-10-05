@@ -93,8 +93,10 @@ export function cleanupEdgeBuckets() {
 const AUTH_LIMITS: Record<string, { max: number; windowMs: number }> = {
   // Login : 10 tentatives / 15 min / IP
   "/api/auth/callback/credentials": { max: 10, windowMs: 15 * 60_000 },
-  // Forgot password : 5 requêtes / 15 min / IP (anti énumération d'emails)
-  "/api/auth/forgot-password": { max: 5, windowMs: 15 * 60_000 },
+  // Forgot password : 30 requêtes / 15 min / IP. Volontairement large — une
+  // école entière partage une IP publique ; le plafond strict (3 / 15 min) est
+  // appliqué par adresse email dans la route.
+  "/api/auth/forgot-password": { max: 30, windowMs: 15 * 60_000 },
   // Reset password : 10 requêtes / 15 min / IP
   "/api/auth/reset-password": { max: 10, windowMs: 15 * 60_000 },
   // Send verification : 3 requêtes / 15 min / IP

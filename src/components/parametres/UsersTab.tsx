@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { axeInitiale, type AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +115,19 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
     role: "TEACHER",
     siteId: "",
   });
+
+  const axesUtilisateurs = useMemo<AxeRegroupement<UserItem>[]>(
+    () => [
+      { id: "role", cle: (u) => u.role, libelle: (role) => t(roleKeys[role] ?? role) },
+      {
+        id: "statut",
+        cle: (u) => (u.isActive ? "1" : "2"),
+        libelle: (cle) => (cle === "1" ? t("active") : t("disabled")),
+      },
+      axeInitiale((u) => u.name),
+    ],
+    [t],
+  );
 
   const filteredUsers = users.filter((u) => {
     const matchesCategory =
@@ -835,7 +850,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
                     {searchQuery ? "Aucun utilisateur trouvé pour cette recherche." : t("noUsers")}
                   </td></tr>
                 ) : (
-                  filteredUsers.map((u) => (
+                  <ListeGroupee variante="table" items={filteredUsers} axes={axesUtilisateurs} rendu={(u) => (
                     <tr key={u.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{u.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
@@ -922,7 +937,7 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
                         </td>
                       )}
                     </tr>
-                  ))
+                  )} />
                 )}
               </tbody>
             </table>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { axeInitiale, type AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -333,6 +335,12 @@ interface CongePersonnelItem {
   approuvePar: { name: string } | null;
 }
 
+const AXES_PERSONNEL: AxeRegroupement<EnseignantRH>[] = [
+  { id: "matiere", cle: (e) => e.specialite },
+  { id: "contrat", cle: (e) => e.ficheRH?.typeContrat ?? e.typeContrat },
+  axeInitiale((e) => e.user.name),
+];
+
 interface RHViewProps {
   enseignants: EnseignantRH[];
   absencesPersonnel?: AbsencePersonnelItem[];
@@ -542,11 +550,12 @@ export function RHView({ enseignants: initial, absencesPersonnel, congesPersonne
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filtered.map((e) => (
-                <EnseignantRHCard key={e.id} enseignant={e} onUpdate={handleUpdate} />
-              ))}
-            </div>
+            <ListeGroupee
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+              items={filtered}
+              axes={AXES_PERSONNEL}
+              rendu={(e) => <EnseignantRHCard key={e.id} enseignant={e} onUpdate={handleUpdate} />}
+            />
           )}
         </>
       )}

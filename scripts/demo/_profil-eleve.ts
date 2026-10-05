@@ -20,6 +20,18 @@ function borner(v: number, min: number, max: number): number {
 }
 
 /**
+ * Fiches dont le niveau est fixé à la main par l'étape 1 (personas).
+ *
+ * Le calcul par identifiant ne peut pas les connaître : il donnait 7/20 à
+ * l'enfant « fort » de la famille de démonstration, dont le bulletin affiche
+ * 17,75. Tout script qui déduit quelque chose du niveau doit lire la même
+ * valeur que le bulletin, sinon la fiche se contredit d'un écran à l'autre.
+ */
+const NIVEAUX_FIXES: Record<string, number> = {
+  "ele-ambouli-2025-0445": 17.75,
+};
+
+/**
  * Niveau scolaire de l'élève, exprimé comme une moyenne sur 20.
  *
  * La distribution est centrée autour de 11,5 avec une vraie queue basse :
@@ -28,6 +40,8 @@ function borner(v: number, min: number, max: number): number {
  * l'application d'un simple cahier de notes.
  */
 export function niveauEleve(eleveId: string): number {
+  const fixe = NIVEAUX_FIXES[eleveId];
+  if (fixe !== undefined) return fixe;
   let h = 0;
   for (let i = 0; i < eleveId.length; i++) h = (h * 31 + eleveId.charCodeAt(i)) >>> 0;
   const u = (h % 1000) / 1000;

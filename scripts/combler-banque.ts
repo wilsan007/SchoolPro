@@ -31,6 +31,7 @@ const prisma = new PrismaClient({
 
 // Importer le moteur de génération APRÈS avoir injecté prisma dans globalThis.
 import { genererQuestions } from "@/lib/learnos/generation-questions";
+import { parseStructure } from "@/lib/learnos/entrainement/structure-question";
 import { AiAllProvidersFailedError } from "@/lib/ai/provider";
 import type { SessionSiteClaims } from "@/lib/site-scope";
 
@@ -155,21 +156,7 @@ async function comblerTenant(
   // 3. Compter les questions existantes par compétence × palier, dans la
   //    langue demandée : un trou en somali n'est pas un trou en français.
   const langue = args.langue ?? "fr";
-  const comptes = await prisma.question.groupBy({
-    by: ["competenceId", "palier"],
-    where: {
-      tenantId,
-      actif: true,
-      competenceId: { in: competenceIds },
-      langue,
-    },
-    _count: { _all: true },
-  });
-
-  const pleins = new Set<string>();
-  for (const c of comptes) {
-    pleins.add(`${c.competenceId}|${c.palier}`);
-  }
+  const pleins = await couplesServables(tenantId, competenceIds, langue);
 
   // 4. Identifier les trous.
   const trous: { competenceId: string; palier: PalierExercice; libelle: string; matiere: string }[] = [];
@@ -283,25 +270,40 @@ async function comblerTenant(
   }
 
   // 7. Vérification finale.
-  const trousRestants = await compterTrousRestants(tenantId, competenceIds);
+  const trousRestants = await compterTrousRestants(tenantId, competenceIds, langue);
   console.log(`  Trous restants : ${trousRestants} (avant: ${trous.length})`);
 }
 
-async function compterTrousRestants(tenantId: string, competenceIds: string[]): Promise<number> {
-  const comptes = await prisma.question.groupBy({
-    by: ["competenceId", "palier"],
-    where: {
-      tenantId,
-      actif: true,
-      competenceId: { in: competenceIds },
-    },
-    _count: { _all: true },
+/**
+ * Couples compétence × palier couverts par une question qu'un élève peut
+ * réellement recevoir.
+ *
+ * Compter les lignes ne suffit pas : une question sans structure exploitable
+ * existe en base mais ne s'affiche jamais (`assembler` l'omet). La tenir pour
+ * une couverture masquait le trou, et la séance arrivait vide.
+ */
+async function couplesServables(
+  tenantId: string,
+  competenceIds: string[],
+  langue: string
+): Promise<Set<string>> {
+  const questions = await prisma.question.findMany({
+    where: { tenantId, actif: true, competenceId: { in: competenceIds }, langue },
+    select: { competenceId: true, palier: true, structure: true },
   });
-
   const pleins = new Set<string>();
-  for (const c of comptes) {
-    pleins.add(`${c.competenceId}|${c.palier}`);
+  for (const q of questions) {
+    if (parseStructure(q.structure)) pleins.add(`${q.competenceId}|${q.palier}`);
   }
+  return pleins;
+}
+
+async function compterTrousRestants(
+  tenantId: string,
+  competenceIds: string[],
+  langue: string
+): Promise<number> {
+  const pleins = await couplesServables(tenantId, competenceIds, langue);
 
   let restant = 0;
   for (const compId of competenceIds) {

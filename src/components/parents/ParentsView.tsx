@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { axeInitiale, type AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +65,14 @@ interface ParentData {
   } | null;
   eleves: EleveParentInfo[];
 }
+
+// Un parent est rangé avec la classe de son premier enfant : c'est par la
+// classe que le secrétariat cherche une famille.
+const AXES_PARENTS: AxeRegroupement<ParentData>[] = [
+  { id: "classe", cle: (p) => p.eleves[0]?.eleve.classe?.nom },
+  { id: "niveau", cle: (p) => p.eleves[0]?.eleve.classe?.niveau },
+  axeInitiale((p) => p.nom),
+];
 
 interface ParentsViewProps {
   parents: ParentData[];
@@ -453,11 +463,12 @@ export function ParentsView({ parents }: ParentsViewProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {parentsFiltres.map((parent) => (
-            <ParentCard key={parent.id} parent={parent} />
-          ))}
-        </div>
+        <ListeGroupee
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+          items={parentsFiltres}
+          axes={AXES_PARENTS}
+          rendu={(parent) => <ParentCard key={parent.id} parent={parent} />}
+        />
       )}
 
       <p className="text-xs text-gray-400 text-center">

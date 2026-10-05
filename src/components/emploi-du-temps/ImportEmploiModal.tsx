@@ -84,7 +84,7 @@ const JOUR_LABELS: Record<Jour, string> = {
 };
 
 const CATEGORIE_ICONS: Record<string, string> = {
-  primaire: "📚", college: "📘", lycee: "🎓", autre: "📋",
+  maternelle: "🧸", primaire: "📚", college: "📘", lycee: "🎓", autre: "📋",
 };
 
 function minutesToHhMm(m: number): string {

@@ -1,13 +1,16 @@
-export type SchoolGroup = "Primaire" | "Collège" | "Lycée" | "Autre";
+export type SchoolGroup = "Maternelle" | "Primaire" | "Collège" | "Lycée" | "Autre";
 
-export const SCHOOL_GROUP_ORDER: SchoolGroup[] = ["Primaire", "Collège", "Lycée", "Autre"];
+export const SCHOOL_GROUP_ORDER: SchoolGroup[] = ["Maternelle", "Primaire", "Collège", "Lycée", "Autre"];
 
 export const SCHOOL_GROUP_ICONS: Record<SchoolGroup, string> = {
+  Maternelle: "🧸",
   Primaire: "🧒",
   Collège: "📘",
   Lycée: "🎓",
   Autre: "📋",
 };
+
+const MATERNELLE = -1;
 
 const FRENCH_NIVEAU_TO_YEAR: Record<string, number> = {
   ci: 0, cp: 1,
@@ -19,16 +22,34 @@ const FRENCH_NIVEAU_TO_YEAR: Record<string, number> = {
   seconde: 10, "2nde": 10, "2nd": 10,
   "première": 11, "premiere": 11, "1ère": 11, "1ere": 11,
   terminale: 12, term: 12,
+  // Maternelle : hors numérotation (0 est déjà pris par le CI).
+  maternelle: MATERNELLE, garderie: MATERNELLE, garderies: MATERNELLE,
+  "petite section": MATERNELLE, "moyenne section": MATERNELLE, "grande section": MATERNELLE,
+  ps: MATERNELLE, ms: MATERNELLE, gs: MATERNELLE,
+};
+
+// La structure pédagogique enregistrée en base (`Classe.structure.type`) fait
+// foi : c'est l'établissement qui a rangé la classe dans un cycle. Le nom et le
+// niveau ne servent qu'aux classes sans structure.
+const STRUCTURE_TYPE_TO_GROUP: Record<string, SchoolGroup> = {
+  MATERNELLE: "Maternelle",
+  PRIMAIRE: "Primaire",
+  COLLEGE: "Collège",
+  LYCEE: "Lycée",
 };
 
 function yearToGroup(year: number): SchoolGroup {
+  if (year === MATERNELLE) return "Maternelle";
   if (year >= 0 && year <= 5) return "Primaire"; // 0 = CI
   if (year >= 6 && year <= 9) return "Collège";
   if (year >= 10 && year <= 12) return "Lycée";
   return "Autre";
 }
 
-export function getSchoolGroup(niveau: string, nom?: string): SchoolGroup {
+export function getSchoolGroup(niveau: string, nom?: string, structureType?: string | null): SchoolGroup {
+  const fromStructure = structureType ? STRUCTURE_TYPE_TO_GROUP[structureType] : undefined;
+  if (fromStructure) return fromStructure;
+
   const text = `${niveau} ${nom ?? ""}`.toLowerCase().trim();
 
   const yearWithAnnee = text.match(/(\d+)\s*(?:ème|e)?\s*(?:année|an|year|ann[eé]e)/);
@@ -57,7 +78,9 @@ export interface GroupedClasses<T> {
   classes: { classe: string; items: T[] }[];
 }
 
-export function groupBySchoolLevel<T extends { classe?: { nom: string; niveau: string } | null }>(
+export function groupBySchoolLevel<
+  T extends { classe?: { nom: string; niveau: string; structure?: { type: string } | null } | null }
+>(
   items: T[]
 ): GroupedClasses<T>[] {
   const groupMap = new Map<SchoolGroup, Map<string, T[]>>();
@@ -65,7 +88,7 @@ export function groupBySchoolLevel<T extends { classe?: { nom: string; niveau: s
   for (const item of items) {
     const classeNom = item.classe?.nom ?? "Sans classe";
     const niveau = item.classe?.niveau ?? "";
-    const group = item.classe ? getSchoolGroup(niveau, classeNom) : "Autre";
+    const group = item.classe ? getSchoolGroup(niveau, classeNom, item.classe.structure?.type) : "Autre";
 
     if (!groupMap.has(group)) groupMap.set(group, new Map());
     const classMap = groupMap.get(group)!;

@@ -123,15 +123,57 @@ describe("POST /api/auth/forgot-password", () => {
     expect(dataExists).toEqual(dataNotFound);
   });
 
-  it("refuse après 5 requêtes (rate limiting 5/15min)", async () => {
+  it("refuse quand le plafond par IP est atteint", async () => {
     mockRateLimit.mockReturnValue({ allowed: false, remaining: 0, resetAt: Date.now() + 900_000 });
 
     const res = await POST(req(VALID_BODY));
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("900");
-    // Réponse générique pour ne pas révéler le rate limit
-    const data = await res.json();
-    expect(data.success).toBe(true);
+    expect(mockVerifyTurnstile).not.toHaveBeenCalled();
+  });
+
+  it("plafonne par adresse visée, large par IP (une école partage une IP)", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    await POST(req({ ...VALID_BODY, email: "  User@Test.COM " }));
+
+    expect(mockRateLimit).toHaveBeenCalledWith({ max: 30, windowSec: 900, key: "forgot-pwd:127.0.0.1" });
+    expect(mockRateLimit).toHaveBeenCalledWith({ max: 3, windowSec: 900, key: "forgot-pwd:email:user@test.com" });
+  });
+
+  it("refuse quand le plafond par adresse est atteint, que le compte existe ou non", async () => {
+    mockRateLimit.mockImplementation(({ key }: { key: string }) => ({
+      allowed: !key.startsWith("forgot-pwd:email:"),
+      remaining: 0,
+      resetAt: Date.now() + 900_000,
+    }));
+
+    const res = await POST(req(VALID_BODY));
+    expect(res.status).toBe(429);
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("accepte turnstileToken: null (client sans widget)", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "u1", email: "user@test.com", name: "User" });
+
+    const res = await POST(req({ email: "user@test.com", turnstileToken: null }));
+    expect(res.status).toBe(200);
+    expect(mockVerifyTurnstile).toHaveBeenCalledWith(null, "127.0.0.1");
+    expect(mockSendEmail).toHaveBeenCalled();
+  });
+
+  it("trace l'échec d'envoi sans changer la réponse", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "u1", email: "user@test.com", name: "User" });
+    mockSendEmail.mockResolvedValue({ success: false, sent: 0, error: "resend down" });
+    const erreur = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(req(VALID_BODY));
+    expect(res.status).toBe(200);
+    expect(erreur).toHaveBeenCalled();
+    expect(mockAuditFire).toHaveBeenCalledWith(
+      expect.objectContaining({ verdict: "DENIED", reason: "Échec d'envoi du lien de réinitialisation" }),
+    );
+    erreur.mockRestore();
   });
 
   it("vérifie le token Turnstile avant la recherche en base", async () => {
@@ -141,13 +183,13 @@ describe("POST /api/auth/forgot-password", () => {
     expect(mockVerifyTurnstile).toHaveBeenCalledWith("valid-turnstile-token", "127.0.0.1");
   });
 
-  it("renvoie une réponse générique si Turnstile échoue", async () => {
+  it("signale l'échec Turnstile au lieu d'un faux « email envoyé »", async () => {
     mockVerifyTurnstile.mockResolvedValue({ success: false, error: "invalid-input-response" });
 
     const res = await POST(req(VALID_BODY));
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.success).toBe(true);
+    expect(data).toEqual({ success: false, error: "turnstile" });
 
     // La base n'est pas consultée
     expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();

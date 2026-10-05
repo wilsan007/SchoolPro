@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { normaliserEmail } from "@/lib/email";
 import { sendEmail, renderNotificationEmail } from "@/lib/notifications/email";
 import { auditFire } from "@/lib/audit";
+import { PREFIXE_RESET } from "@/lib/password-reset";
 
 const EXPIRATION_MS = 24 * 60 * 60 * 1000;
 
@@ -28,7 +29,8 @@ export async function verifierTokenVerification(
   const record = await prisma.verificationToken.findUnique({
     where: { token },
   });
-  if (!record) return { valid: false };
+  // Un jeton de réinitialisation de mot de passe n'est pas un jeton de vérification.
+  if (!record || record.identifier.startsWith(PREFIXE_RESET)) return { valid: false };
   if (record.expires < new Date()) return { valid: false };
   return { valid: true, email: record.identifier };
 }

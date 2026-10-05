@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import {
   School, Users, GraduationCap, TrendingUp, Plus, Search,
@@ -64,6 +66,16 @@ export function SuperAdminView() {
     BUSINESS: t("planBusiness"),
     ENTERPRISE: t("planEnterprise"),
   };
+  const axesDate = useAxesTemporels<Tenant>((tenant) => tenant.createdAt);
+  const axesTenants = useMemo<AxeRegroupement<Tenant>[]>(
+    () => [
+      { id: "statut", cle: (tenant) => tenant.status, libelle: (s) => t(STATUS_CONFIG[s as TenantStatus].labelKey) },
+      { id: "plan", cle: (tenant) => tenant.plan },
+      { id: "pays", cle: (tenant) => tenant.country },
+      ...axesDate,
+    ],
+    [axesDate, t],
+  );
   const PLAN_PRICES: Record<PlanType, string> = {
     STARTER: t("priceStarter"),
     PRO: t("pricePro"),
@@ -268,7 +280,7 @@ export function SuperAdminView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-              {tenants.map((tenant) => {
+              <ListeGroupee variante="table" items={tenants} axes={axesTenants} rendu={(tenant) => {
                 const statusCfg = STATUS_CONFIG[tenant.status];
                 const planCfg = PLAN_CONFIG[tenant.plan];
                 const StatusIcon = statusCfg.icon;
@@ -326,7 +338,7 @@ export function SuperAdminView() {
                     </td>
                   </tr>
                 );
-              })}
+              }} />
             </tbody>
           </table>
           </div>

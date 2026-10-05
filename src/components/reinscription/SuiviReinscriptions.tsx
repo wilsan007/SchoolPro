@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { type AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +53,15 @@ export function SuiviReinscriptions({
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
+
+  const axesInvitations = useMemo<AxeRegroupement<InvitationData>[]>(
+    () => [
+      { id: "classe", cle: (inv) => inv.eleve.classe?.nom },
+      { id: "niveau", cle: (inv) => inv.eleve.classe?.niveau },
+      { id: "statut", cle: (inv) => inv.statut, libelle: (s) => t(`statutInv.${s.toLowerCase()}`) },
+    ],
+    [t],
+  );
 
   const filtered = invitations.filter((inv) => {
     const matchStatut = filter === "ALL" || inv.statut === filter;
@@ -132,7 +143,7 @@ export function SuiviReinscriptions({
         </div>
       ) : (
         <div className="space-y-2 max-h-[500px] overflow-y-auto scrollbar-thin">
-          {filtered.map((inv) => {
+          <ListeGroupee className="space-y-2" items={filtered} axes={axesInvitations} rendu={(inv) => {
             const config = STATUT_CONFIG[inv.statut] ?? STATUT_CONFIG.INVITE;
             const StatutIcon = config.icon;
             const parent = inv.eleve.parents[0]?.parent;
@@ -217,7 +228,7 @@ export function SuiviReinscriptions({
                 )}
               </div>
             );
-          })}
+          }} />
         </div>
       )}
     </div>

@@ -23,6 +23,7 @@ const DecisionsSchema = z.record(
 
 // Mapping: nom du groupe scolaire → StructureType
 const GROUP_TO_STRUCTURE: Record<string, StructureType> = {
+  Maternelle: "MATERNELLE",
   Primaire: "PRIMAIRE",
   Collège: "COLLEGE",
   Lycée: "LYCEE",
@@ -172,8 +173,15 @@ export async function POST(req: NextRequest) {
     const classesRequises = [...new Set(aCreer.map((l) => l.classe))];
     const niveauDe = new Map(rows.map((r) => [r.classe, r.niveau]));
 
+    // Bornées au site cible, comme les classes : une classe ne doit jamais
+    // hériter de la structure d'un autre site. Une structure partagée
+    // (siteId null) reste utilisable, celle du site l'emporte.
     const existingStructures = await prisma.structure.findMany({
-      where: mergeFilters({ tenantId }, siteFilterForModel("structure", session.user)),
+      where: mergeFilters(
+        { tenantId, AND: [{ OR: [{ siteId: targetSiteId }, { siteId: null }] }] },
+        siteFilterForModel("structure", session.user)
+      ),
+      orderBy: { siteId: { sort: "asc", nulls: "first" } },
     });
     const structureByType = new Map<string, string>(existingStructures.map((s) => [s.type, s.id]));
 
@@ -198,7 +206,7 @@ export async function POST(req: NextRequest) {
       });
       const created = await prisma.structure.findMany({
         where: mergeFilters(
-          { tenantId, type: { in: structuresToCreate } },
+          { tenantId, type: { in: structuresToCreate }, siteId: targetSiteId },
           siteFilterForModel("structure", session.user)
         ),
       });

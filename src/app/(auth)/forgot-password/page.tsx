@@ -12,11 +12,22 @@ import TurnstileWidget from "@/components/security/TurnstileWidget";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations("forgotPassword");
+  const tLogin = useTranslations("login");
   const [isPending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
+  // Jeton à usage unique : après un échec, remonter le widget pour obtenir
+  // un défi neuf — sinon chaque nouvel essai échoue à son tour.
+  const [cleWidget, setCleWidget] = useState(0);
+  const [turnstileErreur, setTurnstileErreur] = useState(false);
+
+  function reinitialiserWidget() {
+    setTurnstileToken("");
+    setTurnstileErreur(false);
+    setCleWidget((k) => k + 1);
+  }
 
   const EmailSchema = z.object({
     email: z.string().email(t("invalidEmail")),
@@ -32,6 +43,18 @@ export default function ForgotPasswordPage() {
       return;
     }
 
+    // Sans jeton, le serveur refuse la demande : ne pas l'envoyer, et dire
+    // ce qui se passe vraiment plutôt qu'afficher « email envoyé ».
+    if (!turnstileToken) {
+      if (turnstileErreur) {
+        toast.error(tLogin("turnstileBlocked"));
+        reinitialiserWidget();
+      } else {
+        toast.warning(tLogin("turnstilePending"));
+      }
+      return;
+    }
+
     startTransition(async () => {
       try {
         const res = await fetch("/api/auth/forgot-password", {
@@ -39,11 +62,18 @@ export default function ForgotPasswordPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, turnstileToken }),
         });
-        if (!res.ok) throw new Error();
-        setSuccess(true);
+        if (res.ok) {
+          setSuccess(true);
+          return;
+        }
+        const data = await res.json().catch(() => null);
+        if (res.status === 429) setError(t("rateLimited"));
+        else if (data?.error === "turnstile") setError(tLogin("turnstileFailed"));
+        else setError(t("error"));
       } catch {
         setError(t("error"));
       }
+      reinitialiserWidget();
     });
   }
 
@@ -89,8 +119,10 @@ export default function ForgotPasswordPage() {
 
             {/* Cloudflare Turnstile — défi anti-bot invisible */}
             <TurnstileWidget
+              key={cleWidget}
               onVerify={setTurnstileToken}
               onExpire={() => setTurnstileToken("")}
+              onError={() => setTurnstileErreur(true)}
               className="flex justify-center"
             />
 

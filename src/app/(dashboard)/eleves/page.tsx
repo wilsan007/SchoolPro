@@ -160,7 +160,7 @@ async function getElevesData(
       where,
       include: {
          
-        classe: { select: { id: true, nom: true, niveau: true, site: { select: { id: true, nom: true } } } },
+        classe: { select: { id: true, nom: true, niveau: true, structure: { select: { type: true } }, site: { select: { id: true, nom: true } } } },
         // Le lien élève↔parent n'a pas de site propre : il est borné par
         // l'élève, déjà filtré par le `where` racine. Un parent peut par
         // ailleurs avoir des enfants sur plusieurs sites.

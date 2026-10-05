@@ -192,6 +192,9 @@ export async function ouvrirSeance(
       eleveId,
       type: "entrainement",
       statut: { in: ["ASSIGNEE", "EN_COURS"] },
+      // L'élève a choisi une matière : on ne lui ressert pas la séance
+      // inachevée d'une autre. Sans choix, n'importe laquelle se reprend.
+      ...(options.matiereId ? { matiereId: options.matiereId } : {}),
     },
     orderBy: { createdAt: "desc" },
     select: {
@@ -212,6 +215,9 @@ export async function ouvrirSeance(
     ...options,
     type: "entrainement",
     autoCorrigeableUniquement: true,
+    // L'élève a demandé à travailler : lacunes anciennes et entretien de
+    // l'acquis complètent la feuille quand rien de plus pressant ne la remplit.
+    entretien: true,
   });
   if (!composee || !composee.feuilleId) return null;
 

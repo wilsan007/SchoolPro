@@ -53,7 +53,7 @@ async function getAbsencesData(
             nom: true,
             prenom: true,
             photoUrl: true,
-            classe: { select: { nom: true, niveau: true } },
+            classe: { select: { nom: true, niveau: true, structure: { select: { type: true } } } },
           },
         },
       },

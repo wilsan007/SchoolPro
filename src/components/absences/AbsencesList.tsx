@@ -25,7 +25,7 @@ interface Absence {
     nom: string;
     prenom: string;
     photoUrl: string | null;
-    classe: { nom: string; niveau: string } | null;
+    classe: { nom: string; niveau: string; structure?: { type: string } | null } | null;
   };
 }
 
@@ -80,7 +80,7 @@ export function AbsencesList({ absences, canWrite = false }: { absences: Absence
     for (const abs of filtered) {
       const classeNom = abs.eleve.classe?.nom ?? "Sans classe";
       const niveau = abs.eleve.classe?.niveau ?? "";
-      const absGroup = abs.eleve.classe ? getSchoolGroup(niveau, classeNom) : "Autre";
+      const absGroup = abs.eleve.classe ? getSchoolGroup(niveau, classeNom, abs.eleve.classe.structure?.type) : "Autre";
       if (absGroup !== group) continue;
       if (!classesInGroup.has(classeNom)) classesInGroup.set(classeNom, []);
       classesInGroup.get(classeNom)!.push(abs);

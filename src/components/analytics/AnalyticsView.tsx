@@ -54,6 +54,7 @@ interface ClasseData {
 interface MatiereParClasseData {
   classe: string;
   niveau: string;
+  structureType?: string | null;
   matieres: MatiereData[];
 }
 
@@ -253,7 +254,7 @@ export function AnalyticsView() {
   const matieresParClasseGrouped = SCHOOL_GROUP_ORDER.map((group) => ({
     group,
     classes: (matieresParClasse ?? [])
-      .filter((c) => getSchoolGroup(c.niveau, c.classe) === group)
+      .filter((c) => getSchoolGroup(c.niveau, c.classe, c.structureType) === group)
       .sort((a, b) => a.classe.localeCompare(b.classe)),
   })).filter((g) => g.classes.length > 0);
 

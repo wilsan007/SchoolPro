@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import {
   Package, AlertTriangle, XCircle, DollarSign, Plus, Search,
@@ -151,6 +153,15 @@ export function InventaireView() {
     return `${p.toLocaleString("fr-FR")} ${devise}`;
   };
 
+  const axesInventaire = useMemo<AxeRegroupement<Item>[]>(
+    () => [
+      { id: "categorie", cle: (i) => i.categorie, libelle: (c) => t(CAT_CONFIG[c as Categorie].labelKey) },
+      { id: "localisation", cle: (i) => i.localisation },
+      { id: "etat", cle: (i) => i.etat, libelle: (e) => t(ETAT_CONFIG[e as Etat].labelKey) },
+    ],
+    [t],
+  );
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -248,7 +259,7 @@ export function InventaireView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-              {items.map((item) => {
+              {<ListeGroupee variante="table" items={items} axes={axesInventaire} rendu={(item) => {
                 const isAlerte = item.quantite <= item.quantiteMin;
                 return (
                   <tr key={item.id} className={`hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${isAlerte ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}`}>
@@ -291,7 +302,7 @@ export function InventaireView() {
                     </td>
                   </tr>
                 );
-              })}
+              }} />}
             </tbody>
           </table>
         </div>

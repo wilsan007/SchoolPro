@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useTransition, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { type AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +56,13 @@ interface Cours {
   _count?: { contenus: number; progressions: number };
   contenus?: ContenuCours[];
 }
+
+const AXES_COURS: AxeRegroupement<Cours>[] = [
+  { id: "matiere", cle: (c) => c.matiereNom },
+  { id: "classe", cle: (c) => c.classeNom },
+  { id: "site", cle: (c) => c.siteNom },
+  { id: "enseignant", cle: (c) => c.auteurNom },
+];
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -745,11 +754,14 @@ export function CoursView({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map(c => (
+        <ListeGroupee
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+          items={filtered}
+          axes={AXES_COURS}
+          rendu={(c) => (
             <CoursCard key={c.id} cours={c} siteColors={siteColors} onSelect={handleSelect} onDelete={handleDelete} />
-          ))}
-        </div>
+          )}
+        />
       )}
     </div>
   );

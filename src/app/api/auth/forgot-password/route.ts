@@ -11,20 +11,28 @@ import { withSystemContext } from "@/lib/rls-context";
 
 const BodySchema = z.object({
   email: z.string().trim().email(),
-  turnstileToken: z.string().optional(),
+  // `null` accepté : un client sans widget (mobile, sitekey absente) envoie
+  // null, que `optional()` seul rejette — toute demande échouait alors en silence.
+  turnstileToken: z.string().nullish(),
 });
 
 const APP_URL = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 
 export async function POST(request: NextRequest) {
-  // ─── Rate limiting : 5 requêtes / 15 min / IP ──────────────────────────
+  // ─── Rate limiting ─────────────────────────────────────────────────────
+  // Une école entière sort par une seule IP publique (NAT), et sans
+  // TRUSTED_IP_HEADER toutes les requêtes partagent la clé « unknown » : un
+  // plafond strict par IP bloquait tout l'établissement dès la 6e demande.
+  // Le plafond strict porte sur l'adresse visée (3 / 15 min, plus bas) ; celui
+  // par IP ne sert qu'à contenir un envoi en masse.
   const ip = getClientIP(request);
-  const rl = rateLimit({ max: 5, windowSec: 900, key: `forgot-pwd:${ip}` });
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { success: true }, // Réponse générique pour ne pas révéler le rate limit
+  const tropDeDemandes = () =>
+    NextResponse.json(
+      { success: false, error: "rate_limited" },
       { status: 429, headers: { "Retry-After": "900" } },
     );
+  if (!rateLimit({ max: 30, windowSec: 900, key: `forgot-pwd:${ip}` }).allowed) {
+    return tropDeDemandes();
   }
 
   const body = await request.json().catch((e) => { console.warn("[non-fatal]", e); return null; });
@@ -46,6 +54,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Appliqué que le compte existe ou non : ne révèle rien sur l'adresse.
+  if (!rateLimit({ max: 3, windowSec: 900, key: `forgot-pwd:email:${normaliserEmail(parsed.data.email)}` }).allowed) {
+    return tropDeDemandes();
+  }
+
   // ─── Vérification Turnstile (anti-bot) ─────────────────────────────────
   const turnstileResult = await verifyTurnstileToken(parsed.data.turnstileToken, ip);
   if (!turnstileResult.success) {
@@ -56,9 +69,12 @@ export async function POST(request: NextRequest) {
       reason: "Échec Turnstile",
       metadata: { email: parsed.data.email, turnstileError: turnstileResult.error },
     });
+    // L'échec du défi ne dit rien sur l'existence du compte : le signaler,
+    // plutôt qu'un faux « email envoyé » qui laisse l'utilisateur attendre
+    // un message qui ne partira jamais.
     return NextResponse.json(
-      { success: true }, // Réponse générique
-      { status: 200 },
+      { success: false, error: "turnstile" },
+      { status: 400 },
     );
   }
 
@@ -83,15 +99,20 @@ export async function POST(request: NextRequest) {
           <p style="color:#6b7280;font-size:13px;">Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
         </div>
       `;
-      await sendEmail([user.email], "Réinitialisation de votre mot de passe", html);
+      const envoi = await sendEmail([user.email], "Réinitialisation de votre mot de passe", html);
+      // La réponse reste générique (anti-énumération) : cette trace est la
+      // seule preuve visible d'un email qui n'est jamais parti.
+      if (!envoi.success) {
+        console.error("[forgot-password] email de réinitialisation NON envoyé:", envoi.error);
+      }
 
       auditFire({
         userId: user.id,
         action: "auth:forgot-password",
-        verdict: "ALLOWED",
+        verdict: envoi.success ? "ALLOWED" : "DENIED",
         resource: "user",
         resourceId: user.id,
-        reason: "Lien de réinitialisation envoyé",
+        reason: envoi.success ? "Lien de réinitialisation envoyé" : "Échec d'envoi du lien de réinitialisation",
         metadata: { email },
       });
     }

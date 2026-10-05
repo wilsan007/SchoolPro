@@ -4,6 +4,7 @@ import {
   paliersDeRepli,
   evaluerCible,
   composerSelection,
+  positionChapitre,
   statutInitial,
   PRIORITE_REGLE,
   type ContexteCompetence,
@@ -21,6 +22,7 @@ function contexte(over: Partial<ContexteCompetence> = {}): ContexteCompetence {
     prerequisManquants: [],
     etapePlan: null,
     chapitreEnCours: false,
+    chapitreVu: false,
     semainesAvantChapitreDependant: null,
     chapitreDependant: null,
     ...over,
@@ -243,6 +245,83 @@ describe("couvrir le spectre, et se taire au milieu", () => {
 
   it("ne produit rien hors du programme du moment", () => {
     expect(evaluerCible(contexte({ masteryScore: 0.2 }))).toBeNull();
+  });
+});
+
+// L'élève qui ouvre lui-même une séance demande à travailler : le silence, qui
+// protège l'enseignant du bruit, le renverrait sans rien.
+describe("séance ouverte par l'élève : jamais d'écran vide", () => {
+  const entretien = { entretien: true };
+
+  it("revient sur une lacune d'un chapitre déjà clos", () => {
+    const cible = evaluerCible(contexte({ masteryScore: 0.4, chapitreVu: true }), SEUILS_PAR_DEFAUT, entretien);
+    expect(cible?.regleDeclenchee).toBe("exercice_rattrapage");
+    expect(cible?.palier).toBe("APPLICATION");
+  });
+
+  it("descend sur le prérequis manquant quand la lacune est critique", () => {
+    const cible = evaluerCible(
+      contexte({ masteryScore: 0.2, chapitreVu: true, prerequisManquants: [prerequis("c-fractions", "Fractions", 0.3)] }),
+      SEUILS_PAR_DEFAUT,
+      entretien
+    );
+    expect(cible?.regleDeclenchee).toBe("exercice_reprise_prerequis");
+    expect(cible?.competenceId).toBe("c-fractions");
+    expect(cible?.priorite).toBe(PRIORITE_REGLE.exercice_rattrapage);
+  });
+
+  it("entretient une compétence consolidée, au palier de sa bande", () => {
+    const cible = evaluerCible(contexte({ masteryScore: 0.7, chapitreEnCours: true }), SEUILS_PAR_DEFAUT, entretien);
+    expect(cible?.regleDeclenchee).toBe("exercice_entretien");
+    expect(cible?.palier).toBe("CONSOLIDATION");
+  });
+
+  it("pousse le bon élève plus loin sur ce qu'il maîtrise déjà", () => {
+    const cible = evaluerCible(contexte({ masteryScore: 0.95, chapitreVu: true }), SEUILS_PAR_DEFAUT, entretien);
+    expect(cible?.regleDeclenchee).toBe("exercice_entretien");
+    expect(cible?.palier).toBe("OUVERTURE");
+  });
+
+  it("sonde une notion vue mais jamais mesurée", () => {
+    const cible = evaluerCible(
+      contexte({ masteryScore: null, confidenceScore: null, chapitreVu: true }),
+      SEUILS_PAR_DEFAUT,
+      entretien
+    );
+    expect(cible?.regleDeclenchee).toBe("exercice_sondage");
+  });
+
+  it("ne sert rien sur un chapitre qui n'a pas commencé", () => {
+    expect(evaluerCible(contexte({ masteryScore: 0.7 }), SEUILS_PAR_DEFAUT, entretien)).toBeNull();
+  });
+
+  it("passe après tout ce qui presse", () => {
+    const fond = evaluerCible(contexte({ competenceId: "a", masteryScore: 0.7, chapitreVu: true }), SEUILS_PAR_DEFAUT, entretien)!;
+    const urgent = evaluerCible(contexte({ competenceId: "z", masteryScore: 0.2, chapitreEnCours: true }), SEUILS_PAR_DEFAUT, entretien)!;
+    expect(composerSelection([fond, urgent], 1)[0].competenceId).toBe("z");
+  });
+});
+
+describe("position de la classe sur un chapitre", () => {
+  const plan = (statut: string) => ({ statut, semaineDebut: 23, semaineFin: 33 });
+
+  it("suit le statut saisi quand il dit quelque chose", () => {
+    expect(positionChapitre(plan("TRAITE"), 25)).toBe("VU");
+    expect(positionChapitre(plan("EN_COURS"), 10)).toBe("EN_COURS");
+  });
+
+  it("tient pour commencé un chapitre resté « prévu » après sa semaine de démarrage", () => {
+    expect(positionChapitre(plan("PREVU"), 22)).toBe("A_VENIR");
+    expect(positionChapitre(plan("PREVU"), 23)).toBe("EN_COURS");
+    expect(positionChapitre(plan("PREVU"), 40)).toBe("EN_COURS");
+  });
+
+  // Le statut stocké est celui de la fin d'année : en mars, « traité » ne dit
+  // pas que le chapitre de mai a été vu.
+  it("ne lit que le calendrier sous date simulée", () => {
+    expect(positionChapitre(plan("TRAITE"), 10, true)).toBe("A_VENIR");
+    expect(positionChapitre(plan("TRAITE"), 27, true)).toBe("EN_COURS");
+    expect(positionChapitre(plan("TRAITE"), 34, true)).toBe("VU");
   });
 });
 

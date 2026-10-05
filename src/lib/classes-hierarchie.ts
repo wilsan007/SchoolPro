@@ -41,6 +41,7 @@ export type ClassesHierarchie = CategorieNode[];
 
 /** Libellés localisables par catégorie (clés de traduction). */
 export const CATEGORIE_LABEL_KEYS: Record<SchoolGroup, string> = {
+  Maternelle: "maternelle",
   Primaire: "primaire",
   Collège: "college",
   Lycée: "lycee",
@@ -129,14 +130,8 @@ export async function getClassesHierarchie(
   const categorieMap = new Map<SchoolGroup, Map<string, ClasseNode[]>>();
 
   for (const c of classes) {
-    // Déterminer la catégorie : Structure en priorité, fallback sur getSchoolGroup.
-    let categorie: SchoolGroup;
-    const structType = c.structure?.type;
-    if (structType === "MATERNELLE") categorie = "Autre"; // pas de groupe Maternelle dans SchoolGroup
-    else if (structType === "PRIMAIRE") categorie = "Primaire";
-    else if (structType === "COLLEGE") categorie = "Collège";
-    else if (structType === "LYCEE") categorie = "Lycée";
-    else categorie = getSchoolGroup(c.niveau, c.nom);
+    // Structure en priorité, nom et niveau en repli (voir getSchoolGroup).
+    const categorie = getSchoolGroup(c.niveau, c.nom, c.structure?.type);
 
     if (!categorieMap.has(categorie)) categorieMap.set(categorie, new Map());
     const niveauMap = categorieMap.get(categorie)!;
