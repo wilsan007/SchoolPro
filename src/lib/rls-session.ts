@@ -1,6 +1,7 @@
 import { cache } from "react";
 import type { Role } from "@prisma/client";
 import type { RlsContext } from "@/lib/rls-context";
+import { perimetreSitesBase } from "@/lib/site-scope";
 
 /**
  * EcolPro — Contexte RLS déduit de la session authentifiée
@@ -32,6 +33,7 @@ interface SessionUserClaims {
   tenantId?: string | null;
   siteId?: string | null;
   siteIds?: string[];
+  tenantHasSites?: boolean;
 }
 
 export const resolveRlsContextFromSession = cache(
@@ -69,10 +71,15 @@ export const resolveRlsContextFromSession = cache(
 
     if (!user.tenantId) return undefined;
 
+    // Périmètre de sites EXACT, tel que la base doit le faire respecter : la
+    // liste brute `siteIds` ne suffit pas (elle est vide pour la direction
+    // générale et les familles, qui voient pourtant tous les sites).
+    const perimetre = perimetreSitesBase(user);
     return {
       tenantId: user.tenantId,
       siteId: user.siteId ?? null,
-      siteIds: user.siteIds ?? [],
+      siteIds: perimetre.scope === "sites" ? perimetre.siteIds : [],
+      siteScope: perimetre.scope,
       superAdmin: false,
       origin: "session",
     };

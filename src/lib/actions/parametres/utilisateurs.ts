@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { siteFilterForModel, siteIdForCreate } from "@/lib/site-scope";
+import { siteFilterForModel, siteIdForCreate, roleRequiresSite, canAccessSite } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { normaliserEmail } from "@/lib/email";
 import { generateRandomPassword } from "@/lib/security/password";
@@ -35,6 +35,8 @@ const UserSchema = z.object({
   // Champs spécifiques aux enseignants — obligatoires si role = TEACHER/CLASS_TEACHER
   matiereId: z.string().optional().nullable(),
   classeIds: z.array(z.string()).default([]),
+  // Sites cochés dans le formulaire ; à défaut, le site courant de l'appelant.
+  siteIds: z.array(z.string()).optional(),
   // Si role = CLASS_TEACHER, la classe dont il est prof principal
   classePrincipaleId: z.string().optional().nullable(),
 }).superRefine((data, ctx) => {
@@ -121,6 +123,42 @@ export async function createUser(data: UserFormData) {
   });
   if (existing) throw new Error("Un utilisateur avec cet email existe déjà");
 
+  const estEnseignant = v.role === "TEACHER" || v.role === "CLASS_TEACHER";
+  const anneeCourante = estEnseignant ? await getAnneeCouranteLibelle(session.user.tenantId) : null;
+
+  // Sites de rattachement, par ordre de priorité : ceux cochés dans le
+  // formulaire, le site sur lequel l'appelant est positionné, puis celui de la
+  // première classe confiée à l'enseignant.
+  let sitesCreation = [...new Set(v.siteIds ?? [])];
+  if (sitesCreation.length > 0) {
+    const valides = await prisma.site.findMany({
+      where: { id: { in: sitesCreation }, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+    if (valides.length !== sitesCreation.length || !sitesCreation.every((id) => canAccessSite(session.user, id))) {
+      throw new Error("Un ou plusieurs sites sont invalides");
+    }
+  } else {
+    const courant = siteIdForCreate(session.user);
+    if (courant) {
+      sitesCreation = [courant];
+    } else if (estEnseignant && v.classeIds.length > 0) {
+      const premiereClasse = await prisma.classe.findFirst({
+        where: { id: v.classeIds[0], tenantId: session.user.tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", session.user) },
+        select: { siteId: true },
+      });
+      if (premiereClasse?.siteId) sitesCreation = [premiereClasse.siteId];
+    }
+  }
+  // Sans site, le compte se connecterait avec un périmètre vide et ne verrait
+  // rien : refuser plutôt que créer un compte inutilisable.
+  if (sitesCreation.length === 0 && roleRequiresSite(v.role) && session.user.tenantHasSites) {
+    throw new Error(
+      "Cochez au moins un site, ou choisissez-en un dans le sélecteur en haut de page : ce compte doit être rattaché à un site pour pouvoir travailler."
+    );
+  }
+  const rattacher = roleRequiresSite(v.role) ? sitesCreation : [];
+
   const password = v.password || generateRandomPassword();
   const hashed = await bcrypt.hash(password, 10);
 
@@ -130,7 +168,12 @@ export async function createUser(data: UserFormData) {
   const newUser = await prisma.user.create({
     data: {
       tenantId: session.user.tenantId,
-      siteId: siteIdForCreate(session.user),
+      siteId: sitesCreation.length === 1 ? sitesCreation[0] : null,
+      // Les sites autorisés d'une session se lisent dans UserSite, pas dans
+      // `siteId` : sans ces lignes, le compte n'aurait accès à aucun site.
+      ...(rattacher.length > 0
+        ? { userSites: { create: rattacher.map((siteId) => ({ siteId })) } }
+        : {}),
       name: v.name,
       email: v.email,
       role: v.role,
@@ -158,38 +201,14 @@ export async function createUser(data: UserFormData) {
   });
 
   // Auto-create Enseignant record for teacher roles + affectations
-  if (v.role === "TEACHER" || v.role === "CLASS_TEACHER") {
-    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
-    // Déduire le site depuis la première classe sélectionnée.
-    // L'enseignant n'a accès qu'au site de ses classes.
-    let siteIdDeduit: string | null = null;
-    if (v.classeIds.length > 0) {
-      const premiereClasse = await prisma.classe.findFirst({
-        where: { id: v.classeIds[0], tenantId: session.user.tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}), ...siteFilterForModel("classe", session.user) },
-        select: { siteId: true },
-      });
-      siteIdDeduit = premiereClasse?.siteId ?? null;
-    }
-
-    // Mettre à jour le site du User si déduit.
-    // On vient de créer ce User (newUser.id) dans ce tenant, donc l'update
-    // est sûr — pas de risque de modification cross-tenant.
-    if (siteIdDeduit && !newUser.siteId) {
-      // eslint-disable-next-line ecolpro/require-tenant-id -- newUser vient d'être créé dans ce tenant
-      await prisma.user.update({
-        where: { id: newUser.id },
-        data: { siteId: siteIdDeduit },
-      });
-    }
-
+  if (estEnseignant) {
     const enseignant = await prisma.enseignant.create({
       data: {
         tenantId: session.user.tenantId,
         userId: newUser.id,
         dateEntree: new Date(),
-        // Lier l'enseignant au site déduit
-        sites: siteIdDeduit
-          ? { create: { siteId: siteIdDeduit } }
+        sites: rattacher.length > 0
+          ? { create: rattacher.map((siteId) => ({ siteId })) }
           : undefined,
       },
     });
@@ -289,6 +308,107 @@ export async function toggleUserActive(userId: string) {
   return { success: true };
 }
 
+/**
+ * Rang hiérarchique d'un rôle pour la réinitialisation de mot de passe : on ne
+ * réinitialise que le compte d'un rang STRICTEMENT inférieur au sien. Sans
+ * cette règle, un chef d'établissement prendrait la main sur le compte de la
+ * direction générale en lui fixant un mot de passe.
+ */
+function rangHierarchique(role: string): number {
+  if (role === "SUPER_ADMIN") return 3;
+  if (role === "TENANT_ADMIN") return 2;
+  if (role === "PRINCIPAL") return 1;
+  return 0;
+}
+
+/**
+ * Réinitialise le mot de passe d'un compte dont le titulaire ne peut pas
+ * utiliser « Mot de passe oublié » (boîte mail inaccessible, élève ou parent
+ * sans email exploitable).
+ *
+ * Un mot de passe temporaire est généré et renvoyé UNE fois à l'appelant ; il
+ * n'est écrit nulle part ailleurs (ni journal, ni audit). Le titulaire devra
+ * le changer à sa première connexion, et ses sessions ouvertes sont fermées.
+ */
+export async function reinitialiserMotDePasseUtilisateur(
+  userId: string
+): Promise<{ success: true; motDePasse: string }> {
+  const session = await auth();
+  if (!session?.user?.tenantId) throw new Error("Non autorisé");
+  const denied = await checkPermission(session.user.role, "parametres:valider");
+  if (denied) throw new Error("Permissions insuffisantes");
+
+  if (userId === session.user.id) {
+    throw new Error("Pour votre propre compte, utilisez « Changer mon mot de passe » dans votre profil.");
+  }
+
+  const cible = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      tenantId: session.user.tenantId,
+      ...siteFilterForModel("user", session.user),
+    },
+    select: {
+      id: true,
+      role: true,
+      userTenants: { select: { tenantId: true, role: true } },
+      userRoles: { where: { isActive: true }, select: { tenantId: true, role: true } },
+    },
+  });
+  if (!cible) throw new Error("Utilisateur non trouvé");
+
+  // Le rang de la cible est le plus élevé de TOUS ses rôles, dans tous ses
+  // établissements : le mot de passe est celui du compte, pas d'un rôle.
+  const rangCible = Math.max(
+    rangHierarchique(cible.role),
+    ...cible.userTenants.map((m) => rangHierarchique(m.role)),
+    ...cible.userRoles.map((r) => rangHierarchique(r.role))
+  );
+  const rangAppelant = rangHierarchique(session.user.role);
+  if (rangAppelant <= rangCible) {
+    auditFire({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      action: "user:password:reset",
+      verdict: "DENIED",
+      resource: "user",
+      resourceId: userId,
+      reason: "Rang hiérarchique insuffisant",
+    });
+    throw new Error("Vous ne pouvez réinitialiser que le mot de passe d'un compte de rang inférieur au vôtre.");
+  }
+
+  // Un compte rattaché à plusieurs établissements n'appartient pas à un seul
+  // d'entre eux : seule la plateforme peut en changer le mot de passe.
+  const autresEtablissements = cible.userTenants.some((m) => m.tenantId !== session.user.tenantId);
+  if (autresEtablissements && session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Ce compte est rattaché à plusieurs établissements : sa réinitialisation relève du support de la plateforme.");
+  }
+
+  const motDePasse = generateRandomPassword();
+  await prisma.user.update({
+    where: { id: cible.id },
+    data: {
+      password: await bcrypt.hash(motDePasse, 10),
+      mustChangePassword: true,
+      // Ferme les sessions ouvertes avec l'ancien mot de passe.
+      sessionVersion: { increment: 1 },
+    },
+  });
+
+  auditFire({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user:password:reset",
+    verdict: "ALLOWED",
+    resource: "user",
+    resourceId: cible.id,
+    reason: "Mot de passe temporaire généré par l'administration",
+  });
+
+  return { success: true, motDePasse };
+}
+
 export async function deleteUser(userId: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
@@ -377,6 +497,8 @@ function cleMotifInvitation(raison: string): string {
       return "invitationDejaEnAttente";
     case "EMAIL_INVALIDE":
       return "invitationEmailInvalide";
+    case "SITE_REQUIS":
+      return "invitationSiteRequis";
     default:
       return "genericError";
   }

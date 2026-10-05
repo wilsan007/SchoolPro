@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { niveauStocke } from "@/lib/niveau-display";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
@@ -11,7 +12,7 @@ const SessionSchema = z.object({
   heureDebut: z.string().regex(/^\d{2}:\d{2}$/),
   heureFin: z.string().regex(/^\d{2}:\d{2}$/),
   salle: z.string().max(50).optional(),
-  niveau: z.string().max(50).optional(),
+  niveau: z.string().max(50).optional().transform((n) => (n ? niveauStocke(n) : n)),
 });
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

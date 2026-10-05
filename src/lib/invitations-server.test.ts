@@ -171,9 +171,33 @@ describe("accepterInvitation", () => {
     expect(maj.acceptedAt).toBeInstanceOf(Date);
   });
 
+  it("rattache le personnel invité à son site dans UserSite (sinon périmètre vide)", async () => {
+    mocks.prisma.invitation.findUnique.mockResolvedValue(invitationValide({ role: "SECRETARY" }));
+    await accepterInvitation("jeton", "MotDePasse1!");
+    expect(mocks.prisma.user.create.mock.calls[0][0].data.userSites).toEqual({ create: { siteId: "s1" } });
+  });
+
+  it("n'écrit aucun UserSite pour un parent invité", async () => {
+    mocks.prisma.invitation.findUnique.mockResolvedValue(invitationValide({ role: "PARENT" }));
+    await accepterInvitation("jeton", "MotDePasse1!");
+    expect(mocks.prisma.user.create.mock.calls[0][0].data.userSites).toBeUndefined();
+  });
+
   it("ne crée PAS de fiche enseignant pour un rôle non enseignant", async () => {
     mocks.prisma.invitation.findUnique.mockResolvedValue(invitationValide({ role: "SECRETARY" }));
     await accepterInvitation("jeton", "MotDePasse1!");
     expect(mocks.prisma.enseignant.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("creerInvitation — site de rattachement", () => {
+  it("refuse d'inviter un membre du personnel sans site dans un établissement multi-sites", async () => {
+    const res = await creerInvitation(
+      { email: "sec@ecole.dj", role: "SECRETARY", siteId: null },
+      { ...claims, tenantHasSites: true },
+      "http://localhost:3000"
+    );
+    expect(res).toEqual({ ok: false, raison: "SITE_REQUIS" });
+    expect(mocks.prisma.invitation.create).not.toHaveBeenCalled();
   });
 });

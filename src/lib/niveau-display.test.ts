@@ -7,8 +7,7 @@ import {
   comparerNiveaux,
   normaliserNiveau,
   listeNiveauxModele,
-  listeNiveauxGroupe,
-} from "./niveau-display";
+  listeNiveauxGroupe, niveauStocke } from "./niveau-display";
 import type { ModeleNiveaux } from "@prisma/client";
 
 /**
@@ -291,5 +290,27 @@ describe("listeNiveauxGroupe", () => {
     expect(listeNiveauxGroupe("Lycee", ANNEES)).toEqual([
       "Seconde", "1ère", "Terminale",
     ]);
+  });
+});
+
+describe("niveauStocke — une seule orthographe enregistrée", () => {
+  it("ramène toutes les graphies d'un niveau à celle déjà en base", () => {
+    for (const saisie of ["6ème", "6eme", "6e", "6 ème", " 6ÈME "]) expect(niveauStocke(saisie)).toBe("6eme");
+    for (const saisie of ["5ème", "5eme"]) expect(niveauStocke(saisie)).toBe("5eme");
+    for (const saisie of ["Seconde", "2nde", "2nd"]) expect(niveauStocke(saisie)).toBe("2nde");
+    for (const saisie of ["Première", "1ère", "1ere", "premiere"]) expect(niveauStocke(saisie)).toBe("1ere");
+    for (const saisie of ["terminale", "Terminale", "Tle"]) expect(niveauStocke(saisie)).toBe("Terminale");
+    for (const saisie of ["cm2", "CM2", "5ème année"]) expect(niveauStocke(saisie)).toBe("CM2");
+  });
+
+  it("est stable : réappliquée à une valeur enregistrée, elle ne change rien", () => {
+    for (const v of ["CI", "CP", "CE1", "CE2", "CM1", "CM2", "6eme", "5eme", "4eme", "3eme", "2nde", "1ere", "Terminale"]) {
+      expect(niveauStocke(v)).toBe(v);
+    }
+  });
+
+  it("conserve un libellé non reconnu, sans le refuser", () => {
+    expect(niveauStocke("  Maternelle ")).toBe("Maternelle");
+    expect(niveauStocke("Grande section")).toBe("Grande section");
   });
 });

@@ -2371,10 +2371,25 @@ model Facture {
   @@index([tenantId, statut])
   @@index([siteId])
   @@index([anneeId])
+  /// Un numéro de facture n'est émis qu'une fois par établissement.
+  @@unique([tenantId, numero])
   @@index([tenantId, anneeId])
   /// Index pour le contrôle d'unicité multi-services (eleveId, type, mois).
   @@index([eleveId, type, mois])
   @@map("factures")
+}
+
+/// Dernier numéro de facture émis par (établissement, millésime). N'est lu et
+/// écrit que par la fonction SQL `next_facture_numeros` (réservation sous
+/// verrou) — jamais directement par l'application.
+model FactureSequence {
+  tenantId  String
+  prefixe   String
+  dernier   Int
+  updatedAt DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamp(3)
+
+  @@id([tenantId, prefixe])
+  @@map("facture_sequences")
 }
 
 // ============================================================

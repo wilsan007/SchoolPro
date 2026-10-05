@@ -66,11 +66,26 @@ export function FacturationActions({ currentYear = "2025-2026", userRole }: { cu
   const [exclusions, setExclusions] = useState<ExclusionItem[]>([]);
   const [loadingExclu, setLoadingExclu] = useState(false);
 
+  // Aperçu : les chiffres exacts de la génération, sans rien écrire.
+  const [apercu, setApercu] = useState<Awaited<ReturnType<typeof genererMensualites>> | null>(null);
+
+  async function handleApercuMensualites() {
+    setIsPending(true);
+    try {
+      setApercu(await genererMensualites({ mois: genMois, annee: genAnnee, inclureCantine: genCantine, inclureTransport: genTransport, apercu: true }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("error"));
+    } finally {
+      setIsPending(false);
+    }
+  }
+
   async function handleGenererMensualites() {
     setIsPending(true);
     try {
       const result = await genererMensualites({ mois: genMois, annee: genAnnee, inclureCantine: genCantine, inclureTransport: genTransport });
       toast.success(t("invoicesGenerated", { generated: result.generated, skipped: result.skipped }));
+      setApercu(null);
       setShowGenModal(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("error"));
@@ -207,7 +222,7 @@ export function FacturationActions({ currentYear = "2025-2026", userRole }: { cu
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="gen-mois">{t("month")}</Label>
-                <select id="gen-mois" value={genMois} onChange={(e) => setGenMois(parseInt(e.target.value))}
+                <select id="gen-mois" value={genMois} onChange={(e) => { setGenMois(parseInt(e.target.value)); setApercu(null); }}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   {MOIS_NOMS.map((nom, i) => (
                     <option key={i} value={i + 1}>{nom}</option>
@@ -216,23 +231,42 @@ export function FacturationActions({ currentYear = "2025-2026", userRole }: { cu
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="gen-annee">{t("schoolYear")}</Label>
-                <Input id="gen-annee" value={genAnnee} onChange={(e) => setGenAnnee(e.target.value)} />
+                <Input id="gen-annee" value={genAnnee} onChange={(e) => { setGenAnnee(e.target.value); setApercu(null); }} />
               </div>
             </div>
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" aria-label="Recherche facture" checked={genCantine} onChange={(e) => setGenCantine(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <input type="checkbox" checked={genCantine} onChange={(e) => { setGenCantine(e.target.checked); setApercu(null); }} className="h-4 w-4 rounded border-gray-300" />
                 <span className="text-sm">{t("includeCanteen")}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" aria-label="Filtrer par statut" checked={genTransport} onChange={(e) => setGenTransport(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <input type="checkbox" checked={genTransport} onChange={(e) => { setGenTransport(e.target.checked); setApercu(null); }} className="h-4 w-4 rounded border-gray-300" />
                 <span className="text-sm">{t("includeTransport")}</span>
               </label>
             </div>
             <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
               {t("generationHint")}
             </p>
+            {apercu && (
+              <div className="rounded-[18px] border border-border bg-muted/40 p-3 text-sm space-y-1" role="status">
+                <p className="font-medium">
+                  {t("previewSummary", { generated: apercu.generated, montant: apercu.montantTotal.toLocaleString("fr-FR") })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t("previewDetail", { deja: apercu.dejaFactures, sansTarif: apercu.sansTarif })}
+                </p>
+                {apercu.cantineNonRenseignee > 0 && (
+                  <p className="text-xs text-destructive">{t("previewCanteenMissing", { n: apercu.cantineNonRenseignee })}</p>
+                )}
+                {apercu.transportNonRenseigne > 0 && (
+                  <p className="text-xs text-destructive">{t("previewTransportMissing", { n: apercu.transportNonRenseigne })}</p>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={handleApercuMensualites} disabled={isPending}>
+                {t("preview")}
+              </Button>
               <Button size="sm" className="gap-2" onClick={handleGenererMensualites} disabled={isPending}>
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                 {t("generate")}

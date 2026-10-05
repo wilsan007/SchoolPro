@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { niveauStocke } from "@/lib/niveau-display";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
@@ -240,7 +241,7 @@ export async function POST(req: NextRequest) {
     if (classesToCreate.length > 0) {
       await prisma.classe.createMany({
         data: classesToCreate.map((nom) => {
-          const niveau = niveauDe.get(nom) ?? nom;
+          const niveau = niveauStocke(niveauDe.get(nom) ?? nom);
           const structType = GROUP_TO_STRUCTURE[getSchoolGroup(niveau, nom)];
           return {
             tenantId,

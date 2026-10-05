@@ -36,6 +36,12 @@ export interface RlsContext {
   /** Périmètre de sites autorisés. Vide ⇒ seules les lignes de niveau tenant. */
   siteIds: string[];
   /**
+   * Nature du périmètre de sites, posée en base quand `RLS_SITE_SCOPE=enforce`
+   * (voir `perimetreSitesBase`). Absente ⇒ contexte « historique », sans
+   * restriction de site en base.
+   */
+  siteScope?: "all" | "sites" | "none";
+  /**
    * Traverse volontairement les tenants. Réservé à deux cas :
    *   - un SUPER_ADMIN authentifié ;
    *   - les opérations système d'avant-authentification (recherche du
@@ -87,5 +93,25 @@ export function withSystemContext<T>(reason: string, fn: () => Promise<T>): Prom
   return storage.run(
     { tenantId: null, siteId: null, siteIds: [], superAdmin: true, origin: `system:${reason}` },
     async () => await fn() // même raison que dans withRlsContext
+  );
+}
+
+/**
+ * Exécute `fn` en levant la restriction de SITE en base, le tenant restant
+ * borné. Pendant de `eslint-disable ecolpro/require-site-filter` : à utiliser
+ * pour une lecture volontairement inter-sites faite par un utilisateur borné à
+ * ses sites (contrôle d'unicité à l'échelle de l'établissement, par exemple).
+ * La raison est obligatoire et apparaît dans l'origine du contexte.
+ */
+export async function withAllSites<T>(reason: string, fn: () => Promise<T>): Promise<T> {
+  let ctx = getRlsContext();
+  if (!ctx) {
+    const { resolveRlsContextFromSession } = await import("@/lib/rls-session");
+    ctx = await resolveRlsContextFromSession();
+  }
+  if (!ctx) return fn();
+  return storage.run(
+    { ...ctx, siteScope: "all", origin: `${ctx.origin ?? "contexte"}+tous-sites:${reason}` },
+    async () => await fn()
   );
 }

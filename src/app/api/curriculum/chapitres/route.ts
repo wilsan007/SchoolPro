@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { niveauStocke } from "@/lib/niveau-display";
 import { erreurJson } from "@/lib/erreurs-api";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -20,7 +21,7 @@ import { publishEvent } from "@/lib/learnos/events";
 const CreateSchema = z.object({
   matiereId: z.string().min(1),
   nom: z.string().min(2).max(150),
-  niveau: z.string().min(1).max(50),
+  niveau: z.string().min(1).max(50).transform(niveauStocke),
   ordre: z.number().int().min(0).optional(),
 });
 

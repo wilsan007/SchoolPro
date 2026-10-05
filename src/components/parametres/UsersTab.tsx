@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin, AlertTriangle, Search, Shield, GraduationCap, Briefcase, Users as UsersIcon, Mail } from "lucide-react";
-import { createUser, toggleUserActive, deleteUser, updateUserPhone, assignUserSites, getUserSites, inviterUtilisateur, type UserFormData } from "@/lib/actions/parametres";
+import { Loader2, Plus, Trash2, Power, Phone, Edit3, Check, X, Building2, MapPin, AlertTriangle, Search, Shield, GraduationCap, Briefcase, Users as UsersIcon, Mail, KeyRound, Copy } from "lucide-react";
+import { createUser, toggleUserActive, deleteUser, updateUserPhone, assignUserSites, getUserSites, inviterUtilisateur, reinitialiserMotDePasseUtilisateur, type UserFormData } from "@/lib/actions/parametres";
 import { addUserToTenant } from "@/lib/actions/user-tenant";
 import { useTranslations } from "next-intl";
 import { useLibelleNiveau } from "@/lib/niveau-context";
@@ -283,16 +283,9 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
     e.preventDefault();
     setIsPending(true);
     try {
-      const result = await createUser(form);
-      // Assigner les sites si des sites sont sélectionnés
-      if (formSiteIds.length > 0 && result?.success) {
-        // Récupérer l'ID du nouvel utilisateur via la liste rafraîchie
-        // Pour l'instant, on assigne après création en cherchant par email
-        const newUserId = (result as { userId?: string }).userId;
-        if (newUserId) {
-          await assignUserSites(newUserId, formSiteIds.map((sid) => ({ siteId: sid, role: null })));
-        }
-      }
+      // Les sites cochés partent avec la création : le compte et ses
+      // rattachements sont écrits ensemble, jamais l'un sans l'autre.
+      await createUser({ ...form, siteIds: formSiteIds });
       toast.success(t("userCreated"));
       setShowForm(false);
       setForm({ name: "", email: "", role: "TEACHER", phone: "", password: "", isActive: true, matiereId: null, classeIds: [], classePrincipaleId: null });
@@ -310,6 +303,30 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
       toast.success(t("userToggled"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("genericError"));
+    }
+  }
+
+  // Réinitialisation du mot de passe : confirmation, puis mot de passe
+  // temporaire affiché une seule fois (il n'est conservé nulle part).
+  const [resetCible, setResetCible] = useState<{ id: string; name: string } | null>(null);
+  const [resetMotDePasse, setResetMotDePasse] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  function fermerReset() {
+    setResetCible(null);
+    setResetMotDePasse(null);
+  }
+
+  async function handleResetPassword() {
+    if (!resetCible) return;
+    setResetLoading(true);
+    try {
+      const res = await reinitialiserMotDePasseUtilisateur(resetCible.id);
+      setResetMotDePasse(res.motDePasse);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("genericError"));
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -927,6 +944,9 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
                                 <Building2 className="h-3.5 w-3.5" />
                               </Button>
                             )}
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setResetMotDePasse(null); setResetCible({ id: u.id, name: u.name }); }} title={t("resetPasswordTitle")} aria-label={t("resetPasswordTitle")}>
+                              <KeyRound className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggle(u.id)} title={t("toggleTitle")}>
                               <Power className="h-3.5 w-3.5" />
                             </Button>
@@ -1036,6 +1056,51 @@ export function UsersTab({ users, canManage, availableTenants = [], sites = [], 
       )}
 
       {/* Modal: Confirmation de suppression */}
+      {resetCible && (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              {t("resetPasswordHeading", { name: resetCible.name })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {resetMotDePasse === null ? (
+              <>
+                <p className="text-sm text-muted-foreground">{t("resetPasswordExplain")}</p>
+                <div className="flex gap-2">
+                  <Button size="sm" className="gap-2" onClick={handleResetPassword} disabled={resetLoading}>
+                    {resetLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                    {t("resetPasswordConfirm")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={fermerReset}>{t("cancel")}</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">{t("resetPasswordShownOnce")}</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded-[14px] border border-border bg-muted/50 px-3 py-2 font-mono text-sm break-all" aria-label={t("resetPasswordLabel")}>
+                    {resetMotDePasse}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => navigator.clipboard.writeText(resetMotDePasse).then(() => toast.success(t("resetPasswordCopied")))}
+                  >
+                    <Copy className="h-4 w-4" />
+                    {t("resetPasswordCopy")}
+                  </Button>
+                </div>
+                <Button type="button" size="sm" onClick={fermerReset}>{t("resetPasswordDone")}</Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {showDeleteModal && (
         <Card className="border-destructive/30">
           <CardHeader>

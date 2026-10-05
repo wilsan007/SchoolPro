@@ -17,6 +17,7 @@ export {
   getUsersForTenant,
   createUser,
   toggleUserActive,
+  reinitialiserMotDePasseUtilisateur,
   deleteUser,
   type ResultatInvitation,
   inviterUtilisateur,

@@ -16,7 +16,9 @@ const mockPrismaObj = vi.hoisted(() => ({
   anneesScolaires: { findFirst: vi.fn() },
   eleve: { findMany: vi.fn() },
   tarifNiveau: { findMany: vi.fn() },
-  facture: { findFirst: vi.fn(), count: vi.fn(), create: vi.fn() },
+  facture: { findFirst: vi.fn(), create: vi.fn() },
+  // Réservation du numéro : `next_facture_numeros` renvoie le premier du bloc.
+  $queryRaw: vi.fn(async () => [{ premier: 1 }]),
   tenant: { findMany: vi.fn() },
 }));
 
@@ -78,7 +80,6 @@ beforeEach(() => {
   mockPrisma.eleve.findMany.mockResolvedValue([eleveActif()]);
   mockPrisma.tarifNiveau.findMany.mockResolvedValue([tarifGrille()]);
   mockPrisma.facture.findFirst.mockResolvedValue(null);
-  mockPrisma.facture.count.mockResolvedValue(0);
   mockPrisma.facture.create.mockResolvedValue({ id: "fac-1" });
   mockPrisma.tenant.findMany.mockResolvedValue([{ id: "t1", name: "École A" }]);
   mockAnneeActive.mockResolvedValue("2025-2026");
@@ -130,16 +131,11 @@ describe("anneeCalendaireDuMois", () => {
 });
 
 describe("echeanceDuMois", () => {
-  it("place l'échéance au dernier jour du mois, à minuit UTC", () => {
-    expect(echeanceDuMois(10, 2025).toISOString()).toBe("2025-10-31T00:00:00.000Z");
-    expect(echeanceDuMois(12, 2025).toISOString()).toBe("2025-12-31T00:00:00.000Z");
-    expect(echeanceDuMois(1, 2026).toISOString()).toBe("2026-01-31T00:00:00.000Z");
-    expect(echeanceDuMois(6, 2026).toISOString()).toBe("2026-06-30T00:00:00.000Z");
-  });
-
-  it("gère février, bissextile ou non", () => {
-    expect(echeanceDuMois(2, 2026).toISOString()).toBe("2026-02-28T00:00:00.000Z");
-    expect(echeanceDuMois(2, 2024).toISOString()).toBe("2024-02-29T00:00:00.000Z");
+  it("place l'échéance au 15 du mois facturé, à minuit UTC", () => {
+    expect(echeanceDuMois(10, 2025).toISOString()).toBe("2025-10-15T00:00:00.000Z");
+    expect(echeanceDuMois(12, 2025).toISOString()).toBe("2025-12-15T00:00:00.000Z");
+    expect(echeanceDuMois(1, 2026).toISOString()).toBe("2026-01-15T00:00:00.000Z");
+    expect(echeanceDuMois(2, 2024).toISOString()).toBe("2024-02-15T00:00:00.000Z");
   });
 });
 
@@ -147,6 +143,34 @@ describe("echeanceDuMois", () => {
 // genererMensualitesPourTenant
 // ──────────────────────────────────────────────────────────────────
 describe("genererMensualitesPourTenant", () => {
+  it("aperçu : annonce le nombre et le montant, sans facture ni numéro réservé", async () => {
+    mockPrisma.eleve.findMany.mockResolvedValue([
+      eleveActif(),
+      eleveActif({ id: "e2" }),
+      eleveActif({ id: "e3", classe: { niveau: "Niveau inconnu", nom: "?" } }),
+    ]);
+    mockPrisma.facture.findFirst.mockImplementation(async ({ where }: { where: { eleveId: string } }) =>
+      where.eleveId === "e2" ? { id: "deja" } : null);
+
+    const res = await genererMensualitesPourTenant({ tenantId: "t1", annee: "2025-2026", mois: 1, dryRun: true });
+
+    expect(res).toMatchObject({
+      apercu: true, generated: 1, montantTotal: 15000, dejaFactures: 1, sansTarif: 1, skipped: 2,
+    });
+    expect(mockPrisma.facture.create).not.toHaveBeenCalled();
+    expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("signale une option demandée que la grille ne chiffre pas, au lieu de l'ignorer en silence", async () => {
+    mockPrisma.tarifNiveau.findMany.mockResolvedValue([tarifGrille({ fraisCantine: null, fraisTransport: 4000 })]);
+
+    const res = await genererMensualitesPourTenant({
+      tenantId: "t1", annee: "2025-2026", mois: 1, dryRun: true, inclureCantine: true, inclureTransport: true,
+    });
+
+    expect(res).toMatchObject({ cantineNonRenseignee: 1, transportNonRenseigne: 0, montantTotal: 19000 });
+  });
+
   it("facture le mois avec l'échéance de la BONNE année (janvier 2026, pas 2025)", async () => {
     const res = await genererMensualitesPourTenant({
       tenantId: "t1",
@@ -154,10 +178,10 @@ describe("genererMensualitesPourTenant", () => {
       mois: 1,
     });
 
-    expect(res).toEqual({ generated: 1, skipped: 0 });
+    expect(res).toMatchObject({ generated: 1, skipped: 0 });
     const data = mockPrisma.facture.create.mock.calls[0][0].data;
     expect(data.mois).toBe("2026-01");
-    expect(data.echeance.toISOString()).toBe("2026-01-31T00:00:00.000Z");
+    expect(data.echeance.toISOString()).toBe("2026-01-15T00:00:00.000Z");
     expect(data.numero).toBe("FAC-2026-00001");
     expect(data.libelle).toBe("Scolarité Janvier 2025-2026");
     expect(data.montant).toBe(15000);
@@ -179,7 +203,7 @@ describe("genererMensualitesPourTenant", () => {
       annee: "2025-2026",
       mois: 10,
     });
-    expect(res).toEqual({ generated: 0, skipped: 0 });
+    expect(res).toMatchObject({ generated: 0, skipped: 0 });
     expect(mockPrisma.facture.create).not.toHaveBeenCalled();
   });
 
@@ -192,7 +216,7 @@ describe("genererMensualitesPourTenant", () => {
       annee: "2025-2026",
       mois: 10,
     });
-    expect(res).toEqual({ generated: 0, skipped: 1 });
+    expect(res).toMatchObject({ generated: 0, skipped: 1 });
   });
 
   it("propage les autres erreurs au lieu de les confondre avec « déjà facturé »", async () => {
@@ -211,7 +235,7 @@ describe("genererMensualitesPourTenant", () => {
       annee: "2025-2026",
       mois: 10,
     });
-    expect(res).toEqual({ generated: 0, skipped: 1 });
+    expect(res).toMatchObject({ generated: 0, skipped: 1 });
     expect(mockPrisma.facture.create).not.toHaveBeenCalled();
   });
 

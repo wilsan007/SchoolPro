@@ -4,7 +4,7 @@ import { auditFire } from "@/lib/audit";
 import { sendEmail } from "@/lib/notifications/email";
 import { withSystemContext } from "@/lib/rls-context";
 import { publishEvent, type UtilisateurInvitePayload } from "@/lib/learnos/events";
-import { type SessionSiteClaims } from "@/lib/site-scope";
+import { roleRequiresSite, type SessionSiteClaims } from "@/lib/site-scope";
 import { validerMotDePasse } from "@/lib/password-validation";
 import {
   INVITATION_TTL_HOURS,
@@ -56,7 +56,8 @@ export type RaisonRefusCreation =
   | "ROLE_NON_INVITABLE"
   | "EMAIL_DEJA_UTILISE"
   | "INVITATION_DEJA_EN_ATTENTE"
-  | "EMAIL_INVALIDE";
+  | "EMAIL_INVALIDE"
+  | "SITE_REQUIS";
 
 export type ResultatCreationInvitation =
   | { ok: true; invitation: InvitationEmise }
@@ -81,6 +82,11 @@ export async function creerInvitation(
   }
   if (!isInvitableRole(params.role)) {
     return { ok: false, raison: "ROLE_NON_INVITABLE" };
+  }
+  // Un membre du personnel sans site aurait un périmètre vide une fois
+  // connecté : l'invitation doit dire où il travaille.
+  if (!params.siteId && roleRequiresSite(params.role) && claims.tenantHasSites) {
+    return { ok: false, raison: "SITE_REQUIS" };
   }
 
   const tenantId = claims.tenantId;
@@ -328,6 +334,10 @@ export async function accepterInvitation(
         data: {
           tenantId: invitation.tenantId,
           siteId: invitation.siteId,
+          // Les sites autorisés se lisent dans UserSite, pas dans `siteId`.
+          ...(invitation.siteId && roleRequiresSite(invitation.role)
+            ? { userSites: { create: { siteId: invitation.siteId } } }
+            : {}),
           name: invitation.name ?? invitation.email,
           firstName,
           lastName,

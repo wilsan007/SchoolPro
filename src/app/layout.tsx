@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { PWAProvider } from "@/components/providers/PWAProvider";
 import { PWAEnhanced } from "@/components/providers/PWAEnhanced";
 import { NativeProvider } from "@/components/providers/NativeProvider";
+import { LocaleSync } from "@/components/layout/LocaleSync";
 import { Toaster } from "sonner";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
@@ -81,6 +82,7 @@ export default async function RootLayout({
             <PWAProvider />
             <PWAEnhanced />
             <NativeProvider />
+            <LocaleSync />
             {children}
             <Toaster position="top-right" richColors closeButton />
           </ThemeProvider>

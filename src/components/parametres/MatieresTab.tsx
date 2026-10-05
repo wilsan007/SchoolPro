@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useLibelleNiveau } from "@/lib/niveau-context";
 import { ListeGroupee } from "@/components/ui/liste-groupee";
 import { axeInitiale, type AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ interface MatiereItem {
 }
 
 export function MatieresTab({ matieres, canManage }: { matieres: MatiereItem[]; canManage: boolean }) {
+  const libelleNiveau = useLibelleNiveau();
   const t = useTranslations("parametres");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -148,7 +150,7 @@ export function MatieresTab({ matieres, canManage }: { matieres: MatiereItem[]; 
                       <td className="px-4 py-3 font-medium">{m.nom}</td>
                       <td className="px-4 py-3 font-mono text-xs">{m.code}</td>
                       <td className="px-4 py-3 text-right">{m.coefficient}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{m.niveau ?? t("allLevels")}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{m.niveau ? libelleNiveau(m.niveau) : t("allLevels")}</td>
                       <td className="px-4 py-3">
                         {m.couleur ? (
                           <div className="flex items-center gap-2">

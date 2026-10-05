@@ -97,6 +97,16 @@ export function isRelationScopedRole(role: string | undefined | null): boolean {
 }
 
 /**
+ * Le rôle doit-il être rattaché à un site précis ? Tout le personnel : ses
+ * sites autorisés se lisent dans UserSite / EnseignantSite, et sans ligne son
+ * périmètre est vide (fail-closed, voir `resolveSiteScope`). Seules la
+ * direction générale et les familles en sont dispensées.
+ */
+export function roleRequiresSite(role: string | undefined | null): boolean {
+  return !!role && !isTenantWideRole(role) && !isRelationScopedRole(role);
+}
+
+/**
  * Détermine le périmètre de sites effectif. Unique endroit où cette décision
  * est prise.
  */
@@ -139,6 +149,30 @@ export function resolveSiteScope(claims: SessionSiteClaims): SiteScope {
   }
 
   return { kind: "SITES", siteIds: authorizedSiteIds };
+}
+
+/**
+ * Périmètre de sites à poser en BASE (politiques RLS), distinct du périmètre
+ * d'affichage : il ne tient pas compte du site sélectionné dans le sélecteur.
+ *
+ * La base est la seconde ligne de défense. Elle borne l'utilisateur à ce qu'il
+ * a le DROIT de voir (ses sites de rattachement), pas à ce qu'il regarde à cet
+ * instant : un membre du personnel rattaché à deux sites lit légitimement le
+ * second pendant qu'il travaille sur le premier (contrôle d'unicité,
+ * recherche d'une classe cible…). La borner au site sélectionné ferait
+ * échouer ces lectures sans rien protéger de plus.
+ *
+ *   all    direction générale, familles (périmètre personnel), mono-site ;
+ *   sites  personnel : ses sites de rattachement ;
+ *   none   personnel sans rattachement dans un établissement multi-sites.
+ */
+export function perimetreSitesBase(
+  claims: SessionSiteClaims
+): { scope: "all" } | { scope: "none" } | { scope: "sites"; siteIds: string[] } {
+  const scope = resolveSiteScope({ ...claims, siteId: null });
+  if (scope.kind === "ALL" || scope.kind === "RELATION") return { scope: "all" };
+  if (scope.kind === "NONE") return { scope: "none" };
+  return { scope: "sites", siteIds: scope.siteIds };
 }
 
 /**

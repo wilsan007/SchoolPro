@@ -162,6 +162,31 @@ export function normaliserNiveau(niveau: string): string | null {
 // ============================================================
 
 /**
+ * Orthographe sous laquelle un niveau est ENREGISTRÉ.
+ *
+ * Plusieurs tables portent un niveau (classes, chapitres, sessions d'examen,
+ * seuils…) et se rapprochent par égalité stricte : « 5ème » ne retrouve pas
+ * les chapitres de « 5eme ». Tout niveau reconnu est donc ramené à une seule
+ * graphie avant écriture — celle déjà en base partout.
+ */
+const FORME_STOCKEE: Record<string, string> = {
+  ci: "CI", cp: "CP", ce1: "CE1", ce2: "CE2", cm1: "CM1", cm2: "CM2",
+  seconde: "2nde", premiere: "1ere", terminale: "Terminale",
+};
+
+/**
+ * Ramène un niveau saisi à son orthographe enregistrée (« 6ème », « 6e »,
+ * « 6 ème » → « 6eme » ; « Première », « 1ère » → « 1ere »). Un libellé non
+ * reconnu (maternelle, intitulé libre) est conservé tel quel, sans espaces
+ * superflus : l'harmonisation ne refuse rien.
+ */
+export function niveauStocke(niveau: string): string {
+  const canon = normaliserNiveau(niveau);
+  if (!canon) return niveau.trim();
+  return FORME_STOCKEE[canon] ?? canon;
+}
+
+/**
  * Retourne le libellé d'affichage d'un niveau selon le modèle du tenant.
  *
  * @param niveau  Valeur brute stockée en DB (ex: "6eme", "1", "CI")

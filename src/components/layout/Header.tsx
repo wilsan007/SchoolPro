@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getInitials, timeAgo } from "@/lib/utils";
+import { changerLangue } from "@/lib/locale-sync";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -48,7 +49,7 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
   const notifRef = useRef<HTMLDivElement>(null);
 
   function switchLocale(newLocale: string) {
-    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=${60 * 60 * 24 * 365}`;
+    changerLangue(newLocale);
     setShowLangMenu(false);
     router.refresh();
   }

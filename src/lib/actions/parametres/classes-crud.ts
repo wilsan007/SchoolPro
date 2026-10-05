@@ -15,10 +15,11 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { applyRlsContext } from "@/lib/prisma-rls";
 import { auditFire } from "@/lib/audit";
 import { checkPermission } from "@/lib/rbac";
+import { niveauStocke } from "@/lib/niveau-display";
 
 const ClasseSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
-  niveau: z.string().min(1, "Le niveau est requis"),
+  niveau: z.string().min(1, "Le niveau est requis").transform(niveauStocke),
   filiere: z.string().optional(),
   effectifMax: z.number().min(1).default(40),
   annee: z.string().default("2025-2026"),
@@ -98,6 +99,11 @@ export async function createClasse(data: ClasseFormData) {
     if (!ens) throw new Error("Enseignant introuvable dans cet établissement");
   }
 
+  // L'écran n'offre pas de choix d'année : une classe se crée dans l'année
+  // active. S'en remettre à la valeur du formulaire la rangeait dans une année
+  // révolue, où elle disparaissait aussitôt des listes.
+  const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
+
   await prisma.classe.create({
     data: {
       tenantId: session.user.tenantId,
@@ -106,7 +112,7 @@ export async function createClasse(data: ClasseFormData) {
       niveau: v.niveau,
       filiere: v.filiere || null,
       effectifMax: v.effectifMax,
-      annee: v.annee,
+      annee: anneeCourante ?? v.annee,
       structureId: v.structureId || null,
       profPrincipalId: v.profPrincipalId || null,
     },

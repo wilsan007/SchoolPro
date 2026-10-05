@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { reserverNumeroFacture, reserverNumerosFacture } from "@/lib/factures/numerotation";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { PAYMENT_METHOD_IDS } from "@/lib/payment-methods";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
@@ -205,13 +206,7 @@ export async function createFacture(data: FactureFormData) {
     );
   }
 
-  // Compteur de numérotation, volontairement tenant-wide (et non borné au site courant) :
-  // "numero" ne porte aucune contrainte d'unicité en base et n'est jamais renvoyé à l'appelant
-  // tel quel comme donnée d'un autre site — seul son prochain incrément l'est. Le scoper par
-  // site romprait silencieusement la séquence globale de numérotation existante entre sites.
-  // eslint-disable-next-line ecolpro/require-site-filter
-  const count = await prisma.facture.count({ where: { tenantId } });
-  const numero = `FAC-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
+  const numero = await reserverNumeroFacture(tenantId, new Date().getFullYear());
 
   // Récupérer le siteId de l'élève pour assigner la facture au bon site
   // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- lookup to get siteId for creation
@@ -400,17 +395,14 @@ export async function createFacturesCombinees(items: FactureBatchItem[]): Promis
   const factureSiteId = eleve?.siteId ?? null;
   const factureAnneeId = await anneeActiveId(tenantId);
 
-  // Compteur tenant-wide pour la numérotation séquentielle.
-  // eslint-disable-next-line ecolpro/require-site-filter
-  let count = await prisma.facture.count({ where: { tenantId } });
-
   const created: FactureBatchResult["created"] = [];
 
   await prisma.$transaction(async (tx) => {
     await applyRlsContext(tx);
-    for (const item of toCreate) {
-      count++;
-      const numero = `FAC-${new Date().getFullYear()}-${String(count).padStart(5, "0")}`;
+    // Un seul bloc réservé dans la transaction : annulé avec elle en cas d'échec.
+    const numeros = await reserverNumerosFacture(tenantId, new Date().getFullYear(), toCreate.length, tx);
+    for (const [i, item] of toCreate.entries()) {
+      const numero = numeros[i];
       const f = await tx.facture.create({
         data: {
           tenantId,

@@ -20,6 +20,7 @@
 //     et n'interrompt pas le lot.
 
 import prisma from "@/lib/prisma";
+import { reserverNumeroFacture } from "@/lib/factures/numerotation";
 import { mergeFilters, siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { choisirTarif, montantMensuel } from "@/lib/domain/tarifs";
 import { estViolationUnicite } from "@/lib/cron-idempotence";
@@ -31,8 +32,25 @@ const MOIS_NOMS = [
 ];
 
 export interface ResultatGenerationMensualites {
+  /** Factures créées — ou qui LE SERAIENT, en aperçu. */
   generated: number;
+  /** Élèves non facturés : `dejaFactures` + `sansTarif`. */
   skipped: number;
+  /** Élèves déjà facturés pour ce mois. */
+  dejaFactures: number;
+  /** Élèves dont le niveau ne correspond à aucun tarif de la grille. */
+  sansTarif: number;
+  /** Somme des montants des factures comptées dans `generated`. */
+  montantTotal: number;
+  /**
+   * Option demandée alors que la grille ne porte aucun montant pour le tarif
+   * de l'élève : rien n'est ajouté à sa facture. Sans ce compteur, cocher
+   * « cantine » sur une grille vide ne changeait rien, en silence.
+   */
+  cantineNonRenseignee: number;
+  transportNonRenseigne: number;
+  /** `true` : rien n'a été écrit (aperçu). */
+  apercu: boolean;
 }
 
 /**
@@ -60,6 +78,8 @@ export interface OptionsGenerationMensualites {
   portee?: SessionSiteClaims;
   /** Auteur de la facture. `null` pour une génération automatique. */
   createdById?: string | null;
+  /** Aperçu : calcule ce qui serait facturé, sans rien écrire. */
+  dryRun?: boolean;
 }
 
 /** « Scolarité Octobre 2025-2026 » — libellé de la facture. */
@@ -105,15 +125,18 @@ export function anneeCalendaireDuMois(
   return mois >= 9 ? debut : debut + 1;
 }
 
+/** Une mensualité est due jusqu'au 15 du mois facturé. */
+export const JOUR_ECHEANCE_MENSUALITE = 15;
+
 /**
- * Dernier jour du mois facturé, à minuit UTC.
+ * Échéance d'une mensualité : le 15 du mois facturé, à minuit UTC.
  *
  * UTC et non l'heure locale : l'échéance ne doit pas dépendre du fuseau du
  * serveur (un conteneur en UTC et un poste à Paris donnaient deux jours
  * différents pour la même facture).
  */
 export function echeanceDuMois(mois: number, anneeCalendaire: number): Date {
-  return new Date(Date.UTC(anneeCalendaire, mois, 0));
+  return new Date(Date.UTC(anneeCalendaire, mois - 1, JOUR_ECHEANCE_MENSUALITE));
 }
 
 /**
@@ -133,6 +156,7 @@ export async function genererMensualitesPourTenant(
     inclureTransport = false,
     portee = PORTEE_SYSTEME,
     createdById = null,
+    dryRun = false,
   } = options;
 
   // Filtres de site résolus ICI, à partir des réclamations de l'appelant :
@@ -175,6 +199,11 @@ export async function genererMensualitesPourTenant(
 
   let generated = 0;
   let skipped = 0;
+  let dejaFactures = 0;
+  let sansTarif = 0;
+  let montantTotal = 0;
+  let cantineNonRenseignee = 0;
+  let transportNonRenseigne = 0;
 
   for (const eleve of eleves) {
     // Le niveau de la classe est une ANNÉE (« 6ème », « Terminale A ») quand la
@@ -184,6 +213,7 @@ export async function genererMensualitesPourTenant(
     const choix = choisirTarif(tarifs, eleve.siteId, niveau);
     if (!choix) {
       skipped++;
+      sansTarif++;
       continue;
     }
 
@@ -196,6 +226,7 @@ export async function genererMensualitesPourTenant(
     });
     if (existing) {
       skipped++;
+      dejaFactures++;
       continue;
     }
 
@@ -203,13 +234,17 @@ export async function genererMensualitesPourTenant(
       cantine: inclureCantine,
       transport: inclureTransport,
     });
+    if (inclureCantine && !choix.tarif.fraisCantine) cantineNonRenseignee++;
+    if (inclureTransport && !choix.tarif.fraisTransport) transportNonRenseigne++;
 
-    // Compteur de numérotation volontairement tenant-wide (voir facture.ts) :
-    // « numero » ne porte aucune contrainte d'unicité en base et préserve une
-    // séquence globale continue entre sites plutôt que de la fragmenter.
-    // eslint-disable-next-line ecolpro/require-site-filter
-    const factureCount = await prisma.facture.count({ where: { tenantId } });
-    const numero = `FAC-${anneeCalendaire}-${String(factureCount + 1).padStart(5, "0")}`;
+    // Aperçu : on s'arrête AVANT toute écriture — ni facture, ni numéro réservé.
+    if (dryRun) {
+      generated++;
+      montantTotal += montant;
+      continue;
+    }
+
+    const numero = await reserverNumeroFacture(tenantId, anneeCalendaire);
 
     try {
       await prisma.facture.create({
@@ -230,6 +265,7 @@ export async function genererMensualitesPourTenant(
         },
       });
       generated++;
+      montantTotal += montant;
     } catch (e) {
       if (estViolationUnicite(e)) {
         // Index partiel `factures_unicite_mensuelle` : entre notre lecture et
@@ -237,16 +273,20 @@ export async function genererMensualitesPourTenant(
         // ou la tâche planifiée) a facturé ce mois. C'est le comportement
         // voulu ; on compte « déjà facturé » et on poursuit le lot.
         skipped++;
+        dejaFactures++;
         continue;
       }
       throw e;
     }
   }
 
-  return { generated, skipped };
+  return {
+    generated, skipped, dejaFactures, sansTarif, montantTotal,
+    cantineNonRenseignee, transportNonRenseigne, apercu: dryRun,
+  };
 }
 
-export interface ResultatCronMensualites extends ResultatGenerationMensualites {
+export interface ResultatCronMensualites extends Pick<ResultatGenerationMensualites, "generated" | "skipped"> {
   mois: number;
   tenants: number;
   /** Établissements sans année scolaire active : aucun tarif, donc rien à faire. */

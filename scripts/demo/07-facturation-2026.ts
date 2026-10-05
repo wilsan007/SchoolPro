@@ -110,7 +110,9 @@ async function main() {
         siteId: e.siteId,
         eleveId: e.id,
         anneeId: annee.id,
-        numero: `F-${m.mois}26-${e.matricule.slice(-4)}`,
+        // Code du site inclus : les 4 derniers chiffres du matricule sont
+        // identiques d'un site à l'autre, et le numéro est unique par tenant.
+        numero: `F-${m.mois}26-${e.matricule.split("-")[0]}-${e.matricule.slice(-4)}`,
         libelle: m.libelle,
         montant,
         devise: "DJF",

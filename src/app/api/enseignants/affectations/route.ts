@@ -30,7 +30,10 @@ export async function GET() {
   const affectations = await prisma.affectationEnseignant.findMany({
     where: {
       tenantId,
-      ...(anneeCourante ? { classe: { annee: anneeCourante } } : {}),
+      // Filtre de relation inconditionnel : `classe` est une relation
+      // obligatoire, et une affectation vers une classe hors du périmètre de
+      // l'appelant (masquée par la RLS de site) ferait échouer toute la requête.
+      classe: { tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
     },
     include: {
       enseignant: {

@@ -12,6 +12,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// La réservation du numéro vit en base (fonction SQL sous verrou) : elle a sa
+// propre suite, ici on fournit simplement le premier numéro du millésime.
+vi.mock("@/lib/factures/numerotation", () => ({
+  reserverNumeroFacture: vi.fn(async (_t: string, prefixe: string | number) => `FAC-${prefixe}-00001`),
+  reserverNumerosFacture: vi.fn(async (_t: string, prefixe: string | number, n: number) =>
+    Array.from({ length: n }, (_, i) => `FAC-${prefixe}-${String(i + 1).padStart(5, "0")}`)),
+}));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/rbac", () => ({ checkPermission: vi.fn(() => null) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
@@ -111,7 +118,7 @@ describe("genererMensualites", () => {
   it("facture la mensualité en rapprochant l'année de classe (« 6ème A ») de la grille (« Collège »)", async () => {
     const res = await genererMensualites({ mois: 10, annee: "2025-2026" });
 
-    expect(res).toEqual({ success: true, generated: 1, skipped: 0 });
+    expect(res).toMatchObject({ success: true, generated: 1, skipped: 0 });
     expect(mockPrisma.facture.create).toHaveBeenCalledTimes(1);
 
     const data = mockPrisma.facture.create.mock.calls[0][0].data;
@@ -167,7 +174,7 @@ describe("genererMensualites", () => {
 
     const res = await genererMensualites({ mois: 10, annee: "2025-2026" });
 
-    expect(res).toEqual({ success: true, generated: 1, skipped: 1 });
+    expect(res).toMatchObject({ success: true, generated: 1, skipped: 1 });
   });
 
   it("n'écrit rien pour un niveau non reconnu et ne devine aucun montant", async () => {
@@ -177,7 +184,7 @@ describe("genererMensualites", () => {
 
     const res = await genererMensualites({ mois: 10, annee: "2025-2026" });
 
-    expect(res).toEqual({ success: true, generated: 0, skipped: 1 });
+    expect(res).toMatchObject({ success: true, generated: 0, skipped: 1 });
     expect(mockPrisma.facture.create).not.toHaveBeenCalled();
   });
 
@@ -189,7 +196,7 @@ describe("genererMensualites", () => {
 
     const res = await genererMensualites({ mois: 10, annee: "2025-2026" });
 
-    expect(res).toEqual({ success: true, generated: 0, skipped: 1 });
+    expect(res).toMatchObject({ success: true, generated: 0, skipped: 1 });
   });
 
   it("saute un élève déjà facturé pour ce mois (contrôle applicatif)", async () => {
@@ -197,7 +204,7 @@ describe("genererMensualites", () => {
 
     const res = await genererMensualites({ mois: 10, annee: "2025-2026" });
 
-    expect(res).toEqual({ success: true, generated: 0, skipped: 1 });
+    expect(res).toMatchObject({ success: true, generated: 0, skipped: 1 });
     expect(mockPrisma.facture.create).not.toHaveBeenCalled();
   });
 

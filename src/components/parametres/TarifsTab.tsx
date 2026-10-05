@@ -41,7 +41,7 @@ const AXES_TARIFS: AxeRegroupement<TarifItem>[] = [
   { id: "niveau", cle: (tarif) => tarif.niveau },
 ];
 
-export function TarifsTab() {
+export function TarifsTab({ anneeCourante = "" }: { anneeCourante?: string }) {
   const t = useTranslations("parametres");
   const libelleNiveau = useLibelleNiveau();
   const [tarifs, setTarifs] = useState<TarifItem[]>([]);
@@ -50,7 +50,7 @@ export function TarifsTab() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<TarifFormData>({
     niveau: "",
-    annee: "2025-2026",
+    annee: anneeCourante,
     mensualite: 0,
     fraisInscription: 0,
     fraisRenouvellement: 0,
@@ -84,7 +84,7 @@ export function TarifsTab() {
       await createTarif(form);
       toast.success(t("tarifCreated"));
       setShowForm(false);
-      setForm({ niveau: "", annee: "2025-2026", mensualite: 0, fraisInscription: 0, fraisRenouvellement: 0, fraisCantine: undefined, fraisTransport: undefined, devise: "DJF", nbMois: 10, siteId: undefined });
+      setForm({ niveau: "", annee: anneeCourante, mensualite: 0, fraisInscription: 0, fraisRenouvellement: 0, fraisCantine: undefined, fraisTransport: undefined, devise: "DJF", nbMois: 10, siteId: undefined });
       await loadTarifs();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("error"));

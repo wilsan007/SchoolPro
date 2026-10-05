@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { reserverNumeroFacture } from "@/lib/factures/numerotation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { checkPermission } from "@/lib/rbac";
@@ -186,9 +187,7 @@ export async function PATCH(
       const moisLabel = formatMoisScolarite(moisScolarite);
 
       // f) Numéro de facture
-      // eslint-disable-next-line ecolpro/require-site-filter -- compteur global tenant pour numérotation
-      const factureCount = await prisma.facture.count({ where: { tenantId } });
-      const numeroFacture = `FAC-${new Date().getFullYear()}-${String(factureCount + 1).padStart(5, "0")}`;
+      const numeroFacture = await reserverNumeroFacture(tenantId, new Date().getFullYear());
 
       // g) Création de la facture (eleveId = NULL, l'élève n'existe pas encore)
       const nouvelleFacture = await prisma.facture.create({

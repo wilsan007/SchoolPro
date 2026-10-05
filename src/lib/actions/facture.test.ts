@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies
+// La réservation du numéro vit en base (fonction SQL sous verrou) : elle a sa
+// propre suite, ici on fournit simplement le premier numéro du millésime.
+vi.mock("@/lib/factures/numerotation", () => ({
+  reserverNumeroFacture: vi.fn(async (_t: string, prefixe: string | number) => `FAC-${prefixe}-00001`),
+  reserverNumerosFacture: vi.fn(async (_t: string, prefixe: string | number, n: number) =>
+    Array.from({ length: n }, (_, i) => `FAC-${prefixe}-${String(i + 1).padStart(5, "0")}`)),
+}));
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }));

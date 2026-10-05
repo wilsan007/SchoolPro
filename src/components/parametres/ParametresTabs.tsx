@@ -273,7 +273,7 @@ export function ParametresTabs({
         {activeTab === "sites" && <SitesTab sites={sites} canManage={canManage} />}
         {activeTab === "import" && <ImportModelesTab canManage={canManage} />}
         {activeTab === "sync" && <SyncTab canManage={canManage} />}
-        {activeTab === "tarifs" && <TarifsTab />}
+        {activeTab === "tarifs" && <TarifsTab anneeCourante={annees.find((a) => a.isCurrent)?.libelle} />}
         {activeTab === "doublons" && <DoublonsTab />}
         {activeTab === "userPermissions" && (
           <UserPermissionsTab

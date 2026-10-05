@@ -10,10 +10,11 @@ import { ELEVE_NON_ARCHIVE } from "@/lib/eleve-filters";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { applyRlsContext } from "@/lib/prisma-rls";
 import { checkPermission } from "@/lib/rbac";
+import { niveauStocke } from "@/lib/niveau-display";
 
 const UpdateClasseSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
-  niveau: z.string().min(1, "Le niveau est requis"),
+  niveau: z.string().min(1, "Le niveau est requis").transform(niveauStocke),
   filiere: z.string().optional(),
   effectifMax: z.number().min(1).default(40),
   annee: z.string().default("2025-2026"),

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { getRlsContext } from "@/lib/rls-context";
+import { getRlsContext, type RlsContext } from "@/lib/rls-context";
 
 /**
  * EcolPro — Pose du contexte RLS sur le client Prisma
@@ -101,12 +101,7 @@ export function withRlsExtension<T extends PrismaClient>(client: T) {
           // posé est nécessairement celui que verra la requête, et il
           // disparaît au COMMIT.
           const [, result] = await client.$transaction([
-            client.$executeRaw`SELECT set_app_context(
-              ${ctx.tenantId},
-              ${ctx.siteId},
-              ${ctx.siteIds.join(",")},
-              ${ctx.superAdmin}
-            )`,
+            poserContexte(client, ctx),
             query(args),
           ]);
           return result;
@@ -130,7 +125,37 @@ export async function applyRlsContext(
     }
     return;
   }
-  await tx.$executeRaw`SELECT set_app_context(
+  await poserContexte(tx, ctx);
+}
+
+/**
+ * Le périmètre de sites est-il transmis à la base ?
+ *
+ *   off      (défaut) contexte historique : la base ne filtre pas par site.
+ *   enforce  le périmètre exact (`all` / `sites` / `none`) est posé, et les
+ *            politiques restrictives de migration_rls_site_scope.sql
+ *            s'appliquent.
+ *
+ * Interrupteur distinct de RLS_MODE : la migration doit être en base AVANT de
+ * l'activer (la signature à cinq arguments de `set_app_context` n'existe pas
+ * sans elle), et il se coupe seul en cas de régression.
+ */
+export function siteScopeActif(): boolean {
+  return (process.env.RLS_SITE_SCOPE ?? "off").toLowerCase() === "enforce";
+}
+
+/** Pose le contexte RLS (tenant, sites, périmètre) en un aller-retour. */
+function poserContexte(client: Pick<PrismaClient, "$executeRaw">, ctx: RlsContext) {
+  if (siteScopeActif() && ctx.siteScope) {
+    return client.$executeRaw`SELECT set_app_context(
+      ${ctx.tenantId},
+      ${ctx.siteId},
+      ${ctx.siteIds.join(",")},
+      ${ctx.superAdmin},
+      ${ctx.siteScope}
+    )`;
+  }
+  return client.$executeRaw`SELECT set_app_context(
     ${ctx.tenantId},
     ${ctx.siteId},
     ${ctx.siteIds.join(",")},

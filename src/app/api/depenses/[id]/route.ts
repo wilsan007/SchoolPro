@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifierActeursDepense } from "@/lib/depenses-acteurs";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -148,6 +149,11 @@ export async function PATCH(
           { status: 404 }
         );
       }
+    }
+
+    const erreurActeurs = await verifierActeursDepense(session.user.tenantId, data);
+    if (erreurActeurs) {
+      return NextResponse.json({ error: erreurActeurs }, { status: 400 });
     }
 
     const depense = await prisma.depense.update({

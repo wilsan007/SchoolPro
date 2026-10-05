@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { niveauStocke } from "@/lib/niveau-display";
 import { type PlanImport, type ResultatImport } from "./types";
 import { type DonneesEnseignant } from "./enseignants";
 import { type DonneesClasse } from "./classes";
@@ -301,7 +302,7 @@ export async function appliquerImportClasses(
         await prisma.classe.create({
           data: {
             nom: ligne.donnees.nom,
-            niveau: ligne.donnees.niveau,
+            niveau: niveauStocke(ligne.donnees.niveau),
             tenantId,
             annee,
           },

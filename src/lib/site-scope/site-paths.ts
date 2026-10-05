@@ -260,6 +260,9 @@ export const SITE_PATHS: Record<string, SitePath> = {
 
   // --- Rate limit counter (global, pas de tenantId ni siteId) ---
   rateLimitCounter: "tenant",
+  // Compteur de numérotation des factures : un par établissement, tous sites
+  // confondus, lu et écrit uniquement par la fonction SQL `next_facture_numeros`.
+  factureSequence: "tenant",
 
   // --- Tâche cron execution (global, pas de tenantId ni siteId) ---
   tacheCronExecution: "tenant",

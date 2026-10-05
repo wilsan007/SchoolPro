@@ -29,6 +29,7 @@
  */
 
 import { extractText, getDocumentProxy } from "unpdf";
+import { niveauStocke } from "@/lib/niveau-display";
 import { routeAi } from "@/lib/ai/router";
 
 /** Au-delà, le prompt dépasse ce que les modèles gratuits traitent bien. */
@@ -566,7 +567,7 @@ export async function appliquerImport(
         siteId,
         matiereId,
         nom: chapitre.nom,
-        niveau: chapitre.niveau,
+        niveau: niveauStocke(chapitre.niveau),
         ordre: prochainOrdre++,
         competences: {
           create: aCreer.map((c) => ({

@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { reserverNumeroFacture } from "@/lib/factures/numerotation";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { sendPaymentWhatsApp } from "@/lib/notifications/whatsapp";
 import { siteFilterForModel, mergeFilters } from "@/lib/site-scope";
@@ -117,6 +118,8 @@ export async function genererMensualites(params: {
   annee: string; // "2025-2026"
   inclureCantine?: boolean;
   inclureTransport?: boolean;
+  /** Aperçu : mêmes chiffres que la génération, sans rien écrire. */
+  apercu?: boolean;
 }) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error("Non autorisé");
@@ -136,10 +139,13 @@ export async function genererMensualites(params: {
     // voit tous les sites du tenant. Le filtre est résolu dans le cœur partagé.
     portee: session.user,
     createdById: session.user.id,
+    dryRun: params.apercu === true,
   });
 
-  revalidatePath("/facturation");
-  revalidateTag("dashboard-data", { expire: 0 });
+  if (!resultat.apercu) {
+    revalidatePath("/facturation");
+    revalidateTag("dashboard-data", { expire: 0 });
+  }
   return { success: true, ...resultat };
 }
 
@@ -209,10 +215,7 @@ export async function genererFraisInscription(params: {
     // que d'écrire un montant absent — un 0 silencieux serait une facture fausse.
     const montant = montantPourTypeFrais(tarif, type);
     if (montant === null) { skipped++; continue; }
-    // Compteur tenant-wide volontaire (voir genererMensualites ci-dessus).
-    // eslint-disable-next-line ecolpro/require-site-filter
-    const factureCount = await prisma.facture.count({ where: { tenantId } });
-    const numero = `FAC-${annee.split("-")[0]}-${String(factureCount + 1).padStart(5, "0")}`;
+    const numero = await reserverNumeroFacture(tenantId, annee.split("-")[0]);
 
     await prisma.facture.create({
       data: {

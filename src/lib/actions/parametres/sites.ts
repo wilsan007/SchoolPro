@@ -290,12 +290,33 @@ export async function assignUserSites(userId: string, sites: { siteId: string; r
     }
   }
 
+  // Les sites autorisés d'un enseignant sont l'union UserSite ∪ EnseignantSite :
+  // sans alignement, retirer un site ici ne retirait rien, et l'enseignant
+  // restait listé sur son ancien site.
+  // eslint-disable-next-line ecolpro/require-site-filter -- fiche du compte déjà validé ci-dessus, on en réécrit justement les sites
+  const enseignant = await prisma.enseignant.findFirst({
+    where: { userId, tenantId: session.user.tenantId },
+    select: { id: true },
+  });
+  if (enseignant && siteIds.length === 0) {
+    throw new Error("Un enseignant doit être rattaché à au moins un site.");
+  }
+  if (enseignant) {
+    await prisma.$transaction([
+      prisma.enseignantSite.deleteMany({ where: { enseignantId: enseignant.id } }),
+      prisma.enseignantSite.createMany({
+        data: siteIds.map((siteId) => ({ enseignantId: enseignant.id, siteId })),
+      }),
+    ]);
+  }
+
   // Supprimer les anciennes associations
   await prisma.userSite.deleteMany({
     where: { userId },
   });
 
-  // Si aucun site sélectionné → siteId = null (accès tous sites)
+  // Aucun site sélectionné : plus aucun rattachement (périmètre vide pour le
+  // personnel, sans effet pour la direction générale).
   if (siteIds.length === 0) {
     await prisma.user.update({
       where: { id: userId },
