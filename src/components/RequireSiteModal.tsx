@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { MapPin, AlertCircle, Loader2, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 interface SiteOption {
   id: string;
@@ -26,6 +27,7 @@ export function RequireSiteModal({
   onSiteSelected,
   message,
 }: RequireSiteModalProps) {
+  const dialogProps = useModalA11y(onClose, open);
   const t = useTranslations("common");
   const defaultMessage = t("selectSiteRequired");
   const [switching, setSwitching] = useState(false);
@@ -72,7 +74,7 @@ export function RequireSiteModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div {...dialogProps} className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         {/* Header */}
         <div className="px-6 pt-6 pb-4">

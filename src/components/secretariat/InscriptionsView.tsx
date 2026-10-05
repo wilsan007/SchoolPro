@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ function NouvelleInscriptionForm({
   onClose: () => void;
   onCreated: (d: DossierInscription) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("inscriptions");
   const anneeActuelle = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
   const [form, setForm] = useState({
@@ -131,7 +133,7 @@ function NouvelleInscriptionForm({
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col border-0 shadow-2xl rounded-[22px]">
         <CardHeader className="pb-4 flex-shrink-0 flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -411,6 +413,7 @@ function DossierDetailModal({
   onClose: () => void;
   onUpdate: (d: DossierInscription) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("inscriptions");
   const [dossier, setDossier] = useState<DossierInscription>(initial);
   const [historique, setHistorique] = useState<HistoriqueEntry[]>([]);
@@ -502,7 +505,7 @@ function DossierDetailModal({
   const piecesManquantes = TYPES_DOC_LIST.filter((t) => !docs[t]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="w-full max-w-6xl max-h-[92vh] flex flex-col bg-card rounded-[22px] border border-border shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-border flex items-center justify-between">

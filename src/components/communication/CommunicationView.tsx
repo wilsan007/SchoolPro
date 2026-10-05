@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { cn, formatDate, timeAgo } from "@/lib/utils";
 import { useLocale, useTranslations } from "next-intl";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +81,7 @@ function ComposeModal({
   onClose: () => void;
   onCreated: (n: Notification) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("communication");
   const niveaux = [...new Set(classes.map((c) => c.niveau))];
   const [form, setForm] = useState({
@@ -114,7 +116,7 @@ function ComposeModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col border-0 shadow-2xl">
         <CardHeader className="pb-4 flex-shrink-0">
           <CardTitle className="flex items-center gap-2 text-base">

@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 import { niveauToNumero } from "@/lib/domain/emploi-du-temps";
 import { getGridConfig, computeEndTime, getValidStartSlots, isFineGridType } from "@/lib/grid-config";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -160,6 +161,7 @@ function AddCreneauModal({
   onClose: () => void;
   onAdded: (c: EmploiCreneau) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("emploi");
   // Grille dynamique selon le type de structure
   const gridConfig = getGridConfig(structureType);
@@ -258,7 +260,7 @@ function AddCreneauModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold">{t("newSlot")}</h2>

@@ -25,6 +25,7 @@ import {
   Columns3, ChevronDown, ChevronRight, Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 type Action = "CREER" | "METTRE_A_JOUR" | "IGNORER";
 
@@ -127,6 +128,7 @@ export function ImportElevesDialog({
   currentSiteId = null,
   tenantHasSites = false,
 }: ImportElevesDialogProps) {
+  const dialogProps = useModalA11y(onClose);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState<string>(currentSiteId ?? "");
@@ -249,7 +251,7 @@ export function ImportElevesDialog({
     : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div {...dialogProps} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <Card
         className={cn("w-full flex flex-col max-h-[90vh]", plan ? "max-w-3xl" : "max-w-lg")}
         onClick={(e) => e.stopPropagation()}

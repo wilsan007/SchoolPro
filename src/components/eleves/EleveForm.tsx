@@ -14,6 +14,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { useLibelleNiveau } from "@/lib/niveau-context";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 interface Classe {
   id: string;
@@ -127,6 +128,7 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmation, setConfirmation] = useState<{ code: string; titre: string; message: string } | null>(null);
+  const dialogProps = useModalA11y(() => setConfirmation(null), confirmation !== null);
   const [confirmations, setConfirmations] = useState<{ dateNaissance?: boolean; doublon?: boolean }>({});
 
   function updateField<K extends keyof EleveFormData>(field: K, value: EleveFormData[K]) {
@@ -411,7 +413,7 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
           suspect et l'administrateur tranche. Ni la date au 1er janvier ni
           l'homonymie ne sont refusées d'office — elles peuvent être exactes. */}
       {confirmation && (
-        <div
+        <div {...dialogProps}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setConfirmation(null)}
         >

@@ -7,6 +7,7 @@ import {
   ExternalLink, Mail, Phone, Edit3, Trash2, X, Building2
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 type StatutAlumni = "ETUDES_SUPERIEURES" | "EN_EMPLOI" | "RECHERCHE_EMPLOI" | "ENTREPRENEUR" | "INCONNU";
 
@@ -331,12 +332,13 @@ function AlumniForm({
   isPending: boolean;
   isEdit: boolean;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("alumni");
   const f = (k: keyof typeof EMPTY_FORM, v: string | boolean) =>
     setForm({ ...form, [k]: v });
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">{isEdit ? t("editTitle") : t("addTitle")}</h3>

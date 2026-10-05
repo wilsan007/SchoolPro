@@ -30,6 +30,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 // ------------------------------------------------------------
 // Types (miroir de src/lib/messaging-audience.ts)
@@ -124,6 +125,7 @@ export function NewConversationComposer({
   onClose: () => void;
   onCreated: (conv: { id: string } & Record<string, unknown>) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("messages");
   const tCommon = useTranslations("common");
 
@@ -505,7 +507,7 @@ export function NewConversationComposer({
   };
 
   return (
-    <div
+    <div {...dialogProps}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 sm:p-8 overflow-y-auto"
       onClick={onClose}
     >

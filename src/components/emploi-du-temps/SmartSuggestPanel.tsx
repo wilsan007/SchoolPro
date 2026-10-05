@@ -6,6 +6,7 @@ import { X, Sparkles, Loader2, CheckCircle2, AlertCircle, Plus, Wand2, Check, Us
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 type Jour = "DIMANCHE" | "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
@@ -47,6 +48,7 @@ export function SmartSuggestPanel({
   onGenerated: (creneaux: unknown[]) => void;
   onReplaced?: (creneaux: unknown[]) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("emploi");
   const [matiereId, setMatiereId] = useState(matieres[0]?.id ?? "");
   const [enseignantId, setEnseignantId] = useState("");
@@ -354,7 +356,7 @@ export function SmartSuggestPanel({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-2">

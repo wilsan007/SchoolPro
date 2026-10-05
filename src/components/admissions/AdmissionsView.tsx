@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { optionsMoisScolarite, formatMoisScolarite, moisScolariteDefaut } from "@/lib/admissions/mois-scolarite";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ function AdmitMoisModal({
   onConfirm: (moisScolarite: string) => void;
   onClose: () => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("admissions");
   const anneeDebut = parseInt(candidature.annee.split("-")[0], 10) || new Date().getFullYear();
   const options = optionsMoisScolarite(anneeDebut);
@@ -153,7 +155,7 @@ function AdmitMoisModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -210,6 +212,7 @@ function PaiementInlineModal({
   onPaid: () => void;
   onClose: () => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("admissions");
   const [montant, setMontant] = useState("");
   const [methode, setMethode] = useState("especes");
@@ -258,7 +261,7 @@ function PaiementInlineModal({
   const progressPct = facture.montant > 0 ? (totalPaye / facture.montant) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -365,6 +368,7 @@ function CandidatureForm({
   onClose: () => void;
   onCreated: (c: Candidature) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("admissions");
   const anneeActuelle = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
   const [form, setForm] = useState({
@@ -420,7 +424,7 @@ function CandidatureForm({
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col border-0 shadow-2xl">
         <CardHeader className="pb-4 flex-shrink-0">
           <CardTitle className="flex items-center gap-2 text-base">

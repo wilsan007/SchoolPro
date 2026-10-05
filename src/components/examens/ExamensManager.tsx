@@ -18,6 +18,7 @@ import { ClassSelector } from "@/components/sites/ClassSelector";
 import { DrillDownNavigator, type DrillDownItem } from "@/components/classes/DrillDownNavigator";
 import type { SiteColor } from "@/lib/site-colors";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 type StatutExamen = "PROGRAMME" | "EN_COURS" | "TERMINE" | "ANNULE";
 
@@ -70,6 +71,7 @@ function CreateExamenModal({
   onClose: () => void;
   onCreated: (exam: Examen) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("examens");
   const [form, setForm] = useState({
     intitule: "",
@@ -100,7 +102,7 @@ function CreateExamenModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold">{t("createTitle")}</h2>
@@ -185,6 +187,7 @@ function AddSessionModal({
   onClose: () => void;
   onAdded: (session: SessionExamen) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("examens");
   const [form, setForm] = useState({
     matiereNom: matieres[0]?.nom ?? "",
@@ -217,7 +220,7 @@ function AddSessionModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold">{t("addSessionTitle")}</h2>

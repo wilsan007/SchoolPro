@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { SiteColor } from "@/lib/site-colors";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ function CreerCoursModal({ onClose, onCreate }: {
   onClose: () => void;
   onCreate: (c: Cours) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("cours");
   const [form, setForm] = useState({
     titre: "", description: "",
@@ -117,7 +119,7 @@ function CreerCoursModal({ onClose, onCreate }: {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-lg border-0 shadow-2xl">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -203,6 +205,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
   onClose: () => void;
   onAdded: (c: ContenuCours) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("cours");
   const [form, setForm] = useState({
     titre: "", type: "TEXTE" as TypeContenu,
@@ -243,7 +246,7 @@ function AjouterContenuModal({ coursId, ordre, onClose, onAdded }: {
   const needsTexte = ["TEXTE", "QUIZ"].includes(form.type);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-lg border-0 shadow-2xl">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">

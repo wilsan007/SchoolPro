@@ -8,6 +8,7 @@ import {
   Tv, Wind, Shield, MoreHorizontal
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 type Categorie = "INFORMATIQUE" | "MOBILIER" | "SPORTIF" | "PEDAGOGIQUE" | "AUDIOVISUEL" | "ENTRETIEN" | "SECURITE" | "AUTRE";
 type Etat = "NEUF" | "BON" | "USE" | "ENDOMMAGE" | "HORS_SERVICE";
@@ -321,12 +322,13 @@ function ItemForm({
   isPending: boolean;
   isEdit: boolean;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("inventaire");
   const f = (k: keyof typeof EMPTY_FORM, v: string | number) =>
     setForm({ ...form, [k]: v });
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">{isEdit ? t("editItem") : t("addItemTitle")}</h3>

@@ -16,6 +16,7 @@ import { HistoriqueDisciplinaireDialog } from "./HistoriqueDisciplinaireDialog";
 import { RetardsStatsDialog } from "./RetardsStatsDialog";
 import { WorkflowSanctionDialog } from "./WorkflowSanctionDialog";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 type TypeIncident = "RETARD" | "BAVARDAGE" | "INSOLENCE" | "BAGARRE" | "TRICHE" | "VANDALISM" | "ABSENTEISME" | "AUTRE";
 type StatutIncident = "OUVERT" | "EN_TRAITEMENT" | "RESOLU" | "CLASSE";
@@ -73,6 +74,7 @@ function CreateIncidentModal({
   onClose: () => void;
   onCreated: (inc: Incident) => void;
 }) {
+  const dialogProps = useModalA11y(onClose);
   const t = useTranslations("vieScolaire");
   const [form, setForm] = useState({
     eleveId: eleves[0]?.id ?? "",
@@ -106,7 +108,7 @@ function CreateIncidentModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div {...dialogProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <h2 className="text-lg font-semibold">{t("reportIncident")}</h2>
