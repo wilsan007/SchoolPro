@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Target, TrendingUp, TrendingDown, Minus, Loader2, HelpCircle,
   AlertTriangle, Sparkles, Link2, ChevronDown, ChevronRight,
@@ -31,7 +32,8 @@ interface Profil {
   evidenceCount: number;
   lastEvidenceAt: string | null;
   trend: string;
-  prerequisiteStatus: Prerequis[] | null;
+  /** Liste attendue, mais d'anciennes lignes portent un simple résumé. */
+  prerequisiteStatus: Prerequis[] | Record<string, unknown> | null;
   competence: {
     code: string;
     libelle: string;
@@ -64,6 +66,20 @@ interface Recommandation {
   motifParams: unknown;
   competencesBloquees: number;
 }
+
+interface Reponse {
+  demande: string;
+  erreur: boolean;
+  profils: Profil[];
+  recos: Recommandation[];
+  aVenir: ExigenceAVenir[];
+}
+
+// Références stables pour l'état « pas encore chargé » : un `[]` littéral
+// invaliderait les `useMemo` à chaque rendu.
+const AUCUN_PROFIL: Profil[] = [];
+const AUCUNE_RECO: Recommandation[] = [];
+const AUCUNE_EXIGENCE: ExigenceAVenir[] = [];
 
 /**
  * Sémantique visuelle des statuts.
@@ -99,6 +115,22 @@ const STATUTS: Record<MasteryStatus, { classe: string; barre: string }> = {
   },
 };
 
+/**
+ * Ordre d'affichage dans une matière : ce qui appelle une action d'abord, ce
+ * qui n'est pas encore mesuré en dernier — sinon des dizaines de lignes
+ * « Pas encore mesuré » repoussent hors écran les seules qui comptent.
+ */
+const ORDRE_AFFICHAGE: Record<MasteryStatus, number> = {
+  EMERGING: 0,
+  NEEDS_REVIEW: 1,
+  DEVELOPING: 2,
+  PROFICIENT: 3,
+  MASTERED: 4,
+  UNKNOWN: 5,
+};
+
+const NON_ACQUIS: ReadonlySet<MasteryStatus> = new Set(["EMERGING", "DEVELOPING", "NEEDS_REVIEW"]);
+
 function Tendance({ valeur, t }: { valeur: string; t: (k: string) => string }) {
   if (valeur === "hausse")
     return (
@@ -124,28 +156,45 @@ function Tendance({ valeur, t }: { valeur: string; t: (k: string) => string }) {
 export function CompetencesEleve({ eleveId }: { eleveId: string }) {
   const t = useTranslations("learnos.competencesEleve");
   const locale = useLocale();
-  const [chargement, setChargement] = useState(true);
-  const [profils, setProfils] = useState<Profil[]>([]);
-  const [recos, setRecos] = useState<Recommandation[]>([]);
-  const [aVenir, setAVenir] = useState<ExigenceAVenir[]>([]);
+  const [tentative, setTentative] = useState(0);
+  // La réponse porte la demande à laquelle elle répond : en changeant d'enfant
+  // (espace parent) ou en réessayant, l'ancienne cesse d'être affichée sans
+  // qu'il faille remettre l'état à zéro dans l'effet.
+  const demande = `${eleveId}|${tentative}`;
+  const [reponse, setReponse] = useState<Reponse | null>(null);
+  const courante = reponse?.demande === demande ? reponse : null;
+  const chargement = courante === null;
+  const erreur = courante?.erreur ?? false;
+  const profils = courante?.profils ?? AUCUN_PROFIL;
+  const recos = courante?.recos ?? AUCUNE_RECO;
+  const aVenir = courante?.aVenir ?? AUCUNE_EXIGENCE;
   const [deplies, setDeplies] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    let annule = false;
-    fetch(`/api/learnos/eleves/${eleveId}/competences`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (annule) return;
-        setProfils(d.profils ?? []);
-        setRecos(d.recommandations ?? []);
-        setAVenir(d.aVenir ?? []);
+    const controleur = new AbortController();
+    fetch(`/api/learnos/eleves/${eleveId}/competences`, { signal: controleur.signal })
+      .then((r) => {
+        // Un refus ou une panne ne doit pas se déguiser en « aucun profil » :
+        // l'écran vide dirait à une famille que rien n'a été évalué.
+        if (!r.ok) throw new Error(`competences-${r.status}`);
+        return r.json();
       })
-      .catch((e) => console.warn("[non-fatal]", e))
-      .finally(() => !annule && setChargement(false));
-    return () => {
-      annule = true;
-    };
-  }, [eleveId]);
+      .then((d) => {
+        setReponse({
+          demande,
+          erreur: false,
+          profils: Array.isArray(d.profils) ? d.profils : [],
+          recos: Array.isArray(d.recommandations) ? d.recommandations : [],
+          aVenir: Array.isArray(d.aVenir) ? d.aVenir : [],
+        });
+      })
+      .catch((e) => {
+        if (controleur.signal.aborted) return;
+        console.warn("[non-fatal]", e);
+        setReponse({ demande, erreur: true, profils: [], recos: [], aVenir: [] });
+      });
+    return () => controleur.abort();
+  }, [eleveId, demande]);
 
   const recoParCompetence = useMemo(
     () => new Map(recos.map((r) => [r.competenceId, r])),
@@ -163,20 +212,38 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
       }
       groupes.get(cle)!.profils.push(p);
     }
+    for (const g of groupes.values()) {
+      g.profils.sort(
+        (a, b) =>
+          ORDRE_AFFICHAGE[a.masteryStatus] - ORDRE_AFFICHAGE[b.masteryStatus] ||
+          a.masteryScore - b.masteryScore
+      );
+    }
     return [...groupes.entries()];
   }, [profils, t]);
 
   const synthese = useMemo(() => {
-    const mesures = profils.filter((p) => p.masteryStatus !== "UNKNOWN");
+    const parStatut: Record<MasteryStatus, number> = {
+      UNKNOWN: 0, EMERGING: 0, DEVELOPING: 0, PROFICIENT: 0, MASTERED: 0, NEEDS_REVIEW: 0,
+    };
+    for (const p of profils) {
+      if (p.masteryStatus in parStatut) parStatut[p.masteryStatus]++;
+    }
     return {
       total: profils.length,
-      mesurees: mesures.length,
-      aReprendre: mesures.filter((p) => p.masteryStatus === "EMERGING").length,
-      maitrisees: mesures.filter((p) => p.masteryStatus === "MASTERED").length,
+      mesurees: profils.length - parStatut.UNKNOWN,
+      aReprendre: parStatut.EMERGING,
+      enCours: parStatut.DEVELOPING,
+      aRafraichir: parStatut.NEEDS_REVIEW,
+      acquises: parStatut.PROFICIENT,
+      maitrisees: parStatut.MASTERED,
       actions: recos.filter((r) => r.statut === "OBLIGATOIRE" || r.statut === "RECOMMANDEE").length,
       ouvertures: recos.filter((r) => r.statut === "PROPOSEE").length,
     };
   }, [profils, recos]);
+
+  const nonAcquises = synthese.aReprendre + synthese.enCours + synthese.aRafraichir;
+  const acquisesOuMaitrisees = synthese.acquises + synthese.maitrisees;
 
   function basculer(id: string) {
     setDeplies((s) => {
@@ -192,6 +259,25 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
       <div className="flex justify-center py-10">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  if (erreur) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center">
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+          <p className="font-medium">{t("erreurChargement")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setTentative((n) => n + 1)}
+          >
+            {t("reessayer")}
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -219,16 +305,42 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
 
       {/* Synthèse — ce qu'on retient en trois secondes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Tout ce qui n'est pas encore acquis, pas seulement « à reprendre » :
+            un élève dont dix compétences sont « en cours » n'a rien d'acquis
+            pour autant, et la carte ne doit pas afficher zéro. */}
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-semibold text-red-600">{synthese.aReprendre}</p>
-            <p className="text-xs text-muted-foreground">{t("aReprendre")}</p>
+            <p
+              className={cn(
+                "text-2xl font-semibold",
+                synthese.aReprendre > 0 ? "text-red-600" : nonAcquises > 0 && "text-orange-600"
+              )}
+            >
+              {nonAcquises}
+            </p>
+            <p className="text-xs text-muted-foreground">{t("nonAcquises")}</p>
+            {nonAcquises > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {[
+                  synthese.aReprendre > 0 && `${synthese.aReprendre} ${t("aReprendre")}`,
+                  synthese.enCours > 0 && `${synthese.enCours} ${t("enCours")}`,
+                  synthese.aRafraichir > 0 && `${synthese.aRafraichir} ${t("aRafraichir")}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-semibold text-blue-600">{synthese.maitrisees}</p>
-            <p className="text-xs text-muted-foreground">{t("maitrisees")}</p>
+            <p className="text-2xl font-semibold text-blue-600">{acquisesOuMaitrisees}</p>
+            <p className="text-xs text-muted-foreground">{t("acquisesOuMaitrisees")}</p>
+            {acquisesOuMaitrisees > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {`${synthese.acquises} ${t("acquises")} · ${synthese.maitrisees} ${t("maitrisees")}`}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -265,10 +377,15 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
 
           <div className="space-y-2">
             {groupe.profils.map((p) => {
-              const statut = STATUTS[p.masteryStatus];
+              const statut = STATUTS[p.masteryStatus] ?? STATUTS.UNKNOWN;
               const reco = recoParCompetence.get(p.competenceId);
+              const nonAcquis = NON_ACQUIS.has(p.masteryStatus);
               const inconnu = p.masteryStatus === "UNKNOWN";
-              const manquants = (p.prerequisiteStatus ?? []).filter((q) => !q.acquis);
+              // Le jeu de démonstration stocke un résumé (`{ checked, missing }`)
+              // au lieu de la liste : sans ce garde, l'onglet entier plantait.
+              const manquants = Array.isArray(p.prerequisiteStatus)
+                ? p.prerequisiteStatus.filter((q) => !q.acquis)
+                : [];
               const ouvert = deplies.has(p.competenceId);
 
               return (
@@ -382,8 +499,11 @@ export function CompetencesEleve({ eleveId }: { eleveId: string }) {
                         </div>
                       ) : (
                         !inconnu && (
-                          <p className="text-xs text-muted-foreground">
-                            {t("aucuneAction")}
+                          // Une compétence non acquise ne reste jamais sans
+                          // suite : faute de preuves assez fiables pour
+                          // recommander, la suite est de la réévaluer.
+                          <p className={cn("text-xs", nonAcquis ? "font-medium" : "text-muted-foreground")}>
+                            {nonAcquis ? `→ ${t("actionReevaluer")}` : t("aucuneAction")}
                           </p>
                         )
                       )}

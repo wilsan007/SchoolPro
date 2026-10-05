@@ -268,18 +268,31 @@ export async function resoudreSeuils(
     orderBy: { createdAt: "desc" },
   });
 
-  if (lignes.length === 0) {
-    const defaut = { ...SEUILS_PAR_DEFAUT };
-    cacheSeuils.set(cle, defaut);
-    return defaut;
-  }
+  const seuils = choisirSeuils(lignes);
+  cacheSeuils.set(cle, seuils);
+  return seuils;
+}
+
+/** Une ligne de barème, telle que lue en base. */
+export type LigneSeuils = Seuils & { niveau: string | null; matiereId: string | null };
+
+/**
+ * Retient la ligne la plus spécifique parmi celles qui s'appliquent déjà au
+ * contexte, triées de la plus récente à la plus ancienne.
+ *
+ * Extraite de `resoudreSeuils` pour qu'un appelant qui a besoin des seuils de
+ * plusieurs matières à la fois lise le barème une seule fois, puis tranche en
+ * mémoire — au lieu d'un aller-retour par matière.
+ */
+export function choisirSeuils(lignes: LigneSeuils[]): Seuils {
+  if (lignes.length === 0) return { ...SEUILS_PAR_DEFAUT };
 
   const specificite = (l: { niveau: string | null; matiereId: string | null }) =>
     (l.matiereId ? 2 : 0) + (l.niveau ? 1 : 0);
 
   const meilleure = lignes.reduce((a, b) => (specificite(b) > specificite(a) ? b : a));
 
-  const seuils = {
+  return {
     seuilCritique: meilleure.seuilCritique,
     seuilFragile: meilleure.seuilFragile,
     seuilConsolide: meilleure.seuilConsolide,
@@ -289,8 +302,6 @@ export async function resoudreSeuils(
     declenchementPlanCritiques: meilleure.declenchementPlanCritiques,
     declenchementPlanAvances: meilleure.declenchementPlanAvances,
   };
-  cacheSeuils.set(cle, seuils);
-  return seuils;
 }
 
 /**

@@ -15,7 +15,6 @@ import {
   semaineScolaire,
   ANTICIPATION_SEMAINES,
 } from "@/lib/learnos/planification-pure";
-import { anneeActiveId } from "@/lib/annee-scolaire";
 
 export * from "@/lib/learnos/planification-pure";
 
@@ -270,38 +269,45 @@ export interface ExigenceAVenir {
   }[];
 }
 
+/** Chapitres planifiés dans la fenêtre à venir, avant tout rapprochement avec un élève. */
+export interface ProgrammeAVenir {
+  semaineCourante: number;
+  chapitres: {
+    chapitreId: string;
+    semaineDebut: number;
+    chapitre: {
+      nom: string;
+      matiere: { nom: string } | null;
+      competences: {
+        id: string;
+        libelle: string;
+        prerequis: { id: string; libelle: string }[];
+      }[];
+    };
+  }[];
+}
+
 /**
- * Ce qu'un élève devra maîtriser dans les prochaines semaines, et où il en est.
+ * Ce que la classe d'un élève abordera dans les prochaines semaines.
  *
- * Répond à la question qu'aucun élève en difficulté ne sait poser : « sur quoi
- * dois-je travailler maintenant, et pourquoi ? ». Le lien entre le programme et
- * le profil individuel est fait ici — c'est ce qui rend la planification utile
- * à l'élève, et pas seulement à l'administration.
+ * Ne lit que le PROGRAMME — ni l'élève ni son profil : l'appelant les a déjà
+ * (contrôle d'accès, profils recalculés à la date affichée) et les relire ici
+ * ajoutait trois allers-retours en série à chaque ouverture de fiche.
+ *
+ * `aujourdHui` doit être la date affichée (`getDemoNow()`), pas l'horloge
+ * réelle : sinon la semaine courante est calculée hors de l'année consultée.
  */
-export async function exigencesAVenirPourEleve(
+export async function chapitresAVenir(
   tenantId: string,
-  eleveId: string,
   claims: SessionSiteClaims,
-  aujourdHui: Date = new Date(),
+  classe: { id: string; niveau: string },
+  annee: { id: string; dateDebut: Date },
+  aujourdHui: Date,
   fenetre = 6
-): Promise<ExigenceAVenir[]> {
-  const eleve = await prisma.eleve.findFirst({
-    where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", claims) },
-    select: { classe: { select: { niveau: true, id: true } } },
-  });
-  if (!eleve?.classe) return [];
-
-  const anneeId = await anneeActiveId(tenantId);
-  if (!anneeId) return [];
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { id: anneeId, tenantId },
-    select: { id: true, dateDebut: true },
-  });
-  if (!annee) return [];
-
+): Promise<ProgrammeAVenir> {
   const semaineCourante = semaineScolaire(aujourdHui, annee.dateDebut);
 
-  const aVenir = await prisma.planificationChapitre.findMany({
+  const chapitres = await prisma.planificationChapitre.findMany({
     where: {
       tenantId,
       anneeId: annee.id,
@@ -309,8 +315,8 @@ export async function exigencesAVenirPourEleve(
       semaineFin: { gte: semaineCourante },
       semaineDebut: { lte: semaineCourante + fenetre },
       ...siteFilterForModel("planificationChapitre", claims),
-      OR: [{ classeId: null }, { classeId: eleve.classe.id }],
-      chapitre: { niveau: eleve.classe.niveau },
+      OR: [{ classeId: null }, { classeId: classe.id }],
+      chapitre: { niveau: classe.niveau },
     },
     select: {
       chapitreId: true,
@@ -332,29 +338,25 @@ export async function exigencesAVenirPourEleve(
     orderBy: { semaineDebut: "asc" },
   });
 
-  if (aVenir.length === 0) return [];
+  return { semaineCourante, chapitres };
+}
 
-  // Un seul aller-retour pour tous les prérequis : la latence par requête est
-  // trop élevée pour interroger chapitre par chapitre.
-  const tousPrerequis = new Set<string>();
-  for (const p of aVenir) {
-    const internes = new Set(p.chapitre.competences.map((c) => c.id));
-    for (const c of p.chapitre.competences) {
-      for (const q of c.prerequis) if (!internes.has(q.id)) tousPrerequis.add(q.id);
-    }
-  }
-
-  const profils = tousPrerequis.size
-    ? await prisma.studentLearningProfile.findMany({
-        where: {
-          tenantId,
-          eleveId,
-          competenceId: { in: [...tousPrerequis] },
-          ...siteFilterForModel("studentLearningProfile", claims),
-        },
-        select: { competenceId: true, masteryScore: true, masteryStatus: true },
-      })
-    : [];
+/**
+ * Ce qu'un élève devra maîtriser dans les prochaines semaines, et où il en est.
+ *
+ * Répond à la question qu'aucun élève en difficulté ne sait poser : « sur quoi
+ * dois-je travailler maintenant, et pourquoi ? ». Le lien entre le programme et
+ * le profil individuel est fait ici — c'est ce qui rend la planification utile
+ * à l'élève, et pas seulement à l'administration.
+ *
+ * Pure : les profils sont ceux que l'appelant affiche déjà, pour que « ce qui
+ * arrive » et le détail par compétence ne puissent pas se contredire.
+ */
+export function exigencesDepuisProgramme(
+  programme: ProgrammeAVenir,
+  profils: { competenceId: string; masteryScore: number; masteryStatus: string }[]
+): ExigenceAVenir[] {
+  const { semaineCourante, chapitres: aVenir } = programme;
   const parCompetence = new Map(profils.map((p) => [p.competenceId, p]));
 
   return aVenir.map((p) => {

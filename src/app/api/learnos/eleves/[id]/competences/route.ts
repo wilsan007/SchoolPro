@@ -4,10 +4,15 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, eleveScopeFilter, mergeFilters } from "@/lib/site-scope";
-import { exigencesAVenirPourEleve } from "@/lib/learnos/planification";
-import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
-import { getDemoNow } from "@/lib/demo-now";
+import { chapitresAVenir, exigencesDepuisProgramme } from "@/lib/learnos/planification";
+import { anneeActive } from "@/lib/annee-scolaire";
+import { getDemoDate } from "@/lib/demo-now";
 import { recalculerProfils, fusionnerProfil } from "@/lib/learnos/profile-recompute";
+import {
+  recommandationsPourProfils,
+  chargerBareme,
+  chargerGraphePrerequis,
+} from "@/lib/learnos/recommandations-a-la-date";
 
 /**
  * Profil de compétences d'un élève (LEARNOS).
@@ -26,6 +31,18 @@ import { recalculerProfils, fusionnerProfil } from "@/lib/learnos/profile-recomp
  * `masteryStatus`) à partir des preuves filtrées par `occurredAt <= demoDate`.
  * L'horizon démo filtre automatiquement les `LearningEvidence` ; nous
  * récupérons ces preuves filtrées et recalculons l'agrégat ici.
+ *
+ * Les recommandations stockées décrivent elles aussi l'état final : elles sont
+ * rejouées sur les profils recalculés, faute de quoi une compétence affichée
+ * « À reprendre » n'aurait aucune action en regard.
+ *
+ * PERMISSION
+ * ----------
+ * Les familles n'ont pas `eleves:read` (l'annuaire leur est fermé), mais les
+ * pages `/eleve` et `/parent` affichent ce profil : elles passent par
+ * `entrainement:read`, comme la route `evolution` voisine. Le périmètre
+ * personnel (`eleveScopeFilter`) reste la vraie barrière — un parent ne lit
+ * que ses enfants, un élève que son propre dossier.
  */
 export async function GET(
   req: NextRequest,
@@ -35,30 +52,53 @@ export async function GET(
   if (!session?.user?.tenantId) {
     return erreurJson("NON_AUTORISE");
   }
-  const denied = await checkPermission(session.user.role, "eleves:read");
+  const famille = session.user.role === "PARENT" || session.user.role === "STUDENT";
+  const denied = await checkPermission(
+    session.user.role,
+    famille ? "entrainement:read" : "eleves:read"
+  );
   if (denied) return denied;
-
   const { id: eleveId } = await params;
   const tenantId = session.user.tenantId;
 
   // Double contrôle : périmètre de site ET périmètre personnel — un parent ne
   // doit voir que ses enfants, un élève que son propre dossier.
-  const eleve = await prisma.eleve.findFirst({
-    where: mergeFilters(
-      { id: eleveId, tenantId },
-      siteFilterForModel("eleve", session.user),
-      eleveScopeFilter(session.user, null)
-    ),
-    select: { id: true, nom: true, prenom: true },
-  });
+  // Les lectures sont groupées en vagues parallèles : sur un pooler distant,
+  // chaque aller-retour coûte de l'ordre de la seconde, et les enchaîner un à
+  // un faisait attendre la fiche bien au-delà de ce que le calcul demande.
+  const [eleve, annee, demoDate] = await Promise.all([
+    prisma.eleve.findFirst({
+      where: mergeFilters(
+        { id: eleveId, tenantId },
+        siteFilterForModel("eleve", session.user),
+        eleveScopeFilter(session.user, null)
+      ),
+      select: {
+        id: true,
+        nom: true,
+        prenom: true,
+        classe: { select: { id: true, niveau: true } },
+      },
+    }),
+    anneeActive(tenantId),
+    getDemoDate(),
+  ]);
+  // Aucune donnée d'élève n'est lue avant ce contrôle.
   if (!eleve) {
     return erreurJson("ELEVE_INTROUVABLE");
   }
+  const anneeCourante = annee?.libelle ?? null;
+  const demoNow = demoDate ?? new Date();
 
-  const anneeCourante = await getAnneeCouranteLibelle(tenantId);
-  const demoNow = await getDemoNow();
+  // Sous date simulée, presque toutes les recommandations sont à reformuler :
+  // le graphe de prérequis part donc avec la vague, au lieu d'attendre qu'elle
+  // revienne. Hors date simulée il est rarement utile, et n'est lu qu'au besoin.
+  const graphe = demoDate ? chargerGraphePrerequis(tenantId) : undefined;
+  // Une promesse lancée en avance ne doit pas devenir un rejet non géré si une
+  // autre lecture de la vague échoue avant qu'on l'attende.
+  graphe?.catch(() => {});
 
-  const [profilsStockes, recommandations, evidencesFiltrees] = await Promise.all([
+  const [profilsStockes, recommandationsStockees, evidencesFiltrees, programme, bareme] = await Promise.all([
     prisma.studentLearningProfile.findMany({
       where: {
         tenantId,
@@ -125,6 +165,11 @@ export async function GET(
         occurredAt: true,
       },
     }),
+    // Ce qui arrive : le programme des prochaines semaines pour sa classe.
+    eleve.classe && annee
+      ? chapitresAVenir(tenantId, session.user, eleve.classe, annee, demoNow)
+      : null,
+    chargerBareme(tenantId),
   ]);
 
   // Recalculer les profils à partir des preuves filtrées par la date simulée.
@@ -136,8 +181,21 @@ export async function GET(
     fusionnerProfil(p, profilsRecalcules.get(p.competenceId))
   );
 
-  // Ce qui arrive : relie le programme de l'année au profil individuel.
-  const aVenir = await exigencesAVenirPourEleve(tenantId, eleveId, session.user);
+  const recommandations = await recommandationsPourProfils(
+    tenantId,
+    profils,
+    recommandationsStockees,
+    bareme,
+    graphe
+  );
 
-  return NextResponse.json({ eleve, profils, recommandations, aVenir });
+  // Relie le programme au profil individuel — avec les profils affichés, pour
+  // que « ce qui arrive » ne contredise pas le détail par compétence.
+  const aVenir = programme ? exigencesDepuisProgramme(programme, profils) : [];
+  return NextResponse.json({
+    eleve: { id: eleve.id, nom: eleve.nom, prenom: eleve.prenom },
+    profils,
+    recommandations,
+    aVenir,
+  });
 }
