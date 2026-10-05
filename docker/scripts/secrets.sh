@@ -171,6 +171,9 @@ TWO_FACTOR_SECRET=$(gen_hex)
 # sensibles vers l'écran de configuration : si TWO_FACTOR_SECRET est vide,
 # l'accès est alors bloqué sans issue.
 TWO_FACTOR_GRACE_DAYS=0
+# Comptes dispensés de l'obligation (adresses séparées par des virgules) :
+# réservé à un compte de démonstration partagé. Vide = aucune dispense.
+TWO_FACTOR_EXEMPT_EMAILS=
 
 # --- Signal de vie (dead man's switch) ---------------------------------
 # C'est l'ABSENCE de ping qui déclenche l'alerte, chez un tiers : seul

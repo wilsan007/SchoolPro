@@ -243,6 +243,7 @@ services:
       # d'obligation. La VÉRIFICATION d'un 2FA déjà activé, elle, est
       # toujours en vigueur, quelle que soit cette valeur.
       TWO_FACTOR_GRACE_DAYS: ${TWO_FACTOR_GRACE_DAYS:-0}
+      TWO_FACTOR_EXEMPT_EMAILS: ${TWO_FACTOR_EXEMPT_EMAILS:-}
       # Clé de chiffrement des secrets TOTP en base. La perdre rend
       # inutilisables toutes les configurations 2FA existantes.
       TWO_FACTOR_SECRET: ${TWO_FACTOR_SECRET:-${AUTH_SECRET}}

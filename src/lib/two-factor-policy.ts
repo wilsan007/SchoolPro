@@ -49,7 +49,36 @@ export const ROLES_2FA_OBLIGATOIRE: readonly Role[] = [
   "CAISSIER",
 ] as const;
 
-export function deuxFacteursObligatoire(role: Role | null | undefined): boolean {
+/**
+ * Comptes dispensés de l'obligation, par adresse e-mail.
+ *
+ * Prévu pour un compte de DÉMONSTRATION : il porte un rôle sensible mais
+ * ne protège que des données fictives, et il est partagé entre plusieurs
+ * personnes — un second facteur lié à un seul téléphone le rend
+ * inutilisable. `TWO_FACTOR_EXEMPT_EMAILS` liste ces adresses, séparées
+ * par des virgules.
+ *
+ * La dispense lève l'OBLIGATION, pas la vérification : tant que le 2FA
+ * reste activé sur le compte, le code est toujours exigé à la connexion.
+ * Le compte dispensé doit donc encore le désactiver lui-même, depuis
+ * « Sécurité du compte ». Vide par défaut : personne n'est dispensé sans
+ * décision explicite.
+ */
+export function exempteDeuxFacteurs(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const cible = email.trim().toLowerCase();
+  return (process.env.TWO_FACTOR_EXEMPT_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(cible);
+}
+
+export function deuxFacteursObligatoire(
+  role: Role | null | undefined,
+  email?: string | null
+): boolean {
+  if (exempteDeuxFacteurs(email)) return false;
   return !!role && ROLES_2FA_OBLIGATOIRE.includes(role);
 }
 
@@ -73,14 +102,16 @@ export function delaiActivation2FA(): number {
  * @param role              rôle actif
  * @param twoFactorEnabled  2FA déjà configurée ?
  * @param compteCreeLe      date de création du compte, point de départ du délai
+ * @param email             adresse du compte, pour la dispense (`exempteDeuxFacteurs`)
  */
 export function activation2FARequise(
   role: Role | null | undefined,
   twoFactorEnabled: boolean,
-  compteCreeLe: Date | null | undefined
+  compteCreeLe: Date | null | undefined,
+  email?: string | null
 ): boolean {
   if (twoFactorEnabled) return false;
-  if (!deuxFacteursObligatoire(role)) return false;
+  if (!deuxFacteursObligatoire(role, email)) return false;
 
   const delai = delaiActivation2FA();
   if (delai === 0) return false;

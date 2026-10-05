@@ -38,7 +38,7 @@ export default async function SecuritePage() {
         <DeuxFacteursPanel
           actifInitial={user.twoFactorEnabled}
           derniereVerification={user.twoFactorVerifiedAt?.toISOString() ?? null}
-          obligatoire={deuxFacteursObligatoire(session.user.role)}
+          obligatoire={deuxFacteursObligatoire(session.user.role, session.user.email)}
         />
       </div>
     </>

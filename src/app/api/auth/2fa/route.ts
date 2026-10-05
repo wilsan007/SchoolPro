@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         // Un rôle sensible ne peut pas retirer sa propre protection. Le
         // contrôle est ICI et pas seulement dans l'interface : masquer un
         // bouton n'empêche personne d'appeler l'API directement.
-        if (deuxFacteursObligatoire(session.user.role)) {
+        if (deuxFacteursObligatoire(session.user.role, session.user.email)) {
           return erreurJson("DEUX_FACTEURS_OBLIGATOIRE");
         }
 
