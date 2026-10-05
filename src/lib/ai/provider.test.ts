@@ -17,6 +17,7 @@ const ENV_KEYS = [
   "GROQ_MODEL",
   "GLM_API_KEY",
   "GLM_MODEL",
+  "GROQ_VISION_MODEL",
 ] as const;
 
 let saved: Record<string, string | undefined>;

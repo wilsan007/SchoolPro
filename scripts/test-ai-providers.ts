@@ -45,9 +45,11 @@ async function main() {
     ["OLLAMA_BASE_URL", process.env.OLLAMA_BASE_URL, "local, gratuit illimité"],
     ["OLLAMA_MODEL", process.env.OLLAMA_MODEL, "(défaut : gemma2:2b)"],
     ["GROQ_API_KEY", process.env.GROQ_API_KEY && "gsk_…(masquée)", "cloud, palier gratuit"],
-    ["GROQ_MODEL", process.env.GROQ_MODEL, "(défaut : llama-3.1-8b-instant)"],
+    ["GROQ_MODEL", process.env.GROQ_MODEL, "(défaut : openai/gpt-oss-20b)"],
+    ["OPENROUTER_MODELES_GRATUITS", process.env.OPENROUTER_MODELES_GRATUITS, "cloud gratuit, avant le payant"],
     ["GLM_API_KEY", process.env.GLM_API_KEY && "sk-…(masquée)", "payant à l'usage"],
     ["GLM_MODEL", process.env.GLM_MODEL, ""],
+    ["AI_PALIER_PAYANT", process.env.AI_PALIER_PAYANT, "false = jamais de modèle facturé"],
   ];
   for (const [cle, valeur, note] of variables) {
     const etat = valeur ? `✓ ${valeur}` : "— absent";

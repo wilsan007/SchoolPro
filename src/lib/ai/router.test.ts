@@ -36,6 +36,9 @@ const ENV_KEYS = [
   "OLLAMA_VISION_MODEL",
   "GROQ_VISION_MODEL",
   "GLM_VISION_MODEL",
+  "OPENROUTER_MODELES_GRATUITS",
+  "OPENROUTER_VISION_GRATUIT",
+  "AI_PALIER_PAYANT",
 ] as const;
 
 let saved: Record<string, string | undefined>;
@@ -364,6 +367,62 @@ describe("repli sur sortie inexploitable", () => {
   });
 });
 
+const MESSAGES = [{ role: "user" as const, content: "bonjour" }];
+
+describe("plusieurs modèles pour un fournisseur", () => {
+  it("envoie UN modèle à la fois, jamais la liste entière", async () => {
+    process.env.GROQ_API_KEY = "gsk_test";
+    process.env.GROQ_MODEL = "modele-a, modele-b";
+    const fetchMock = mockFetchAlways(200, GROQ_OK);
+
+    const r = await routeAi(TASK, MESSAGES);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).model).toBe("modele-a");
+    expect(r.meta.modelName).toBe("modele-a");
+  });
+
+  it("passe au modèle suivant quand le quota du premier est dépassé", async () => {
+    process.env.GROQ_API_KEY = "gsk_test";
+    process.env.GROQ_MODEL = "modele-a,modele-b";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(async () => mockFetchOnce(429, "quota"))
+      .mockImplementationOnce(async () => mockFetchOnce(200, GROQ_OK));
+
+    const r = await routeAi(TASK, MESSAGES);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(r.meta.providerName).toBe("groq");
+    expect(r.meta.modelName).toBe("modele-b");
+  });
+});
+
+describe("palier payant", () => {
+  beforeEach(() => {
+    process.env.GLM_API_KEY = "sk-test";
+    process.env.GLM_MODEL = "modele-payant";
+  });
+
+  it("essaie le palier OpenRouter gratuit avant le modèle facturé", () => {
+    process.env.OPENROUTER_MODELES_GRATUITS = "modele:free";
+    expect(availableProviders()).toEqual(["openrouter-gratuit", "glm"]);
+  });
+
+  it("AI_PALIER_PAYANT=false écarte le fournisseur facturé", () => {
+    process.env.OPENROUTER_MODELES_GRATUITS = "modele:free";
+    process.env.AI_PALIER_PAYANT = "false";
+    expect(availableProviders()).toEqual(["openrouter-gratuit"]);
+  });
+
+  it("échoue sans payer quand seul le payant reste, même s'il est forcé", async () => {
+    process.env.AI_PALIER_PAYANT = "false";
+    const fetchMock = mockFetchAlways(200, GROQ_OK);
+
+    await expect(
+      routeAi({ ...TASK, forceProvider: "glm" }, MESSAGES)
+    ).rejects.toThrow(/AI_PALIER_PAYANT/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("availableProviders", () => {
   it("ne liste que les fournisseurs réellement configurés", () => {
     expect(availableProviders()).toEqual([]);
@@ -379,8 +438,11 @@ describe("availableProviders", () => {
     process.env.OLLAMA_BASE_URL = "http://localhost:11434";
     process.env.GROQ_API_KEY = "gsk_test";
 
-    // Ollama n'a pas de modèle vision par défaut (il faut l'avoir téléchargé) ;
-    // Groq en a un, servi par le même quota gratuit.
+    // Aucun modèle vision n'est supposé : ni chez Ollama (il faut l'avoir
+    // téléchargé), ni chez Groq (son catalogue change).
+    expect(availableProviders(false, true)).toEqual([]);
+
+    process.env.GROQ_VISION_MODEL = "modele-vision";
     expect(availableProviders(false, true)).toEqual(["groq"]);
 
     process.env.OLLAMA_VISION_MODEL = "llama3.2-vision";
@@ -423,6 +485,7 @@ describe("lecture d'images", () => {
   it("emploie le modèle multimodal, pas le modèle texte configuré", async () => {
     process.env.GROQ_API_KEY = "gsk_test";
     process.env.GROQ_MODEL = "llama-3.1-8b-instant";
+    process.env.GROQ_VISION_MODEL = "modele-vision";
     const fetchMock = mockFetchAlways(200, {
       model: "vision",
       choices: [{ message: { content: "Exercice 1 : 3/4" } }],
@@ -432,7 +495,7 @@ describe("lecture d'images", () => {
     expect(r.content).toBe("Exercice 1 : 3/4");
 
     const corps = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(corps.model).not.toBe("llama-3.1-8b-instant");
+    expect(corps.model).toBe("modele-vision");
     // Les fragments passent tels quels : l'API de Groq est compatible OpenAI.
     expect(corps.messages[0].content[1].type).toBe("image_url");
   });

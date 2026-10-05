@@ -728,14 +728,14 @@ export async function genererQuestions(
     .join("\n");
 
   // Pour le somali, on force le fournisseur GLM (OpenRouter) avec un modèle
-  // frontier : les petits modèles (llama-3.1-8b de Groq, gemma2:2b d'Ollama)
+  // frontier : les modèles ouverts (gpt-oss de Groq, gemma2:2b d'Ollama)
   // ne maîtrisent pas le somali — une langue sous-ressourcie. Sans ce verrou,
   // le routeur essaierait Groq d'abord et renverrait du somali dégradé.
   //
   // Le modèle est configurable via AI_MODEL_SOMALI pour permettre de tester
   // différents modèles (Claude, GPT-4o) sans modifier le code.
   const estSomali = langue === "so";
-  const modeleSomali = process.env.AI_MODEL_SOMALI ?? "anthropic/claude-3.5-sonnet";
+  const modeleSomali = process.env.AI_MODEL_SOMALI ?? "anthropic/claude-sonnet-5";
 
   const resultat = await routeAi(
     {

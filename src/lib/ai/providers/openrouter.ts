@@ -1,22 +1,14 @@
 /**
- * Fournisseurs OpenRouter — deux instances d'un même mécanisme.
+ * Fournisseur OpenRouter gratuit — modèles suffixés `:free` (`costTier: 1`).
  *
- * OpenRouter sert aussi bien des modèles gratuits (identifiants suffixés
- * `:free`) que des modèles facturés au jeton. Le protocole est le même, seuls
- * changent la liste de modèles et le palier de coût annoncé au routeur. D'où
- * une fabrique plutôt que deux copies :
+ * OpenRouter sert aussi bien des modèles gratuits que des modèles facturés au
+ * jeton. Ce module porte le palier gratuit, essayé après Groq et AVANT le
+ * palier payant (`providers/glm.ts`, qui lit `GLM_MODEL`) : c'est lui qui évite
+ * la facture quand le quota Groq est épuisé.
  *
- *   - `openrouterGratuitProvider` (`costTier: 1`) — modèles `:free`, essayés
- *     AVANT le palier payant. C'est lui qui évite la facture quand le quota
- *     Groq est épuisé.
- *   - `glmProvider` (`costTier: 2`) — dernier recours facturé. Il lit
- *     `GLM_MODEL`, que l'assistant emploi du temps (`api/ai/chat`) et la
- *     génération d'appréciations utilisent aussi en direct : le laisser
- *     inchangé évite de dégrader ces deux fonctions en réglant le chatbot.
- *
- * Les deux partagent `GLM_API_KEY` et `GLM_API_BASE_URL` — c'est le même compte
- * OpenRouter. Ne pas configurer `OPENROUTER_MODELES_GRATUITS` désactive
- * simplement l'instance gratuite.
+ * Les deux paliers partagent `GLM_API_KEY` et `GLM_API_BASE_URL` — c'est le
+ * même compte OpenRouter. Ne pas configurer `OPENROUTER_MODELES_GRATUITS`
+ * désactive simplement ce palier.
  *
  * Ce module **enrobe** `glm-client.ts` sans le modifier : ce client porte un
  * repli maison sur les balises `<tool_call>` que certains backends OpenRouter
@@ -33,6 +25,7 @@ import {
 import {
   AiUnavailableError,
   contientImage,
+  essayerModeles,
   type AiProvider,
   type AiMessage,
   type AiGenerateOptions,
@@ -88,35 +81,44 @@ function creerFournisseurOpenRouter(config: ConfigOpenRouter): AiProvider {
         );
       }
 
-      const model = avecImage ? modelVision : (options?.model ?? fournisseur.modelIds()[0]);
+      // Plusieurs modèles gratuits peuvent être déclarés : quand l'un est
+      // saturé ou retiré du catalogue, le suivant est essayé avant de rendre
+      // la main au routeur.
+      const modeles = avecImage
+        ? [modelVision as string]
+        : options?.model
+          ? [options.model]
+          : fournisseur.modelIds();
 
-      let result: Awaited<ReturnType<typeof generateChat>>;
-      try {
-        result = await generateChat(messages as ChatMessage[], {
-          temperature: options?.temperature,
-          maxTokens: options?.maxTokens,
-          tools: options?.tools as ToolDefinition[] | undefined,
-          model,
-        });
-      } catch (error) {
-        // Convertir en indisponibilité laisse le routeur essayer le modèle
-        // suivant, puis produire un `AiAllProvidersFailedError` qui récapitule
-        // *toutes* les tentatives. Le message d'origine (dont le code HTTP)
-        // est conservé, donc rien n'est masqué.
-        const reason = error instanceof Error ? error.message : String(error);
-        if (error instanceof AiConfigError) {
-          throw new AiUnavailableError(`${config.nom} non configuré : ${reason}`, config.nom);
+      const { result, model } = await essayerModeles(modeles, config.nom, async (model) => {
+        try {
+          const result = await generateChat(messages as ChatMessage[], {
+            temperature: options?.temperature,
+            maxTokens: options?.maxTokens,
+            tools: options?.tools as ToolDefinition[] | undefined,
+            model,
+          });
+          return { result, model };
+        } catch (error) {
+          // Convertir en indisponibilité laisse essayer le modèle suivant, puis
+          // le routeur produire un `AiAllProvidersFailedError` qui récapitule
+          // *toutes* les tentatives. Le message d'origine (dont le code HTTP)
+          // est conservé, donc rien n'est masqué.
+          const reason = error instanceof Error ? error.message : String(error);
+          if (error instanceof AiConfigError) {
+            throw new AiUnavailableError(`${config.nom} non configuré : ${reason}`, config.nom);
+          }
+          throw new AiUnavailableError(`${config.nom} (${model}) : ${reason}`, config.nom);
         }
-        throw new AiUnavailableError(`${config.nom} : ${reason}`, config.nom);
-      }
+      });
 
       return {
         content: result.content,
         toolCalls: result.toolCalls,
         meta: {
           providerName: config.nom,
-          modelName: model ?? "unknown",
-          modelVersion: model ?? "unknown",
+          modelName: model,
+          modelVersion: model,
           promptVersion: options?.promptVersion ?? "unversioned",
           latencyMs: Date.now() - started,
           // `glm-client` n'expose pas le bloc `usage` d'OpenRouter.
@@ -143,12 +145,4 @@ export const openrouterGratuitProvider = creerFournisseurOpenRouter({
   costTier: 1,
   varModeles: "OPENROUTER_MODELES_GRATUITS",
   varVision: "OPENROUTER_VISION_GRATUIT",
-});
-
-/** Palier facturé au jeton — dernier recours, et seulement s'il est configuré. */
-export const glmProvider = creerFournisseurOpenRouter({
-  nom: "glm",
-  costTier: 2,
-  varModeles: "GLM_MODEL",
-  varVision: "GLM_VISION_MODEL",
 });

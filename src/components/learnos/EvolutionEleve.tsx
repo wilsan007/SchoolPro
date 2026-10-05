@@ -17,6 +17,14 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { texteErreur } from "@/lib/erreurs-client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  competencesDisponibles,
+  construireChronologie,
+  granularitePour,
+  matieresDisponibles,
+  type PointChronologie,
+} from "@/lib/learnos/chronologie-maitrise";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -142,12 +150,21 @@ const TRAJECTOIRE_CONFIG = {
   },
 };
 
+/** Valeur des sélecteurs pour « pas de filtre » (Radix refuse la chaîne vide). */
+const TOUT = "__tout__";
+
+function dateCourte(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
 // ── Composant principal ─────────────────────────────────────────────────────
 
 export function EvolutionEleve({ eleveId }: { eleveId: string }) {
   const t = useTranslations("learnos.evolution");
   const te = useTranslations("learnos.erreurs");
   const tc = useTranslations("learnos.commun");
+  const [matiereId, setMatiereId] = useState<string>(TOUT);
+  const [competenceId, setCompetenceId] = useState<string>(TOUT);
 
   const [data, setData] = useState<EvolutionData | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -189,19 +206,27 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
 
   // ── Données dérivées ──────────────────────────────────────────────────────
 
-  // Timeline des preuves pour le graphique en ligne.
-  const timelineData = useMemo(() => {
-    if (!data?.evidences) return [];
-    return data.evidences
-      .filter((e) => e.masterySignal != null)
-      .map((e) => ({
-        date: new Date(e.occurredAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }),
-        timestamp: new Date(e.occurredAt).getTime(),
-        mastery: Math.round(e.masterySignal * 100),
-        confidence: Math.round(e.confidence * 100),
-        matiere: e.matiere?.nom ?? e.competence?.chapitre?.matiere?.nom ?? "—",
-      }));
-  }, [data]);
+  // Périmètre du graphique de maîtrise. Les options sont dérivées des preuves
+  // de l'année affichée : un choix devenu introuvable (changement d'année)
+  // retombe sur « tout » au lieu de vider le graphique sans explication.
+  const matieres = useMemo(() => matieresDisponibles(data?.evidences ?? []), [data]);
+  const matiereActive = matieres.find((m) => m.id === matiereId) ?? null;
+  const competences = useMemo(
+    () => (matiereActive ? competencesDisponibles(data?.evidences ?? [], matiereActive.id) : []),
+    [data, matiereActive]
+  );
+  const competenceActive = competences.find((c) => c.id === competenceId) ?? null;
+
+  const filtreChronologie = useMemo(
+    () => ({ matiereId: matiereActive?.id ?? null, competenceId: competenceActive?.id ?? null }),
+    [matiereActive, competenceActive]
+  );
+  const timelineData = useMemo(
+    () => construireChronologie(data?.evidences ?? [], filtreChronologie),
+    [data, filtreChronologie]
+  );
+  const pointParCle = useMemo(() => new Map(timelineData.map((p) => [p.cle, p])), [timelineData]);
+  const aDesPreuves = (data?.evidences ?? []).some((e) => e.masterySignal != null);
 
   // Données pour le graphique prédictions vs réalité.
   const predictionsChartData = useMemo(() => {
@@ -467,13 +492,54 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
       )}
 
       {/* ── Graphique : timeline de la maîtrise ────────────────────────────── */}
-      {timelineData.length > 1 && (
+      {aDesPreuves && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              {t("timelineMaitrise")}
-            </CardTitle>
+          <CardHeader className="space-y-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                {t("timelineMaitrise")}
+              </CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {competenceActive
+                  ? `${matiereActive?.nom} — ${competenceActive.code} ${competenceActive.libelle}`
+                  : matiereActive?.nom ?? t("toutesMatieres")}
+                {" · "}
+                {t(granularitePour(filtreChronologie) === "JOUR" ? "unPointParJour" : "unPointParPreuve")}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                value={matiereActive?.id ?? TOUT}
+                onValueChange={(v) => {
+                  setMatiereId(v);
+                  setCompetenceId(TOUT);
+                }}
+              >
+                <SelectTrigger className="sm:w-56" aria-label={t("filtreMatiere")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TOUT}>{t("toutesMatieres")}</SelectItem>
+                  {matieres.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.nom}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {matiereActive && competences.length > 0 && (
+                <Select value={competenceActive?.id ?? TOUT} onValueChange={setCompetenceId}>
+                  <SelectTrigger className="sm:w-72" aria-label={t("filtreCompetence")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={TOUT}>{t("toutesCompetences")}</SelectItem>
+                    {competences.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.code} — {c.libelle}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-[200px] sm:h-[300px]">
@@ -481,9 +547,13 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
               <LineChart data={timelineData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                 <XAxis
-                  dataKey="date"
+                  dataKey="cle"
                   tick={{ fontSize: 11 }}
                   interval="preserveStartEnd"
+                  tickFormatter={(cle: string) => {
+                    const p = pointParCle.get(cle);
+                    return p ? dateCourte(p.timestamp) : "";
+                  }}
                 />
                 <YAxis
                   domain={[0, 100]}
@@ -491,11 +561,10 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
                   label={{ value: "%", angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
                 />
                 <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  formatter={(value: any, name: any) => [
-                    `${value}%`,
-                    name === "mastery" ? t("maitrise") : t("fiabilite"),
-                  ]}
+                  content={({ active, payload }) => {
+                    const p = payload?.[0]?.payload as PointChronologie | undefined;
+                    return active && p ? <InfobulleChronologie point={p} t={t} /> : null;
+                  }}
                 />
                 <Legend
                   formatter={(value) => (
@@ -519,7 +588,7 @@ export function EvolutionEleve({ eleveId }: { eleveId: string }) {
                   stroke="#a78bfa"
                   strokeWidth={1.5}
                   strokeDasharray="4 4"
-                  dot={false}
+                  dot={timelineData.length === 1 ? { r: 3 } : false}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -720,6 +789,45 @@ function PredictionRow({
           <AlertTriangle className="h-4 w-4 text-amber-500" />
         )}
       </div>
+    </div>
+  );
+}
+
+
+/** Détail d'un point survolé : dit toujours à quoi le point correspond. */
+function InfobulleChronologie({
+  point,
+  t,
+}: {
+  point: PointChronologie;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const matieres =
+    point.matieres.length > 3
+      ? t("nbMatieres", { n: point.matieres.length })
+      : point.matieres.join(", ");
+  return (
+    <div className="rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
+      <p className="font-medium">
+        {new Date(point.timestamp).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+      </p>
+      {matieres && <p className="text-muted-foreground">{matieres}</p>}
+      {point.nbPreuves > 1 ? (
+        <p className="text-muted-foreground">{t("moyenneDePreuves", { n: point.nbPreuves })}</p>
+      ) : (
+        <>
+          <p className="text-muted-foreground">
+            {point.competence ? `${point.competence.code} — ${point.competence.libelle}` : t("niveauMatiere")}
+          </p>
+          {point.evidenceType && (
+            <p className="text-muted-foreground">
+              {t.has(`typePreuve.${point.evidenceType}`) ? t(`typePreuve.${point.evidenceType}`) : point.evidenceType}
+            </p>
+          )}
+        </>
+      )}
+      <p className="mt-1" style={{ color: "#3b82f6" }}>{t("maitrise")} : {point.mastery}%</p>
+      <p style={{ color: "#a78bfa" }}>{t("fiabilite")} : {point.confidence}%</p>
     </div>
   );
 }

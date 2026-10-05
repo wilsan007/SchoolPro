@@ -34,6 +34,7 @@ import {
 } from "@/lib/ai/provider";
 import { ollamaProvider } from "@/lib/ai/providers/ollama";
 import { groqProvider } from "@/lib/ai/providers/groq";
+import { openrouterGratuitProvider } from "@/lib/ai/providers/openrouter";
 import { glmProvider } from "@/lib/ai/providers/glm";
 
 /**
@@ -75,7 +76,7 @@ export interface AiTask {
    * les fournisseurs moins chers : la génération en somali, par exemple, exige
    * un modèle frontier (Claude, GPT-4o) accessible uniquement via OpenRouter
    * (fournisseur `glm`). Sans ce verrou, le routeur essaierait Groq d'abord —
-   * dont le modèle par défaut (llama-3.1-8b) ne maîtrise pas le somali — et
+   * dont les modèles ouverts ne maîtrisent pas le somali — et
    * renverrait une réponse de mauvaise qualité sans basculer.
    */
   forceProvider?: string;
@@ -85,9 +86,22 @@ export interface AiTask {
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Ordre d'essai : trié par coût croissant à l'initialisation, pas à l'appel. */
-const PROVIDERS: AiProvider[] = [ollamaProvider, groqProvider, glmProvider].sort(
-  (a, b) => a.costTier - b.costTier
-);
+const PROVIDERS: AiProvider[] = [
+  ollamaProvider,
+  groqProvider,
+  openrouterGratuitProvider,
+  glmProvider,
+].sort((a, b) => a.costTier - b.costTier);
+
+/**
+ * `AI_PALIER_PAYANT=false` interdit tout fournisseur facturé au jeton, y
+ * compris quand une tâche le force : épuisé le gratuit, l'opération échoue
+ * explicitement au lieu de payer. Absente ou à toute autre valeur, la variable
+ * laisse le palier payant en dernier recours.
+ */
+function palierPayantInterdit(): boolean {
+  return process.env.AI_PALIER_PAYANT === "false";
+}
 
 /**
  * Fournisseurs utilisables pour cette tâche, du moins cher au plus cher.
@@ -104,9 +118,11 @@ function candidates(
   interactif = false,
   forceProvider?: string
 ): AiProvider[] {
+  const sansPayant = palierPayantInterdit();
   const utilisables = PROVIDERS.filter(
     (p) =>
       p.isAvailable() &&
+      (!sansPayant || p.costTier < 2) &&
       (!needsTools || p.supportsTools) &&
       (!needsVision || p.visionModelId() !== null) &&
       (!forceProvider || p.name === forceProvider)
@@ -251,8 +267,10 @@ export async function routeAi(
 
   if (chain.length === 0) {
     throw new AiAllProvidersFailedError(
-      needsVision
-        ? "Aucun fournisseur IA configuré ne lit les images (voir GROQ_VISION_MODEL / GLM_VISION_MODEL / OLLAMA_VISION_MODEL)."
+      task.forceProvider && palierPayantInterdit()
+        ? `Le fournisseur "${task.forceProvider}" exigé par "${task.action}" est indisponible ou interdit (AI_PALIER_PAYANT=false).`
+        : needsVision
+        ? "Aucun fournisseur IA configuré ne lit les images (voir OLLAMA_VISION_MODEL / GROQ_VISION_MODEL / OPENROUTER_VISION_GRATUIT / GLM_VISION_MODEL)."
         : needsTools
           ? "Aucun fournisseur IA configuré ne supporte le function calling (voir GROQ_API_KEY / GLM_API_KEY)."
           : "Aucun fournisseur IA configuré (voir OLLAMA_BASE_URL / GROQ_API_KEY / GLM_API_KEY dans .env).",

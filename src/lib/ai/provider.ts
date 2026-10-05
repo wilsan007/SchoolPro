@@ -205,6 +205,32 @@ export class AiAllProvidersFailedError extends Error {
   }
 }
 
+/**
+ * Essaie les modèles d'un même fournisseur l'un après l'autre.
+ *
+ * Les quotas gratuits se comptent par modèle : quand le premier renvoie 429,
+ * le suivant a encore le sien. Seule une indisponibilité fait passer au modèle
+ * suivant ; une erreur applicative remonte aussitôt, pour la même raison que
+ * dans le routeur. Si tous échouent, la dernière indisponibilité remonte et le
+ * routeur change de fournisseur.
+ */
+export async function essayerModeles<T>(
+  modeles: string[],
+  providerName: string,
+  appel: (modele: string) => Promise<T>
+): Promise<T> {
+  let derniere: AiUnavailableError | null = null;
+  for (const modele of modeles) {
+    try {
+      return await appel(modele);
+    } catch (error) {
+      if (!(error instanceof AiUnavailableError)) throw error;
+      derniere = error;
+    }
+  }
+  throw derniere ?? new AiUnavailableError(`${providerName} : aucun modèle configuré`, providerName);
+}
+
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
