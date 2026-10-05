@@ -5,6 +5,7 @@ import {
   evaluerCible,
   composerSelection,
   positionChapitre,
+  semaineDansLAnnee,
   statutInitial,
   PRIORITE_REGLE,
   type ContexteCompetence,
@@ -322,6 +323,22 @@ describe("position de la classe sur un chapitre", () => {
     expect(positionChapitre(plan("TRAITE"), 10, true)).toBe("A_VENIR");
     expect(positionChapitre(plan("TRAITE"), 27, true)).toBe("EN_COURS");
     expect(positionChapitre(plan("TRAITE"), 34, true)).toBe("VU");
+  });
+});
+
+describe("avant la rentrée", () => {
+  const rentree = new Date("2026-09-01T21:00:00.000Z");
+
+  // En août, rien n'a été enseigné : un chapitre prévu en semaine 1 est à
+  // venir, pas en cours.
+  it("ne situe pas la classe en première semaine pendant les vacances", () => {
+    const semaine = semaineDansLAnnee(new Date("2026-08-16T10:00:00.000Z"), rentree);
+    expect(semaine).toBe(0);
+    expect(positionChapitre({ statut: "PREVU", semaineDebut: 1, semaineFin: 22 }, semaine, true)).toBe("A_VENIR");
+  });
+
+  it("compte normalement une fois l'année commencée", () => {
+    expect(semaineDansLAnnee(new Date("2026-09-03T10:00:00.000Z"), rentree)).toBe(1);
   });
 });
 

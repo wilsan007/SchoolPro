@@ -29,6 +29,7 @@ function borner(v: number, min: number, max: number): number {
  */
 const NIVEAUX_FIXES: Record<string, number> = {
   "ele-ambouli-2025-0445": 17.75,
+  "ele-ambouli-2026-0449": 17.75,
 };
 
 /**

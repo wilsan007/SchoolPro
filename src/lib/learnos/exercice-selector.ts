@@ -300,6 +300,18 @@ export function evaluerCible(
   return null;
 }
 
+/**
+ * Semaine scolaire, ou 0 tant que l'année n'a pas commencé.
+ *
+ * `semaineScolaire` ne descend jamais sous 1 : avant la rentrée, elle situe la
+ * classe en première semaine. Pendant les vacances d'été, les chapitres de
+ * septembre passaient ainsi pour « en cours », et l'élève était sondé sur un
+ * programme qu'aucun cours n'avait encore ouvert.
+ */
+export function semaineDansLAnnee(date: Date, debutAnnee: Date): number {
+  return date < debutAnnee ? 0 : semaineScolaire(date, debutAnnee);
+}
+
 export type PositionChapitre = "A_VENIR" | "EN_COURS" | "VU";
 
 /**
@@ -521,7 +533,7 @@ export async function contextesPourEleve(
   });
   if (!annee) return [];
 
-  const semaineCourante = semaineScolaire(aujourdHui, annee.dateDebut);
+  const semaineCourante = semaineDansLAnnee(aujourdHui, annee.dateDebut);
 
   // Chapitres du niveau, avec leurs compétences et les prérequis de celles-ci.
   const chapitres = await prisma.chapitre.findMany({
@@ -736,7 +748,7 @@ export async function matieresPourEntrainement(
     select: { dateDebut: true },
   });
   if (!annee) return [];
-  const semaineCourante = semaineScolaire(options.aujourdHui ?? new Date(), annee.dateDebut);
+  const semaineCourante = semaineDansLAnnee(options.aujourdHui ?? new Date(), annee.dateDebut);
 
   const planifications = await prisma.planificationChapitre.findMany({
     where: {
