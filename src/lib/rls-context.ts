@@ -104,6 +104,9 @@ export function withSystemContext<T>(reason: string, fn: () => Promise<T>): Prom
  * La raison est obligatoire et apparaît dans l'origine du contexte.
  */
 export async function withAllSites<T>(reason: string, fn: () => Promise<T>): Promise<T> {
+  // Interrupteur coupé : la base ne filtre pas par site, il n'y a rien à lever
+  // (et aucune raison de résoudre la session pour autant).
+  if ((process.env.RLS_SITE_SCOPE ?? "off").toLowerCase() !== "enforce") return fn();
   let ctx = getRlsContext();
   if (!ctx) {
     const { resolveRlsContextFromSession } = await import("@/lib/rls-session");

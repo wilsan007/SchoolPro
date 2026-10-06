@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { withAllSites } from "@/lib/rls-context";
 import { fuzzyFind } from "@/lib/text-match";
 import { infererColonnes, valeurChamp } from "@/lib/column-inference";
 import { type PlanImport, type LigneImport, type ResultatImport } from "./types";
@@ -185,7 +186,7 @@ export async function appliquerImportEdtExternes(
       // Vérifier qu'une indispo identique n'existe pas déjà (même enseignant,
       // jour, heures, période) pour éviter les doublons à la ré-import.
       // eslint-disable-next-line ecolpro/require-site-filter -- import: dédoublonnage par clé métier
-      const existant = await prisma.indisponibiliteEnseignant.findFirst({
+      const existant = await withAllSites("import : dédoublonnage des indisponibilités", () => prisma.indisponibiliteEnseignant.findFirst({
         where: {
           tenantId,
           enseignantId: ligne.donnees.enseignantId,
@@ -194,7 +195,7 @@ export async function appliquerImportEdtExternes(
           heureFin: ligne.donnees.heureFin,
           ...(opts.periodeId ? { periodeId: opts.periodeId } : { periodeId: null }),
         },
-      });
+      }));
 
       if (existant) {
         ignores++;

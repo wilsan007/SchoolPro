@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { withAllSites } from "@/lib/rls-context";
 import { niveauStocke } from "@/lib/niveau-display";
 import { type PlanImport, type ResultatImport } from "./types";
 import { type DonneesEnseignant } from "./enseignants";
@@ -51,17 +52,17 @@ export async function appliquerImportEnseignants(
 
   // Précharger les matières et classes du tenant pour résolution par nom
   // eslint-disable-next-line ecolpro/require-site-filter -- import batch, résolution globale par tenant
-  const matieres = await prisma.matiere.findMany({
+  const matieres = await withAllSites("import : résolution des matières de l'établissement", () => prisma.matiere.findMany({
     where: { tenantId },
     select: { id: true, nom: true },
-  });
+  }));
   const matiereParNom = new Map(matieres.map((m) => [m.nom.toLowerCase(), m.id]));
 
   // eslint-disable-next-line ecolpro/require-site-filter -- import batch, résolution globale par tenant
-  const classes = await prisma.classe.findMany({
+  const classes = await withAllSites("import : résolution des classes de l'établissement", () => prisma.classe.findMany({
     where: { tenantId, annee: opts.annee },
     select: { id: true, nom: true, siteId: true },
-  });
+  }));
   const classeParNom = new Map(classes.map((c) => [c.nom.toLowerCase(), c]));
 
   for (const ligne of plan.lignes) {

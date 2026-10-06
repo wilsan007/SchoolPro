@@ -16,7 +16,7 @@ const mockPrismaObj = vi.hoisted(() => ({
   anneesScolaires: { findFirst: vi.fn() },
   eleve: { findMany: vi.fn() },
   tarifNiveau: { findMany: vi.fn() },
-  facture: { findFirst: vi.fn(), create: vi.fn() },
+  facture: { findMany: vi.fn(), create: vi.fn() },
   // Réservation du numéro : `next_facture_numeros` renvoie le premier du bloc.
   $queryRaw: vi.fn(async () => [{ premier: 1 }]),
   tenant: { findMany: vi.fn() },
@@ -79,7 +79,7 @@ beforeEach(() => {
   });
   mockPrisma.eleve.findMany.mockResolvedValue([eleveActif()]);
   mockPrisma.tarifNiveau.findMany.mockResolvedValue([tarifGrille()]);
-  mockPrisma.facture.findFirst.mockResolvedValue(null);
+  mockPrisma.facture.findMany.mockResolvedValue([]);
   mockPrisma.facture.create.mockResolvedValue({ id: "fac-1" });
   mockPrisma.tenant.findMany.mockResolvedValue([{ id: "t1", name: "École A" }]);
   mockAnneeActive.mockResolvedValue("2025-2026");
@@ -149,8 +149,7 @@ describe("genererMensualitesPourTenant", () => {
       eleveActif({ id: "e2" }),
       eleveActif({ id: "e3", classe: { niveau: "Niveau inconnu", nom: "?" } }),
     ]);
-    mockPrisma.facture.findFirst.mockImplementation(async ({ where }: { where: { eleveId: string } }) =>
-      where.eleveId === "e2" ? { id: "deja" } : null);
+    mockPrisma.facture.findMany.mockResolvedValue([{ eleveId: "e2" }]);
 
     const res = await genererMensualitesPourTenant({ tenantId: "t1", annee: "2025-2026", mois: 1, dryRun: true });
 
@@ -159,6 +158,19 @@ describe("genererMensualitesPourTenant", () => {
     });
     expect(mockPrisma.facture.create).not.toHaveBeenCalled();
     expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("cherche les élèves déjà facturés en UNE requête, quel que soit l'effectif", async () => {
+    mockPrisma.eleve.findMany.mockResolvedValue(
+      Array.from({ length: 500 }, (_, i) => eleveActif({ id: `e${i}` }))
+    );
+    mockPrisma.facture.findMany.mockResolvedValue([{ eleveId: "e7" }, { eleveId: "e8" }]);
+
+    const res = await genererMensualitesPourTenant({ tenantId: "t1", annee: "2025-2026", mois: 1, dryRun: true });
+
+    expect(mockPrisma.facture.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.facture.findMany.mock.calls[0][0].where).toMatchObject({ tenantId: "t1", libelle: "Scolarité Janvier 2025-2026" });
+    expect(res).toMatchObject({ generated: 498, dejaFactures: 2 });
   });
 
   it("signale une option demandée que la grille ne chiffre pas, au lieu de l'ignorer en silence", async () => {
@@ -267,7 +279,7 @@ describe("genererMensualitesPourTenant", () => {
     expect(whereEleve.AND).toEqual([{ siteId: { in: ["s1"] } }]);
 
     // La même règle s'applique à la recherche de doublon sur les factures.
-    const whereFacture = mockPrisma.facture.findFirst.mock.calls[0][0].where;
+    const whereFacture = mockPrisma.facture.findMany.mock.calls[0][0].where;
     expect(whereFacture.AND).toEqual([{ siteId: { in: ["s1"] } }]);
   });
 });

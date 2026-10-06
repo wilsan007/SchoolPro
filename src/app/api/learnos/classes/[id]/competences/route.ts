@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withAllSites } from "@/lib/rls-context";
 import { erreurJson } from "@/lib/erreurs-api";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -90,7 +91,7 @@ export async function GET(
   // La fuite est nulle : les compétences ne contiennent aucune donnée
   // sensible — ce sont des libellés pédagogiques publics.
   // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- référentiel national + tenant, cf. ci-dessus
-  const competences = await prisma.competence.findMany({
+  const competences = await withAllSites("référentiel national et de l'établissement", () => prisma.competence.findMany({
     where: {
       chapitre: { niveau: classe.niveau },
       // Compétences du tenant OU du référentiel national (tenantId null)
@@ -118,7 +119,7 @@ export async function GET(
       { chapitre: { ordre: "asc" } },
       { ordre: "asc" },
     ],
-  });
+  }));
 
   if (competences.length === 0) {
     return NextResponse.json({

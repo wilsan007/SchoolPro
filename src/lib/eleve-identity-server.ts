@@ -14,6 +14,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { withAllSites } from "@/lib/rls-context";
 import { identityKey, normalizeDate, type Identite } from "@/lib/eleve-identity";
 
 export interface DoublonTrouve {
@@ -40,7 +41,7 @@ export async function trouverDoublon(
   if (cle.endsWith("|")) return null; // pas de date : aucune clé fiable
 
   // eslint-disable-next-line ecolpro/require-site-filter -- unicité d'identité au niveau tenant, par construction
-  const existant = await prisma.eleve.findFirst({
+  const existant = await withAllSites("unicité d'identité dans l'établissement", () => prisma.eleve.findFirst({
     where: {
       tenantId,
       identiteKey: cle,
@@ -54,7 +55,7 @@ export async function trouverDoublon(
       deletedAt: true,
       classe: { select: { nom: true } },
     },
-  });
+  }));
 
   if (!existant) return null;
   return {
@@ -90,10 +91,10 @@ export async function resoudreIdentiteKey(
   if (!options.forcer) return base; // laissera la contrainte refuser l'écriture
 
   // eslint-disable-next-line ecolpro/require-site-filter -- unicité d'identité au niveau tenant, par construction
-  const voisins = await prisma.eleve.findMany({
+  const voisins = await withAllSites("unicité d'identité dans l'établissement", () => prisma.eleve.findMany({
     where: { tenantId, identiteKey: { startsWith: base } },
     select: { identiteKey: true },
-  });
+  }));
   const prises = new Set(voisins.map((v) => v.identiteKey));
   let rang = 2;
   while (prises.has(`${base}#${rang}`)) rang++;

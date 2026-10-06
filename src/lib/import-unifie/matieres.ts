@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { withAllSites } from "@/lib/rls-context";
 import { infererColonnes, valeurChamp } from "@/lib/column-inference";
 import { type PlanImport, type LigneImport } from "./types";
 
@@ -41,9 +42,9 @@ export async function analyserMatieres(
     }
 
     // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- filtré par tenantId
-    const existe = !!(await prisma.matiere.findFirst({
+    const existe = !!(await withAllSites("import : dédoublonnage des matières", () => prisma.matiere.findFirst({
       where: { OR: [{ nom, tenantId }, { code, tenantId }].filter((c) => c.code || c.nom) },
-    }));
+    })));
 
     lignes.push({
       numero: i + 2,

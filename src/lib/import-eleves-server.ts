@@ -7,6 +7,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { withAllSites } from "@/lib/rls-context";
 import { siteFilterForModel, mergeFilters, type SessionSiteClaims } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { normalizeName } from "@/lib/eleve-identity";
@@ -150,10 +151,10 @@ export async function preparerPlan(
  */
 export async function dernierMatricule(tenantId: string, annee: number): Promise<string | null> {
   // eslint-disable-next-line ecolpro/require-site-filter -- unicité du matricule au niveau tenant, par construction
-  const dernier = await prisma.eleve.findFirst({
+  const dernier = await withAllSites("unicité du matricule dans l'établissement", () => prisma.eleve.findFirst({
     where: { tenantId, matricule: { startsWith: `${annee}-` } },
     orderBy: { matricule: "desc" },
     select: { matricule: true },
-  });
+  }));
   return dernier?.matricule ?? null;
 }

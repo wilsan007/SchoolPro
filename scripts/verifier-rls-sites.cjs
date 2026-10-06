@@ -6,7 +6,8 @@
  * Lecture seule. Pour chaque table rattachée à un site, compare ce qu'un rôle
  * SOUMIS à la RLS voit dans chaque périmètre avec le compte de référence :
  *   hérité (ancien contexte) et 'all' → tout le tenant ;
- *   'sites' [A]                       → lignes du site A + lignes sans site ;
+ *   'sites' [A]                       → au plus les lignes du site A + celles
+ *                                       sans site, et aucune d'un autre site ;
  *   'sites' [A, B]                    → tout ;
  *   'none'                            → rien.
  * Tout s'exécute dans des transactions annulées.
@@ -110,7 +111,17 @@ const TENANT_DU_PARENT = {
       for (const [nom, [ctx, attendu]] of Object.entries(cas)) {
         const vu = await voir(ctx);
         ligne[nom] = vu;
-        if (vu !== attendu) ecarts.push(`${t.nom} [${nom}] : vu ${vu}, attendu ${attendu}`);
+        // Borné à un site, une ligne peut aussi être masquée parce que son
+        // parent obligatoire est sur l'autre site (section 4 de la migration) :
+        // on vérifie donc un plafond, et plus bas l'absence de ligne étrangère.
+        const conforme = nom === "sites_A" ? vu <= attendu : vu === attendu;
+        if (!conforme) ecarts.push(`${t.nom} [${nom}] : vu ${vu}, attendu ${nom === "sites_A" ? "au plus " : ""}${attendu}`);
+      }
+      // Aucune ligne rattachée à un AUTRE site ne doit être visible.
+      if (t.a_site) {
+        const r = await c.query(`SET LOCAL ROLE ${ROLE}; select set_app_context(${T}, ${lit(A)}, ${lit(A)}, false, 'sites'); select count(*)::int n from "${t.nom}" where "siteId" is not null and "siteId" <> ${lit(A)}; RESET ROLE;`);
+        ligne.etrangeres = r[2].rows[0].n;
+        if (ligne.etrangeres !== 0) ecarts.push(`${t.nom} : ${ligne.etrangeres} ligne(s) d'un autre site visibles depuis A`);
       }
       resultats.push(ligne);
     }

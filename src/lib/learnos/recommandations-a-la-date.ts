@@ -25,6 +25,7 @@
  */
 
 import type { NiveauRecommandation, StatutRecommandation } from "@prisma/client";
+import { withAllSites } from "@/lib/rls-context";
 import prisma from "@/lib/prisma";
 import type { EtatPrerequis } from "@/lib/learnos/learning-twin";
 import {
@@ -174,10 +175,10 @@ export type GraphePrerequis = { id: string; prerequis: { id: string }[] }[];
 /** Graphe de prérequis du tenant : chaque compétence et ce qu'elle exige. */
 export function chargerGraphePrerequis(tenantId: string): Promise<GraphePrerequis> {
   // eslint-disable-next-line ecolpro/require-site-filter -- graphe de prérequis structurel, volontairement tenant-wide, cf. en-tête « ISOLATION » de recommendation-engine
-  return prisma.competence.findMany({
+  return withAllSites("graphe de prérequis structurel", () => prisma.competence.findMany({
     where: { tenantId },
     select: { id: true, prerequis: { select: { id: true } } },
-  });
+  }));
 }
 
 /**
@@ -189,10 +190,10 @@ export function chargerGraphePrerequis(tenantId: string): Promise<GraphePrerequi
  */
 export function chargerBareme(tenantId: string): Promise<LigneSeuils[]> {
   // eslint-disable-next-line ecolpro/require-site-filter -- barème structurel, volontairement tenant-wide, cf. en-tête « ISOLATION » de recommendation-engine
-  return prisma.seuilsRecommandation.findMany({
+  return withAllSites("barème structurel de l'établissement", () => prisma.seuilsRecommandation.findMany({
     where: { tenantId },
     orderBy: { createdAt: "desc" },
-  });
+  }));
 }
 
 /**

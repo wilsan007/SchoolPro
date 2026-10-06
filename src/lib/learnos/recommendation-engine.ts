@@ -53,6 +53,7 @@
  */
 
 import { Prisma, type NiveauRecommandation, type StatutRecommandation } from "@prisma/client";
+import { withAllSites } from "@/lib/rls-context";
 import prisma from "@/lib/prisma";
 import type { DrainedEvent } from "@/lib/learnos/event-bus";
 import type { NoteRecordedPayload } from "@/lib/learnos/events";
@@ -259,14 +260,14 @@ export async function resoudreSeuils(
   if (memo) return memo;
 
   // eslint-disable-next-line ecolpro/require-site-filter -- barème structurel, volontairement tenant-wide, cf. en-tête « ISOLATION »
-  const lignes = await prisma.seuilsRecommandation.findMany({
+  const lignes = await withAllSites("barème structurel de l'établissement", () => prisma.seuilsRecommandation.findMany({
     where: {
       tenantId,
       OR: [{ niveau: null }, { niveau: contexte.niveau ?? undefined }],
       AND: [{ OR: [{ matiereId: null }, { matiereId: contexte.matiereId ?? undefined }] }],
     },
     orderBy: { createdAt: "desc" },
-  });
+  }));
 
   const seuils = choisirSeuils(lignes);
   cacheSeuils.set(cle, seuils);
@@ -327,10 +328,10 @@ export async function compterCompetencesEnAval(
 
   for (let profondeur = 0; profondeur < PROFONDEUR_MAX_AVAL && frontiere.length > 0; profondeur++) {
     // eslint-disable-next-line ecolpro/require-site-filter -- graphe de prérequis structurel, volontairement tenant-wide, cf. en-tête « ISOLATION »
-    const suivantes = await prisma.competence.findMany({
+    const suivantes = await withAllSites("graphe de prérequis structurel", () => prisma.competence.findMany({
       where: { tenantId, prerequis: { some: { id: { in: frontiere } } } },
       select: { id: true },
-    });
+    }));
 
     frontiere = suivantes.map((c) => c.id).filter((id) => !vues.has(id));
     for (const id of frontiere) vues.add(id);
@@ -369,10 +370,10 @@ export async function recalculerRecommandation(
   if (!profil) return null;
 
   // eslint-disable-next-line ecolpro/require-site-filter -- libellé structurel de la compétence, cf. en-tête « ISOLATION »
-  const competence = await prisma.competence.findFirst({
+  const competence = await withAllSites("libellé structurel d'une compétence", () => prisma.competence.findFirst({
     where: { id: competenceId, tenantId },
     select: { libelle: true, chapitre: { select: { niveau: true, matiereId: true } } },
-  });
+  }));
   if (!competence) return null;
 
   const seuils = await resoudreSeuils(tenantId, {

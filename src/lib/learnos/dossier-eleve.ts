@@ -29,6 +29,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { withAllSites } from "@/lib/rls-context";
 import { cookies } from "next/headers";
 import {
   eleveScopeFilter,
@@ -232,7 +233,7 @@ async function ficheDeLAnnee(tenantId: string, fiche: FicheEleve): Promise<Fiche
   if (!annee || fiche.classe?.annee === annee) return fiche;
 
   // eslint-disable-next-line ecolpro/require-site-filter -- rapprochement d'identité au sein du tenant : la fiche visée est la même personne que celle déjà autorisée ci-dessus
-  const deLAnnee = await prisma.eleve.findFirst({
+  const deLAnnee = await withAllSites("rapprochement d'identité d'une année à l'autre", () => prisma.eleve.findFirst({
     where: {
       tenantId,
       deletedAt: null,
@@ -250,7 +251,7 @@ async function ficheDeLAnnee(tenantId: string, fiche: FicheEleve): Promise<Fiche
     // alors devant celle du compte lui-même, soit l'inverse du but.
     orderBy: [{ userId: { sort: "desc", nulls: "last" } }, { matricule: "asc" }],
     select: CHAMPS_FICHE,
-  });
+  }));
 
   return deLAnnee ?? fiche;
 }

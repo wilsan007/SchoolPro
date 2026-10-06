@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { withAllSites } from "@/lib/rls-context";
 import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
@@ -187,10 +188,10 @@ export async function createEleve(
     matricule = `ECL-${anneeInscription}-${String(count + 1).padStart(4, "0")}`;
   }
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- findUnique sur contrainte unique tenantId_matricule, le tenantId est dans la clé composite
-  const existing = await prisma.eleve.findUnique({
+  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- findUnique sur contrainte unique tenantId_matricule, le tenantId est dans la clé composite
+  const existing = await withAllSites("unicité du matricule dans l'établissement", () => prisma.eleve.findUnique({
     where: { tenantId_matricule: { tenantId, matricule } },
-  });
+  }));
   if (existing) throw new Error("Ce matricule existe déjà");
 
   const identite = {

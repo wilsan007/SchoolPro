@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { withAllSites } from "@/lib/rls-context";
 import { infererColonnes, valeurChamp } from "@/lib/column-inference";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { type PlanImport, type LigneImport } from "./types";
@@ -44,9 +45,9 @@ export async function analyserClasses(
     }
 
     // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId
-    const existe = !!(await prisma.classe.findFirst({
+    const existe = !!(await withAllSites("import : dédoublonnage des classes", () => prisma.classe.findFirst({
       where: { nom, tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
-    }));
+    })));
 
     lignes.push({
       numero: i + 2,

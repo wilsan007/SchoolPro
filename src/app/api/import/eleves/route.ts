@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withAllSites } from "@/lib/rls-context";
 import { niveauStocke } from "@/lib/niveau-display";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -287,9 +288,9 @@ export async function POST(req: NextRequest) {
     /** Crée le lien EleveParent s'il n'existe pas déjà. */
     const creerLienSiAbsent = async (eleveId: string, parentId: string, lien?: string) => {
       // eslint-disable-next-line ecolpro/require-site-filter -- clé composite parent↔élève, déjà isolée par tenant
-      const existing = await prisma.eleveParent.findUnique({
+      const existing = await withAllSites("import : lien parent-élève déjà existant", () => prisma.eleveParent.findUnique({
         where: { eleveId_parentId: { eleveId, parentId } },
-      });
+      }));
       if (!existing) {
         await prisma.eleveParent.create({
           data: { eleveId, parentId, lien: lienValide(lien), isGardien: true },
@@ -360,10 +361,10 @@ export async function POST(req: NextRequest) {
     const clesCrees = new Set(aInserer.map((e) => e.identiteKey).filter((k): k is string => !!k));
     if (clesCrees.size > 0) {
       // eslint-disable-next-line ecolpro/require-site-filter -- récupération des élèves du lot par identiteKey, isolation par tenantId
-      const elevesCrees = await prisma.eleve.findMany({
+      const elevesCrees = await withAllSites("import : élèves du lot par clé d'identité", () => prisma.eleve.findMany({
         where: { tenantId, identiteKey: { in: [...clesCrees] } },
         select: { id: true, identiteKey: true },
-      });
+      }));
       const eleveIdParCle = new Map(elevesCrees.map((e) => [e.identiteKey, e.id]));
 
       // Déduplication des parents par téléphone normalisé dans ce lot.

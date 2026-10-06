@@ -197,6 +197,21 @@ export async function genererMensualitesPourTenant(
     where: { tenantId, annee, actif: true },
   });
 
+  // Élèves déjà facturés pour ce mois : UNE requête pour tout le lot. La
+  // recherche se faisait élève par élève — 3 700 allers-retours pour un
+  // établissement de 3 700 élèves, plusieurs minutes sur une base distante.
+  const idsDejaFactures = new Set(
+    (
+      await prisma.facture.findMany({
+        where: mergeFilters(
+          { tenantId, libelle, ...(anneeRecord ? { anneeId: anneeRecord.id } : {}) },
+          filtreFacture
+        ),
+        select: { eleveId: true },
+      })
+    ).map((f) => f.eleveId)
+  );
+
   let generated = 0;
   let skipped = 0;
   let dejaFactures = 0;
@@ -217,14 +232,7 @@ export async function genererMensualitesPourTenant(
       continue;
     }
 
-    const existing = await prisma.facture.findFirst({
-      where: mergeFilters(
-        { tenantId, eleveId: eleve.id, libelle, ...(anneeRecord ? { anneeId: anneeRecord.id } : {}) },
-        filtreFacture
-      ),
-      select: { id: true },
-    });
-    if (existing) {
+    if (eleve.id && idsDejaFactures.has(eleve.id)) {
       skipped++;
       dejaFactures++;
       continue;

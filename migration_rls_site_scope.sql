@@ -202,3 +202,56 @@ BEGIN
                    r.nom || '_site_scope', r.nom, r.dans_perimetre);
   END LOOP;
 END $$;
+
+-- 4. Une ligne n'est visible que si ses parents obligatoires le sont -----------
+-- Audit du 2026-10-06 (scripts/auditer-relations-inter-sites.ts) : 11 relations
+-- obligatoires pointaient vers une ligne masquée — 3 492 relances dont la
+-- facture est sur l'autre site, 1 848 historiques de classe, 1 037 affectations
+-- vers une classe de l'autre site… Deux conséquences sous filtrage effectif :
+--   * ces lignes « enfants » restaient lisibles (fuite) ;
+--   * les charger avec leur parent faisait échouer toute la requête Prisma
+--     (relation obligatoire nulle).
+-- Règle générique, pour toute clé étrangère NOT NULL vers une table filtrée par
+-- site : l'enfant suit la visibilité de son parent. La sous-requête est lue
+-- sous les politiques du parent ; elle n'est pas évaluée sans restriction de
+-- site (`site_scope_unrestricted()` en tête).
+DO $$
+DECLARE
+  r RECORD;
+  v_nom TEXT;
+BEGIN
+  -- Rejouable : on retire d'abord les politiques de ce type déjà posées.
+  FOR r IN SELECT tablename, policyname FROM pg_policies
+            WHERE schemaname = 'public' AND policyname LIKE '%\_parent\_scope' ESCAPE '\'
+  LOOP
+    EXECUTE format('DROP POLICY %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+
+  FOR r IN
+    SELECT enfant.relname AS enfant, col.attname AS fk, parent.relname AS parent
+      FROM pg_constraint k
+      JOIN pg_class enfant ON enfant.oid = k.conrelid
+      JOIN pg_class parent ON parent.oid = k.confrelid
+      JOIN pg_attribute col ON col.attrelid = k.conrelid AND col.attnum = k.conkey[1]
+     WHERE k.contype = 'f'
+       AND k.connamespace = 'public'::regnamespace
+       AND array_length(k.conkey, 1) = 1
+       AND col.attnotnull
+       AND enfant.relrowsecurity
+       AND enfant.oid <> parent.oid
+       AND EXISTS (SELECT 1 FROM pg_policies p
+                    WHERE p.schemaname = 'public' AND p.tablename = parent.relname AND p.permissive = 'RESTRICTIVE')
+       -- Déjà couvert par la section 3 (même parent, même clé).
+       AND NOT EXISTS (SELECT 1 FROM pg_policies p
+                        WHERE p.schemaname = 'public' AND p.tablename = enfant.relname
+                          AND p.policyname = enfant.relname || '_site_scope'
+                          AND p.qual ILIKE '%' || parent.relname || ' %'
+                          AND p.qual ILIKE '%"' || col.attname || '"%')
+     ORDER BY 1, 2
+  LOOP
+    v_nom := left(r.enfant || '_' || r.fk, 50) || '_parent_scope';
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR ALL USING (public.site_scope_unrestricted() OR EXISTS (SELECT 1 FROM public.%I p WHERE p.id = %I.%I))',
+      v_nom, r.enfant, r.parent, r.enfant, r.fk);
+  END LOOP;
+END $$;

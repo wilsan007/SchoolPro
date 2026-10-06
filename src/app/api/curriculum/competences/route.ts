@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withAllSites } from "@/lib/rls-context";
 import { erreurJson } from "@/lib/erreurs-api";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -59,10 +60,10 @@ export async function POST(req: NextRequest) {
   // violation de contrainte — une 500 au lieu d'un message clair. Le contrôle
   // doit porter sur le même périmètre que la contrainte qu'il anticipe.
   // eslint-disable-next-line ecolpro/require-site-filter -- périmètre de la contrainte d'unicité, cf. ci-dessus
-  const doublon = await prisma.competence.findFirst({
+  const doublon = await withAllSites("unicité d'une compétence à l'échelle de l'établissement", () => prisma.competence.findFirst({
     where: { tenantId, code },
     select: { id: true },
-  });
+  }));
   if (doublon) {
     return erreurJson("CODE_COMPETENCE_DEJA_UTILISE", { code });
   }

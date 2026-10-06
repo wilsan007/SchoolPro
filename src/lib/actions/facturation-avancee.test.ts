@@ -60,6 +60,7 @@ const mockPrisma = prisma as unknown as {
   tarifNiveau: { findMany: ReturnType<typeof vi.fn> };
   facture: {
     findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
@@ -107,6 +108,7 @@ beforeEach(() => {
   mockPrisma.eleve.findMany.mockResolvedValue([eleve()]);
   mockPrisma.tarifNiveau.findMany.mockResolvedValue([tarifGrille()]);
   mockPrisma.facture.findFirst.mockResolvedValue(null);
+  mockPrisma.facture.findMany.mockResolvedValue([]);
   mockPrisma.facture.count.mockResolvedValue(0);
   mockPrisma.facture.create.mockResolvedValue({ id: "fac-1" });
 });
@@ -200,7 +202,7 @@ describe("genererMensualites", () => {
   });
 
   it("saute un élève déjà facturé pour ce mois (contrôle applicatif)", async () => {
-    mockPrisma.facture.findFirst.mockResolvedValue({ id: "fac-existante" });
+    mockPrisma.facture.findMany.mockResolvedValue([{ eleveId: eleve().id }]);
 
     const res = await genererMensualites({ mois: 10, annee: "2025-2026" });
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withAllSites } from "@/lib/rls-context";
 import { erreurJson } from "@/lib/erreurs-api";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -47,10 +48,10 @@ async function creeUnCycle(
     // validés par `validerPrerequis` sous filtre de site, et ne rend qu'un
     // booléen. L'autorisation d'écrire, elle, est établie ligne 72.
     // eslint-disable-next-line ecolpro/require-site-filter -- intégrité du graphe, cf. ci-dessus
-    const noeuds = await prisma.competence.findMany({
+    const noeuds = await withAllSites("intégrité du graphe de prérequis", () => prisma.competence.findMany({
       where: { tenantId, id: { in: frontiere } },
       select: { prerequis: { select: { id: true } } },
-    });
+    }));
 
     const suivants = noeuds.flatMap((n) => n.prerequis.map((p) => p.id));
     if (suivants.includes(cible)) return true;
