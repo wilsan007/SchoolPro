@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemsClasses } from "@/components/classes/OptionsClasses";
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -139,9 +140,7 @@ export function BulletinsList({ classes, hierarchie: _hierarchie, periodes, user
                 <SelectValue placeholder={t("selectClass")} />
               </SelectTrigger>
               <SelectContent>
-                {classes.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>
-                ))}
+                <ItemsClasses classes={classes} />
               </SelectContent>
             </Select>
           </div>

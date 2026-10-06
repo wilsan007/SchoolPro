@@ -1,5 +1,7 @@
 "use client";
 
+import { OptionsClasses, useAxesClasses } from "@/components/classes/OptionsClasses";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
 import { useState, useTransition, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -274,7 +276,7 @@ function AddCreneauModal({
               onChange={(e) => setForm({ ...form, classeId: e.target.value })}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              <OptionsClasses classes={classes} />
             </select>
           </div>
           <div>
@@ -916,6 +918,7 @@ export function EmploiDuTempsView({
 
   // Get available slots for the add modal
   const availableSlotsForAdd = ALL_SLOTS;
+  const axesClasses = useAxesClasses<Classe>();
 
   return (
     <div className="space-y-6">
@@ -936,8 +939,11 @@ export function EmploiDuTempsView({
 
       {/* Classe selector + Period selector */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 print:hidden">
-        <div className="flex gap-2 flex-wrap">
-          {classes.map((c) => (
+        <ListeGroupee
+          className="flex gap-2 flex-wrap"
+          items={classes}
+          axes={axesClasses}
+          rendu={(c) => (
             <button
               key={c.id}
               onClick={() => setSelectedClasse(c)}
@@ -950,8 +956,8 @@ export function EmploiDuTempsView({
             >
               {c.nom}
             </button>
-          ))}
-        </div>
+          )}
+        />
         {/* Sélecteur de période (trimestre) */}
         {periodes.length > 0 && (
           <div className="flex items-center gap-2">

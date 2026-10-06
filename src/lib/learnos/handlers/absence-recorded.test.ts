@@ -14,7 +14,7 @@ vi.mock("@/lib/prisma", () => ({
       return { findFirst, findMany };
     })(),
     eleve: { findFirst: vi.fn() },
-    absence: { count: vi.fn() },
+    absence: { groupBy: vi.fn() },
     alerteParent: { createMany: vi.fn() },
   },
 }));
@@ -26,7 +26,7 @@ import { NiveauAlerteParent } from "@prisma/client";
 const mockPrisma = prisma as unknown as {
   anneesScolaires: { findFirst: ReturnType<typeof vi.fn> };
   eleve: { findFirst: ReturnType<typeof vi.fn> };
-  absence: { count: ReturnType<typeof vi.fn> };
+  absence: { groupBy: ReturnType<typeof vi.fn> };
   alerteParent: { createMany: ReturnType<typeof vi.fn> };
 };
 
@@ -42,9 +42,17 @@ beforeEach(() => {
     siteId: "site-1",
     parents: [{ parentId: "parent-1" }, { parentId: "parent-2" }],
   });
-  mockPrisma.absence.count.mockResolvedValue(3);
+  mockPrisma.absence.groupBy.mockResolvedValue(comptage(3, 0));
   mockPrisma.alerteParent.createMany.mockResolvedValue({ count: 0 });
 });
+
+/** Réponse de `groupBy({ by: ["isRetard"] })` pour un élève donné. */
+function comptage(absences: number, retards: number) {
+  return [
+    { isRetard: false, _count: { _all: absences } },
+    { isRetard: true, _count: { _all: retards } },
+  ];
+}
 
 function event(over: Record<string, unknown> = {}) {
   return {
@@ -67,6 +75,24 @@ function event(over: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * Même événement, mais pour un retard. `event({ payload: … })` REMPLACE le
+ * payload entier — un payload partiel perdait `motif`, et le handler sortait
+ * sur ce motif manquant plutôt que sur la règle testée.
+ */
+function eventRetard() {
+  return event({
+    payload: {
+      absenceId: "abs-1",
+      eleveId: "eleve-1",
+      classeId: "classe-1",
+      date: "2025-09-15T08:00:00.000Z",
+      isRetard: true,
+      motif: "INJUSTIFIE",
+    },
+  });
+}
+
 describe("onAbsenceRecorded", () => {
   it("crée une alerte par parent quand le seuil est atteint", async () => {
     await onAbsenceRecorded(event());
@@ -86,7 +112,7 @@ describe("onAbsenceRecorded", () => {
   });
 
   it("passe en URGENT à partir de 5 absences", async () => {
-    mockPrisma.absence.count.mockResolvedValue(5);
+    mockPrisma.absence.groupBy.mockResolvedValue(comptage(5, 0));
 
     await onAbsenceRecorded(event());
 
@@ -95,24 +121,37 @@ describe("onAbsenceRecorded", () => {
   });
 
   it("ne crée rien en dessous du seuil", async () => {
-    mockPrisma.absence.count.mockResolvedValue(1);
+    mockPrisma.absence.groupBy.mockResolvedValue(comptage(1, 0));
 
     await onAbsenceRecorded(event());
 
     expect(mockPrisma.alerteParent.createMany).not.toHaveBeenCalled();
   });
 
-  it("ignore les retards", async () => {
-    await onAbsenceRecorded(event({ payload: { isRetard: true } }));
+  it("compte les retards pour un tiers d'absence", async () => {
+    // Deux absences et trois retards = trois absences équivalentes : le seuil
+    // d'attention est atteint, alors que deux absences seules ne suffisaient pas.
+    mockPrisma.absence.groupBy.mockResolvedValue(comptage(2, 3));
 
-    expect(mockPrisma.absence.count).not.toHaveBeenCalled();
+    await onAbsenceRecorded(eventRetard());
+
+    const data = mockPrisma.alerteParent.createMany.mock.calls[0][0].data as { niveau: string; params: Record<string, number> }[];
+    expect(data[0].niveau).toBe(NiveauAlerteParent.ATTENTION);
+    expect(data[0].params).toMatchObject({ count: 2, retards: 3 });
+  });
+
+  it("n'alerte pas sur un retard isolé", async () => {
+    mockPrisma.absence.groupBy.mockResolvedValue(comptage(0, 2));
+
+    await onAbsenceRecorded(eventRetard());
+
     expect(mockPrisma.alerteParent.createMany).not.toHaveBeenCalled();
   });
 
   it("ignore les absences non injustifiées", async () => {
     await onAbsenceRecorded(event({ payload: { motif: "MALADIE" } }));
 
-    expect(mockPrisma.absence.count).not.toHaveBeenCalled();
+    expect(mockPrisma.absence.groupBy).not.toHaveBeenCalled();
     expect(mockPrisma.alerteParent.createMany).not.toHaveBeenCalled();
   });
 });

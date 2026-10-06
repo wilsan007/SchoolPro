@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsClasses } from "@/components/classes/OptionsClasses";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -302,9 +303,7 @@ export function EleveForm({ classes, sites = [], currentSiteId = null, tenantHas
             <Label htmlFor="classeId">{t("classLabel")}</Label>
             <select id="classeId" value={form.classeId} onChange={(e) => updateField("classeId", e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">{t("unassigned")}</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nom} — {libelleNiveau(c.niveau)}</option>
-              ))}
+              <OptionsClasses classes={classes} libelle={(c) => `${c.nom} — ${libelleNiveau(c.niveau)}`} />
             </select>
           </div>
           <div className="space-y-1.5">

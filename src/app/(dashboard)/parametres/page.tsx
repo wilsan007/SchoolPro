@@ -4,6 +4,7 @@ import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { Header } from "@/components/layout/Header";
 import { ParametresTabs } from "@/components/parametres/ParametresTabs";
+import { getSiteColorMap } from "@/lib/site-colors";
 import {
   getEtablissementData,
   getUsersForTenant,
@@ -40,18 +41,30 @@ export default async function ParametresPage() {
   // dont le formulaire répondra 403.
   const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
 
-  const [etablissement, users, parents, eleves, classes, matieres, regles, periodes, sites, annees] = await Promise.all([
-    getEtablissementData(),
-    getUsersForTenant(),
-    getParentsForSettings(),
-    getElevesForLinking(),
-    getClassesForSettings(),
-    getMatieresForSettings(),
-    getReglesAppreciation(),
-    getPeriodesForCloture(),
-    getSitesForSettings(),
-    getAnneesScolaires(),
-  ]);
+  // Les dix lectures partent ensemble, mais seule celle de l'établissement est
+  // ATTENDUE : c'est la seule dont dépend l'onglet affiché à l'ouverture. Les
+  // autres sont transmises telles quelles (promesses) à `ParametresTabs`, qui
+  // les lit onglet par onglet — la page s'affiche après une requête au lieu
+  // d'attendre trois listes de plusieurs milliers de lignes.
+  const etablissementPromise = getEtablissementData();
+  const users = getUsersForTenant();
+  const parents = getParentsForSettings();
+  const eleves = getElevesForLinking();
+  const classes = getClassesForSettings();
+  const matieres = getMatieresForSettings();
+  const regles = getReglesAppreciation();
+  const periodes = getPeriodesForCloture();
+  const sites = getSitesForSettings();
+  const annees = getAnneesScolaires();
+  const siteColors = getSiteColorMap(session.user.tenantId);
+  // Une lecture qui échoue ne doit faire tomber que l'onglet qui l'affiche :
+  // sans ce gestionnaire, une promesse rejetée et jamais lue interromprait le
+  // processus. L'erreur reste portée par la promesse transmise au client.
+  for (const lecture of [users, parents, eleves, classes, matieres, regles, periodes, sites, annees, siteColors]) {
+    lecture.catch(() => undefined);
+  }
+
+  const etablissement = await etablissementPromise;
   if (!etablissement) return redirect("/login");
 
   return (
@@ -74,6 +87,7 @@ export default async function ParametresPage() {
           periodes={periodes}
           sites={sites}
           annees={annees}
+          siteColors={siteColors}
           canManage={canManage}
           roleKey={session.user.role}
           availableTenants={session.user.availableTenants}

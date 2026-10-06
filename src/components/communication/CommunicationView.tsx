@@ -1,6 +1,9 @@
 "use client";
 
+import { OptionsClasses } from "@/components/classes/OptionsClasses";
 import { useState, useTransition, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -203,9 +206,7 @@ function ComposeModal({
                 className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background"
               >
                 <option value="">{t("chooseClass")}</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nom}</option>
-                ))}
+                <OptionsClasses classes={classes} />
               </select>
             </div>
           )}
@@ -391,6 +392,17 @@ export function CommunicationView({ notifications: initial, classes, hierarchie 
     return ms && mc;
   }), [notifs, filtreStatut, filtreCanal]);
 
+  const axesDate = useAxesTemporels<Notification>((n) => n.createdAt);
+  const axesNotifications = useMemo<AxeRegroupement<Notification>[]>(
+    () => [
+      ...axesDate,
+      { id: "statut", cle: (n) => n.statut, libelle: (s) => t(STATUT_CONFIG[s as Statut]?.labelKey ?? s) },
+      { id: "canal", cle: (n) => n.canal, libelle: (c) => t(CANAL_CONFIG[c as Canal]?.labelKey ?? c) },
+      { id: "cible", cle: (n) => n.cible, libelle: (c) => t(CIBLE_CONFIG[c as Cible]?.labelKey ?? c) },
+    ],
+    [axesDate, t],
+  );
+
   const handleSend = (id: string) => {
     startTransition(async () => {
       try {
@@ -513,11 +525,14 @@ export function CommunicationView({ notifications: initial, classes, hierarchie 
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((n) => (
+        <ListeGroupee
+          className="space-y-3"
+          items={filtered}
+          axes={axesNotifications}
+          rendu={(n) => (
             <NotifCard key={n.id} notif={n} onSend={handleSend} onDelete={handleDelete} />
-          ))}
-        </div>
+          )}
+        />
       )}
     </div>
   );

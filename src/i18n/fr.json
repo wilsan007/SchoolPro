@@ -614,7 +614,9 @@
     "appelNoTimetable": "pas d'emploi du temps ce jour, créneaux d'1 h",
     "appelArrivalTime": "Arrivé à",
     "appelArrivalTimeFor": "Heure d'arrivée de {nom}",
-    "appelArrivalInvalid": "Heure d'arrivée invalide : elle doit être comprise entre {debut} et {fin}"
+    "appelArrivalInvalid": "Heure d'arrivée invalide : elle doit être comprise entre {debut} et {fin}",
+    "appelAtRisk": "À risque",
+    "appelAtRiskDetail": "{absences} absence(s) et {retards} retard(s) injustifiés sur {jours} jours"
   },
   "bulletinsManager": {
     "period": "Période",
@@ -4037,7 +4039,7 @@
       "parcoursArret": "🔔 Le parcours d’accompagnement de {prenom} en {matiere} est à l’arrêt depuis plusieurs semaines. Un point avec l’enseignant serait utile.",
       "jalonAtteint": "🎉 Bonne nouvelle : {prenom} a validé l’étape « {competence} ». Le travail porte ses fruits.",
       "absence": {
-        "frequence": "⚠️ {elevePrenom} {eleveNom} a cumulé {count} absences injustifiées cette semaine (semaine {semaine}). Merci de nous contacter pour régulariser."
+        "frequence": "⚠️ {elevePrenom} {eleveNom} cumule {count} absences injustifiées et {retards} retards depuis la rentrée. Merci de nous contacter pour régulariser."
       },
       "prediction": {
         "difficulte": "📊 {elevePrenom} {eleveNom} est prédit(e) en difficulté sur « {competenceLibelle} » ({difficulte}, probabilité de réussite {probaReussite, number, percent}). Un accompagnement est conseillé."
@@ -4057,6 +4059,15 @@
       },
       "candidature": {
         "acceptee": "✅ La candidature de {elevePrenom} {eleveNom} a été acceptée. Matricule : {matricule}, Classe : {classeNom}. Bienvenue !"
+      },
+      "retards": {
+        "exces": "⏰ {prenom} {nom} ({classeNom}) cumule {retards} retards, au-delà du seuil de {seuil}. Dernier retard le {dernierRetard}. Merci d'en parler avec nous."
+      },
+      "sanction": {
+        "appliquee": "⚠️ Une sanction a été prononcée pour {elevePrenom} {eleveNom} ({classeNom}) : {typeSanction}, gravité {gravite}/3, à partir du {dateDebut} (jusqu'au {dateFin}). Motif : {description}."
+      },
+      "note": {
+        "baisse": "📉 La note de {intitule} est en baisse de {baisse} points pour votre enfant. Un échange avec l'enseignant peut aider."
       }
     },
     "preferences": {
@@ -5408,7 +5419,12 @@
       "batiment": "Bâtiment",
       "pays": "Pays",
       "caissier": "Caissier",
-      "localisation": "Emplacement"
+      "localisation": "Emplacement",
+      "canal": "Canal",
+      "cible": "Cible",
+      "gravite": "Gravité",
+      "filiere": "Filière",
+      "specialite": "Spécialité"
     }
   }
 }

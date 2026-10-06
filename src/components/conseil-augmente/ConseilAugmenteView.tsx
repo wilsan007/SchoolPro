@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsClasses } from "@/components/classes/OptionsClasses";
 import { useState, useTransition, useMemo } from "react";
 import {
   Award,
@@ -266,9 +267,7 @@ export function ConseilAugmenteView({ classes, hierarchie, periodes, periodeCour
             onChange={(e) => setSelectedClasseId(e.target.value)}
             className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:border-green-500"
           >
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>{c.nom} ({c.annee})</option>
-            ))}
+            <OptionsClasses classes={classes} libelle={(c) => `${c.nom} (${c.annee})`} />
           </select>
         </div>
         <div className="flex-1">

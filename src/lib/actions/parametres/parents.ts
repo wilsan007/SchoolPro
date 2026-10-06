@@ -53,29 +53,101 @@ function parentSiteScope(claims: SessionSiteClaims): Record<string, unknown> {
 export async function getParentsForSettings() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
+  const tenantId = session.user.tenantId;
 
   // Isolation portée par la relation : le filtre de site est appliqué aux
   // enfants (voir `parentSiteScope`), donc imbriqué et invisible pour la règle.
   // Le modèle nommé était d'ailleurs faux ici — « parent » au lieu de
   // « eleve » — ce qui greffait un prédicat `user.siteId` sur un `Eleve`.
-  // eslint-disable-next-line ecolpro/require-site-filter
-  return prisma.parent.findMany({
-    where: { tenantId: session.user.tenantId, ...parentSiteScope(session.user) },
-    include: {
-      enfants: {
-        // Un parent peut avoir des enfants sur plusieurs sites : sans ce
-        // filtre, la fiche affichait ceux des sites hors périmètre.
-        where: siteFilterForModel("eleveParent", session.user),
-        include: {
-          eleve: {
-            select: { id: true, nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } },
-          },
-        },
+  const parentsVisibles = { tenantId, ...parentSiteScope(session.user) };
+
+  // CINQ LECTURES À PLAT, EN PARALLÈLE, assemblées en mémoire.
+  //
+  // La version précédente était une seule requête Prisma à `include` imbriqués
+  // (parent → enfants → élève → classe, + compte). Prisma la déroule en cinq
+  // requêtes SUCCESSIVES, chacune recevant en paramètre la liste des
+  // identifiants trouvés par la précédente : plusieurs milliers d'identifiants
+  // renvoyés à la base à chaque étape. Sur un établissement de 3 700 parents,
+  // c'était de loin la lecture la plus lente de l'écran Paramètres.
+  //
+  // Ici chaque table est lue une fois, filtrée par le même périmètre exprimé
+  // en relation — aucune liste d'identifiants ne transite — et les cinq
+  // partent ensemble. Le résultat a exactement la même forme.
+  const [parents, liens, eleves, classes, comptes] = await Promise.all([
+    // eslint-disable-next-line ecolpro/require-site-filter -- périmètre de site porté par `parentSiteScope` (relation enfants)
+    prisma.parent.findMany({ where: parentsVisibles, orderBy: { nom: "asc" } }),
+    // Un parent peut avoir des enfants sur plusieurs sites : sans le filtre de
+    // site, la fiche affichait ceux des sites hors périmètre.
+    // `EleveParent` n'a pas de colonne tenantId : borné par `parent: parentsVisibles`.
+    prisma.eleveParent.findMany({
+      where: { AND: [siteFilterForModel("eleveParent", session.user), { parent: parentsVisibles }] },
+    }),
+    // Sur-ensemble volontaire : tous les enfants des parents visibles. Seuls
+    // ceux qu'un lien (déjà filtré par site ci-dessus) référence sont utilisés.
+    // eslint-disable-next-line ecolpro/require-site-filter -- lecture d'appoint, bornée par les liens filtrés par site
+    prisma.eleve.findMany({
+      where: { tenantId, parents: { some: { parent: parentsVisibles } } },
+      select: { id: true, nom: true, prenom: true, matricule: true, classeId: true },
+    }),
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- table de correspondance id → nom, toutes années : un élève rattaché peut appartenir à n'importe laquelle
+    prisma.classe.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        nom: true,
+        niveau: true,
+        annee: true,
+        siteId: true,
+        site: { select: { nom: true } },
+        structure: { select: { type: true } },
       },
-      user: { select: { id: true, email: true, isActive: true } },
-    },
-    orderBy: { nom: "asc" },
-  });
+    }),
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- comptes des parents visibles uniquement, bornés par `parents: parentsVisibles`
+    prisma.user.findMany({
+      where: { parents: { some: parentsVisibles } },
+      select: { id: true, email: true, isActive: true },
+    }),
+  ]);
+
+  // Site, année, niveau et structure servent au rangement de l'onglet Parents
+  // (catégorie → site → niveau → classe), identique à celui de l'écran Élèves.
+  const classeParId = new Map(
+    classes.map((c) => [
+      c.id,
+      {
+        id: c.id,
+        nom: c.nom,
+        niveau: c.niveau,
+        annee: c.annee,
+        siteId: c.siteId,
+        siteNom: c.site?.nom ?? null,
+        structureType: c.structure?.type ?? null,
+      },
+    ]),
+  );
+  const eleveParId = new Map(
+    eleves.map(({ classeId, ...e }) => [
+      e.id,
+      { ...e, classe: classeId ? (classeParId.get(classeId) ?? null) : null },
+    ]),
+  );
+  const compteParId = new Map(comptes.map((u) => [u.id, u]));
+
+  type Enfant = (typeof liens)[number] & { eleve: NonNullable<ReturnType<typeof eleveParId.get>> };
+  const enfantsParParent = new Map<string, Enfant[]>();
+  for (const lien of liens) {
+    const eleve = eleveParId.get(lien.eleveId);
+    if (!eleve) continue;
+    const enfants = enfantsParParent.get(lien.parentId);
+    if (enfants) enfants.push({ ...lien, eleve });
+    else enfantsParParent.set(lien.parentId, [{ ...lien, eleve }]);
+  }
+
+  return parents.map((p) => ({
+    ...p,
+    enfants: enfantsParParent.get(p.id) ?? [],
+    user: p.userId ? (compteParId.get(p.userId) ?? null) : null,
+  }));
 }
 
 export async function getElevesForLinking() {

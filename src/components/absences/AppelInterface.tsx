@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { useAxesClasses } from "@/components/classes/OptionsClasses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
-import { CheckCircle2, XCircle, Clock, Users, CheckCheck, RotateCcw, CalendarDays } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Users, CheckCheck, RotateCcw, CalendarDays, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
@@ -15,6 +17,7 @@ import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
 import {
   creneauxHoraires, estHeureValide, heureEnMinutes, jourDepuisDate, type CreneauAppel,
 } from "@/lib/absences/appel-creneaux";
+import { FENETRE_JOURS, niveauAbsenteisme } from "@/lib/absences/signal-absenteisme";
 
 interface Eleve {
   id: string;
@@ -51,6 +54,17 @@ function dateLocale(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * "AAAA-MM-JJ" en UTC — valeur de départ identique sur le serveur et dans le
+ * navigateur. Le fuseau du serveur n'est pas celui de l'utilisateur : partir
+ * de la date locale cassait l'hydratation (le rendu serveur et le premier
+ * rendu client ne tombaient pas sur le même jour, ni sur le même créneau). La
+ * date locale est appliquée juste après le montage, côté client seulement.
+ */
+function dateUTC(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 function heureLocale(d: Date): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
@@ -85,6 +99,7 @@ export function AppelInterface({
   creneauxEdt = [],
   maintenantISO,
   canWrite,
+  signauxAbsenteisme = {},
 }: {
   classes: Classe[];
   tenantId: string;
@@ -92,6 +107,8 @@ export function AppelInterface({
   creneauxEdt?: CreneauEdt[];
   /** Horloge de référence (Time Machine en démo). */
   maintenantISO?: string;
+  /** Absences et retards injustifiés des 30 derniers jours, par élève. */
+  signauxAbsenteisme?: Record<string, { absences: number; retards: number }>;
   /**
    * `absences:write` du rôle connecté. Faux ⇒ l'écran se rend en **consultation
    * seule** : ni bouton de validation, ni « tous présents », ni sélection de
@@ -103,20 +120,34 @@ export function AppelInterface({
 }) {
   const t = useTranslations("absences");
   const locale = useLocale();
-  const maintenant = useMemo(() => (maintenantISO ? new Date(maintenantISO) : new Date()), [maintenantISO]);
-  const aujourdHui = dateLocale(maintenant);
+  const maintenant = useMemo(() => (maintenantISO ? new Date(maintenantISO) : new Date(0)), [maintenantISO]);
 
   const [selectedClasseId, setSelectedClasseId] = useState<string>(
     classes[0]?.id ?? ""
   );
-  const [dateJour, setDateJour] = useState(aujourdHui);
-  const [creneau, setCreneau] = useState<CreneauAppel | null>(() =>
-    classes[0] ? creneauEnCours(creneauxDuJour(creneauxEdt, classes[0].id, aujourdHui).creneaux, heureLocale(maintenant)) : null
-  );
+  const [dateJour, setDateJour] = useState(() => dateUTC(maintenant));
+  const [creneau, setCreneau] = useState<CreneauAppel | null>(null);
+  // Jour « aujourd'hui » dans le fuseau de l'utilisateur, connu seulement côté
+  // client : il borne le sélecteur de date et sert de référence au créneau.
+  const [aujourdHui, setAujourdHui] = useState(() => dateUTC(maintenant));
+  const monte = useRef(false);
   const [presences, setPresences] = useState<Record<string, Presence>>({});
   const [heuresArrivee, setHeuresArrivee] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
+
+  // Après le montage : on bascule sur la date locale et on présélectionne le
+  // créneau en cours. Une seule fois — sans quoi ce réglage écraserait le jour
+  // ou le créneau choisis par l'enseignant.
+  useEffect(() => {
+    if (monte.current) return;
+    monte.current = true;
+    const jourLocal = dateLocale(maintenant);
+    setAujourdHui(jourLocal);
+    setDateJour(jourLocal);
+    const { creneaux: dispo } = creneauxDuJour(creneauxEdt, selectedClasseId, jourLocal);
+    setCreneau(creneauEnCours(dispo, heureLocale(maintenant)));
+  }, [maintenant, creneauxEdt, selectedClasseId]);
 
   const selectedClasse = classes.find((c) => c.id === selectedClasseId);
   const eleves = selectedClasse?.eleves ?? [];
@@ -127,6 +158,12 @@ export function AppelInterface({
   const libelleJour = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
     .format(new Date(`${dateJour}T12:00:00Z`));
   const libelleCreneau = creneau ? `${creneau.heureDebut}–${creneau.heureFin}` : t("appelFullDay");
+
+  // Signal d'absentéisme déjà constitué : il s'affiche avant la saisie, là où
+  // il peut encore changer quelque chose.
+  const elevesARisque = eleves.filter(
+    (e) => niveauAbsenteisme(signauxAbsenteisme[e.id] ?? { absences: 0, retards: 0 }) !== "AUCUN"
+  ).length;
 
   const stats = {
     total: eleves.length,
@@ -232,6 +269,8 @@ export function AppelInterface({
     });
   }
 
+  const axesClasses = useAxesClasses<Classe>();
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
       {/* Sélection de classe */}
@@ -241,8 +280,11 @@ export function AppelInterface({
             <CardTitle className="text-sm font-semibold">{t("appelClasses")}</CardTitle>
           </CardHeader>
           <CardContent className="p-2 pt-0">
-            <div className="space-y-1">
-              {classes.map((classe) => (
+            <ListeGroupee
+              className="space-y-1"
+              items={classes}
+              axes={axesClasses}
+              rendu={(classe) => (
                 <button
                   key={classe.id}
                   onClick={() => changerClasseOuJour(classe.id, dateJour)}
@@ -261,8 +303,8 @@ export function AppelInterface({
                     {classe.eleves.length}
                   </Badge>
                 </button>
-              ))}
-            </div>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -277,6 +319,9 @@ export function AppelInterface({
                 { label: t("appelAbsents"), value: stats.absents, color: "text-red-500 dark:text-red-400" },
                 { label: t("appelRetards"), value: stats.retards, color: "text-yellow-600 dark:text-yellow-400" },
                 { label: t("appelNotSet"), value: stats.nonSaisis, color: "text-muted-foreground" },
+                ...(elevesARisque > 0
+                  ? [{ label: t("appelAtRisk"), value: elevesARisque, color: "text-orange-600 dark:text-orange-400" }]
+                  : []),
               ].map((item) => (
                 <div key={item.label} className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">{item.label}</span>
@@ -419,8 +464,31 @@ export function AppelInterface({
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {eleve.prenom} {eleve.nom}
+                      <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                        <span className="truncate">{eleve.prenom} {eleve.nom}</span>
+                        {(() => {
+                          const signal = signauxAbsenteisme[eleve.id] ?? { absences: 0, retards: 0 };
+                          const niveau = niveauAbsenteisme(signal);
+                          if (niveau === "AUCUN") return null;
+                          return (
+                            <span
+                              title={t("appelAtRiskDetail", {
+                                absences: signal.absences,
+                                retards: signal.retards,
+                                jours: FENETRE_JOURS,
+                              })}
+                              className={cn(
+                                "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold flex-shrink-0",
+                                niveau === "ELEVE"
+                                  ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                              )}
+                            >
+                              <TriangleAlert className="h-3 w-3" aria-hidden />
+                              {t("appelAtRisk")}
+                            </span>
+                          );
+                        })()}
                       </p>
                       <p className="text-xs text-muted-foreground">{eleve.matricule}</p>
                       {status === "retard" && creneau && (

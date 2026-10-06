@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { ItemsClasses } from "@/components/classes/OptionsClasses";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import {
   Loader2, AlertTriangle, TrendingUp, TrendingDown, Clock,
   CalendarX2, Filter, Users, Activity,
@@ -93,7 +96,18 @@ export function VeilleAssiduiteView({ classes, hierarchie }: Props) {
     load();
   }, [load]);
 
-  const elevesAffiches = data?.eleves.filter((e) => !showOnlyVeille || e.enVeille) ?? [];
+  const elevesAffiches = useMemo(
+    () => data?.eleves.filter((e) => !showOnlyVeille || e.enVeille) ?? [],
+    [data, showOnlyVeille],
+  );
+  const axesEleves = useMemo<AxeRegroupement<EleveVeille>[]>(
+    () => [
+      { id: "classe", cle: (e) => e.classeNom },
+      { id: "niveau", cle: (e) => libelleNiveau(e.niveau) },
+      { id: "initiale", cle: (e) => e.nom.trim().charAt(0).toUpperCase() },
+    ],
+    [libelleNiveau],
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -107,11 +121,7 @@ export function VeilleAssiduiteView({ classes, hierarchie }: Props) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("allClasses")}</SelectItem>
-              {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.nom} ({libelleNiveau(c.niveau)})
-                </SelectItem>
-              ))}
+              <ItemsClasses classes={classes} libelle={(c) => `${c.nom} (${libelleNiveau(c.niveau)})`} />
             </SelectContent>
           </Select>
         </div>
@@ -213,7 +223,12 @@ export function VeilleAssiduiteView({ classes, hierarchie }: Props) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {elevesAffiches.map((e) => (
+                      <ListeGroupee
+                        variante="table"
+                        items={elevesAffiches}
+                        axes={axesEleves}
+                        replieAuDepart={elevesAffiches.length > 100}
+                        rendu={(e) => (
                         <tr key={e.id} className={e.enVeille ? "bg-red-50/30 dark:bg-red-950/10" : ""}>
                           <td className="py-3 px-3">
                             <Link href={`/eleves/${e.id}`} className="hover:underline">
@@ -262,7 +277,8 @@ export function VeilleAssiduiteView({ classes, hierarchie }: Props) {
                             )}
                           </td>
                         </tr>
-                      ))}
+                      )}
+                      />
                     </tbody>
                   </table>
                 </div>

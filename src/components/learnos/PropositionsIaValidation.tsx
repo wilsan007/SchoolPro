@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,8 +128,26 @@ export function PropositionsIaValidation({
     );
   };
 
-  const toutes = [...propositions.plans, ...propositions.rubriques].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const toutes = useMemo(
+    () =>
+      [...propositions.plans, ...propositions.rubriques].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [propositions],
+  );
+  const axesDate = useAxesTemporels<PropositionResume>((p) => p.createdAt);
+  const axesPropositions = useMemo<AxeRegroupement<PropositionResume>[]>(
+    () => [
+      { id: "matiere", cle: (p) => p.matiereNom },
+      {
+        id: "type",
+        cle: (p) => p.type,
+        libelle: (type) => t(type === "plan_lecon" ? "type.plan" : "type.rubrique"),
+      },
+      { id: "statut", cle: (p) => p.statut, libelle: (statut) => t(`statut.${statut}`) },
+      ...axesDate,
+    ],
+    [axesDate, t],
   );
 
   return (
@@ -155,7 +175,11 @@ export function PropositionsIaValidation({
           </CardContent>
         </Card>
       ) : (
-        toutes.map((p) => (
+        <ListeGroupee
+          className="space-y-4"
+          items={toutes}
+          axes={axesPropositions}
+          rendu={(p) => (
           <Card key={`${p.type}-${p.id}`}>
             <CardContent className="flex items-center justify-between p-4">
               <div className="space-y-1">
@@ -205,7 +229,8 @@ export function PropositionsIaValidation({
               </div>
             </CardContent>
           </Card>
-        ))
+          )}
+        />
       )}
 
       <Dialog open={!!rejetDialog} onOpenChange={(o) => !o && setRejetDialog(null)}>

@@ -5,7 +5,6 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { generateCompletion, AiConfigError } from "@/lib/ai/glm-client";
 import { siteFilterForModel } from "@/lib/site-scope";
-import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { rateLimit, getClientIP } from "@/lib/security/rateLimit";
 import { SEUILS_PAR_DEFAUT, type Seuils } from "@/lib/learnos/recommendation-engine";
 
@@ -49,7 +48,6 @@ export async function POST(req: NextRequest) {
     }
     const { eleveId, periodeId } = parsed.data;
     const tenantId = session.user.tenantId;
-    const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
     const eleve = await prisma.eleve.findFirst({
       where: { id: eleveId, tenantId, ...siteFilterForModel("eleve", session.user) },
@@ -63,13 +61,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
     }
 
+    // La période est désignée par identifiant : elle porte sa propre année.
+    // Le filtre sur l'année courante faisait répondre « Bulletin introuvable »
+    // dès qu'un conseil de classe rouvrait une période close — ou qu'un
+    // bulletin d'une année archivée était relu — alors que tenant et site
+    // bornent déjà la recherche.
     const bulletin = await prisma.bulletin.findFirst({
       where: {
         eleveId,
         periodeId,
         tenantId,
         ...siteFilterForModel("bulletin", session.user),
-        ...(anneeCourante ? { periode: { annee: { libelle: anneeCourante } } } : {}),
       },
       include: {
         // Les lignes de matières appartiennent au bulletin retourné, lui-même déjà

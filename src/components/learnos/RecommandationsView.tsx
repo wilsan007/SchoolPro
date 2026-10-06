@@ -15,6 +15,8 @@ import { useTranslations } from "next-intl";
 import { texteErreur } from "@/lib/erreurs-client";
 import { cn } from "@/lib/utils";
 import { TexteRegle } from "@/components/learnos/TexteRegle";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 
 interface Recommandation {
   id: string;
@@ -33,6 +35,12 @@ interface Recommandation {
     chapitre: { matiere: { nom: string } | null } | null;
   };
 }
+
+/** À l'intérieur d'une file : par classe, sinon par matière. */
+const AXES_RECOMMANDATIONS: AxeRegroupement<Recommandation>[] = [
+  { id: "classe", cle: (r) => r.eleve.classe?.nom },
+  { id: "matiere", cle: (r) => r.competence.chapitre?.matiere?.nom },
+];
 
 /**
  * Trois files distinctes, dans cet ordre.
@@ -158,8 +166,12 @@ export function RecommandationsView({
               </div>
             </div>
 
-            <div className="space-y-2">
-              {items.map((r) => (
+            <ListeGroupee
+              className="space-y-2"
+              items={items}
+              axes={AXES_RECOMMANDATIONS}
+              replieAuDepart={items.length > 100}
+              rendu={(r) => (
                 <Card key={r.id} className={cn("border-l-4 shadow-none", file.bordure)}>
                   <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1 space-y-2">
@@ -234,8 +246,8 @@ export function RecommandationsView({
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+              )}
+            />
           </section>
         );
       })}

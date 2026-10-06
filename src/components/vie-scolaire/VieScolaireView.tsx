@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { OptionsClasses, OptionsGroupees } from "@/components/classes/OptionsClasses";
+import { useMemo, useState, useTransition } from "react";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,11 +125,12 @@ function CreateIncidentModal({
               onChange={(e) => setForm({ ...form, eleveId: e.target.value })}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              {eleves.map((el) => (
-                <option key={el.id} value={el.id}>
-                  {el.nom} {el.prenom} — {el.classe?.nom ?? t("noClass")}
-                </option>
-              ))}
+              <OptionsGroupees
+                items={eleves}
+                groupe={(el) => el.classe?.nom ?? t("noClass")}
+                valeur={(el) => el.id}
+                libelle={(el) => `${el.nom} ${el.prenom} — ${el.classe?.nom ?? t("noClass")}`}
+              />
             </select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -381,6 +385,29 @@ export function VieScolaireView({
   const [showRetards, setShowRetards] = useState(false);
   const [workflowIncident, setWorkflowIncident] = useState<Incident | null>(null);
 
+  const axesDate = useAxesTemporels<Incident>((i) => i.date);
+  const axesIncidents = useMemo<AxeRegroupement<Incident>[]>(
+    () => [
+      { id: "classe", cle: (i) => i.eleve.classe?.nom },
+      { id: "type", cle: (i) => i.type, libelle: (type) => t(TYPE_KEYS[type as TypeIncident] ?? "typeAutre") },
+      ...axesDate,
+      {
+        id: "statut",
+        cle: (i) => i.statut,
+        libelle: (statut) => t(STATUT_CONFIG[statut as StatutIncident]?.labelKey ?? "statutOuvert"),
+      },
+      {
+        id: "gravite",
+        cle: (i) => String(i.gravite),
+        libelle: (g) => {
+          const config = GRAVITE_CONFIG.find((c) => String(c.val) === g);
+          return config ? `${g} — ${t(config.labelKey)}` : g;
+        },
+      },
+    ],
+    [axesDate, t],
+  );
+
   const stats = {
     total: incidents.length,
     ouverts: incidents.filter((i) => i.statut === "OUVERT").length,
@@ -452,7 +479,7 @@ export function VieScolaireView({
           className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none"
         >
           <option value="ALL">{t("allClasses")}</option>
-          {classes.map((c) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
+          <OptionsClasses classes={classes} valeur={(c) => c.nom} />
         </select>
         {canWrite && (
           <Button
@@ -483,8 +510,11 @@ export function VieScolaireView({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((inc) => (
+        <ListeGroupee
+          className="space-y-3"
+          items={filtered}
+          axes={axesIncidents}
+          rendu={(inc) => (
             <IncidentCard
               key={inc.id}
               incident={inc}
@@ -493,8 +523,8 @@ export function VieScolaireView({
               onWorkflow={(inc) => setWorkflowIncident(inc)}
               canWrite={canWrite}
             />
-          ))}
-        </div>
+          )}
+        />
       )}
 
       {showCreate && (

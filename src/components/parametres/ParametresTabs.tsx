@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, use, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Settings, Users, GraduationCap, BookOpen, UserCog, Settings2, Calendar, CalendarDays, Stamp, Building2,
@@ -116,17 +116,30 @@ const tabGroups: TabGroup[] = [
   },
 ];
 
+/**
+ * Seul `etablissement` est une valeur : c'est l'onglet affiché à l'ouverture.
+ * Les neuf autres jeux de données arrivent sous forme de PROMESSES, que le
+ * serveur continue de résoudre et de transmettre après le premier affichage.
+ * Chaque onglet lit les siennes avec `use()` : il s'affiche aussitôt si elles
+ * sont déjà arrivées, sinon il montre un squelette le temps qu'elles arrivent.
+ *
+ * Avant, la page attendait les dix lectures — dont trois listes de plusieurs
+ * milliers de lignes — avant d'afficher quoi que ce soit, pour un écran dont
+ * le premier onglet n'en utilise qu'une.
+ */
 interface ParametresTabsProps {
   etablissement: NonNullable<Awaited<ReturnType<typeof import("@/lib/actions/parametres").getEtablissementData>>>;
-  users: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getUsersForTenant>>;
-  parents: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getParentsForSettings>>;
-  eleves: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getElevesForLinking>>;
-  classes: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getClassesForSettings>>;
-  matieres: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getMatieresForSettings>>;
-  regles: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getReglesAppreciation>>;
-  periodes: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getPeriodesForCloture>>;
-  sites: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getSitesForSettings>>;
-  annees: Awaited<ReturnType<typeof import("@/lib/actions/parametres").getAnneesScolaires>>;
+  users: ReturnType<typeof import("@/lib/actions/parametres").getUsersForTenant>;
+  parents: ReturnType<typeof import("@/lib/actions/parametres").getParentsForSettings>;
+  eleves: ReturnType<typeof import("@/lib/actions/parametres").getElevesForLinking>;
+  classes: ReturnType<typeof import("@/lib/actions/parametres").getClassesForSettings>;
+  matieres: ReturnType<typeof import("@/lib/actions/parametres").getMatieresForSettings>;
+  regles: ReturnType<typeof import("@/lib/actions/parametres").getReglesAppreciation>;
+  periodes: ReturnType<typeof import("@/lib/actions/parametres").getPeriodesForCloture>;
+  sites: ReturnType<typeof import("@/lib/actions/parametres").getSitesForSettings>;
+  annees: ReturnType<typeof import("@/lib/actions/parametres").getAnneesScolaires>;
+  /** Couleur de chaque site — même repère visuel que sur l'écran Élèves. */
+  siteColors: Promise<Record<string, import("@/lib/site-colors").SiteColor>>;
   canManage: boolean;
   /** Rôle actif : décide quels onglets sont affichés (cf. `TabDef.perm`). */
   roleKey: string;
@@ -144,6 +157,7 @@ export function ParametresTabs({
   periodes,
   sites,
   annees,
+  siteColors,
   canManage,
   roleKey,
   availableTenants,
@@ -232,22 +246,88 @@ export function ParametresTabs({
 
       {/* Contenu de l'onglet actif */}
       <div>
+        <Suspense key={activeTab} fallback={<ChargementOnglet />}>
+          <ContenuOnglet
+            activeTab={activeTab}
+            etablissement={etablissement}
+            users={users}
+            parents={parents}
+            eleves={eleves}
+            classes={classes}
+            matieres={matieres}
+            regles={regles}
+            periodes={periodes}
+            sites={sites}
+            annees={annees}
+            siteColors={siteColors}
+            canManage={canManage}
+            availableTenants={availableTenants}
+          />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+/** Squelette affiché tant que les données d'un onglet ne sont pas arrivées. */
+function ChargementOnglet() {
+  return (
+    <div className="animate-pulse rounded-xl border border-border overflow-hidden" aria-busy="true">
+      <div className="h-12 bg-muted/70" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-14 border-t border-border bg-muted/30" />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Contenu de l'onglet actif. Isolé dans son propre composant pour que
+ * `use()` suspende CE contenu — et lui seul — sous le `<Suspense>` : la barre
+ * d'onglets reste affichée et utilisable pendant qu'un onglet attend ses données.
+ */
+function ContenuOnglet({
+  activeTab,
+  etablissement,
+  users,
+  parents,
+  eleves,
+  classes,
+  matieres,
+  regles,
+  periodes,
+  sites,
+  annees,
+  siteColors,
+  canManage,
+  availableTenants,
+}: Omit<ParametresTabsProps, "roleKey"> & { activeTab: Tab }) {
+  return (
+    <>
         {activeTab === "etablissement" && <EtablissementTab etablissement={etablissement} canManage={canManage} />}
-        {activeTab === "annees" && <AnneesScolairesTab annees={annees} canManage={canManage} />}
-        {activeTab === "calendrier" && <CalendrierScolaireTab annees={annees} canManage={canManage} />}
-        {activeTab === "utilisateurs" && <UsersTab users={users} canManage={canManage} availableTenants={availableTenants} sites={sites} classes={classes} matieres={matieres} />}
-        {activeTab === "parents" && <ParentsTab parents={parents} eleves={eleves} canManage={canManage} />}
-        {activeTab === "classes" && <ClassesTab classes={classes} canManage={canManage} sites={sites} />}
-        {activeTab === "matieres" && <MatieresTab matieres={matieres} canManage={canManage} />}
-        {activeTab === "enseignants" && (
-          <EnseignantsAffectationTab classes={classes} matieres={matieres} canManage={canManage} />
+        {activeTab === "annees" && <AnneesScolairesTab annees={use(annees)} canManage={canManage} />}
+        {activeTab === "calendrier" && <CalendrierScolaireTab annees={use(annees)} canManage={canManage} />}
+        {activeTab === "utilisateurs" && <UsersTab users={use(users)} canManage={canManage} availableTenants={availableTenants} sites={use(sites)} classes={use(classes)} matieres={use(matieres)} />}
+        {activeTab === "parents" && (
+          <ParentsTab
+            parents={use(parents)}
+            eleves={use(eleves)}
+            canManage={canManage}
+            anneeCourante={use(annees).find((a) => a.isCurrent)?.libelle}
+            siteColors={use(siteColors)}
+          />
         )}
-        {activeTab === "salles" && <SallesTab sites={sites} canManage={canManage} />}
+        {activeTab === "classes" && <ClassesTab classes={use(classes)} canManage={canManage} sites={use(sites)} />}
+        {activeTab === "matieres" && <MatieresTab matieres={use(matieres)} canManage={canManage} />}
+        {activeTab === "enseignants" && (
+          <EnseignantsAffectationTab classes={use(classes)} matieres={use(matieres)} canManage={canManage} />
+        )}
+        {activeTab === "salles" && <SallesTab sites={use(sites)} canManage={canManage} />}
         {activeTab === "disponibilites" && <DisponibilitesTab canManage={canManage} />}
-        {activeTab === "appreciations" && <ReglesAppreciationManager regles={regles} />}
+        {activeTab === "appreciations" && <ReglesAppreciationManager regles={use(regles)} />}
         {activeTab === "periodes" && (
           <PeriodesClotureManager
-            periodes={periodes.map((p) => ({
+            periodes={use(periodes).map((p) => ({
               id: p.id,
               nom: p.nom,
               numero: p.numero,
@@ -270,17 +350,16 @@ export function ParametresTabs({
             }}
           />
         )}
-        {activeTab === "sites" && <SitesTab sites={sites} canManage={canManage} />}
+        {activeTab === "sites" && <SitesTab sites={use(sites)} canManage={canManage} />}
         {activeTab === "import" && <ImportModelesTab canManage={canManage} />}
         {activeTab === "sync" && <SyncTab canManage={canManage} />}
-        {activeTab === "tarifs" && <TarifsTab anneeCourante={annees.find((a) => a.isCurrent)?.libelle} />}
+        {activeTab === "tarifs" && <TarifsTab anneeCourante={use(annees).find((a) => a.isCurrent)?.libelle} />}
         {activeTab === "doublons" && <DoublonsTab />}
         {activeTab === "userPermissions" && (
           <UserPermissionsTab
-            users={users.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role }))}
+            users={use(users).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role }))}
           />
         )}
-      </div>
-    </div>
+    </>
   );
 }

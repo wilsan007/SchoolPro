@@ -26,6 +26,9 @@
  */
 
 import prisma from "@/lib/prisma";
+// Aliasé : ce module a déjà sa propre fenêtre (l'année scolaire), celle du
+// signal d'absentéisme est glissante sur 30 jours.
+import { FENETRE_JOURS as FENETRE_ASSIDUITE, tauxAssiduite } from "@/lib/absences/signal-absenteisme";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
@@ -398,12 +401,19 @@ export async function analyserPatternsEleve(
 // ------------------------------------------------------------
 
 /**
- * Calcule le taux d'absence injustifiée récent (30 derniers jours)
- * pour un élève, normalisé 0-1.
+ * Calcule le taux d'assiduité récent (30 derniers jours) d'un élève,
+ * normalisé 0-1.
  *
  * Utilisé par le moteur de prédiction comme 5e facteur d'assiduité.
  * Un élève avec 0 absence → 1.0 (aucun impact).
- * Un élève avec ≥ 10 absences injustifiées en 30 jours → 0.0 (impact maximal).
+ * Un élève avec ≥ 10 absences équivalentes en 30 jours → 0.0 (impact maximal).
+ *
+ * Les retards comptent, à hauteur d'un tiers d'absence chacun : ils étaient
+ * auparavant exclus de ce calcul (`isRetard: false`), si bien qu'un élève
+ * arrivant systématiquement en retard affichait une assiduité parfaite et
+ * n'apparaissait dans aucune prédiction de difficulté. La conversion est
+ * centralisée dans `signal-absenteisme` pour que l'écran d'appel, les
+ * statistiques et le moteur disent la même chose.
  *
  * Déterministe, sans LLM.
  */
@@ -412,22 +422,23 @@ export async function tauxAssiduiteRecent(
   eleveId: string,
   maintenant: Date = new Date()
 ): Promise<number> {
-  const depuis = new Date(maintenant.getTime() - 30 * 86_400_000);
+  const depuis = new Date(maintenant.getTime() - FENETRE_ASSIDUITE * 86_400_000);
 
   // Le filtre de site passe par la relation `eleve` — l'absence n'a pas de
   // `siteId` direct. Le tenantId borne déjà la requête au tenant courant.
   // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- scope via tenantId + eleveId (déjà borné)
-  const count = await prisma.absence.count({
+  const lignes = await prisma.absence.groupBy({
+    by: ["isRetard"],
     where: {
       tenantId,
       eleveId,
       motif: "INJUSTIFIE",
-      isRetard: false,
       date: { gte: depuis, lte: maintenant },
     },
+    _count: { _all: true },
   });
 
-  // 0 absence → 1.0, 10+ → 0.0, interpolation linéaire entre les deux.
-  const PLAFOND = 10;
-  return Math.max(0, 1 - count / PLAFOND);
+  const absences = lignes.find((l) => !l.isRetard)?._count._all ?? 0;
+  const retards = lignes.find((l) => l.isRetard)?._count._all ?? 0;
+  return tauxAssiduite({ absences, retards });
 }

@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { OptionsGroupees, initiale } from "@/components/classes/OptionsClasses";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +61,14 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
   const t = useTranslations("parametres");
   const tStruct = useTranslations("structures");
   const libelleNiveau = useLibelleNiveau();
+  const axesClasses = useMemo<AxeRegroupement<ClasseItem>[]>(
+    () => [
+      { id: "niveau", cle: (c) => libelleNiveau(c.niveau) },
+      { id: "filiere", cle: (c) => c.filiere },
+      { id: "annee", cle: (c) => c.annee },
+    ],
+    [libelleNiveau],
+  );
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [structures, setStructures] = useState<StructureOption[]>([]);
@@ -350,7 +361,7 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
               onChange={(e) => setForm({ ...form, profPrincipalId: e.target.value || undefined })}
               required={!!form.niveau && niveauRequiresProfPrincipal(form.niveau)}>
               <option value="">— {t("selectTeacher")} —</option>
-              {enseignants.map((ens) => (<option key={ens.id} value={ens.id}>{ens.user.name}</option>))}
+              <OptionsGroupees items={enseignants} groupe={(ens) => initiale(ens.user.name)} valeur={(ens) => ens.id} libelle={(ens) => ens.user.name} />
             </select>
             {form.niveau && niveauRequiresProfPrincipal(form.niveau) && (
               <p className="text-xs text-muted-foreground">{t("profPrincipalRequired")}</p>
@@ -646,7 +657,7 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
                 {classes.length === 0 ? (
                   <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">{t("noClasses")}</td></tr>
                 ) : (
-                  classes.map((c) => (
+                  <ListeGroupee variante="table" items={classes} axes={axesClasses} rendu={(c) => (
                     <tr key={c.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{c.nom}</td>
                       <td className="px-4 py-3">{libelleNiveau(c.niveau)}</td>
@@ -692,7 +703,7 @@ export function ClassesTab({ classes, canManage, sites = [] }: { classes: Classe
                         </td>
                       )}
                     </tr>
-                  ))
+                  )} />
                 )}
               </tbody>
             </table>

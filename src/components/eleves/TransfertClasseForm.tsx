@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemsClasses } from "@/components/classes/OptionsClasses";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,9 +96,7 @@ export function TransfertClasseForm({ classes, hierarchie }: { classes: ClasseSi
             <Select value={sourceClasseId} onValueChange={(v) => { setSourceClasseId(v); setSelected(new Set()); }}>
               <SelectTrigger><SelectValue placeholder={t("transfertSelect")} /></SelectTrigger>
               <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
-                ))}
+                <ItemsClasses classes={classes} libelle={(c) => `${c.nom} (${libelleNiveau(c.niveau)})`} />
               </SelectContent>
             </Select>
           </div>

@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { anneesDuTenant } from "@/lib/annee-scolaire";
 
 export async function getReglesAppreciation() {
   const session = await auth();
@@ -17,9 +18,9 @@ export async function getPeriodesForCloture() {
   const session = await auth();
   if (!session?.user?.tenantId) return [];
 
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId: session.user.tenantId, isCurrent: true },
-  });
+  // Liste des années déjà tenue en cache (src/lib/annee-scolaire.ts) : pas de
+  // requête dédiée pour retrouver l'année active.
+  const annee = (await anneesDuTenant(session.user.tenantId)).find((a) => a.isCurrent);
   if (!annee) return [];
 
   return prisma.periode.findMany({

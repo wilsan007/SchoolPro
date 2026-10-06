@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { Fragment, useState, useTransition, useRef } from "react";
+import { SEUIL_REGROUPEMENT, regrouper } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,18 @@ import { useLibelleNiveau } from "@/lib/niveau-context";
 // ─── Types rapports ───────────────────────────────────────────────────────────
 
 type TypeRapport = "palmares" | "statistiques" | "inspection";
+
+/**
+ * Rapport destiné à l'impression : au-delà du seuil, des intertitres fixes
+ * (pas de groupes repliables, qui masqueraient des lignes sur papier).
+ */
+function groupesImprimables<T>(
+  items: T[],
+  cle: (item: T) => string | null | undefined,
+): { cle: string; libelle: string | null; items: T[] }[] {
+  if (items.length <= SEUIL_REGROUPEMENT) return [{ cle: "tous", libelle: null, items }];
+  return regrouper(items, { id: "groupe", cle }, "—");
+}
 
 const RAPPORTS: { type: TypeRapport; titreKey: string; descKey: string; icon: React.ReactNode; color: string }[] = [
   {
@@ -233,14 +246,25 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
             </tr>
           </thead>
           <tbody>
-            {data.classes?.map((c: any, i: number) => (
-              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                <td className="p-2 border border-gray-200 font-medium">{c.nom}</td>
-                <td className="p-2 border border-gray-200 text-gray-500">{libelleNiveau(c.niveau)}</td>
-                <td className="p-2 border border-gray-200 text-gray-500">{c.filiere ?? "—"}</td>
-                <td className="p-2 border border-gray-200 text-right font-bold">{c._count?.eleves ?? 0}</td>
-                <td className="p-2 border border-gray-200 text-right text-gray-500">{c.effectifMax}</td>
-              </tr>
+            {groupesImprimables(data.classes ?? [], (c: any) => libelleNiveau(c.niveau)).map((g) => (
+              <Fragment key={g.cle}>
+                {g.libelle && (
+                  <tr className="bg-gray-200">
+                    <td colSpan={5} className="p-2 border border-gray-200 text-xs font-bold uppercase tracking-wide">
+                      {g.libelle} ({g.items.length})
+                    </td>
+                  </tr>
+                )}
+                {g.items.map((c: any, i: number) => (
+                  <tr key={c.id ?? i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <td className="p-2 border border-gray-200 font-medium">{c.nom}</td>
+                    <td className="p-2 border border-gray-200 text-gray-500">{libelleNiveau(c.niveau)}</td>
+                    <td className="p-2 border border-gray-200 text-gray-500">{c.filiere ?? "—"}</td>
+                    <td className="p-2 border border-gray-200 text-right font-bold">{c._count?.eleves ?? 0}</td>
+                    <td className="p-2 border border-gray-200 text-right text-gray-500">{c.effectifMax}</td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -262,12 +286,23 @@ function InspectionReport({ data, tenant }: { data: any; tenant: any }) {
             </tr>
           </thead>
           <tbody>
-            {data.enseignants?.map((e: any, i: number) => (
-              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                <td className="p-2 border border-gray-200 font-medium">{e.user?.name}</td>
-                <td className="p-2 border border-gray-200 text-gray-500">{e.specialite ?? "—"}</td>
-                <td className="p-2 border border-gray-200 text-gray-500">{e.typeContrat ?? "—"}</td>
-              </tr>
+            {groupesImprimables(data.enseignants ?? [], (e: any) => e.specialite).map((g) => (
+              <Fragment key={g.cle}>
+                {g.libelle && (
+                  <tr className="bg-gray-200">
+                    <td colSpan={3} className="p-2 border border-gray-200 text-xs font-bold uppercase tracking-wide">
+                      {g.libelle} ({g.items.length})
+                    </td>
+                  </tr>
+                )}
+                {g.items.map((e: any, i: number) => (
+                  <tr key={e.id ?? i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <td className="p-2 border border-gray-200 font-medium">{e.user?.name}</td>
+                    <td className="p-2 border border-gray-200 text-gray-500">{e.specialite ?? "—"}</td>
+                    <td className="p-2 border border-gray-200 text-gray-500">{e.typeContrat ?? "—"}</td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>

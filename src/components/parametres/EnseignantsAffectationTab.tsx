@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemsClasses, ItemsGroupes, initiale } from "@/components/classes/OptionsClasses";
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useLibelleNiveau } from "@/lib/niveau-context";
@@ -208,11 +209,12 @@ export function EnseignantsAffectationTab({ classes, matieres, canManage }: Prop
                       <SelectValue placeholder={t("selectionnerEnseignant")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {enseignants.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.user?.name ?? "—"}
-                        </SelectItem>
-                      ))}
+                      <ItemsGroupes
+                        items={enseignants}
+                        groupe={(e) => initiale(e.user?.name)}
+                        valeur={(e) => e.id}
+                        libelle={(e) => e.user?.name ?? "—"}
+                      />
                     </SelectContent>
                   </Select>
                 </div>
@@ -224,11 +226,7 @@ export function EnseignantsAffectationTab({ classes, matieres, canManage }: Prop
                       <SelectValue placeholder={t("selectionnerClasse")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {classes.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nom} ({libelleNiveau(c.niveau)})
-                        </SelectItem>
-                      ))}
+                      <ItemsClasses classes={classes} libelle={(c) => `${c.nom} (${libelleNiveau(c.niveau)})`} />
                     </SelectContent>
                   </Select>
                 </div>

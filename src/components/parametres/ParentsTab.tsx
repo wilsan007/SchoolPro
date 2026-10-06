@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,10 @@ import {
 } from "@/lib/actions/parametres";
 import { getSchoolGroup, SCHOOL_GROUP_ORDER, type SchoolGroup } from "@/lib/school-groups";
 import { useTranslations } from "next-intl";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import { axeInitiale, type AxeRegroupement } from "@/lib/regroupement";
+import { cn } from "@/lib/utils";
+import type { SiteColor } from "@/lib/site-colors";
 
 interface EleveLink {
   eleve: {
@@ -25,8 +29,38 @@ interface EleveLink {
     nom: string;
     prenom: string;
     matricule: string;
-    classe: { nom: string } | null;
+    classe: {
+      id: string;
+      nom: string;
+      niveau: string;
+      annee: string;
+      siteId: string | null;
+      siteNom: string | null;
+      structureType: string | null;
+    } | null;
   };
+}
+
+/** Une classe du rangement, avec les parents qui y ont un enfant. */
+interface ClasseParents {
+  id: string;
+  nom: string;
+  niveau: string;
+  siteId: string;
+  siteNom: string | null;
+  parents: ParentItem[];
+}
+
+/** Clé des parents sans enfant dans l'année affichée (ou sans élève lié). */
+const SANS_CLASSE = "__sans_classe__";
+const SANS_SITE = "__none__";
+const COULEUR_REPLI: SiteColor = { base: "#6b7280", light: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+
+/** Nombre de parents distincts parmi des classes (un parent peut figurer dans plusieurs). */
+function compterParents(classes: ClasseParents[]): number {
+  const ids = new Set<string>();
+  for (const c of classes) for (const p of c.parents) ids.add(p.id);
+  return ids.size;
 }
 
 interface ParentItem {
@@ -50,16 +84,133 @@ interface EleveItem {
   classe: { nom: string; niveau: string; structure?: { type: string } | null } | null;
 }
 
+// Regroupement du tableau une fois la sélection faite (catégorie, site, classe) :
+// tant qu'elle laisse plus de vingt parents, ils restent rangés par classe,
+// par niveau ou par ordre alphabétique.
+const AXES_PARENTS: AxeRegroupement<ParentItem>[] = [
+  { id: "classe", cle: (p) => p.enfants[0]?.eleve.classe?.nom },
+  { id: "niveau", cle: (p) => p.enfants[0]?.eleve.classe?.niveau },
+  axeInitiale((p) => p.nom),
+];
+
+/** Au-delà, les groupes sont repliés à l'ouverture (plusieurs milliers de fiches). */
+const SEUIL_REPLI_PARENTS = 100;
+
 export function ParentsTab({
   parents,
   eleves,
   canManage,
+  anneeCourante,
+  siteColors = {},
 }: {
   parents: ParentItem[];
   eleves: EleveItem[];
   canManage: boolean;
+  /** Année active : seules ses classes structurent le rangement. */
+  anneeCourante?: string;
+  siteColors?: Record<string, SiteColor>;
 }) {
   const t = useTranslations("parents");
+  const tCommon = useTranslations("common");
+  const tEleves = useTranslations("eleves");
+  const tGroupe = useTranslations("regroupement");
+  const [listeGroupe, setListeGroupe] = useState<SchoolGroup | null>(null);
+  const [listeSite, setListeSite] = useState<string>("all");
+  const [listeClasse, setListeClasse] = useState<string | null>(null);
+
+  // Rangement des parents : catégorie scolaire → site → niveau → classe, comme
+  // l'écran Élèves. Un parent figure dans la classe de CHACUN de ses enfants de
+  // l'année active — on le retrouve donc par n'importe lequel d'entre eux. Ceux
+  // qui n'y ont aucun enfant (élève d'une année passée, aucun élève lié) sont
+  // réunis dans la catégorie « Autre ».
+  const categories = useMemo(() => {
+    const parGroupe = new Map<SchoolGroup, Map<string, ClasseParents>>();
+    const ranger = (groupe: SchoolGroup, classe: Omit<ClasseParents, "parents">, parent: ParentItem) => {
+      let classes = parGroupe.get(groupe);
+      if (!classes) parGroupe.set(groupe, (classes = new Map()));
+      let entree = classes.get(classe.id);
+      if (!entree) classes.set(classe.id, (entree = { ...classe, parents: [] }));
+      entree.parents.push(parent);
+    };
+
+    for (const parent of parents) {
+      const vues = new Set<string>();
+      for (const { eleve } of parent.enfants) {
+        const c = eleve.classe;
+        if (!c || (anneeCourante && c.annee !== anneeCourante) || vues.has(c.id)) continue;
+        vues.add(c.id);
+        ranger(
+          getSchoolGroup(c.niveau, c.nom, c.structureType),
+          { id: c.id, nom: c.nom, niveau: c.niveau, siteId: c.siteId ?? SANS_SITE, siteNom: c.siteNom },
+          parent,
+        );
+      }
+      if (vues.size === 0) {
+        ranger(
+          "Autre",
+          { id: SANS_CLASSE, nom: tGroupe("nonRenseigne"), niveau: "—", siteId: SANS_SITE, siteNom: null },
+          parent,
+        );
+      }
+    }
+
+    return SCHOOL_GROUP_ORDER.flatMap((groupe) => {
+      const classes = parGroupe.get(groupe);
+      if (!classes) return [];
+      return [{ groupe, classes: [...classes.values()].sort((a, b) => a.nom.localeCompare(b.nom)) }];
+    });
+  }, [parents, anneeCourante, tGroupe]);
+
+  const categorieActive = listeGroupe ? categories.find((c) => c.groupe === listeGroupe) : undefined;
+
+  // Sites de la catégorie active, chacun avec ses classes rangées par niveau.
+  const sitesDeLaCategorie = useMemo(() => {
+    if (!categorieActive) return [];
+    const parSite = new Map<string, { siteId: string; siteNom: string | null; classes: ClasseParents[] }>();
+    for (const c of categorieActive.classes) {
+      let site = parSite.get(c.siteId);
+      if (!site) parSite.set(c.siteId, (site = { siteId: c.siteId, siteNom: c.siteNom, classes: [] }));
+      site.classes.push(c);
+    }
+    return [...parSite.values()]
+      .sort((a, b) => (a.siteNom ?? "").localeCompare(b.siteNom ?? ""))
+      .map((site) => {
+        const parNiveau = new Map<string, ClasseParents[]>();
+        for (const c of site.classes) {
+          const niveau = parNiveau.get(c.niveau);
+          if (niveau) niveau.push(c);
+          else parNiveau.set(c.niveau, [c]);
+        }
+        return {
+          ...site,
+          total: compterParents(site.classes),
+          niveaux: [...parNiveau.entries()].sort(([a], [b]) => a.localeCompare(b)),
+        };
+      });
+  }, [categorieActive]);
+
+  const sitesAffiches =
+    listeSite === "all" ? sitesDeLaCategorie : sitesDeLaCategorie.filter((s) => s.siteId === listeSite);
+
+  // Parents de la sélection courante (catégorie, puis site, puis classe), sans doublon.
+  const parentsAffiches = useMemo(() => {
+    const vus = new Set<string>();
+    const liste: ParentItem[] = [];
+    for (const site of sitesAffiches) {
+      for (const c of site.classes) {
+        if (listeClasse && c.id !== listeClasse) continue;
+        for (const p of c.parents) {
+          if (vus.has(p.id)) continue;
+          vus.add(p.id);
+          liste.push(p);
+        }
+      }
+    }
+    return liste;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sitesAffiches` découle de ces trois valeurs
+  }, [sitesDeLaCategorie, listeSite, listeClasse]);
+
+  const nomSite = (siteNom: string | null) => siteNom ?? tGroupe("nonRenseigne");
   const [showForm, setShowForm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [linkingParent, setLinkingParent] = useState<string | null>(null);
@@ -360,7 +511,140 @@ export function ParentsTab({
       {/* Liste des parents */}
       <Card>
         <CardContent className="p-0">
+          {/* Catégories scolaires : Maternelle | Primaire | Collège | Lycée */}
+          {categories.length > 0 && (
+            <div className="flex items-center gap-1 px-4 pt-3 border-b overflow-x-auto">
+              {categories.map(({ groupe, classes }) => (
+                <button
+                  key={groupe}
+                  type="button"
+                  onClick={() => {
+                    setListeGroupe(listeGroupe === groupe ? null : groupe);
+                    setListeSite("all");
+                    setListeClasse(null);
+                  }}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2",
+                    listeGroupe === groupe
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                  )}
+                >
+                  {groupe}
+                  <span className="ml-1.5 text-xs opacity-70">({compterParents(classes)})</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Sites de la catégorie */}
+          {categorieActive && (
+            <div className="flex items-center gap-1 px-4 pt-3 border-b bg-muted/20 overflow-x-auto">
+              {[
+                { siteId: "all", siteNom: tCommon("all"), total: compterParents(categorieActive.classes) },
+                ...sitesDeLaCategorie.map((s) => ({ siteId: s.siteId, siteNom: nomSite(s.siteNom), total: s.total })),
+              ].map((site) => {
+                const tous = site.siteId === "all";
+                const actif = listeSite === site.siteId;
+                const couleur = tous ? undefined : (siteColors[site.siteId] ?? COULEUR_REPLI);
+                return (
+                  <button
+                    key={site.siteId}
+                    type="button"
+                    onClick={() => {
+                      setListeSite(site.siteId);
+                      setListeClasse(null);
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors border-b-2",
+                      actif ? "bg-background" : "hover:bg-muted/40",
+                      tous && actif ? "border-primary text-primary" : "",
+                      tous && !actif ? "text-muted-foreground" : "",
+                    )}
+                    style={couleur ? { color: couleur.text, borderColor: actif ? couleur.base : "transparent" } : undefined}
+                  >
+                    {site.siteNom}
+                    <span className="ml-1.5 text-[10px] opacity-70">({site.total})</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Une carte par site : tous ses niveaux, et sur la ligne de chaque
+              niveau toutes ses classes. */}
+          {categorieActive && (
+            <div className="px-4 py-3 border-b bg-muted/20">
+              <div className={cn("grid grid-cols-1 gap-3", sitesAffiches.length > 1 && "sm:grid-cols-2 xl:grid-cols-3")}>
+                {sitesAffiches.map((site) => {
+                  const couleur = siteColors[site.siteId] ?? COULEUR_REPLI;
+                  return (
+                    <div
+                      key={site.siteId}
+                      className="rounded-lg border p-3"
+                      style={{ borderColor: couleur.border, backgroundColor: couleur.light }}
+                    >
+                      <div className="mb-2 text-sm font-semibold" style={{ color: couleur.text }}>
+                        {nomSite(site.siteNom)}
+                        <span className="ml-1.5 text-[10px] opacity-80">({site.total})</span>
+                      </div>
+                      <div className="space-y-2">
+                        {site.niveaux.map(([niveau, classes]) => (
+                          <div key={niveau} className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground min-w-[60px] flex-shrink-0">
+                              {niveau}
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {classes.map((c) => {
+                                const active = listeClasse === c.id;
+                                return (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    aria-pressed={active}
+                                    onClick={() => setListeClasse(active ? null : c.id)}
+                                    className={cn(
+                                      "px-3 py-1.5 text-xs font-medium rounded-lg transition-all border",
+                                      active ? "shadow-sm" : "hover:bg-white/60",
+                                    )}
+                                    style={
+                                      active
+                                        ? { backgroundColor: couleur.base, borderColor: couleur.base, color: "#fff" }
+                                        : { borderColor: couleur.border, color: couleur.text }
+                                    }
+                                  >
+                                    {c.nom}
+                                    <span className="ml-1.5 text-[10px] opacity-80">{c.parents.length}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Message si aucune catégorie sélectionnée */}
+          {parents.length > 0 && !categorieActive && (
+            <div className="text-center py-10 text-muted-foreground text-sm">
+              {tEleves("selectLevelForClasses")}
+            </div>
+          )}
+
+          {(parents.length === 0 || categorieActive) && (
           <div className="overflow-x-auto">
+            {categorieActive && (
+              <div className="px-4 py-2 text-sm font-medium text-muted-foreground">
+                {t("pvCountDisplayed", { count: parentsAffiches.length })}
+                {listeSite !== "all" ? ` — ${nomSite(sitesAffiches[0]?.siteNom ?? null)}` : ""}
+                {listeClasse ? ` — ${categorieActive.classes.find((c) => c.id === listeClasse)?.nom ?? ""}` : ""}
+              </div>
+            )}
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50 border-b">
                 <tr>
@@ -379,7 +663,12 @@ export function ParentsTab({
                     </td>
                   </tr>
                 ) : (
-                  parents.map((p) => (
+                  <ListeGroupee
+                    variante="table"
+                    items={parentsAffiches}
+                    axes={AXES_PARENTS}
+                    replieAuDepart={parentsAffiches.length > SEUIL_REPLI_PARENTS}
+                    rendu={(p) => (
                     <tr key={p.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3">
                         <div className="font-medium">{p.prenom} {p.nom}</div>
@@ -502,11 +791,13 @@ export function ParentsTab({
                         </td>
                       )}
                     </tr>
-                  ))
+                    )}
+                  />
                 )}
               </tbody>
             </table>
           </div>
+          )}
         </CardContent>
       </Card>
 

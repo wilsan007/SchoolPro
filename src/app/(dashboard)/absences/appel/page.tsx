@@ -9,6 +9,7 @@ import { roleHasPermission } from "@/lib/permissions";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { getClassesHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { FENETRE_JOURS } from "@/lib/absences/signal-absenteisme";
 
 async function getClasses(tenantId: string, claims: SessionSiteClaims, hierarchieClasseIds: string[]) {
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
@@ -66,6 +67,47 @@ async function getCreneauxEdt(tenantId: string, claims: SessionSiteClaims, class
   }));
 }
 
+/**
+ * Absences et retards injustifiés des 30 derniers jours, par élève.
+ *
+ * L'enseignant voit ainsi, AVANT de saisir, quels élèves décrochent déjà —
+ * l'information existait en base et dans les alertes aux parents, mais pas à
+ * l'endroit et au moment où elle sert. Une seule agrégation pour tout l'écran.
+ */
+async function getSignauxAbsenteisme(
+  tenantId: string,
+  claims: SessionSiteClaims,
+  classeIds: string[],
+  maintenant: Date
+): Promise<Record<string, { absences: number; retards: number }>> {
+  if (classeIds.length === 0) return {};
+  const depuis = new Date(maintenant.getTime() - FENETRE_JOURS * 86_400_000);
+
+  // La fenêtre glissante de 30 jours borne déjà le périmètre temporel : un
+  // filtre d'année scolaire en plus ne changerait rien au résultat.
+  // eslint-disable-next-line ecolpro/require-annee-filter -- fenêtre de dates explicite
+  const lignes = await prisma.absence.groupBy({
+    by: ["eleveId", "isRetard"],
+    where: {
+      tenantId,
+      ...siteFilterForModel("absence", claims),
+      motif: "INJUSTIFIE",
+      date: { gte: depuis, lte: maintenant },
+      eleve: { classeId: { in: classeIds } },
+    },
+    _count: { _all: true },
+  });
+
+  const signaux: Record<string, { absences: number; retards: number }> = {};
+  for (const ligne of lignes) {
+    const courant = signaux[ligne.eleveId] ?? { absences: 0, retards: 0 };
+    if (ligne.isRetard) courant.retards += ligne._count._all;
+    else courant.absences += ligne._count._all;
+    signaux[ligne.eleveId] = courant;
+  }
+  return signaux;
+}
+
 export default async function AppelPage() {
   const session = await auth();
   await guardPage(session);
@@ -81,7 +123,11 @@ export default async function AppelPage() {
     getClasses(session.user.tenantId, session.user, hierarchieClasseIds),
     getDemoNow(),
   ]);
-  const creneaux = await getCreneauxEdt(session.user.tenantId, session.user, classes.map((c) => c.id), anneeCourante);
+  const classeIds = classes.map((c) => c.id);
+  const [creneaux, signaux] = await Promise.all([
+    getCreneauxEdt(session.user.tenantId, session.user, classeIds, anneeCourante),
+    getSignauxAbsenteisme(session.user.tenantId, session.user, classeIds, maintenant),
+  ]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -97,6 +143,7 @@ export default async function AppelPage() {
           tenantId={session.user.tenantId}
           hierarchie={hierarchie}
           creneauxEdt={creneaux}
+          signauxAbsenteisme={signaux}
           maintenantISO={maintenant.toISOString()}
           // `absences:read` ouvre cet écran (l'assiduité est le dossier de suivi
           // de plusieurs rôles) ; seule `absences:write` autorise la saisie.

@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemsClasses } from "@/components/classes/OptionsClasses";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,9 +54,7 @@ export function BilanAnnuelManager({ classes, hierarchie: _hierarchie, anneeId }
                   <SelectValue placeholder={t("selectClass")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {classes.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>
-                  ))}
+                  <ItemsClasses classes={classes} />
                 </SelectContent>
               </Select>
             </div>

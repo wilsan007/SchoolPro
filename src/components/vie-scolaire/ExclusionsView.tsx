@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsClasses } from "@/components/classes/OptionsClasses";
 import { useState, useMemo } from "react";
 import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
 import type { AxeRegroupement } from "@/lib/regroupement";
@@ -478,11 +479,7 @@ export function ExclusionsView({
                 className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs"
               >
                 <option value="TOUTES">Toutes les classes</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom}
-                  </option>
-                ))}
+                <OptionsClasses classes={classes} />
               </select>
             </div>
           </div>

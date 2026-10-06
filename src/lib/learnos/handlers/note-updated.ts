@@ -107,7 +107,10 @@ async function alerterParentBaisseNote(
     parentId: ep.parentId,
     niveau: NiveauAlerteParent.ATTENTION,
     cle: "note.baisse",
-    params: { delta, noteId: p.noteId, intitule: p.intitule },
+    // `baisse` est l'écart en valeur absolue : « en baisse de 4,5 points » se
+    // lit, « en baisse de -4,5 points » non. `intitule` est nullable côté
+    // événement, et un paramètre manquant casse le rendu ICU du message.
+    params: { baisse: Math.abs(delta), delta, noteId: p.noteId, intitule: p.intitule ?? "—" },
     empreinte: `note-baisse-${p.noteId}-${ep.parentId}`,
   }));
 

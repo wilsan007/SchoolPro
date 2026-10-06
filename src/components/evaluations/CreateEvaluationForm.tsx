@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemsClasses } from "@/components/classes/OptionsClasses";
 import { useState, useTransition } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -115,7 +116,7 @@ export function CreateEvaluationForm({ classes, hierarchie: _hierarchie, matiere
                 <Select name="classeId" required>
                   <SelectTrigger className="bg-background"><SelectValue placeholder={t("selectClass")} /></SelectTrigger>
                   <SelectContent>
-                    {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>)}
+                    <ItemsClasses classes={classes} />
                   </SelectContent>
                 </Select>
               </div>

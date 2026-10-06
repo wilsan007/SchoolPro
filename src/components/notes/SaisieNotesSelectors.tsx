@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsClasses } from "@/components/classes/OptionsClasses";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
@@ -58,11 +59,7 @@ export function SaisieNotesSelectors({
           className="w-full h-10 px-3 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">{t("selectClassPlaceholder")}</option>
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
+          <OptionsClasses classes={classes} />
         </select>
       </div>
 

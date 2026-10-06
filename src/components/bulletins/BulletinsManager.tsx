@@ -1,5 +1,7 @@
 "use client";
 
+import { OptionsClasses, useAxesClasses } from "@/components/classes/OptionsClasses";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
 import { useState, useTransition, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +59,7 @@ export function BulletinsManager({
   userRole?: string;
 }) {
   const t = useTranslations("bulletinsManager");
+  const axesClasses = useAxesClasses<Classe>();
   const [selectedClasse, setSelectedClasse] = useState<Classe | null>(classes[0] ?? null);
   const [selectedPeriode, setSelectedPeriode] = useState<Periode | null>(
     periodes.find((p) => p.isCurrent) ?? periodes[0] ?? null
@@ -289,9 +292,7 @@ export function BulletinsManager({
             }}
             className="h-8 rounded-md border border-input bg-background px-2 text-sm"
           >
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>{c.nom} ({c.eleves.length})</option>
-            ))}
+            <OptionsClasses classes={classes} libelle={(c) => `${c.nom} (${c.eleves.length})`} />
           </select>
 
           {/* Sélecteur période */}
@@ -389,8 +390,12 @@ export function BulletinsManager({
               {t("class")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-2 pt-0 space-y-1">
-            {classes.map((c) => (
+          <CardContent className="p-2 pt-0">
+            <ListeGroupee
+              className="space-y-1"
+              items={classes}
+              axes={axesClasses}
+              rendu={(c) => (
               <button
                 key={c.id}
                 onClick={() => { setSelectedClasse(c); setView("workflow"); }}
@@ -412,7 +417,8 @@ export function BulletinsManager({
                 </div>
                 <ChevronRight className="h-3.5 w-3.5 opacity-50" />
               </button>
-            ))}
+              )}
+            />
           </CardContent>
         </Card>
       </div>

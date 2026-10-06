@@ -614,7 +614,9 @@
     "appelNoTimetable": "no timetable for this day, 1-hour slots",
     "appelArrivalTime": "Arrived at",
     "appelArrivalTimeFor": "Arrival time for {nom}",
-    "appelArrivalInvalid": "Invalid arrival time: it must be between {debut} and {fin}"
+    "appelArrivalInvalid": "Invalid arrival time: it must be between {debut} and {fin}",
+    "appelAtRisk": "At risk",
+    "appelAtRiskDetail": "{absences} unexcused absence(s) and {retards} late arrival(s) over {jours} days"
   },
   "bulletinsManager": {
     "period": "Period",
@@ -4037,7 +4039,7 @@
       "parcoursArret": "🔔 {prenom}’s support plan in {matiere} has been stalled for several weeks. A word with the teacher would help.",
       "jalonAtteint": "🎉 Good news: {prenom} has completed the step “{competence}”. The work is paying off.",
       "absence": {
-        "frequence": "⚠️ {elevePrenom} {eleveNom} has accumulated {count} unexcused absences this week (week {semaine}). Please contact us to regularise."
+        "frequence": "⚠️ {elevePrenom} {eleveNom} has {count} unexcused absences and {retards} late arrivals since the start of the year. Please get in touch to regularise."
       },
       "prediction": {
         "difficulte": "📊 {elevePrenom} {eleveNom} is predicted to struggle with “{competenceLibelle}” ({difficulte}, success probability {probaReussite, number, percent}). Support is recommended."
@@ -4057,6 +4059,15 @@
       },
       "candidature": {
         "acceptee": "✅ The application for {elevePrenom} {eleveNom} has been accepted. Student ID: {matricule}, Class: {classeNom}. Welcome!"
+      },
+      "retards": {
+        "exces": "⏰ {prenom} {nom} ({classeNom}) has {retards} late arrivals, above the threshold of {seuil}. Most recent on {dernierRetard}. Please get in touch with us."
+      },
+      "sanction": {
+        "appliquee": "⚠️ A sanction has been issued for {elevePrenom} {eleveNom} ({classeNom}): {typeSanction}, severity {gravite}/3, from {dateDebut} (until {dateFin}). Reason: {description}."
+      },
+      "note": {
+        "baisse": "📉 The mark for {intitule} is down {baisse} points for your child. A talk with the teacher may help."
       }
     },
     "preferences": {
@@ -5408,7 +5419,12 @@
       "batiment": "Building",
       "pays": "Country",
       "caissier": "Cashier",
-      "localisation": "Location"
+      "localisation": "Location",
+      "canal": "Channel",
+      "cible": "Audience",
+      "gravite": "Severity",
+      "filiere": "Track",
+      "specialite": "Specialty"
     }
   }
 }

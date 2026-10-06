@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsClasses } from "@/components/classes/OptionsClasses";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -283,11 +284,7 @@ export function ElevesTable({ eleves, total, effectifs, classes, hierarchie, sit
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">{tCommon("all")}</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom}{c.siteNom ? ` — ${c.siteNom}` : ""}
-                  </option>
-                ))}
+                <OptionsClasses classes={classes} libelle={(c) => `${c.nom}${c.siteNom ? ` — ${c.siteNom}` : ""}`} />
               </select>
             </div>
           )}

@@ -27,6 +27,13 @@ function niveauPourType(typeSanction: string): NiveauAlerteParent | null {
   return null;
 }
 
+/** ISO → "JJ/MM/AAAA", lisible dans un message WhatsApp. */
+function enDateCourte(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
+}
+
 export async function onSanctionAppliquee(event: DrainedEvent): Promise<void> {
   const payload = event.payload as SanctionAppliqueePayload;
   const { tenantId } = event;
@@ -41,15 +48,18 @@ export async function onSanctionAppliquee(event: DrainedEvent): Promise<void> {
     parentId,
     niveau,
     cle: "sanction.appliquee",
+    // Le message est rendu par ICU au moment de l'envoi : un paramètre `null`
+    // ou absent y produit une erreur de formatage, et la famille reçoit alors
+    // le chemin de la clé à la place du texte. Tout est donc normalisé ici.
     params: {
       elevePrenom: payload.prenom,
       eleveNom: payload.nom,
-      classeNom: payload.classeNom,
+      classeNom: payload.classeNom ?? "—",
       typeSanction: payload.typeSanction,
       gravite: payload.gravite,
-      description: payload.description,
-      dateDebut: payload.dateDebut,
-      dateFin: payload.dateFin,
+      description: payload.description ?? "—",
+      dateDebut: enDateCourte(payload.dateDebut),
+      dateFin: payload.dateFin ? enDateCourte(payload.dateFin) : "—",
     },
     empreinte: `sanction-${payload.sanctionId}-${parentId}`,
   }));

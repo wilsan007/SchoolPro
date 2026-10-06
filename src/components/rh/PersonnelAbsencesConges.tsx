@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsGroupees, initiale } from "@/components/classes/OptionsClasses";
 import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -228,9 +229,7 @@ export function PersonnelAbsencesConges({
                       className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
                       <option value="">{t("selectTeacher")}</option>
-                      {enseignants.map((en) => (
-                        <option key={en.id} value={en.id}>{en.user.name}</option>
-                      ))}
+                      <OptionsGroupees items={enseignants} groupe={(en) => initiale(en.user.name)} valeur={(en) => en.id} libelle={(en) => en.user.name} />
                     </select>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -356,9 +355,7 @@ export function PersonnelAbsencesConges({
                       className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
                       <option value="">{t("selectTeacher")}</option>
-                      {enseignants.map((en) => (
-                        <option key={en.id} value={en.id}>{en.user.name}</option>
-                      ))}
+                      <OptionsGroupees items={enseignants} groupe={(en) => initiale(en.user.name)} valeur={(en) => en.id} libelle={(en) => en.user.name} />
                     </select>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

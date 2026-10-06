@@ -614,7 +614,9 @@
     "appelNoTimetable": "jadwal ma jiro maalintan, waqtiyo 1 saac ah",
     "appelArrivalTime": "Wuxuu yimid",
     "appelArrivalTimeFor": "Waqtiga imaatinka {nom}",
-    "appelArrivalInvalid": "Waqtiga imaatinka waa khalad: waa inuu u dhexeeyaa {debut} iyo {fin}"
+    "appelArrivalInvalid": "Waqtiga imaatinka waa khalad: waa inuu u dhexeeyaa {debut} iyo {fin}",
+    "appelAtRisk": "Halis",
+    "appelAtRiskDetail": "{absences} maqnaansho iyo {retards} daahitaan aan la cudurdaarin {jours} maalmood gudahood"
   },
   "bulletinsManager": {
     "period": "Period",
@@ -4037,7 +4039,7 @@
       "parcoursArret": "🔔 Le parcours d’accompagnement de {prenom} en {matiere} est à l’arrêt depuis plusieurs semaines. Un point avec l’enseignant serait utile.",
       "jalonAtteint": "🎉 Bonne nouvelle : {prenom} a validé l’étape « {competence} ». Le travail porte ses fruits.",
       "absence": {
-        "frequence": "⚠️ {elevePrenom} {eleveNom} wuxuu leeyahay {count} maqan aan la fasixin toddobaadkan (todobaadka {semaine}). Fadlan nala soo xiriir si aad u xaliso."
+        "frequence": "⚠️ {elevePrenom} {eleveNom} wuxuu leeyahay {count} maqnaansho aan la cudurdaarin iyo {retards} daahitaan tan iyo bilowgii sanadka. Fadlan nala soo xiriir."
       },
       "prediction": {
         "difficulte": "📊 {elevePrenom} {eleveNom} waxaa la saadaaliyay inuu dhibaato kula kulmo « {competenceLibelle} » ({difficulte}, fursadda guusha {probaReussite, number, percent}). Taageero waa la taliyay."
@@ -4057,6 +4059,15 @@
       },
       "candidature": {
         "acceptee": "✅ Codsiga {elevePrenom} {eleveNom} waa la aqbalay. Lambarka ardayga: {matricule}, Fasalka: {classeNom}. Soo dhawow!"
+      },
+      "retards": {
+        "exces": "⏰ {prenom} {nom} ({classeNom}) wuxuu ku soo daahay {retards} jeer, taasoo ka badan xadka {seuil}. Daahitaankii ugu dambeeyay {dernierRetard}. Fadlan nala soo xiriir."
+      },
+      "sanction": {
+        "appliquee": "⚠️ Ciqaab ayaa lagu soo rogay {elevePrenom} {eleveNom} ({classeNom}): {typeSanction}, darnaanta {gravite}/3, laga bilaabo {dateDebut} (ilaa {dateFin}). Sababta: {description}."
+      },
+      "note": {
+        "baisse": "📉 Natiijada {intitule} way hoos u dhacday {baisse} dhibcood. Waxaa caawin kara inaad macallinka la hadasho."
       }
     },
     "preferences": {
@@ -5408,7 +5419,12 @@
       "batiment": "Dhisme",
       "pays": "Waddan",
       "caissier": "Khasnaji",
-      "localisation": "Meel"
+      "localisation": "Meel",
+      "canal": "Kanaal",
+      "cible": "Bartilmaameed",
+      "gravite": "Darnaan",
+      "filiere": "Laan",
+      "specialite": "Takhasus"
     }
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsGroupees, initiale } from "@/components/classes/OptionsClasses";
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -297,9 +298,7 @@ export function DisponibilitesTab({ canManage }: Props) {
           className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm"
         >
           <option value="">Tous</option>
-          {enseignants.map((e) => (
-            <option key={e.id} value={e.id}>{e.user.name ?? "Sans nom"}</option>
-          ))}
+          <OptionsGroupees items={enseignants} groupe={(e) => initiale(e.user.name)} valeur={(e) => e.id} libelle={(e) => e.user.name ?? "Sans nom"} />
         </select>
       </div>
 
@@ -317,9 +316,7 @@ export function DisponibilitesTab({ canManage }: Props) {
               className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm col-span-2"
             >
               <option value="">— Sélectionner —</option>
-              {enseignants.map((e) => (
-                <option key={e.id} value={e.id}>{e.user.name ?? "Sans nom"}</option>
-              ))}
+              <OptionsGroupees items={enseignants} groupe={(e) => initiale(e.user.name)} valeur={(e) => e.id} libelle={(e) => e.user.name ?? "Sans nom"} />
             </select>
             <select value={jour} onChange={(e) => setJour(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
               {JOURS.map((j) => <option key={j} value={j}>{j.charAt(0) + j.slice(1).toLowerCase()}</option>)}

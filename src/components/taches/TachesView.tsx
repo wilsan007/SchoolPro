@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsGroupees, initiale } from "@/components/classes/OptionsClasses";
 import { useState, useTransition, useMemo } from "react";
 import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
 import type { AxeRegroupement } from "@/lib/regroupement";
@@ -339,11 +340,7 @@ function CreateTacheForm({
           required
         >
           <option value="">Assigner à…</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name ?? u.email}
-            </option>
-          ))}
+          <OptionsGroupees items={users} groupe={(u) => initiale(u.name ?? u.email)} valeur={(u) => u.id} libelle={(u) => u.name ?? u.email} />
         </select>
         <select
           value={priorite}

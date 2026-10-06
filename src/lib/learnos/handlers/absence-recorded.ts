@@ -7,9 +7,16 @@
  * `AlerteParent` par parent lié, prête à être envoyée (outbox).
  *
  * Règles déterministes, sans LLM :
- * - 3 absences injustifiées dans l'année → ATTENTION
- * - 5 absences injustifiées dans l'année → URGENT
+ * - 3 absences équivalentes dans l'année → ATTENTION
+ * - 5 absences équivalentes dans l'année → URGENT
  * - un seul message par semaine et par parent (empreinte).
+ *
+ * Les retards comptent pour un tiers d'absence (`signal-absenteisme`). Le
+ * handler les ignorait purement et simplement : un élève arrivant en retard
+ * chaque matin ne déclenchait jamais rien, alors que c'est le signal de
+ * décrochage le plus précoce. Un retard isolé ne suffit toujours pas à
+ * alerter — il faut neuf retards pour atteindre le seuil d'attention — et
+ * l'empreinte hebdomadaire empêche toute répétition du message.
  */
 
 import prisma from "@/lib/prisma";
@@ -19,16 +26,13 @@ import { getAnneeCourante } from "@/lib/annee-scolaire";
 import { siteFilterFromSession, siteFilterForRelation } from "@/lib/site-scope";
 import { semaineScolaire } from "@/lib/learnos/planification-pure";
 import { NiveauAlerteParent } from "@prisma/client";
-
-const SEUIL_ATTENTION = 3;
-const SEUIL_URGENT = 5;
+import { absencesEquivalentes, SEUIL_ATTENTION, SEUIL_ELEVE } from "@/lib/absences/signal-absenteisme";
 
 export async function onAbsenceRecorded(event: DrainedEvent): Promise<void> {
   const payload = event.payload as AbsenceRecordedPayload;
   const { tenantId, siteId } = event;
 
   if (payload.motif !== "INJUSTIFIE") return;
-  if (payload.isRetard) return;
 
   const annee = await getAnneeCourante(tenantId);
   if (!annee) {
@@ -59,20 +63,25 @@ export async function onAbsenceRecorded(event: DrainedEvent): Promise<void> {
   }
 
   // eslint-disable-next-line ecolpro/require-annee-filter -- événement drainé : comptage sur une plage de dates déjà calculée
-  const count = await prisma.absence.count({
+  const lignes = await prisma.absence.groupBy({
+    by: ["isRetard"],
     where: {
       tenantId,
       ...absenceSiteFilter,
       eleveId: payload.eleveId,
       date: { gte: debut, lte: fin },
       motif: "INJUSTIFIE" as const,
-      isRetard: false,
     },
+    _count: { _all: true },
   });
 
-  if (count < SEUIL_ATTENTION) return;
+  const count = lignes.find((l) => !l.isRetard)?._count._all ?? 0;
+  const retards = lignes.find((l) => l.isRetard)?._count._all ?? 0;
+  const equivalent = absencesEquivalentes({ absences: count, retards });
 
-  const niveau = count >= SEUIL_URGENT ? NiveauAlerteParent.URGENT : NiveauAlerteParent.ATTENTION;
+  if (equivalent < SEUIL_ATTENTION) return;
+
+  const niveau = equivalent >= SEUIL_ELEVE ? NiveauAlerteParent.URGENT : NiveauAlerteParent.ATTENTION;
   const semaine = semaineScolaire(date, debut);
 
   const alertes = eleve.parents.map((ep) => ({
@@ -82,7 +91,9 @@ export async function onAbsenceRecorded(event: DrainedEvent): Promise<void> {
     parentId: ep.parentId,
     niveau,
     cle: "absence.frequence",
-    params: { count, semaine },
+    // `semaine` ne sert qu'à l'empreinte : le décompte porte sur l'année, pas
+    // sur la semaine — le message le disait pourtant, à tort.
+    params: { count, retards },
     empreinte: `absence-freq-${payload.eleveId}-${ep.parentId}-${semaine}`,
   }));
 

@@ -8,6 +8,13 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { NiveauAlerteParent } from "@prisma/client";
 
+/** Date → "JJ/MM/AAAA", lisible dans un message WhatsApp. */
+function enDateCourte(valeur: Date | string): string {
+  const d = new Date(valeur);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -113,13 +120,17 @@ export async function GET(req: NextRequest) {
             parentId: ep.parent.id,
             niveau: retards >= seuil * 2 ? NiveauAlerteParent.URGENT : NiveauAlerteParent.ATTENTION,
             cle: "retards.exces",
+            // Ces paramètres alimentent le message ICU envoyé à la famille :
+            // une valeur nulle y produit une erreur de formatage et la clé
+            // part à la place du texte. La date est déjà mise en forme ici,
+            // l'envoi se faisant hors contexte de requête.
             params: {
               retards,
               seuil,
-              prenom: info?.prenom ?? "",
-              nom: info?.nom ?? "",
-              classeNom: info?.classe ?? null,
-              dernierRetard: info ? new Date(info.dernierRetard).toISOString() : null,
+              prenom: info?.prenom ?? "—",
+              nom: info?.nom ?? "—",
+              classeNom: info?.classe ?? "—",
+              dernierRetard: info ? enDateCourte(info.dernierRetard) : "—",
             },
             empreinte: `retards-${eleve.id}-${mois}`,
           };

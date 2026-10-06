@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemsClasses } from "@/components/classes/OptionsClasses";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -292,11 +293,7 @@ function ScanEnonces({
                 <SelectValue placeholder={t("choisir")} />
               </SelectTrigger>
               <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nom}
-                  </SelectItem>
-                ))}
+                <ItemsClasses classes={classes} />
               </SelectContent>
             </Select>
           </div>
@@ -607,11 +604,7 @@ function ScanNotes({
                 <SelectValue placeholder={t("choisir")} />
               </SelectTrigger>
               <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nom}
-                  </SelectItem>
-                ))}
+                <ItemsClasses classes={classes} />
               </SelectContent>
             </Select>
           </div>

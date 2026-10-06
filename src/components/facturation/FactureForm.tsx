@@ -1,5 +1,6 @@
 "use client";
 
+import { OptionsClasses } from "@/components/classes/OptionsClasses";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -313,11 +314,7 @@ export function FactureForm({
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">{t("allClasses")}</option>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nom}
-                    </option>
-                  ))}
+                  <OptionsClasses classes={classes} />
                 </select>
               </div>
               <div className="sm:col-span-2">

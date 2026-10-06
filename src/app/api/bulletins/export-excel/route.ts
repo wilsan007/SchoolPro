@@ -7,7 +7,6 @@ import {
   personalScopeFilter,
   mergeFilters,
 } from "@/lib/site-scope";
-import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import ExcelJS from "exceljs";
 
 export async function GET(req: NextRequest) {
@@ -19,7 +18,6 @@ export async function GET(req: NextRequest) {
     const denied = await checkPermission(session.user.role, "bulletins:read");
     if (denied) return denied;
     const siteFilter = siteFilterForModel("classe", session.user);
-    const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
 
     const { searchParams } = new URL(req.url);
     const classeId = searchParams.get("classeId");
@@ -29,9 +27,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "classeId et periodeId sont requis" }, { status: 400 });
     }
 
-    // Récupérer la classe et les élèves
+    // Accès par IDENTIFIANT : la classe demandée appartient déjà à une seule
+    // année (`Classe.annee`), et la période passée en paramètre porte la
+    // sienne. Filtrer en plus sur l'année courante n'ajoutait aucune
+    // protection — tenant et site bornent déjà la requête — mais rendait
+    // impossible le réexport des bulletins d'une année close, alors que la
+    // matrice et l'aperçu les affichent. Un duplicata réclamé par une famille
+    // en septembre pour l'année précédente butait sur « Classe introuvable ».
+    // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant d'une entité déjà datée
     const classe = await prisma.classe.findFirst({
-      where: { id: classeId, tenantId: session.user.tenantId, ...siteFilter, ...(anneeCourante ? { annee: anneeCourante } : {}) },
+      where: { id: classeId, tenantId: session.user.tenantId, ...siteFilter },
       select: { nom: true },
     });
     if (!classe) {

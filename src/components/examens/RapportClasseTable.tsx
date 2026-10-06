@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemsClasses } from "@/components/classes/OptionsClasses";
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,9 +96,7 @@ export function RapportClasseTable({ classes, hierarchie, periodes }: { classes:
             <Select value={classeId} onValueChange={setClasseId}>
               <SelectTrigger><SelectValue placeholder={t("rapportSelectClass")} /></SelectTrigger>
               <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nom} ({libelleNiveau(c.niveau)})</SelectItem>
-                ))}
+                <ItemsClasses classes={classes} libelle={(c) => `${c.nom} (${libelleNiveau(c.niveau)})`} />
               </SelectContent>
             </Select>
           </div>

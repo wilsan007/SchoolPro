@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,19 @@ interface User {
 
 export function UserPermissionsTab({ users }: { users: User[] }) {
   const t = useTranslations("userPermissions");
+  const tRoles = useTranslations("roles");
+  // Comptes rangés par rôle, puis par nom, pour les groupes du sélecteur.
+  const usersParRole = useMemo(() => {
+    const parRole = new Map<string, typeof users>();
+    for (const u of users) {
+      const membres = parRole.get(u.role);
+      if (membres) membres.push(u);
+      else parRole.set(u.role, [u]);
+    }
+    return [...parRole.entries()]
+      .map(([role, membres]) => [role, [...membres].sort((a, b) => a.name.localeCompare(b.name))] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]));
+  }, [users]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [overrides, setOverrides] = useState<UserPermission[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,10 +118,15 @@ export function UserPermissionsTab({ users }: { users: User[] }) {
               className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">—</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.email}) — {u.role}
-                </option>
+              {/* Regroupés par rôle : la liste compte plusieurs milliers de comptes. */}
+              {usersParRole.map(([role, membres]) => (
+                <optgroup key={role} label={`${tRoles.has(role) ? tRoles(role) : role} (${membres.length})`}>
+                  {membres.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.email})
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
