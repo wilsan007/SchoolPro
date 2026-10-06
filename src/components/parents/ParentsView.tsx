@@ -302,6 +302,9 @@ function ParentCard({ parent }: { parent: ParentData }) {
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
+/** Au-delà, les groupes de parents sont repliés à l'ouverture. */
+const SEUIL_REPLI_PARENTS = 100;
+
 export function ParentsView({ parents }: ParentsViewProps) {
   const t = useTranslations("parents");
   const [search, setSearch] = useState("");
@@ -467,6 +470,11 @@ export function ParentsView({ parents }: ParentsViewProps) {
           className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
           items={parentsFiltres}
           axes={AXES_PARENTS}
+          // Plus d'un millier de fiches : tout déplier d'emblée produisait 9 Mo
+          // de HTML et plus de 25 000 éléments à l'écran. Les groupes s'ouvrent
+          // à la demande ; une recherche ou un filtre qui ramène la liste à une
+          // taille lisible la déplie de nouveau.
+          replieAuDepart={parentsFiltres.length > SEUIL_REPLI_PARENTS}
           rendu={(parent) => <ParentCard key={parent.id} parent={parent} />}
         />
       )}

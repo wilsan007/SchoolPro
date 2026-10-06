@@ -3,7 +3,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/prisma", () => ({
   default: {
     $transaction: vi.fn((ops: unknown[]) => Promise.all(ops)),
-    anneesScolaires: { findFirst: vi.fn() },
+    // `annee-scolaire` lit désormais la liste des années (`findMany`) et la
+    // filtre en mémoire : la liste simulée découle de l'année posée par
+    // `findFirst`, pour que chaque cas continue de ne décrire qu'UNE année.
+    anneesScolaires: (() => {
+      const findFirst = vi.fn();
+      const findMany = vi.fn(async (...args: unknown[]) => {
+        const annee = await (findFirst as (...a: unknown[]) => Promise<unknown>)(...args);
+        return annee ? [annee] : [];
+      });
+      return { findFirst, findMany };
+    })(),
     chapitre: { findFirst: vi.fn() },
     competence: { findFirst: vi.fn() },
     planificationChapitre: {

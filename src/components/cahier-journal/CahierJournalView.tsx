@@ -40,6 +40,8 @@ import {
 } from "lucide-react";
 import { MobileCard, MobileList, MobileEmptyState } from "@/components/mobile/MobileUI";
 import { TableauBordPanel } from "@/components/cahier-journal/TableauBordPanel";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import { SEUIL_REGROUPEMENT, type AxeRegroupement } from "@/lib/regroupement";
 
 type Statut = "PLANIFIEE" | "EFFECTUEE" | "ANNULEE" | "REPORTEE";
 type Rythme = "EN_AVANCE" | "A_TEMPS" | "EN_RETARD" | "NON_EVALUEE";
@@ -147,6 +149,14 @@ interface Enseignant {
   name: string;
 }
 
+/** Une ligne de la timeline métro : la progression d'UNE matière dans UNE classe. */
+interface LigneTimeline {
+  cle: string;
+  matiere: Seance["matiere"];
+  classe: Seance["classe"];
+  seances: Seance[];
+}
+
 interface Props {
   seances: Seance[];
   classes: Classe[];
@@ -215,6 +225,9 @@ const DEVOIR_TYPE_COLORS: Record<DevoirType, string> = {
   PROJET: "bg-emerald-100 text-emerald-700 border-emerald-200",
   AUTRE: "bg-slate-100 text-slate-700 border-slate-200",
 };
+
+/** Au-delà, les groupes s'ouvrent repliés : on ne rend que ce qui est consulté. */
+const SEUIL_REPLI_INITIAL = 100;
 
 const JOURS_SEMAINE = [
   "Lundi",
@@ -333,19 +346,67 @@ export function CahierJournalView({
     });
   }, [seances, filterClasse, filterMatiere, filterStatut]);
 
-  // Grouper par matière pour la timeline métro.
-  const parMatiere = useMemo(() => {
-    const map = new Map<string, Seance[]>();
+  // Une ligne métro par couple matière × classe : mélanger les classes sur une
+  // même ligne n'a pas de sens pédagogique (chaque classe a sa progression) et
+  // produisait des lignes de plusieurs centaines de stations.
+  const lignes = useMemo<LigneTimeline[]>(() => {
+    const map = new Map<string, LigneTimeline>();
     for (const s of filtered) {
-      const arr = map.get(s.matiereId) ?? [];
-      arr.push(s);
-      map.set(s.matiereId, arr);
+      const cle = `${s.matiereId}|${s.classeId}`;
+      const ligne = map.get(cle);
+      if (ligne) ligne.seances.push(s);
+      else map.set(cle, { cle, matiere: s.matiere, classe: s.classe, seances: [s] });
     }
-    return Array.from(map.entries()).map(([matiereId, seancesList]) => ({
-      matiere: matieres.find((m) => m.id === matiereId),
-      seances: seancesList.sort((a, b) => a.semaine - b.semaine),
-    }));
-  }, [filtered, matieres]);
+    const comparer = (a: string, b: string) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+    return Array.from(map.values())
+      .map((l) => ({ ...l, seances: l.seances.sort((a, b) => a.semaine - b.semaine) }))
+      .sort(
+        (a, b) => comparer(a.classe.nom, b.classe.nom) || comparer(a.matiere.nom, b.matiere.nom),
+      );
+  }, [filtered]);
+
+  // Site de chaque classe. Deux sites portent souvent des classes homonymes
+  // (« 6ème A » à Ambouli et à Arhiba) : sans le site, elles fusionneraient.
+  const siteParClasse = useMemo(() => sitesDesClasses(hierarchie), [hierarchie]);
+  const plusieursSites = useMemo(
+    () => new Set(siteParClasse.values()).size > 1,
+    [siteParClasse],
+  );
+  const nomClasse = useCallback(
+    (classe: Seance["classe"]) => {
+      const site = plusieursSites ? siteParClasse.get(classe.id) : undefined;
+      return site ? `${classe.nom} · ${site}` : classe.nom;
+    },
+    [plusieursSites, siteParClasse],
+  );
+
+  // Axes de regroupement (au-delà de 20 éléments, cf. ListeGroupee).
+  const axesLignes = useMemo<AxeRegroupement<LigneTimeline>[]>(
+    () => [
+      { id: "classe", cle: (l) => nomClasse(l.classe) },
+      { id: "matiere", cle: (l) => l.matiere.nom },
+      { id: "niveau", cle: (l) => libelleNiveau(l.classe.niveau) },
+      { id: "site", cle: (l) => siteParClasse.get(l.classe.id) },
+    ],
+    [libelleNiveau, nomClasse, siteParClasse],
+  );
+  const axesDate = useAxesTemporels<Seance>((s) => s.date);
+  const axesSeances = useMemo<AxeRegroupement<Seance>[]>(
+    () => [
+      { id: "classe", cle: (s) => nomClasse(s.classe) },
+      { id: "matiere", cle: (s) => s.matiere.nom },
+      ...axesDate,
+      { id: "site", cle: (s) => siteParClasse.get(s.classe.id) },
+      { id: "enseignant", cle: (s) => s.enseignant?.name },
+      {
+        id: "statut",
+        cle: (s) => s.statut,
+        libelle: (statut) => STATUT_LABELS[statut as Statut] ?? statut,
+      },
+    ],
+    [axesDate, nomClasse, siteParClasse],
+  );
 
   // KPIs.
   const kpis = useMemo(() => {
@@ -457,11 +518,7 @@ export function CahierJournalView({
           className="text-sm border border-slate-200 rounded-md px-2 py-1.5 bg-white min-w-0 flex-1 sm:flex-none sm:max-w-[200px]"
         >
           <option value="">Toutes les classes</option>
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom} ({libelleNiveau(c.niveau)})
-            </option>
-          ))}
+          <OptionsClasses classes={classes} hierarchie={hierarchie} />
         </select>
         <select
           value={filterMatiere}
@@ -534,6 +591,7 @@ export function CahierJournalView({
       {showCreateForm && canWrite && (
         <CreateSeanceForm
           classes={classes}
+          hierarchie={hierarchie}
           matieres={matieres}
           enseignants={enseignants}
           onClose={() => setShowCreateForm(false)}
@@ -543,25 +601,31 @@ export function CahierJournalView({
       {/* Vue Timeline métro */}
       {viewMode === "timeline" && (
         <div className="space-y-4">
-          {parMatiere.length === 0 && (
+          {lignes.length === 0 && (
             <div className="text-center py-12 text-slate-400">
               Aucune séance à afficher avec ces filtres.
             </div>
           )}
-          {parMatiere.map(({ matiere, seances: seancesList }) => (
+          <ListeGroupee
+            className="space-y-4"
+            items={lignes}
+            axes={axesLignes}
+            replieAuDepart={lignes.length > SEUIL_REPLI_INITIAL}
+            rendu={({ cle, matiere, classe, seances: seancesList }) => (
             <div
-              key={matiere?.id}
+              key={cle}
               className="bg-white rounded-lg border border-slate-200 p-4"
             >
               {/* En-tête ligne métro */}
               <div className="flex items-center gap-3 mb-3">
                 <div
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: matiere?.couleur ?? "#64748b" }}
+                  style={{ backgroundColor: matiere.couleur ?? "#64748b" }}
                 />
                 <h3 className="font-semibold text-slate-800">
-                  {matiere?.nom ?? "Matière inconnue"}
+                  {matiere.nom}
                 </h3>
+                <span className="text-sm text-slate-600">{nomClasse(classe)}</span>
                 <span className="text-xs text-slate-400">
                   {seancesList.length} séance{seancesList.length > 1 ? "s" : ""}
                 </span>
@@ -640,7 +704,7 @@ export function CahierJournalView({
                   {/* Ligne horizontale */}
                   <div
                     className="absolute top-4 left-0 right-0 h-0.5"
-                    style={{ backgroundColor: matiere?.couleur ?? "#cbd5e1" }}
+                    style={{ backgroundColor: matiere.couleur ?? "#cbd5e1" }}
                   />
                   {seancesList.map((s) => (
                     <div
@@ -692,7 +756,8 @@ export function CahierJournalView({
                   />
                 )}
             </div>
-          ))}
+            )}
+          />
         </div>
       )}
 
@@ -707,8 +772,12 @@ export function CahierJournalView({
                 title="Aucune séance à afficher."
               />
             ) : (
-              <MobileList>
-                {filtered.map((s) => (
+              <ListeGroupee
+                className="space-y-3"
+                items={filtered}
+                axes={axesSeances}
+                replieAuDepart={filtered.length > SEUIL_REPLI_INITIAL}
+                rendu={(s) => (
                   <MobileCard
                     key={s.id}
                     accentColor={s.matiere.couleur ?? undefined}
@@ -740,8 +809,8 @@ export function CahierJournalView({
                       </span>
                     </div>
                   </MobileCard>
-                ))}
-              </MobileList>
+                )}
+              />
             )}
           </div>
 
@@ -762,7 +831,7 @@ export function CahierJournalView({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((s) => (
+              <ListeGroupee variante="table" items={filtered} axes={axesSeances} replieAuDepart={filtered.length > SEUIL_REPLI_INITIAL} rendu={(s) => (
                 <tr
                   key={s.id}
                   className="hover:bg-slate-50 cursor-pointer"
@@ -805,7 +874,7 @@ export function CahierJournalView({
                     {s.dureeReelle ?? s.dureePrevue} min
                   </td>
                 </tr>
-              ))}
+              )} />
               {filtered.length === 0 && (
                 <tr>
                   <td
@@ -2220,13 +2289,71 @@ function TravailAFaire({ seances }: { seances: Seance[] }) {
   );
 }
 
+/** Nom du site de chaque classe, d'après la hiérarchie. */
+function sitesDesClasses(hierarchie?: ClassesHierarchie): Map<string, string> {
+  const sites = new Map<string, string>();
+  for (const categorie of hierarchie ?? []) {
+    for (const niveau of categorie.niveaux) {
+      for (const classe of niveau.classes) {
+        if (classe.siteNom) sites.set(classe.id, classe.siteNom);
+      }
+    }
+  }
+  return sites;
+}
+
+/**
+ * Options d'un sélecteur de classe. Au-delà du seuil de regroupement, les
+ * classes sont rangées par niveau (`<optgroup>`) dans l'ordre de la hiérarchie.
+ */
+function OptionsClasses({
+  classes,
+  hierarchie,
+}: {
+  classes: Classe[];
+  hierarchie?: ClassesHierarchie;
+}) {
+  const libelleNiveau = useLibelleNiveau();
+  const niveaux = hierarchie?.flatMap((categorie) => categorie.niveaux) ?? [];
+  const sites = sitesDesClasses(hierarchie);
+  const plusieursSites = new Set(sites.values()).size > 1;
+  const site = (id: string) => (plusieursSites && sites.get(id) ? ` · ${sites.get(id)}` : "");
+  if (classes.length <= SEUIL_REGROUPEMENT || niveaux.length === 0) {
+    return (
+      <>
+        {classes.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nom} ({libelleNiveau(c.niveau)}){site(c.id)}
+          </option>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {niveaux.map((n, i) => (
+        <optgroup key={`${n.niveau}-${i}`} label={libelleNiveau(n.niveau)}>
+          {n.classes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+              {site(c.id)}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
 function CreateSeanceForm({
   classes,
+  hierarchie,
   matieres,
   enseignants,
   onClose,
 }: {
   classes: Classe[];
+  hierarchie?: ClassesHierarchie;
   matieres: Matiere[];
   enseignants: Enseignant[];
   onClose: () => void;
@@ -2289,11 +2416,7 @@ function CreateSeanceForm({
             className="mt-1 w-full border border-slate-200 rounded-md px-2 py-1.5 text-sm"
           >
             <option value="">Sélectionner…</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nom} ({libelleNiveau(c.niveau)})
-              </option>
-            ))}
+            <OptionsClasses classes={classes} hierarchie={hierarchie} />
           </select>
         </label>
         <label className="text-sm">

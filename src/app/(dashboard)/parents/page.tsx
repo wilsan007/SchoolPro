@@ -96,9 +96,12 @@ export default async function ParentsPage() {
   }
 
   // Mapper 'enfants' (relation Prisma) → 'eleves' (prop attendue par ParentsView)
-  const parents = rawParents.map((p) => ({
+  // `enfants` est RETIRÉ de l'objet transmis : le garder à côté de `eleves`
+  // envoyait deux fois chaque enfant (avec ses notes et ses absences) au
+  // navigateur, pour une vue qui ne lit que `eleves`.
+  const parents = rawParents.map(({ enfants, ...p }) => ({
     ...p,
-    eleves: (p.enfants ?? []).map((ep) => ({
+    eleves: (enfants ?? []).map((ep) => ({
       ...ep,
       eleve: {
         ...ep.eleve,

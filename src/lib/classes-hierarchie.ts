@@ -85,45 +85,51 @@ export async function getClassesHierarchie(
     classeIds = scope.classeIds;
   }
 
-  const classes = await prisma.classe.findMany({
-    where: {
-      tenantId,
-      deletedAt: null,
-      ...(anneeCourante ? { annee: anneeCourante } : {}),
-      ...(classeIds ? { id: { in: classeIds } } : {}),
-      ...siteFilter,
-    } as Prisma.ClasseWhereInput,
-    select: {
-      id: true,
-      nom: true,
-      niveau: true,
-      filiere: true,
-      siteId: true,
-      site: { select: { nom: true } },
-      structure: { select: { type: true, nom: true } },
-    },
-    orderBy: [{ niveau: "asc" }, { nom: "asc" }],
-  });
+  const whereClasses = {
+    tenantId,
+    deletedAt: null,
+    ...(anneeCourante ? { annee: anneeCourante } : {}),
+    ...(classeIds ? { id: { in: classeIds } } : {}),
+    ...siteFilter,
+  } as Prisma.ClasseWhereInput;
+
+  // Classes et effectifs partent ENSEMBLE : les effectifs ciblent les mêmes
+  // classes par filtre de relation, sans attendre la liste de leurs
+  // identifiants — un aller-retour de moins sur chaque page à filtre de classe.
+  const [classes, parClasse] = await Promise.all([
+    prisma.classe.findMany({
+      where: whereClasses,
+      select: {
+        id: true,
+        nom: true,
+        niveau: true,
+        filiere: true,
+        siteId: true,
+        site: { select: { nom: true } },
+        structure: { select: { type: true, nom: true } },
+      },
+      orderBy: [{ niveau: "asc" }, { nom: "asc" }],
+    }),
+    avecEffectifs
+      ? prisma.eleve.groupBy({
+          by: ["classeId"],
+          where: {
+            tenantId,
+            deletedAt: null,
+            classe: whereClasses,
+            // Le paramètre s'appelle `user` : `claims` n'existe pas dans cette
+            // portée et faisait planter l'écran Emploi du temps au chargement.
+            ...siteFilterForModel("eleve", user),
+          },
+          _count: true,
+        })
+      : Promise.resolve([]),
+  ]);
 
   // Effectifs réels par classe (une seule requête groupBy).
-  let effectifsMap: Record<string, number> = {};
-  if (avecEffectifs && classes.length > 0) {
-    const classeIdList = classes.map((c) => c.id);
-    const parClasse = await prisma.eleve.groupBy({
-      by: ["classeId"],
-      where: {
-        tenantId,
-        deletedAt: null,
-        classeId: { in: classeIdList },
-        // Le paramètre s'appelle `user` : `claims` n'existe pas dans cette
-        // portée et faisait planter l'écran Emploi du temps au chargement.
-        ...siteFilterForModel("eleve", user),
-      },
-      _count: true,
-    });
-    for (const row of parClasse) {
-      if (row.classeId) effectifsMap[row.classeId] = row._count;
-    }
+  const effectifsMap: Record<string, number> = {};
+  for (const row of parClasse) {
+    if (row.classeId) effectifsMap[row.classeId] = row._count;
   }
 
   // Grouper par catégorie → niveau → classe.

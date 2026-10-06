@@ -147,10 +147,18 @@ export default async function CahierJournalPage() {
   ]);
 
   // ── Jointures JavaScript (évite les JOIN SQL sur le pooler) ──────
-  const matiereMap = new Map(matieres.map((m) => [m.id, m]));
-  const classeMap = new Map(classes.map((c) => [c.id, c]));
-  const enseignantMap = new Map(enseignants.map((e) => [e.id, e]));
-  const chapitreMap = new Map(chapitres.map((c) => [c.id, c]));
+  //
+  // Chaque référentiel est sérialisé UNE fois, puis la même référence d'objet
+  // est réutilisée par toutes les séances. React ne transmet qu'une fois un
+  // objet référencé plusieurs fois ; recréer `{ id, nom, … }` pour chacune des
+  // milliers de séances répétait matière, classe, enseignant et chapitre dans
+  // la charge envoyée au navigateur (12 Mo pour cinq semaines).
+  const matiereMap = new Map(
+    matieres.map((m) => [m.id, { id: m.id, nom: m.nom, code: m.code, couleur: m.couleur }]),
+  );
+  const classeMap = new Map(classes.map((c) => [c.id, { id: c.id, nom: c.nom, niveau: c.niveau }]));
+  const enseignantMap = new Map(enseignants.map((e) => [e.id, { id: e.id, name: e.user?.name ?? "" }]));
+  const chapitreMap = new Map(chapitres.map((c) => [c.id, { id: c.id, nom: c.nom }]));
 
   const serialized = seances.map((s) => {
     const matiere = matiereMap.get(s.matiereId);
@@ -178,16 +186,10 @@ export default async function CahierJournalPage() {
       activites: s.activites as { nom: string; duree: number; type: string }[] | null,
       supports: s.supports as { type: string; lien: string; description?: string }[] | null,
       differentiation: s.differentiation as { eleve?: string; groupe?: string; adaptation: string }[] | null,
-      matiere: matiere
-        ? { id: matiere.id, nom: matiere.nom, code: matiere.code, couleur: matiere.couleur }
-        : { id: s.matiereId, nom: "—", code: "", couleur: null },
-      enseignant: ens
-        ? { id: ens.id, name: ens.user?.name ?? "" }
-        : null,
-      chapitre: chap ? { id: chap.id, nom: chap.nom } : null,
-      classe: classe
-        ? { id: classe.id, nom: classe.nom, niveau: classe.niveau }
-        : { id: s.classeId, nom: "—", niveau: "—" },
+      matiere: matiere ?? { id: s.matiereId, nom: "—", code: "", couleur: null },
+      enseignant: ens ?? null,
+      chapitre: chap ?? null,
+      classe: classe ?? { id: s.classeId, nom: "—", niveau: "—" },
       // Les champs détaillés sont chargés à la demande (lazy-load) via
       // l'API quand l'utilisateur déplie une séance.
       competences: [],

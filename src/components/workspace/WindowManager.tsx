@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { WindowState, LayoutMode } from "./types";
-import { LAYOUT_SLOTS } from "./types";
+import { LAYOUT_SLOTS, ID_FENETRE_INITIALE } from "./types";
+import { getRouteMeta } from "@/lib/nav-metadata";
 
 interface WindowManagerContextValue {
   /** Toutes les fenêtres ouvertes (onglets) — triées par ordre de création */
@@ -39,13 +40,44 @@ export function useWindowManager() {
   return ctx;
 }
 
-export function WindowManagerProvider({ children }: { children: React.ReactNode }) {
-  const [windows, setWindows] = useState<WindowState[]>([]);
-  const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
+export function WindowManagerProvider({
+  children,
+  initialRoute = null,
+}: {
+  children: React.ReactNode;
+  /**
+   * Route à ouvrir dès le premier rendu, serveur compris. Son iframe figure
+   * ainsi dans le HTML initial : le navigateur la charge sans attendre
+   * l'hydratation de la coquille.
+   */
+  initialRoute?: string | null;
+}) {
+  const [windows, setWindows] = useState<WindowState[]>(() => {
+    if (!initialRoute) return [];
+    const meta = getRouteMeta(initialRoute);
+    return [
+      {
+        id: ID_FENETRE_INITIALE,
+        route: initialRoute,
+        title: meta.title,
+        icon: meta.icon,
+        iconColor: meta.iconColor,
+        status: "open",
+        zIndex: 1,
+        order: 1,
+        focusOrder: 1,
+      },
+    ];
+  });
+  const [activeWindowId, setActiveWindowId] = useState<string | null>(
+    initialRoute ? ID_FENETRE_INITIALE : null,
+  );
   const [layout, setLayoutState] = useState<LayoutMode>("fullscreen");
-  const zCounter = useRef(0);
-  const orderCounter = useRef(0);
-  const focusCounter = useRef(0);
+  // Les compteurs repartent APRÈS la fenêtre initiale, pour ne pas réattribuer
+  // son identifiant ni son rang.
+  const zCounter = useRef(initialRoute ? 1 : 0);
+  const orderCounter = useRef(initialRoute ? 1 : 0);
+  const focusCounter = useRef(initialRoute ? 1 : 0);
   const dockItemsRef = useRef<Map<string, HTMLElement>>(new Map());
 
   const visibleCount = LAYOUT_SLOTS[layout];

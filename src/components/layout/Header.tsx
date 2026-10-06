@@ -51,7 +51,6 @@ export function Header({ title, subtitle, site, siteColor, userName = "Admin", u
   function switchLocale(newLocale: string) {
     changerLangue(newLocale);
     setShowLangMenu(false);
-    router.refresh();
   }
 
   useEffect(() => {

@@ -10,7 +10,17 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     eleve: { findMany: vi.fn() },
     absence: { findMany: vi.fn() },
-    anneesScolaires: { findFirst: vi.fn(async () => ({ libelle: "2025-2026" })) },
+    // `annee-scolaire` lit désormais la liste des années (`findMany`) et la
+    // filtre en mémoire : la liste simulée découle de l'année posée par
+    // `findFirst`, pour que chaque cas continue de ne décrire qu'UNE année.
+    anneesScolaires: (() => {
+      const findFirst = vi.fn(async () => ({ libelle: "2025-2026" }));
+      const findMany = vi.fn(async (...args: unknown[]) => {
+        const annee = await (findFirst as (...a: unknown[]) => Promise<unknown>)(...args);
+        return annee ? [annee] : [];
+      });
+      return { findFirst, findMany };
+    })(),
   },
 }));
 

@@ -30,6 +30,7 @@
 import prisma from "@/lib/prisma";
 import { applyRlsContext } from "@/lib/prisma-rls";
 import { getDemoDate, getDemoNow } from "@/lib/demo-now";
+import { referentiel } from "@/lib/cache-referentiel";
 import type { AnneesScolaires } from "@prisma/client";
 
 export type StatutAnnee = "OUVERTE" | "CLOTUREE" | "ARCHIVEE";
@@ -81,12 +82,7 @@ export interface ContexteAnnees {
  *   6. Sinon → 'normale'.
  */
 export async function getContexteAnnees(tenantId: string): Promise<ContexteAnnees> {
-  const maintenant = await getDemoNow();
-
-  const annees = await prisma.anneesScolaires.findMany({
-    where: { tenantId },
-    orderBy: { dateDebut: "desc" },
-  });
+  const [maintenant, annees] = await Promise.all([getDemoNow(), anneesDuTenant(tenantId)]);
 
   const anneeAVenir = annees.find((a) => a.isCurrent) ?? null;
   const anneeEcoulee = annees.find((a) => a.dateFin < maintenant) ?? null;
@@ -147,19 +143,49 @@ export async function getContexteAnnees(tenantId: string): Promise<ContexteAnnee
  * plutôt que de fallback sur une valeur hardcodée.
  */
 export async function getAnneeCourante(tenantId: string) {
-  const annee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, isCurrent: true },
-  });
+  const annees = await anneesDuTenant(tenantId);
 
+  const annee = annees.find((a) => a.isCurrent);
   if (annee) return annee;
 
   // Fallback: dernière année par date de fin (au cas où isCurrent n'est pas set)
-  const latest = await prisma.anneesScolaires.findFirst({
-    where: { tenantId },
-    orderBy: { dateFin: "desc" },
-  });
+  return derniereParDateFin(annees);
+}
 
-  return latest ?? null;
+/**
+ * Toutes les années scolaires d'un tenant, de la plus récente à la plus
+ * ancienne (`dateDebut` décroissant).
+ *
+ * C'est la SEULE lecture de la table pour répondre à « quelle année
+ * sommes-nous ? ». Les fonctions ci-dessous (année courante, année à une date,
+ * année active, contexte estival) faisaient chacune une à trois requêtes, sur
+ * quasiment toutes les pages ; elles filtrent désormais cette liste en mémoire.
+ * La table compte une poignée de lignes par établissement, et elle est tenue en
+ * cache court avec invalidation à l'écriture (src/lib/cache-referentiel.ts).
+ *
+ * Les lignes renvoyées sont partagées entre requêtes : ne pas les muter.
+ */
+export function anneesDuTenant(tenantId: string): Promise<AnneesScolaires[]> {
+  return referentiel("annees", tenantId, () =>
+    prisma.anneesScolaires.findMany({
+      where: { tenantId },
+      orderBy: { dateDebut: "desc" },
+    }),
+  );
+}
+
+/** Année dont la date de fin est la plus tardive, parmi `annees`. */
+function derniereParDateFin(annees: AnneesScolaires[]): AnneesScolaires | null {
+  let derniere: AnneesScolaires | null = null;
+  for (const a of annees) {
+    if (!derniere || a.dateFin > derniere.dateFin) derniere = a;
+  }
+  return derniere;
+}
+
+/** Année contenant `date`, parmi `annees`. */
+function contenant(annees: AnneesScolaires[], date: Date): AnneesScolaires | null {
+  return annees.find((a) => a.dateDebut <= date && a.dateFin >= date) ?? null;
 }
 
 /**
@@ -178,9 +204,8 @@ export async function getAnneeCourante(tenantId: string) {
  * entre deux années, où il n'existe pas d'année « en cours ».
  */
 export async function anneeALaDate(tenantId: string, date: Date) {
-  const contenante = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, dateDebut: { lte: date }, dateFin: { gte: date } },
-  });
+  const annees = await anneesDuTenant(tenantId);
+  const contenante = contenant(annees, date);
   if (contenante) return contenante;
 
   // Trou estival entre deux années.
@@ -193,11 +218,7 @@ export async function anneeALaDate(tenantId: string, date: Date) {
   if (courante && courante.dateFin >= date) return courante;
 
   // Pas d'année isCurrent à venir : prendre l'année la plus récente dont la fin est passée.
-  const derniereTerminee = await prisma.anneesScolaires.findFirst({
-    where: { tenantId, dateFin: { lt: date } },
-    orderBy: { dateFin: "desc" },
-  });
-  return derniereTerminee ?? null;
+  return derniereParDateFin(annees.filter((a) => a.dateFin < date));
 }
 
 /**
@@ -238,9 +259,7 @@ export async function anneeActive(tenantId: string) {
   if (demoDate) {
     // Time Machine : utiliser la date simulée, mais si on est dans le trou
     // estival, privilégier l'année isCurrent (à venir) plutôt que l'écoulée.
-    const contenante = await prisma.anneesScolaires.findFirst({
-      where: { tenantId, dateDebut: { lte: demoDate }, dateFin: { gte: demoDate } },
-    });
+    const contenante = contenant(await anneesDuTenant(tenantId), demoDate);
     if (contenante) return contenante;
 
     // Trou estival : retourner l'année isCurrent si elle n'est pas déjà terminée.

@@ -56,6 +56,11 @@ interface ListeGroupeeProps<T> {
    */
   variante?: "table" | "liste";
   className?: string;
+  /**
+   * Groupes repliés à l'ouverture. À réserver aux listes de plusieurs centaines
+   * d'éléments, où tout déplier d'emblée noie les en-têtes et alourdit le rendu.
+   */
+  replieAuDepart?: boolean;
 }
 
 export function ListeGroupee<T>({
@@ -64,10 +69,12 @@ export function ListeGroupee<T>({
   rendu,
   variante = "liste",
   className,
+  replieAuDepart = false,
 }: ListeGroupeeProps<T>) {
   const t = useTranslations("regroupement");
   const [axeChoisi, setAxeChoisi] = useState<string | null>(null);
-  const [replies, setReplies] = useState<ReadonlySet<string>>(new Set());
+  // `null` = l'utilisateur n'a encore rien replié ni déplié : état de départ.
+  const [repliesChoisis, setReplies] = useState<ReadonlySet<string> | null>(null);
 
   const depasse = items.length > SEUIL_REGROUPEMENT;
   const utilisables = useMemo(
@@ -83,6 +90,11 @@ export function ListeGroupee<T>({
     [axe, items, utilisables, t],
   );
 
+  const replies = useMemo<ReadonlySet<string>>(
+    () => repliesChoisis ?? new Set(replieAuDepart ? groupes.map((g) => g.cle) : []),
+    [repliesChoisis, replieAuDepart, groupes],
+  );
+
   if (!axe) {
     if (variante === "table") return <>{items.map(rendu)}</>;
     return <div className={className}>{items.map(rendu)}</div>;
@@ -91,8 +103,8 @@ export function ListeGroupee<T>({
   // Tout identifiant d'axe doit avoir son libellé sous `regroupement.axes`.
   const libelleAxe = (id: string) => t(`axes.${id}`);
   const basculer = (cle: string) =>
-    setReplies((prev) => {
-      const suivant = new Set(prev);
+    setReplies(() => {
+      const suivant = new Set(replies);
       if (suivant.has(cle)) suivant.delete(cle);
       else suivant.add(cle);
       return suivant;
@@ -112,7 +124,7 @@ export function ListeGroupee<T>({
           aria-pressed={a.id === axe.id}
           onClick={() => {
             setAxeChoisi(a.id);
-            setReplies(new Set());
+            setReplies(null);
           }}
           className={cn(
             "rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200",

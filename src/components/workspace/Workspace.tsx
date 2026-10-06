@@ -29,6 +29,9 @@ const LAYOUT_OPTIONS: { mode: LayoutMode; icon: typeof Monitor; label: string }[
   { mode: "quad-4", icon: Grid2x2, label: "4 quadrants" },
 ];
 
+/** Nombre maximal d'iframes gardées en mémoire (visibles + arrière-plan). */
+const MAX_FENETRES_VIVANTES = 8;
+
 interface WorkspaceProps {
   roleKey: string;
   userName?: string;
@@ -66,6 +69,7 @@ export function Workspace({
   permissionOverrides,
 }: WorkspaceProps) {
   const {
+    windows,
     visibleWindows,
     activeWindowId,
     layout,
@@ -81,6 +85,16 @@ export function Workspace({
   const geometry = LAYOUT_GEOMETRY[layout];
   const pathname = usePathname();
   const initialOpenRef = useRef(false);
+
+  // Fenêtres dont l'iframe reste en mémoire : toutes les visibles, puis les
+  // plus récemment utilisées jusqu'à `MAX_FENETRES_VIVANTES`. Au-delà, la plus
+  // ancienne est démontée (elle se rechargera à la réouverture) — chaque
+  // iframe porte une application complète, on ne les empile pas sans limite.
+  const vivantes = new Set(visibleWindows.map((w) => w.id));
+  for (const w of [...windows].sort((a, b) => b.focusOrder - a.focusOrder)) {
+    if (vivantes.size >= MAX_FENETRES_VIVANTES) break;
+    vivantes.add(w.id);
+  }
 
   // Ouvrir la fenêtre initiale basée sur la route courante.
   useEffect(() => {
@@ -250,23 +264,30 @@ export function Workspace({
         ref={containerRef}
         className="relative flex-1 overflow-hidden p-2"
       >
-        {visibleWindows.length === 0 ? (
-          <EmptyWorkspace />
-        ) : (
-          visibleWindows.map((win, i) => {
-            const slot = geometry[i] ?? geometry[geometry.length - 1];
-            const isActive = activeWindowId === win.id;
-            return (
-              <WindowFrame
-                key={win.id}
-                window={win}
-                slot={slot}
-                isActive={isActive}
-                containerRef={containerRef}
-              />
-            );
-          })
-        )}
+        {visibleWindows.length === 0 && <EmptyWorkspace />}
+        {/* Les onglets en arrière-plan restent MONTÉS, simplement masqués : y
+            revenir est instantané, sans recharger la page ni perdre une saisie
+            en cours. Avant, seules les fenêtres visibles étaient rendues —
+            chaque changement d'onglet détruisait l'iframe et rechargeait un
+            document complet.
+
+            L'ordre de rendu est celui de CRÉATION, jamais celui du focus :
+            React déplacerait sinon les nœuds dans le DOM, et un `<iframe>`
+            déplacé est rechargé par le navigateur. */}
+        {windows.map((win) => {
+          if (!vivantes.has(win.id)) return null;
+          const index = visibleWindows.findIndex((w) => w.id === win.id);
+          const slot = index === -1 ? null : (geometry[index] ?? geometry[geometry.length - 1]);
+          return (
+            <WindowFrame
+              key={win.id}
+              window={win}
+              slot={slot}
+              isActive={activeWindowId === win.id}
+              containerRef={containerRef}
+            />
+          );
+        })}
       </div>
 
       {/* Dock en bas d'écran — barre divisée catégories | pages */}

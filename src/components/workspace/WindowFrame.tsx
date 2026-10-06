@@ -5,11 +5,17 @@ import { Minus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWindowManager } from "./WindowManager";
 import { genieEffect } from "./genie";
-import type { WindowState, LayoutSlot } from "./types";
+import { ID_FENETRE_INITIALE, type WindowState, type LayoutSlot } from "./types";
+import { MESSAGE_RAFRAICHIR } from "./EmbeddedBridge";
+
+/** Durée en arrière-plan au-delà de laquelle un onglet rafraîchit ses données. */
+const DELAI_RAFRAICHISSEMENT_MS = 20_000;
 
 interface WindowFrameProps {
   window: WindowState;
-  slot: LayoutSlot;
+  /** Emplacement dans la grille, ou `null` si la fenêtre est en arrière-plan
+   *  (onglet non affiché ou minimisé) : elle reste montée, mais masquée. */
+  slot: LayoutSlot | null;
   isActive: boolean;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -17,6 +23,28 @@ interface WindowFrameProps {
 export function WindowFrame({ window: win, slot, isActive, containerRef }: WindowFrameProps) {
   const { minimizeWindow, closeWindow, focusWindow, getDockItemRect } = useWindowManager();
   const frameRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const masqueeDepuis = useRef<number | null>(null);
+  const visible = slot !== null;
+
+  // Un onglet gardé en mémoire affiche les données de son dernier chargement.
+  // Au retour d'un passage prolongé en arrière-plan, on demande à la page de
+  // rafraîchir ses données serveur : l'écran s'affiche tout de suite, tel
+  // qu'il était, puis se met à jour sans rechargement ni perte de saisie.
+  useEffect(() => {
+    if (!visible) {
+      masqueeDepuis.current = Date.now();
+      return;
+    }
+    const depuis = masqueeDepuis.current;
+    masqueeDepuis.current = null;
+    if (depuis !== null && Date.now() - depuis >= DELAI_RAFRAICHISSEMENT_MS) {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: MESSAGE_RAFRAICHIR },
+        globalThis.location.origin,
+      );
+    }
+  }, [visible]);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [animatingOut, setAnimatingOut] = useState(false);
 
@@ -52,6 +80,9 @@ export function WindowFrame({ window: win, slot, isActive, containerRef }: Windo
 
   // Entrée en fade-up au montage
   useEffect(() => {
+    // La fenêtre initiale est déjà à l'écran (rendue par le serveur) : la
+    // faire disparaître pour la réanimer produirait un clignotement.
+    if (win.id === ID_FENETRE_INITIALE) return;
     if (frameRef.current) {
       frameRef.current.style.opacity = "0";
       frameRef.current.style.transform = "translateY(12px) scale(0.98)";
@@ -63,11 +94,21 @@ export function WindowFrame({ window: win, slot, isActive, containerRef }: Windo
         }
       });
     }
-  }, []);
+  }, [win.id]);
 
-  // Réinitialiser l'état de chargement quand la route change (remplacement de fenêtre active)
+  // Réinitialiser l'état de chargement quand la route change (remplacement de fenêtre active).
+  // Une iframe rendue côté serveur peut avoir fini de charger AVANT
+  // l'hydratation : son `onLoad` est alors déjà passé, on lit donc son état
+  // réel plutôt que de supposer qu'elle charge encore.
   useEffect(() => {
-    setIframeLoaded(false);
+    let charge = false;
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      charge = !!doc && doc.readyState === "complete" && doc.location.href !== "about:blank";
+    } catch {
+      // Document inaccessible : on attend `onLoad`.
+    }
+    setIframeLoaded(charge);
   }, [win.route]);
 
   const Icon = win.icon;
@@ -82,13 +123,18 @@ export function WindowFrame({ window: win, slot, isActive, containerRef }: Windo
           : "border-border/60 shadow-[0_4px_16px_rgba(0,0,0,0.03)] opacity-90",
         animatingOut && "pointer-events-none"
       )}
-      style={{
-        left: `${slot.x * 100}%`,
-        top: `${slot.y * 100}%`,
-        width: `${slot.w * 100}%`,
-        height: `${slot.h * 100}%`,
-        zIndex: isActive ? 50 : 10,
-      }}
+      style={
+        slot
+          ? {
+              left: `${slot.x * 100}%`,
+              top: `${slot.y * 100}%`,
+              width: `${slot.w * 100}%`,
+              height: `${slot.h * 100}%`,
+              zIndex: isActive ? 50 : 10,
+            }
+          : { display: "none" }
+      }
+      aria-hidden={!visible}
       onMouseDown={() => !isActive && focusWindow(win.id)}
     >
       {/* Halo coloré en arrière-plan — utilise la couleur d'icône de la fenêtre */}
@@ -178,6 +224,7 @@ export function WindowFrame({ window: win, slot, isActive, containerRef }: Windo
           (remplacement de la fenêtre active), réinitialisant l'état de chargement. */}
       <div className="flex-1 relative bg-background overflow-hidden">
         <iframe
+          ref={iframeRef}
           key={win.route}
           src={iframeSrc}
           className="w-full h-full border-0"

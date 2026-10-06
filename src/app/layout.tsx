@@ -4,10 +4,10 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { PWAProvider } from "@/components/providers/PWAProvider";
 import { PWAEnhanced } from "@/components/providers/PWAEnhanced";
 import { NativeProvider } from "@/components/providers/NativeProvider";
-import { LocaleSync } from "@/components/layout/LocaleSync";
+import { Dictionnaire } from "@/components/providers/dictionnaires";
 import { Toaster } from "sonner";
-import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import Script from "next/script";
+import { getLocale } from "next-intl/server";
 import "./globals.css";
 
 // Body / UI — Plus Jakarta Sans (DESIGN.md)
@@ -30,6 +30,9 @@ const jetbrains = JetBrains_Mono({
 });
 // Display / Hero — Clash Grotesk est chargé via le CDN Fontshare (link dans <head>).
 // La variable CSS --font-clash est définie dans globals.css.
+
+const CLASH_GROTESK_CSS =
+  "https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap";
 
 export const metadata: Metadata = {
   title: {
@@ -55,7 +58,6 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
-  const messages = await getMessages();
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -65,14 +67,23 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="SchoolPro" />
-        {/* Clash Grotesk (display/hero) — CDN Fontshare, conformément au DESIGN.md */}
-        <link
-          href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap"
-          rel="stylesheet"
-        />
+        {/* Clash Grotesk (display/hero) — CDN Fontshare, conformément au DESIGN.md.
+            Chargée SANS bloquer le rendu : une feuille de style externe dans le
+            <head> suspend l'affichage de chaque document (donc de chaque
+            fenêtre du workspace) tant que le CDN n'a pas répondu. La police
+            étant en `display=swap`, le texte s'affiche aussitôt avec la police
+            de repli, puis bascule. `next/script` (en fin de <body>) pose la
+            feuille après coup ; la balise noscript garde le comportement
+            d'origine sans JavaScript. */}
+        <link rel="preconnect" href="https://api.fontshare.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="anonymous" />
+        <noscript>
+          <link href={CLASH_GROTESK_CSS} rel="stylesheet" />
+        </noscript>
       </head>
       <body className={`${jakarta.variable} ${geist.variable} ${jetbrains.variable} font-sans antialiased`}>
-        <NextIntlClientProvider locale={locale} messages={messages}>
+        {/* Le dictionnaire n'est PAS passé en prop : voir `providers/dictionnaires`. */}
+        <Dictionnaire locale={locale}>
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
@@ -82,11 +93,13 @@ export default async function RootLayout({
             <PWAProvider />
             <PWAEnhanced />
             <NativeProvider />
-            <LocaleSync />
             {children}
             <Toaster position="top-right" richColors closeButton />
+            <Script id="clash-grotesk" strategy="afterInteractive">
+              {`(function(){var l=document.createElement("link");l.rel="stylesheet";l.href=${JSON.stringify(CLASH_GROTESK_CSS)};document.head.appendChild(l)})()`}
+            </Script>
           </ThemeProvider>
-        </NextIntlClientProvider>
+        </Dictionnaire>
       </body>
     </html>
   );

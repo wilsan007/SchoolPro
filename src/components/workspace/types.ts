@@ -1,5 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 
+/** Identifiant de la fenêtre ouverte dès le rendu serveur (route demandée). */
+export const ID_FENETRE_INITIALE = "win-1";
+
 export type WindowStatus = "open" | "minimized" | "closing";
 
 export type LayoutMode = "fullscreen" | "split-h" | "split-v" | "quad-4";

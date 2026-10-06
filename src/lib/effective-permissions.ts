@@ -17,12 +17,19 @@
 
 import { cache } from "react";
 import { getUserPermissionOverrides } from "@/lib/user-permissions";
+import { referentiel } from "@/lib/cache-referentiel";
 import type { PermissionOverrides } from "@/lib/permissions";
 
 export const overridesPour = cache(
   async (userId: string | null | undefined, tenantId: string | null | undefined): Promise<PermissionOverrides> => {
     if (!userId || !tenantId) return {};
-    const { grants, denies } = await getUserPermissionOverrides(userId, tenantId);
-    return { grants, denies };
+    // Au-delà de la requête : la lecture précède CHAQUE page et CHAQUE appel
+    // d'API. Elle est tenue en cache court, vidé dès qu'une dérogation est
+    // écrite (src/lib/cache-referentiel.ts) — une révocation s'applique donc
+    // immédiatement sur la machine qui l'enregistre, et en 30 s au plus ailleurs.
+    return referentiel("permissions", `${tenantId}:${userId}`, async () => {
+      const { grants, denies } = await getUserPermissionOverrides(userId, tenantId);
+      return { grants, denies };
+    });
   }
 );

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Globe, ChevronDown } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { changerLangue } from "@/lib/locale-sync";
@@ -10,13 +9,12 @@ import { changerLangue } from "@/lib/locale-sync";
 /**
  * Sélecteur de langue (fr / en / so) pour la barre d'outils.
  *
- * Fonctionne par cookie `NEXT_LOCALE` + `router.refresh()` — même mécanisme
- * que l'ancien Header. Composant client isolé pour pouvoir être réinjecté
- * dans le Workspace sans dupliquer la logique. `changerLangue` prévient aussi
- * les fenêtres ouvertes (iframes) pour qu'elles se rafraîchissent.
+ * Composant client isolé pour pouvoir être réinjecté dans le Workspace sans
+ * dupliquer la logique. `changerLangue` écrit le cookie `NEXT_LOCALE` et
+ * prévient tous les documents (shell, fenêtres ouvertes) : `I18nProvider`
+ * applique la nouvelle langue et rafraîchit le rendu serveur.
  */
 export function LanguageSwitcher() {
-  const router = useRouter();
   const locale = useLocale();
   const tCommon = useTranslations("common");
   const [open, setOpen] = useState(false);
@@ -25,7 +23,6 @@ export function LanguageSwitcher() {
   function switchLocale(newLocale: string) {
     changerLangue(newLocale);
     setOpen(false);
-    router.refresh();
   }
 
   useEffect(() => {

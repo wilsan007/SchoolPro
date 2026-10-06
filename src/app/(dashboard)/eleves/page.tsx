@@ -158,15 +158,28 @@ async function getElevesData(
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.findMany({
       where,
-      include: {
-         
+      // Uniquement les colonnes que `ElevesTable` affiche. Un `include` ramenait
+      // la fiche complète (santé, contacts d'urgence, dates…) de chaque élève :
+      // 1,6 Mo sérialisés vers le navigateur pour 1 200 élèves, dont le tableau
+      // n'utilisait qu'une dizaine de champs — et des données sensibles qui
+      // n'avaient aucune raison de quitter le serveur.
+      select: {
+        id: true,
+        matricule: true,
+        nom: true,
+        prenom: true,
+        dateNaissance: true,
+        sexe: true,
+        statut: true,
+        regime: true,
+        photoUrl: true,
         classe: { select: { id: true, nom: true, niveau: true, structure: { select: { type: true } }, site: { select: { id: true, nom: true } } } },
         // Le lien élève↔parent n'a pas de site propre : il est borné par
         // l'élève, déjà filtré par le `where` racine. Un parent peut par
         // ailleurs avoir des enfants sur plusieurs sites.
         // eslint-disable-next-line ecolpro/require-site-filter
         parents: {
-          include: { parent: { select: { nom: true, prenom: true, phone: true } } },
+          select: { parent: { select: { nom: true, prenom: true, phone: true } } },
           where: { isGardien: true },
           take: 1,
         },

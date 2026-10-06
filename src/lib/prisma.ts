@@ -1,7 +1,44 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { withRlsExtension } from "@/lib/prisma-rls";
 import { extensionHorizonDemo } from "@/lib/demo-horizon";
 import { createAuditExtension } from "@/lib/prisma-audit-extension";
+import { famillesAInvalider, invaliderReferentiel } from "@/lib/cache-referentiel";
+
+/**
+ * Vide le cache des données de référence (src/lib/cache-referentiel.ts) dès
+ * qu'un de ses modèles est modifié. Posée ici plutôt qu'à chaque point
+ * d'écriture : une nouvelle action qui modifie une année scolaire ou un site
+ * invalide le cache sans avoir à y penser.
+ *
+ * Le cache est vidé APRÈS l'écriture, et aussi si elle échoue : une écriture
+ * partielle dans une transaction annulée ne coûte alors qu'une relecture.
+ */
+function extensionInvalidationReferentiels() {
+  return Prisma.defineExtension({
+    name: "invalidation-referentiels",
+    query: {
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          const familles = famillesAInvalider(model, operation);
+          if (!familles) return query(args);
+          const vider = () => {
+            for (const famille of familles) invaliderReferentiel(famille);
+          };
+          try {
+            return await query(args);
+          } finally {
+            vider();
+            // Dans une transaction, l'écriture n'est visible qu'au COMMIT : une
+            // lecture concurrente pourrait remettre l'ancienne valeur en cache
+            // entre-temps. Un second passage, après le délai maximal d'une
+            // transaction Prisma (5 s), ferme cette fenêtre.
+            setTimeout(vider, 6_000).unref?.();
+          }
+        },
+      },
+    },
+  });
+}
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -12,6 +49,11 @@ const globalForPrisma = globalThis as unknown as {
  * Ajoute (ou met à jour) `connection_limit` et `pool_timeout` dans la
  * query string d'une URL Postgres. Utilisé pour borner les clients
  * afin de ne pas épuiser le pool session Supabase (15 connexions max).
+ *
+ * `connect_timeout` passe de 5 s (défaut Prisma) à 30 s s'il n'est pas déjà
+ * fixé : l'ouverture d'une connexion au pooler distant prend couramment
+ * 2 à 4 s, et dépassait par intermittence les 5 s — d'où des P1001
+ * « Can't reach database server » alors que la base répondait.
  */
 function withConnectionLimit(url: string | undefined, limit: number): string | undefined {
   if (!url) return url;
@@ -19,6 +61,7 @@ function withConnectionLimit(url: string | undefined, limit: number): string | u
   const params = new URLSearchParams(qs ?? "");
   params.set("connection_limit", String(limit));
   params.set("pool_timeout", "30");
+  if (!params.has("connect_timeout")) params.set("connect_timeout", "30");
   return qs === undefined ? `${base}?${params}` : `${base}?${params}`;
 }
 
@@ -80,6 +123,7 @@ export const prisma =
     })
   )
     .$extends(extensionHorizonDemo())
+    .$extends(extensionInvalidationReferentiels())
     .$extends(createAuditExtension()) as PrismaClient;
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
