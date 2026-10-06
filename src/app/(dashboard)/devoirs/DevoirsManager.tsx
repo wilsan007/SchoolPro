@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus } from "lucide-react";
 import { ClassGroupedSelect } from "@/components/classes/ClassGroupedSelect";
 import type { ClassesHierarchie } from "@/lib/classes-hierarchie";
+import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 
 type MatiereOption = { id: string; nom: string; couleur?: string | null };
 type DevoirItem = {
@@ -29,6 +31,9 @@ type DevoirItem = {
   classe: { nom: string };
   matiere: { nom: string; couleur?: string | null };
 };
+
+/** Au-delà, les groupes de devoirs sont repliés à l'ouverture. */
+const SEUIL_REPLI_DEVOIRS = 100;
 
 export function DevoirsManager({
   hierarchie,
@@ -47,6 +52,17 @@ export function DevoirsManager({
   // divergence d'hydratation constatée sur cet écran (cf. src/lib/format-date.ts).
   const locale = useLocale();
   const [devoirs, setDevoirs] = useState<DevoirItem[]>(initial);
+  // Regroupement obligatoire au-delà de vingt devoirs : par classe, par
+  // matière, ou par date de rendu (semestre, mois, semaine, jour).
+  const axesDate = useAxesTemporels<DevoirItem>((d) => d.dateRendu);
+  const axes = useMemo<AxeRegroupement<DevoirItem>[]>(
+    () => [
+      { id: "classe", cle: (d) => d.classe.nom },
+      { id: "matiere", cle: (d) => d.matiere.nom },
+      ...axesDate,
+    ],
+    [axesDate],
+  );
   const [pending, startTransition] = useTransition();
 
   // champs du formulaire
@@ -203,7 +219,14 @@ export function DevoirsManager({
             <p className="text-sm text-muted-foreground">{t("aucun")}</p>
           </div>
         ) : (
-          devoirs.map((d) => {
+          <ListeGroupee
+            className="space-y-3"
+            items={devoirs}
+            axes={axes}
+            // Plusieurs milliers de devoirs sur l'année : tout déplier d'emblée
+            // rendait autant de cartes (et de sélecteurs de statut) d'un coup.
+            replieAuDepart={devoirs.length > SEUIL_REPLI_DEVOIRS}
+            rendu={(d) => {
             const couleur = d.matiere.couleur ?? "#0ea5e9";
             return (
               <div
@@ -257,7 +280,8 @@ export function DevoirsManager({
                 </div>
               </div>
             );
-          })
+            }}
+          />
         )}
       </div>
     </div>

@@ -7,45 +7,98 @@ import { getTranslations } from "next-intl/server";
 import { siteFilterForModel, type SessionSiteClaims } from "@/lib/site-filter";
 import { guardPage } from "@/lib/guard-page";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
-import type { TypeFourniture } from "@prisma/client";
+import { lectureAvecReprise } from "@/lib/prisma-reprise";
 
+/**
+ * PREMIER TEMPS de l'annuaire : les parents de l'année, leurs enfants et, pour
+ * chacun, classe, absences injustifiées et dernier bulletin.
+ *
+ * La moyenne et les fournitures — de loin les lectures les plus lourdes — ne
+ * sont PAS chargées ici : la vue les demande ensuite, par lots, pour les seuls
+ * enfants dont la fiche est à l'écran (`chargerDetailsEnfants`). L'annuaire
+ * s'affiche donc sans attendre la lecture de ~25 000 notes.
+ *
+ * Cinq lectures à plat, en parallèle, assemblées en mémoire : la version
+ * d'origine était une seule requête à `include` imbriqués sur quatre niveaux,
+ * que Prisma déroule en requêtes successives (15 à 39 s mesurées). Les
+ * sous-requêtes par élève gardent exactement les mêmes filtres et plafonds
+ * qu'avant : les chiffres affichés sont inchangés.
+ */
 async function getParentsData(tenantId: string, claims: SessionSiteClaims, anneeCourante?: string | null) {
-  const parents = await prisma.parent.findMany({
-    // `Parent` n'a pas de colonne `siteId` : le rattachement passe par l'utilisateur
-    // (chemin canonique déclaré dans SITE_PATHS, identique à tout le reste du code).
-    where: {
-      tenantId,
-      ...siteFilterForModel("parent", claims),
-      ...(anneeCourante && { enfants: { some: { eleve: { classe: { annee: anneeCourante } } } } }),
-    },
-    include: {
-      user: { select: { id: true, name: true, email: true, avatarUrl: true, lastLoginAt: true } },
-      enfants: {
-        // Un parent scopé visible peut avoir des enfants sur d'autres sites que
-        // celui de l'appelant : ne pas les exposer au-delà de son périmètre.
-        where: siteFilterForModel("eleveParent", claims),
-        include: {
-          eleve: {
-            select: {
-              id: true,
-              nom: true,
-              prenom: true,
-              matricule: true,
-              statut: true,
-              classeId: true,
-              classe: { select: { nom: true, niveau: true } },
-              absences: { select: { id: true }, where: { statut: "INJUSTIFIEE" }, take: 50 },
-              notes: { select: { valeur: true, noteMax: true, coefficient: true }, where: { isPubliee: true }, take: 20 },
-              bulletins: { select: { moyenneGenerale: true, isPublie: true }, orderBy: { createdAt: "desc" }, take: 1 },
-            },
-          },
-        },
-      },
-    },
-    orderBy: [{ nom: "asc" }, { prenom: "asc" }],
-  });
+  // `Parent` n'a pas de colonne `siteId` : le rattachement passe par l'utilisateur
+  // (chemin canonique déclaré dans SITE_PATHS, identique à tout le reste du code).
+  const parentsVisibles = {
+    tenantId,
+    ...siteFilterForModel("parent", claims),
+    ...(anneeCourante && { enfants: { some: { eleve: { classe: { annee: anneeCourante } } } } }),
+  };
+  // Sur-ensemble volontaire : tous les enfants des parents visibles. Seuls ceux
+  // qu'un lien (filtré par site ci-dessous) référence sont utilisés.
+  const enfantsDesParents = { tenantId, parents: { some: { parent: parentsVisibles } } };
 
-  return { parents };
+  // Lectures longues sur une base distante : une connexion coupée en route est
+  // relancée une fois plutôt que de faire tomber la page.
+  const [parents, comptes, liens, eleves, classes] = await lectureAvecReprise(() => Promise.all([
+    prisma.parent.findMany({ where: parentsVisibles, orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- comptes des parents visibles uniquement, bornés par `parents: parentsVisibles`
+    prisma.user.findMany({
+      where: { parents: { some: parentsVisibles } },
+      select: { id: true, name: true, email: true, avatarUrl: true, lastLoginAt: true },
+    }),
+    // Un parent scopé visible peut avoir des enfants sur d'autres sites que
+    // celui de l'appelant : ne pas les exposer au-delà de son périmètre.
+    prisma.eleveParent.findMany({
+      where: { AND: [siteFilterForModel("eleveParent", claims), { parent: parentsVisibles }] },
+    }),
+    // eslint-disable-next-line ecolpro/require-site-filter -- lecture d'appoint, bornée par les liens filtrés par site
+    prisma.eleve.findMany({
+      where: enfantsDesParents,
+      select: {
+        id: true,
+        nom: true,
+        prenom: true,
+        matricule: true,
+        statut: true,
+        classeId: true,
+        absences: { select: { id: true }, where: { statut: "INJUSTIFIEE" }, take: 50 },
+        bulletins: { select: { moyenneGenerale: true, isPublie: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    }),
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- table de correspondance id → nom des classes des enfants
+    prisma.classe.findMany({
+      where: { tenantId, eleves: { some: enfantsDesParents } },
+      select: { id: true, nom: true, niveau: true },
+    }),
+  ]));
+
+  const classeParId = new Map(classes.map((c) => [c.id, { nom: c.nom, niveau: c.niveau }]));
+  const eleveParId = new Map(
+    eleves.map(({ absences, ...e }) => [
+      e.id,
+      {
+        ...e,
+        classe: e.classeId ? (classeParId.get(e.classeId) ?? null) : null,
+        absencesCount: absences.length,
+      },
+    ]),
+  );
+  const compteParId = new Map(comptes.map((u) => [u.id, u]));
+
+  type Enfant = (typeof liens)[number] & { eleve: NonNullable<ReturnType<typeof eleveParId.get>> };
+  const enfantsParParent = new Map<string, Enfant[]>();
+  for (const lien of liens) {
+    const eleve = eleveParId.get(lien.eleveId);
+    if (!eleve) continue;
+    const enfants = enfantsParParent.get(lien.parentId);
+    if (enfants) enfants.push({ ...lien, eleve });
+    else enfantsParParent.set(lien.parentId, [{ ...lien, eleve }]);
+  }
+
+  return parents.map((p) => ({
+    ...p,
+    user: p.userId ? (compteParId.get(p.userId) ?? null) : null,
+    eleves: enfantsParParent.get(p.id) ?? [],
+  }));
 }
 
 export default async function ParentsPage() {
@@ -59,56 +112,7 @@ export default async function ParentsPage() {
   if (!session?.user?.tenantId) redirect("/login");
 
   const anneeCourante = await getAnneeCouranteLibelle(session.user.tenantId);
-  const { parents: rawParents } = await getParentsData(session.user.tenantId, session.user, anneeCourante);
-
-  // Récupérer les listes de fournitures publiées pour les classes des enfants
-  const classeIds = new Set<string>();
-  for (const p of rawParents) {
-    for (const ep of p.enfants ?? []) {
-      if (ep.eleve.classeId) classeIds.add(ep.eleve.classeId);
-    }
-  }
-  const fournituresParClasse: Record<string, { id: string; type: TypeFourniture; nom: string; description: string | null; quantite: number; format: string | null; prixEstime: number | null; matiere: { nom: string } | null }[]> = {};
-  if (classeIds.size > 0) {
-    const listes = await prisma.listeFournitureClasse.findMany({
-      where: {
-        classeId: { in: Array.from(classeIds) },
-        tenantId: session.user.tenantId,
-        statut: "PUBLIEE",
-        ...siteFilterForModel("listeFournitureClasse", session.user),
-      },
-      include: {
-        items: { include: { matiere: { select: { nom: true } } }, orderBy: [{ type: "asc" }, { nom: "asc" }] },
-      },
-    });
-    for (const l of listes) {
-      fournituresParClasse[l.classeId] = l.items.map((i) => ({
-        id: i.id,
-        type: i.type,
-        nom: i.nom,
-        description: i.description,
-        quantite: i.quantite,
-        format: i.format,
-        prixEstime: i.prixEstime,
-        matiere: i.matiere ? { nom: i.matiere.nom } : null,
-      }));
-    }
-  }
-
-  // Mapper 'enfants' (relation Prisma) → 'eleves' (prop attendue par ParentsView)
-  // `enfants` est RETIRÉ de l'objet transmis : le garder à côté de `eleves`
-  // envoyait deux fois chaque enfant (avec ses notes et ses absences) au
-  // navigateur, pour une vue qui ne lit que `eleves`.
-  const parents = rawParents.map(({ enfants, ...p }) => ({
-    ...p,
-    eleves: (enfants ?? []).map((ep) => ({
-      ...ep,
-      eleve: {
-        ...ep.eleve,
-        fournitures: ep.eleve.classeId ? fournituresParClasse[ep.eleve.classeId] ?? [] : [],
-      },
-    })),
-  }));
+  const parents = await getParentsData(session.user.tenantId, session.user, anneeCourante);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

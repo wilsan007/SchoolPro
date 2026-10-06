@@ -7,11 +7,8 @@ import { ParametresTabs } from "@/components/parametres/ParametresTabs";
 import { getSiteColorMap } from "@/lib/site-colors";
 import {
   getEtablissementData,
-  getUsersForTenant,
   getClassesForSettings,
   getMatieresForSettings,
-  getParentsForSettings,
-  getElevesForLinking,
   getReglesAppreciation,
   getPeriodesForCloture,
   getSitesForSettings,
@@ -41,15 +38,13 @@ export default async function ParametresPage() {
   // dont le formulaire répondra 403.
   const canManage = session.user.role === "TENANT_ADMIN" || session.user.role === "SUPER_ADMIN";
 
-  // Les dix lectures partent ensemble, mais seule celle de l'établissement est
-  // ATTENDUE : c'est la seule dont dépend l'onglet affiché à l'ouverture. Les
-  // autres sont transmises telles quelles (promesses) à `ParametresTabs`, qui
-  // les lit onglet par onglet — la page s'affiche après une requête au lieu
-  // d'attendre trois listes de plusieurs milliers de lignes.
+  // Seule la lecture de l'établissement est ATTENDUE : c'est la seule dont
+  // dépend l'onglet affiché à l'ouverture. Les petits référentiels partent en
+  // même temps et sont transmis tels quels (promesses) à `ParametresTabs`, qui
+  // les lit onglet par onglet. Les trois grandes listes (utilisateurs, parents,
+  // élèves) ne sont PAS lues ici : `ParametresTabs` les demande à l'ouverture
+  // de l'onglet qui les affiche.
   const etablissementPromise = getEtablissementData();
-  const users = getUsersForTenant();
-  const parents = getParentsForSettings();
-  const eleves = getElevesForLinking();
   const classes = getClassesForSettings();
   const matieres = getMatieresForSettings();
   const regles = getReglesAppreciation();
@@ -60,7 +55,7 @@ export default async function ParametresPage() {
   // Une lecture qui échoue ne doit faire tomber que l'onglet qui l'affiche :
   // sans ce gestionnaire, une promesse rejetée et jamais lue interromprait le
   // processus. L'erreur reste portée par la promesse transmise au client.
-  for (const lecture of [users, parents, eleves, classes, matieres, regles, periodes, sites, annees, siteColors]) {
+  for (const lecture of [classes, matieres, regles, periodes, sites, annees, siteColors]) {
     lecture.catch(() => undefined);
   }
 
@@ -78,9 +73,6 @@ export default async function ParametresPage() {
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 scrollbar-thin">
         <ParametresTabs
           etablissement={etablissement}
-          users={users}
-          parents={parents}
-          eleves={eleves}
           classes={classes}
           matieres={matieres}
           regles={regles}

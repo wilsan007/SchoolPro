@@ -305,7 +305,7 @@ export function FacturesTable({ factures }: FacturesTableProps) {
                     </td>
                   </tr>
                 ) : (
-                  <ListeGroupee variante="table" items={filtered} axes={axesFactures} rendu={(f) => {
+                  <ListeGroupee variante="table" items={filtered} axes={axesFactures} replieAuDepart={filtered.length > 100} rendu={(f) => {
                     const paye = f.paiements.reduce((s, p) => s + p.montant, 0);
                     const cfg = statutConfig[f.statut] ?? statutConfig.EN_ATTENTE;
                     return (

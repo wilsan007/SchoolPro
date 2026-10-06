@@ -11,6 +11,7 @@ import { anneeActive } from "@/lib/annee-scolaire";
 import { getClassesHierarchie, aplatirHierarchie, type ClassesHierarchie } from "@/lib/classes-hierarchie";
 import { semaineScolaire } from "@/lib/learnos/planification-pure";
 import { getDemoNow } from "@/lib/demo-now";
+import { lectureAvecReprise } from "@/lib/prisma-reprise";
 
 /** Rôles ayant accès au tableau de suivi du programme (direction / CPE). */
 const ROLES_SUIVI = new Set([
@@ -99,7 +100,36 @@ export default async function CahierJournalPage() {
   // ce qui est beaucoup plus rapide sur le pooler Supabase.
   const classeIds = classes.map((c) => c.id);
 
-  const [matieres, enseignants, seances, chapitres] = await Promise.all([
+  // CHARGEMENT EN DEUX TEMPS
+  // La fenêtre affichée couvre cinq semaines (plusieurs milliers de séances
+  // pour un établissement entier, ~5 Mo). Seule la semaine en cours est
+  // ATTENDUE : l'écran s'affiche avec elle. Les quatre autres sont lues
+  // ensuite et arrivent en flux ; la vue les ajoute à leur arrivée — mêmes
+  // séances au final, sans attendre le tout pour voir le début.
+  //
+  // Séances : requête PLATE sans includes ni jointure sur classe.annee.
+  // On filtre par classeId IN (IDs déjà résolus) + semaine + tenantId.
+  // Les relations (matiere, enseignant, chapitre, classe) sont jointes
+  // en JavaScript lors de la sérialisation, à partir des données déjà
+  // chargées ci-dessous. Les détails (compétences, devoirs, plan leçon,
+  // commentaires) sont lazy-loadés via l'API au clic sur une séance.
+  const filtreSeances = {
+    tenantId,
+    ...siteFilterForModel("seancePedagogique", session.user),
+    // Fail-closed : `classeIds` est la liste des classes de l'ANNÉE COURANTE
+    // (voir `getClassesHierarchie` ci-dessus) ; vide, elle signifie « aucune
+    // classe accessible », pas « toutes ». Sans le sentinelle, la page
+    // chargeait les séances de TOUTES les années — même convention que
+    // `scopeSeanceFilter` plus haut.
+    ...(classeIds.length > 0 ? { classeId: { in: classeIds } } : { id: "__none__" }),
+    ...scopeSeanceFilter,
+  };
+  const lireSeances = (semaine: number | { gte: number; lte: number; not: number }) =>
+    lectureAvecReprise(() =>
+      // eslint-disable-next-line ecolpro/require-annee-filter -- `filtreSeances` porte le site ; `classeIds` = classes de l'ANNÉE COURANTE (getClassesHierarchie), fail-closed si la liste est vide
+      prisma.seancePedagogique.findMany({ where: { ...filtreSeances, semaine }, orderBy: { date: "asc" } }),
+    );
+  const [matieres, enseignants, seances, chapitres, premiereSemaine] = await Promise.all([
     prisma.matiere.findMany({
       where: { tenantId, ...siteFilterForModel("matiere", session.user), ...scopeMatiereFilter },
       select: { id: true, nom: true, code: true, couleur: true },
@@ -113,28 +143,7 @@ export default async function CahierJournalPage() {
       },
       orderBy: { user: { name: "asc" } },
     }),
-    // Séances : requête PLATE sans includes ni jointure sur classe.annee.
-    // On filtre par classeId IN (IDs déjà résolus) + semaine + tenantId.
-    // Les relations (matiere, enseignant, chapitre, classe) sont jointes
-    // en JavaScript lors de la sérialisation, à partir des données déjà
-    // chargées ci-dessus. Les détails (compétences, devoirs, plan leçon,
-    // commentaires) sont lazy-loadés via l'API au clic sur une séance.
-    // eslint-disable-next-line ecolpro/require-annee-filter -- `classeIds` = classes de l'ANNÉE COURANTE (getClassesHierarchie), fail-closed si la liste est vide
-    prisma.seancePedagogique.findMany({
-      where: {
-        tenantId,
-        ...siteFilterForModel("seancePedagogique", session.user),
-        // Fail-closed : `classeIds` est la liste des classes de l'ANNÉE COURANTE
-        // (voir `getClassesHierarchie` ci-dessus) ; vide, elle signifie « aucune
-        // classe accessible », pas « toutes ». Sans le sentinelle, la page
-        // chargeait les séances de TOUTES les années — même convention que
-        // `scopeSeanceFilter` plus haut.
-        ...(classeIds.length > 0 ? { classeId: { in: classeIds } } : { id: "__none__" }),
-        ...scopeSeanceFilter,
-        ...filtreFenetreSeances,
-      },
-      orderBy: { date: "asc" },
-    }),
+    lireSeances(semaineCouranteCalculee),
     // Chapitres : on charge les chapitres du tenant ET les chapitres
     // nationaux (tenantId = null) pour pouvoir résoudre les noms en JS.
     prisma.chapitre.findMany({
@@ -143,6 +152,13 @@ export default async function CahierJournalPage() {
         ...siteFilterForModel("chapitre", session.user),
       },
       select: { id: true, nom: true },
+    }),
+    // Première semaine de la fenêtre qui porte des séances : c'est sur elle que
+    // s'ouvre la vue calendrier, comme lorsque tout était chargé d'un coup.
+    // eslint-disable-next-line ecolpro/require-annee-filter -- même filtre que `lireSeances`
+    prisma.seancePedagogique.aggregate({
+      where: { ...filtreSeances, ...filtreFenetreSeances },
+      _min: { semaine: true },
     }),
   ]);
 
@@ -160,7 +176,24 @@ export default async function CahierJournalPage() {
   const enseignantMap = new Map(enseignants.map((e) => [e.id, { id: e.id, name: e.user?.name ?? "" }]));
   const chapitreMap = new Map(chapitres.map((c) => [c.id, { id: c.id, nom: c.nom }]));
 
-  const serialized = seances.map((s) => {
+  // Même principe pour le contenu pédagogique : deux séances qui portent les
+  // mêmes objectifs ou le même déroulé (cas courant d'une séance préparée pour
+  // plusieurs classes, ou reconduite d'une semaine à l'autre) partagent UNE
+  // valeur. Le contenu transmis est strictement le même, sans répétition.
+  const valeursVues = new Map<string, unknown>();
+  const partager = <T,>(valeur: T): T => {
+    if (valeur === null || typeof valeur !== "object") return valeur;
+    const cle = JSON.stringify(valeur);
+    const existante = valeursVues.get(cle);
+    if (existante !== undefined) return existante as T;
+    // Une liste inédite peut contenir des éléments déjà vus (« Rappel de la
+    // séance précédente », 10 min) : eux aussi sont partagés.
+    const aGarder = (Array.isArray(valeur) ? valeur.map((element) => partager(element)) : valeur) as T;
+    valeursVues.set(cle, aGarder);
+    return aGarder;
+  };
+
+  const serialiser = (s: (typeof seances)[number]) => {
     const matiere = matiereMap.get(s.matiereId);
     const classe = classeMap.get(s.classeId);
     const ens = s.enseignantId ? enseignantMap.get(s.enseignantId) : null;
@@ -182,10 +215,10 @@ export default async function CahierJournalPage() {
       rythme: s.rythme as "EN_AVANCE" | "A_TEMPS" | "EN_RETARD" | "NON_EVALUEE",
       presents: s.presents,
       absents: s.absents,
-      objectifs: s.objectifs as string[] | null,
-      activites: s.activites as { nom: string; duree: number; type: string }[] | null,
-      supports: s.supports as { type: string; lien: string; description?: string }[] | null,
-      differentiation: s.differentiation as { eleve?: string; groupe?: string; adaptation: string }[] | null,
+      objectifs: partager(s.objectifs as string[] | null),
+      activites: partager(s.activites as { nom: string; duree: number; type: string }[] | null),
+      supports: partager(s.supports as { type: string; lien: string; description?: string }[] | null),
+      differentiation: partager(s.differentiation as { eleve?: string; groupe?: string; adaptation: string }[] | null),
       matiere: matiere ?? { id: s.matiereId, nom: "—", code: "", couleur: null },
       enseignant: ens ?? null,
       chapitre: chap ?? null,
@@ -198,7 +231,18 @@ export default async function CahierJournalPage() {
       fichiers: s.fichiers as { name: string; type: string; size: number; data: string }[] | null,
       commentaires: [],
     };
-  });
+  };
+  const serialized = seances.map(serialiser);
+  // Les autres semaines ne partent qu'ICI, une fois la semaine en cours lue :
+  // lancées en même temps, les deux lectures se partagent la liaison vers la
+  // base et retardent la semaine en cours. La priorité va à ce que
+  // l'utilisateur voit en premier.
+  const seancesSuite = lireSeances({ gte: semaineMin, lte: semaineMax, not: semaineCouranteCalculee }).then(
+    (suite) => suite.map(serialiser),
+  );
+  // Une lecture en échec ne doit pas interrompre le processus faute d'être
+  // attendue ici : l'erreur reste portée par la promesse transmise à la vue.
+  seancesSuite.catch(() => undefined);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -220,6 +264,8 @@ export default async function CahierJournalPage() {
         )}
         <CahierJournalView
           seances={serialized}
+          seancesSuite={seancesSuite}
+          semaineInitiale={premiereSemaine._min.semaine ?? 1}
           classes={classes}
           hierarchie={hierarchie}
           matieres={matieres}

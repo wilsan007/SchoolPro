@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ListeGroupee } from "@/components/ui/liste-groupee";
 import { axeInitiale, type AxeRegroupement } from "@/lib/regroupement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,24 +13,13 @@ import {
   Phone, Mail, BookOpen, AlertTriangle, ChevronDown,
   ChevronUp, TrendingUp, UserCheck, FileText,
 } from "lucide-react";
-import { cn, getInitials, calculerMoyenne, timeAgo } from "@/lib/utils";
+import { cn, getInitials, timeAgo } from "@/lib/utils";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { FournituresClasse } from "@/components/fournitures/FournituresClasse";
-import type { TypeFourniture } from "@prisma/client";
+import { chargerDetailsEnfants, type DetailsEnfant } from "@/lib/actions/parents-annuaire";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface FournitureItemInfo {
-  id: string;
-  type: TypeFourniture;
-  nom: string;
-  description: string | null;
-  quantite: number;
-  format: string | null;
-  prixEstime: number | null;
-  matiere: { nom: string } | null;
-}
 
 interface EleveInfo {
   id: string;
@@ -40,10 +29,9 @@ interface EleveInfo {
   statut: string;
   classeId: string | null;
   classe: { nom: string; niveau: string } | null;
-  absences: { id: string }[];
-  notes: { valeur: number; noteMax: number; coefficient: number }[];
+  /** Absences injustifiées (plafonné à 50, comme la lecture d'origine). */
+  absencesCount: number;
   bulletins: { moyenneGenerale: number | null; isPublie: boolean }[];
-  fournitures: FournitureItemInfo[];
 }
 
 interface EleveParentInfo {
@@ -95,12 +83,70 @@ function getMoyenneColor(moyenne: number | null): string {
   return "text-red-600 dark:text-red-400";
 }
 
+// ─── Chargement en deux temps ─────────────────────────────────────────────────
+
+/**
+ * Détails par enfant (moyenne, fournitures), chargés APRÈS l'annuaire et
+ * seulement pour les fiches affichées.
+ *
+ * `undefined` : pas encore reçu · `null` : la lecture a échoué · sinon la valeur.
+ */
+type EtatDetails = Record<string, DetailsEnfant | null | undefined>;
+
+const DetailsEnfantsContext = createContext<{ details: EtatDetails; demander: (eleveId: string) => void }>({
+  details: {},
+  demander: () => {},
+});
+
+/** Taille d'un lot — alignée sur le plafond de `chargerDetailsEnfants`. */
+const TAILLE_LOT_DETAILS = 100;
+
+/**
+ * Regroupe les demandes des fiches qui apparaissent ensemble (un groupe qu'on
+ * déplie, une recherche) en un seul appel serveur par lot, au lieu d'un appel
+ * par enfant. Un enfant déjà demandé ne l'est jamais deux fois.
+ */
+function useDetailsEnfants() {
+  const [details, setDetails] = useState<EtatDetails>({});
+  const dejaDemandes = useRef(new Set<string>());
+  const enAttente = useRef<string[]>([]);
+  const minuterie = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const demander = useCallback((eleveId: string) => {
+    if (dejaDemandes.current.has(eleveId)) return;
+    dejaDemandes.current.add(eleveId);
+    enAttente.current.push(eleveId);
+    if (minuterie.current) return;
+    minuterie.current = setTimeout(() => {
+      minuterie.current = null;
+      const ids = enAttente.current;
+      enAttente.current = [];
+      for (let i = 0; i < ids.length; i += TAILLE_LOT_DETAILS) {
+        const lot = ids.slice(i, i + TAILLE_LOT_DETAILS);
+        chargerDetailsEnfants(lot)
+          .then((recus) =>
+            // Un enfant absent de la réponse (hors périmètre) est marqué `null`
+            // plutôt que laissé en attente indéfiniment.
+            setDetails((avant) => ({ ...avant, ...Object.fromEntries(lot.map((id) => [id, recus[id] ?? null])) })),
+          )
+          .catch(() => setDetails((avant) => ({ ...avant, ...Object.fromEntries(lot.map((id) => [id, null])) })));
+      }
+    }, 30);
+  }, []);
+
+  return useMemo(() => ({ details, demander }), [details, demander]);
+}
+
 // ─── Sous-composant : carte enfant ────────────────────────────────────────────
 
 function EnfantCard({ enfant }: { enfant: EleveInfo }) {
   const t = useTranslations("parents");
-  const moyenne = calculerMoyenne(enfant.notes);
-  const absencesCount = enfant.absences.length;
+  const { absencesCount } = enfant;
+  // Second temps : moyenne et fournitures arrivent après l'affichage de la fiche.
+  const { details, demander } = useContext(DetailsEnfantsContext);
+  useEffect(() => demander(enfant.id), [demander, enfant.id]);
+  const detail = details[enfant.id];
+  const moyenne = detail?.moyenne ?? null;
   const bulletinsPublies = enfant.bulletins.filter((b) => b.isPublie);
   const dernierBulletin = bulletinsPublies[0];
 
@@ -126,7 +172,11 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
           {/* Moyenne */}
           <div className="flex items-center gap-1">
             <TrendingUp className="w-3.5 h-3.5 text-gray-400" />
-            {moyenne !== null ? (
+            {detail === undefined ? (
+              <span className="inline-block h-4 w-14 rounded bg-muted animate-pulse" aria-busy="true" />
+            ) : detail === null ? (
+              <span className="text-xs text-gray-400">—</span>
+            ) : moyenne !== null ? (
               <span className={cn("text-sm font-bold", getMoyenneColor(moyenne))}>
                 {moyenne.toFixed(2)}/20
               </span>
@@ -157,10 +207,10 @@ function EnfantCard({ enfant }: { enfant: EleveInfo }) {
         </div>
 
         {/* Fournitures scolaires */}
-        {enfant.fournitures && enfant.fournitures.length > 0 && (
+        {detail && detail.fournitures.length > 0 && (
           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <FournituresClasse
-              items={enfant.fournitures}
+              items={detail.fournitures}
               classeNom={enfant.classe?.nom}
             />
           </div>
@@ -178,7 +228,7 @@ function ParentCard({ parent }: { parent: ParentData }) {
   const [expanded, setExpanded] = useState(true);
   const actif = isENTActif(parent.user?.lastLoginAt ?? null);
   const totalAbsences = parent.eleves.reduce(
-    (sum, ep) => sum + ep.eleve.absences.length,
+    (sum, ep) => sum + ep.eleve.absencesCount,
     0
   );
 
@@ -317,7 +367,7 @@ export function ParentsView({ parents }: ParentsViewProps) {
     const actifs = parents.filter((p) => isENTActif(p.user?.lastLoginAt ?? null)).length;
     const totalEnfants = parents.reduce((s, p) => s + p.eleves.length, 0);
     const totalAbsences = parents.reduce(
-      (s, p) => s + p.eleves.reduce((s2, ep) => s2 + ep.eleve.absences.length, 0),
+      (s, p) => s + p.eleves.reduce((s2, ep) => s2 + ep.eleve.absencesCount, 0),
       0
     );
     return { total, avecCompte, actifs, totalEnfants, totalAbsences };
@@ -338,7 +388,10 @@ export function ParentsView({ parents }: ParentsViewProps) {
     });
   }, [parents, search, filtre]);
 
+  const detailsEnfants = useDetailsEnfants();
+
   return (
+    <DetailsEnfantsContext.Provider value={detailsEnfants}>
     <div className="space-y-6">
       {/* Header actions */}
       <div className="flex justify-end">
@@ -483,5 +536,6 @@ export function ParentsView({ parents }: ParentsViewProps) {
         {t("pvCountDisplayed", { count: parentsFiltres.length })}
       </p>
     </div>
+    </DetailsEnfantsContext.Provider>
   );
 }

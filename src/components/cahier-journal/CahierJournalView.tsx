@@ -158,7 +158,15 @@ interface LigneTimeline {
 }
 
 interface Props {
+  /** Séances de la semaine en cours — affichées dès l'ouverture. */
   seances: Seance[];
+  /**
+   * Séances des autres semaines de la fenêtre, transmises en flux : elles
+   * rejoignent la liste quand elles arrivent. Absente ⇒ `seances` est complet.
+   */
+  seancesSuite?: Promise<Seance[]>;
+  /** Semaine sur laquelle s'ouvre le calendrier (première semaine avec séances). */
+  semaineInitiale?: number;
   classes: Classe[];
   /** Hiérarchie catégorie → niveau → classe (scope enseignant appliqué). */
   hierarchie?: ClassesHierarchie;
@@ -240,7 +248,9 @@ const JOURS_SEMAINE = [
 ];
 
 export function CahierJournalView({
-  seances,
+  seances: seancesInitiales,
+  seancesSuite,
+  semaineInitiale,
   classes,
   hierarchie,
   matieres,
@@ -256,8 +266,32 @@ export function CahierJournalView({
   const [viewMode, setViewMode] = useState<"timeline" | "list" | "calendar">("timeline");
   const [expandedSeance, setExpandedSeance] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  // Second temps du chargement : les autres semaines rejoignent la liste à leur
+  // arrivée. L'ordre chronologique d'origine (tri serveur par date) est rétabli.
+  const [suite, setSuite] = useState<Seance[]>([]);
+  useEffect(() => {
+    if (!seancesSuite) return;
+    let annule = false;
+    // `Promise.resolve` : une promesse transmise par le serveur est un
+    // « thenable » React dont `.then()` ne renvoie rien — on ne peut pas
+    // chaîner dessus directement.
+    Promise.resolve(seancesSuite)
+      .then((recues) => {
+        if (!annule) setSuite(recues);
+      })
+      .catch((e) => console.warn("[non-fatal] séances des autres semaines non chargées", e));
+    return () => {
+      annule = true;
+    };
+  }, [seancesSuite]);
+  const seances = useMemo(
+    () => (suite.length === 0 ? seancesInitiales : [...seancesInitiales, ...suite].sort((a, b) => a.date.localeCompare(b.date))),
+    [seancesInitiales, suite],
+  );
+
   const [currentWeek, setCurrentWeek] = useState<number>(() => {
     // Default to the week of the first seance, or week 1
+    if (semaineInitiale !== undefined) return semaineInitiale;
     const minSem = seances.length > 0 ? Math.min(...seances.map((s) => s.semaine)) : 1;
     return minSem;
   });

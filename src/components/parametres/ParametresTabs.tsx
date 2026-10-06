@@ -30,6 +30,31 @@ import { ImportModelesTab } from "./ImportModelesTab";
 
 import type { AvailableTenant } from "@/auth.config";
 import { roleHasPermission, type Permission } from "@/lib/permissions";
+import { getUsersForTenant, getParentsForSettings, getElevesForLinking } from "@/lib/actions/parametres";
+
+/**
+ * Les trois grandes listes (plusieurs milliers de lignes chacune, ~5 Mo au
+ * total) ne sont lues QUE lorsqu'un onglet qui les affiche est ouvert. Chaque
+ * lecture est lancée au premier accès puis conservée : rouvrir l'onglet ne
+ * recharge rien.
+ */
+function creerListesALaDemande() {
+  let users: ReturnType<typeof getUsersForTenant> | undefined;
+  let parents: ReturnType<typeof getParentsForSettings> | undefined;
+  let eleves: ReturnType<typeof getElevesForLinking> | undefined;
+  return {
+    get users() {
+      return (users ??= getUsersForTenant());
+    },
+    get parents() {
+      return (parents ??= getParentsForSettings());
+    },
+    get eleves() {
+      return (eleves ??= getElevesForLinking());
+    },
+  };
+}
+type ListesALaDemande = ReturnType<typeof creerListesALaDemande>;
 
 type Tab =
   | "etablissement"
@@ -118,8 +143,10 @@ const tabGroups: TabGroup[] = [
 
 /**
  * Seul `etablissement` est une valeur : c'est l'onglet affiché à l'ouverture.
- * Les neuf autres jeux de données arrivent sous forme de PROMESSES, que le
- * serveur continue de résoudre et de transmettre après le premier affichage.
+ * Les petits référentiels (classes, matières, sites, années…) arrivent sous
+ * forme de PROMESSES, que le serveur continue de résoudre et de transmettre
+ * après le premier affichage. Les trois grandes listes (utilisateurs, parents,
+ * élèves) ne font pas partie des props : voir `creerListesALaDemande`.
  * Chaque onglet lit les siennes avec `use()` : il s'affiche aussitôt si elles
  * sont déjà arrivées, sinon il montre un squelette le temps qu'elles arrivent.
  *
@@ -129,9 +156,6 @@ const tabGroups: TabGroup[] = [
  */
 interface ParametresTabsProps {
   etablissement: NonNullable<Awaited<ReturnType<typeof import("@/lib/actions/parametres").getEtablissementData>>>;
-  users: ReturnType<typeof import("@/lib/actions/parametres").getUsersForTenant>;
-  parents: ReturnType<typeof import("@/lib/actions/parametres").getParentsForSettings>;
-  eleves: ReturnType<typeof import("@/lib/actions/parametres").getElevesForLinking>;
   classes: ReturnType<typeof import("@/lib/actions/parametres").getClassesForSettings>;
   matieres: ReturnType<typeof import("@/lib/actions/parametres").getMatieresForSettings>;
   regles: ReturnType<typeof import("@/lib/actions/parametres").getReglesAppreciation>;
@@ -148,9 +172,6 @@ interface ParametresTabsProps {
 
 export function ParametresTabs({
   etablissement,
-  users,
-  parents,
-  eleves,
   classes,
   matieres,
   regles,
@@ -164,6 +185,13 @@ export function ParametresTabs({
 }: ParametresTabsProps) {
   const t = useTranslations("parametres");
   const [activeTab, setActiveTab] = useState<Tab>("etablissement");
+  // Recréé à chaque nouveau rendu serveur de la page (après un enregistrement,
+  // `revalidatePath` renvoie de nouvelles props) : les listes sont alors relues
+  // et reflètent la modification. `classes` sert de témoin de ce rendu.
+  const listes = useMemo(() => {
+    void classes;
+    return creerListesALaDemande();
+  }, [classes]);
 
   // Un onglet dont les écritures sont refusées au rôle n'est **pas affiché** :
   // c'est la même règle que le menu — on ne montre pas ce qui mènera à un refus.
@@ -250,9 +278,7 @@ export function ParametresTabs({
           <ContenuOnglet
             activeTab={activeTab}
             etablissement={etablissement}
-            users={users}
-            parents={parents}
-            eleves={eleves}
+            listes={listes}
             classes={classes}
             matieres={matieres}
             regles={regles}
@@ -289,9 +315,7 @@ function ChargementOnglet() {
 function ContenuOnglet({
   activeTab,
   etablissement,
-  users,
-  parents,
-  eleves,
+  listes,
   classes,
   matieres,
   regles,
@@ -301,17 +325,17 @@ function ContenuOnglet({
   siteColors,
   canManage,
   availableTenants,
-}: Omit<ParametresTabsProps, "roleKey"> & { activeTab: Tab }) {
+}: Omit<ParametresTabsProps, "roleKey"> & { activeTab: Tab; listes: ListesALaDemande }) {
   return (
     <>
         {activeTab === "etablissement" && <EtablissementTab etablissement={etablissement} canManage={canManage} />}
         {activeTab === "annees" && <AnneesScolairesTab annees={use(annees)} canManage={canManage} />}
         {activeTab === "calendrier" && <CalendrierScolaireTab annees={use(annees)} canManage={canManage} />}
-        {activeTab === "utilisateurs" && <UsersTab users={use(users)} canManage={canManage} availableTenants={availableTenants} sites={use(sites)} classes={use(classes)} matieres={use(matieres)} />}
+        {activeTab === "utilisateurs" && <UsersTab users={use(listes.users)} canManage={canManage} availableTenants={availableTenants} sites={use(sites)} classes={use(classes)} matieres={use(matieres)} />}
         {activeTab === "parents" && (
           <ParentsTab
-            parents={use(parents)}
-            eleves={use(eleves)}
+            parents={use(listes.parents)}
+            eleves={use(listes.eleves)}
             canManage={canManage}
             anneeCourante={use(annees).find((a) => a.isCurrent)?.libelle}
             siteColors={use(siteColors)}
@@ -357,7 +381,7 @@ function ContenuOnglet({
         {activeTab === "doublons" && <DoublonsTab />}
         {activeTab === "userPermissions" && (
           <UserPermissionsTab
-            users={use(users).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role }))}
+            users={use(listes.users).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role }))}
           />
         )}
     </>
