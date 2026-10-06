@@ -58,7 +58,8 @@ const mockPrisma = prisma as unknown as {
   $transaction: ReturnType<typeof vi.fn>;
 };
 
-const { synchroniserTachesAuto, getTachesUtilisateur } = await import("./tache-engine");
+const { synchroniserTachesAuto, getTachesUtilisateur, synchroniserTachesEnArrierePlan, INTERVALLE_SYNC_PAGE_MS } =
+  await import("./tache-engine");
 
 const CLAIMS = { role: "TENANT_ADMIN", siteId: null };
 
@@ -453,6 +454,21 @@ describe("synchroniserTachesAuto", () => {
 // ────────────────────────────────────────────────────────────────
 // getTachesUtilisateur
 // ────────────────────────────────────────────────────────────────
+
+describe("synchroniserTachesEnArrierePlan", () => {
+  it("ne relance pas la synchronisation avant l'intervalle, pour un même périmètre", () => {
+    const claims = { ...CLAIMS, siteId: "site-throttle" };
+    const t0 = 1_000_000;
+
+    expect(synchroniserTachesEnArrierePlan("t-throttle", claims, "test", t0)).toBe(true);
+    expect(synchroniserTachesEnArrierePlan("t-throttle", claims, "test", t0 + 1_000)).toBe(false);
+    // Un autre périmètre n'est pas freiné par le premier.
+    expect(synchroniserTachesEnArrierePlan("t-autre", claims, "test", t0 + 1_000)).toBe(true);
+    expect(
+      synchroniserTachesEnArrierePlan("t-throttle", claims, "test", t0 + INTERVALLE_SYNC_PAGE_MS),
+    ).toBe(true);
+  });
+});
 
 describe("getTachesUtilisateur", () => {
   it("filtre par tenantId et userId", async () => {

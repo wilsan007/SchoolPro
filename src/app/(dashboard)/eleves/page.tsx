@@ -109,6 +109,15 @@ async function getEffectifsParClasse(where: Prisma.EleveWhereInput, tenantId: st
   return effectifs;
 }
 
+/** Classe telle que `ElevesTable` l'attend sur chaque élève. */
+type ClasseDuTableau = {
+  id: string;
+  nom: string;
+  niveau: string;
+  structure: { type: string } | null;
+  site: { id: string; nom: string } | null;
+};
+
 async function getElevesData(
   tenantId: string,
   siteFilter: Record<string, unknown>,
@@ -117,6 +126,7 @@ async function getElevesData(
   hierarchieClasseIds: string[] | null,
   noClassLabel: string | undefined,
   anneeCourante: string | null | undefined,
+  classesParId: Map<string, ClasseDuTableau>,
 ) {
   // Périmètre de référence : ce que voit l'utilisateur, filtres d'écran mis à
   // part. Statistiques et effectifs par classe en découlent tous les deux.
@@ -154,15 +164,18 @@ async function getElevesData(
     }),
   } as Prisma.EleveWhereInput;
 
-  const [eleves, total, stats, effectifs] = await Promise.all([
+  const [elevesPlats, gardiens, total, stats, effectifs] = await Promise.all([
+    // Lecture À PLAT, sans relation imbriquée. Demander `classe` et `parents`
+    // dans le même `findMany` faisait émettre à Prisma six requêtes à la suite,
+    // dont deux portant plusieurs dizaines de milliers d'identifiants en
+    // paramètres : sur une base distante, c'était l'essentiel du temps de la
+    // page. La classe vient de la hiérarchie déjà chargée, le tuteur de la
+    // lecture suivante.
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.findMany({
       where,
-      // Uniquement les colonnes que `ElevesTable` affiche. Un `include` ramenait
-      // la fiche complète (santé, contacts d'urgence, dates…) de chaque élève :
-      // 1,6 Mo sérialisés vers le navigateur pour 1 200 élèves, dont le tableau
-      // n'utilisait qu'une dizaine de champs — et des données sensibles qui
-      // n'avaient aucune raison de quitter le serveur.
+      // Uniquement les colonnes que `ElevesTable` affiche : la fiche complète
+      // (santé, contacts d'urgence…) n'a aucune raison de quitter le serveur.
       select: {
         id: true,
         matricule: true,
@@ -173,18 +186,15 @@ async function getElevesData(
         statut: true,
         regime: true,
         photoUrl: true,
-        classe: { select: { id: true, nom: true, niveau: true, structure: { select: { type: true } }, site: { select: { id: true, nom: true } } } },
-        // Le lien élève↔parent n'a pas de site propre : il est borné par
-        // l'élève, déjà filtré par le `where` racine. Un parent peut par
-        // ailleurs avoir des enfants sur plusieurs sites.
-        // eslint-disable-next-line ecolpro/require-site-filter
-        parents: {
-          select: { parent: { select: { nom: true, prenom: true, phone: true } } },
-          where: { isGardien: true },
-          take: 1,
-        },
+        classeId: true,
       },
-      orderBy: [{ classe: { nom: "asc" } }, { prenom: "asc" }],
+    }),
+    // Tuteur légal de chaque élève du tableau. Le lien élève↔parent n'a pas de
+    // site propre : il est borné par l'élève, filtré par le même `where`.
+    // eslint-disable-next-line ecolpro/require-site-filter -- borné par `eleve: where` (site et année déjà filtrés)
+    prisma.eleveParent.findMany({
+      where: { isGardien: true, eleve: where },
+      select: { eleveId: true, parent: { select: { nom: true, prenom: true, phone: true } } },
     }),
     // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.count({ where }),
@@ -195,6 +205,43 @@ async function getElevesData(
     getElevesStats(base),
     getEffectifsParClasse(where, tenantId, noClassLabel ?? "Sans classe"),
   ]);
+
+  // Une classe absente de la hiérarchie (périmètre différent) est lue à part :
+  // cas rare, une seule petite requête.
+  const classesManquantes = [
+    ...new Set(elevesPlats.map((e) => e.classeId).filter((id): id is string => !!id && !classesParId.has(id))),
+  ];
+  if (classesManquantes.length > 0) {
+    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- classes des élèves déjà filtrés par site et année
+    const complement = await prisma.classe.findMany({
+      where: { tenantId, id: { in: classesManquantes } },
+      select: { id: true, nom: true, niveau: true, structure: { select: { type: true } }, site: { select: { id: true, nom: true } } },
+    });
+    for (const c of complement) classesParId.set(c.id, c);
+  }
+
+  // Un seul tuteur par élève, comme le `take: 1` d'origine.
+  const gardienParEleve = new Map<string, (typeof gardiens)[number]["parent"]>();
+  for (const g of gardiens) {
+    if (!gardienParEleve.has(g.eleveId)) gardienParEleve.set(g.eleveId, g.parent);
+  }
+
+  const eleves = elevesPlats
+    .map(({ classeId, ...e }) => {
+      const gardien = gardienParEleve.get(e.id);
+      return {
+        ...e,
+        classe: classeId ? classesParId.get(classeId) ?? null : null,
+        parents: gardien ? [{ parent: gardien }] : [],
+      };
+    })
+    // Même ordre qu'avant : classe (sans classe en dernier), puis prénom.
+    .sort(
+      (a, b) =>
+        Number(!a.classe) - Number(!b.classe) ||
+        (a.classe?.nom ?? "").localeCompare(b.classe?.nom ?? "") ||
+        a.prenom.localeCompare(b.prenom),
+    );
 
   return { eleves, total, stats, effectifs };
 }
@@ -229,6 +276,22 @@ export default async function ElevesPage({
   const teacherRestriction = session.user.role && isTeacherRole(session.user.role as Role)
     ? hierarchieClasseIds
     : null;
+  const classesParId = new Map<string, ClasseDuTableau>(
+    hierarchie.flatMap((c) =>
+      c.niveaux.flatMap((n) =>
+        n.classes.map((cls): [string, ClasseDuTableau] => [
+          cls.id,
+          {
+            id: cls.id,
+            nom: cls.nom,
+            niveau: cls.niveau,
+            structure: cls.structureType ? { type: cls.structureType } : null,
+            site: cls.siteId && cls.siteNom ? { id: cls.siteId, nom: cls.siteNom } : null,
+          },
+        ]),
+      ),
+    ),
+  );
   const [sites, siteColors, { eleves, total, stats, effectifs }] = await Promise.all([
     getSitesForUser(),
     getSiteColorMap(session.user.tenantId),
@@ -240,6 +303,7 @@ export default async function ElevesPage({
       teacherRestriction,
       t("noClass"),
       anneeCourante,
+      classesParId,
     ),
   ]);
 

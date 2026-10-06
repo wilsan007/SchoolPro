@@ -7,6 +7,10 @@ const isProd = process.env.NODE_ENV === "production";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  // Next 16 refuse deux `next dev` sur le même dossier de build. `NEXT_DIST_DIR`
+  // permet d'en lancer un second (mesures, tests) à côté du premier — voir la
+  // configuration « dev-2 » de .claude/launch.json.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, ""),
   poweredByHeader: false,

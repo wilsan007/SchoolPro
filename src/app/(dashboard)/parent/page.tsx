@@ -13,7 +13,7 @@ import { JustifierAbsenceForm } from "@/components/learnos/JustifierAbsenceForm"
 import { ParentPortalTabs } from "@/components/parent/ParentPortalTabs";
 import { ParentEdtView } from "@/components/parent/ParentEdtView";
 import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
-import { synchroniserTachesAuto } from "@/lib/tache-engine";
+import { synchroniserTachesEnArrierePlan } from "@/lib/tache-engine";
 import { guardPage } from "@/lib/guard-page";
 import { getTranslations } from "next-intl/server";
 import { dossierEleve, enfantsDuParent } from "@/lib/learnos/dossier-eleve";
@@ -285,9 +285,7 @@ export default async function ParentPage({
   // Non-bloquant : la sync fait plusieurs requêtes DB qui peuvent être lentes
   // sur une base distante. Lancée en arrière-plan pour ne pas bloquer la page.
   try {
-    void synchroniserTachesAuto(tenantId, session!.user).catch((e) =>
-      console.error("[Parent page] Auto-sync tâches échoué:", e)
-    );
+    synchroniserTachesEnArrierePlan(tenantId, session!.user, "Parent page");
   } catch (e) {
     console.error("[Parent page] Auto-sync tâches (init):", e);
   }

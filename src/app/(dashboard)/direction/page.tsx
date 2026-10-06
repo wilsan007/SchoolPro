@@ -17,7 +17,7 @@ import { siteFilterForModel, isTenantWideRole, type SessionSiteClaims } from "@/
 import { getActivityFeedAllPeriodes, type ActivityItem, type Periode } from "@/lib/activity-feed";
 import { getTeacherDelays, type ThemeRetard } from "@/lib/teacher-delays";
 import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
-import { synchroniserTachesAuto } from "@/lib/tache-engine";
+import { synchroniserTachesEnArrierePlan } from "@/lib/tache-engine";
 import { Card, CardContent, CardHeader, CardTitle, AccentCard } from "@/components/ui/card";
 import { FileText, AlertTriangle, ShieldAlert, UserX } from "lucide-react";
 import { getClassesHierarchie } from "@/lib/classes-hierarchie";
@@ -315,9 +315,7 @@ export default async function DirectionPage() {
   // ne pas bloquer le rendu de la page. Les tâches seront à jour au prochain
   // chargement (ou via le cron /api/cron/dispatch).
   try {
-    void synchroniserTachesAuto(tenantId, claims).catch((e) =>
-      console.error("[Direction page] Auto-sync tâches échoué:", e)
-    );
+    synchroniserTachesEnArrierePlan(tenantId, claims, "Direction page");
   } catch (e) {
     console.error("[Direction page] Auto-sync tâches (sync init):", e);
   }

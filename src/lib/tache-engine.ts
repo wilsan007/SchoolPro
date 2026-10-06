@@ -730,6 +730,41 @@ export async function synchroniserTachesAuto(
   };
 }
 
+/** Intervalle minimal entre deux synchronisations déclenchées par une page. */
+export const INTERVALLE_SYNC_PAGE_MS = 5 * 60_000;
+
+/** Dernier lancement par périmètre (tenant, site, rôle). */
+const derniereSyncPage = new Map<string, number>();
+
+/**
+ * Synchronisation « au fil de l'eau », lancée par les pages en arrière-plan.
+ *
+ * Chaque ouverture de /direction, /parent, /taches ou /mon-espace relançait
+ * une synchronisation complète : une vingtaine de requêtes qui occupent les
+ * connexions à la base pendant que la page elle-même attend les siennes. Les
+ * tâches ne changent pas d'une seconde à l'autre : on ne relance donc pas
+ * avant `INTERVALLE_SYNC_PAGE_MS` pour un même périmètre. Le cron
+ * (/api/cron/dispatch) et /api/taches/sync appellent toujours
+ * `synchroniserTachesAuto` directement.
+ */
+export function synchroniserTachesEnArrierePlan(
+  tenantId: string,
+  claims: SessionSiteClaims,
+  origine: string,
+  maintenant: number = Date.now(),
+): boolean {
+  const cle = `${tenantId}|${claims.siteId ?? "*"}|${claims.role}`;
+  const dernier = derniereSyncPage.get(cle);
+  if (dernier !== undefined && maintenant - dernier < INTERVALLE_SYNC_PAGE_MS) return false;
+  derniereSyncPage.set(cle, maintenant);
+  void synchroniserTachesAuto(tenantId, claims).catch((e) => {
+    // Échec : la prochaine ouverture de page retente sans attendre.
+    derniereSyncPage.delete(cle);
+    console.error(`[${origine}] Auto-sync tâches échoué:`, e);
+  });
+  return true;
+}
+
 /**
  * Récupère les tâches d'un utilisateur, groupées par bucket temporel.
  * Lance la synchronisation auto avant la lecture (lazy sync).

@@ -6,7 +6,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { Header } from "@/components/layout/Header";
 import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
 import { guardPage } from "@/lib/guard-page";
-import { synchroniserTachesAuto } from "@/lib/tache-engine";
+import { synchroniserTachesEnArrierePlan } from "@/lib/tache-engine";
 import { getDemoNow } from "@/lib/demo-now";
 import { isTeacherRole } from "@/lib/teacher-classes";
 import type { Role } from "@prisma/client";
@@ -25,9 +25,7 @@ export default async function TachesPage() {
   // Erreurs non bloquantes — la page affiche les tâches existantes.
   // Non-bloquant : lancé en arrière-plan pour ne pas ralentir la page.
   try {
-    void synchroniserTachesAuto(tenantId, session.user).catch((e) =>
-      console.error("[Taches page] Auto-sync échoué:", e)
-    );
+    synchroniserTachesEnArrierePlan(tenantId, session.user, "Taches page");
   } catch (e) {
     console.error("[Taches page] Auto-sync (init):", e);
   }

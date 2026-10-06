@@ -11,7 +11,7 @@ import { publishEvent } from "@/lib/learnos/events";
 import { getDemoNow } from "@/lib/demo-now";
 import { applyRlsContext } from "@/lib/prisma-rls";
 import { z } from "zod";
-import type { TypeFacture } from "@prisma/client";
+import type { Prisma, TypeFacture } from "@prisma/client";
 import type { Session } from "next-auth";
 import {
   canCreateFacture as canCreateFactureDomain,
@@ -63,6 +63,28 @@ export async function getFacturesForTenant(
   const tenantId = sessionObj.user.tenantId;
   const limit = opts?.limit ?? 500;
 
+  // Uniquement ce que les deux vues de la liste affichent (tableau et vue
+  // mensuelle). Un `include` ramenait la ligne complète de chaque facture, de
+  // chaque paiement, avec l'auteur de chacun — plus de 500 Ko pour 500 factures :
+  // sur une base distante, c'était l'essentiel du temps de la page.
+  const selectListe = {
+    id: true,
+    numero: true,
+    libelle: true,
+    montant: true,
+    devise: true,
+    statut: true,
+    echeance: true,
+    createdAt: true,
+    eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classe: { select: { nom: true } } } },
+    paiements: {
+      where: siteFilterForModel("paiement", sessionObj.user),
+      select: { montant: true, methode: true },
+    },
+    relances: { select: { id: true, niveau: true } },
+    createdBy: { select: { id: true, name: true } },
+  } satisfies Prisma.FactureSelect;
+
   // Si un anneeId explicite est fourni, on filtre strictement sur cette année.
   if (filters?.anneeId) {
     return prisma.facture.findMany({
@@ -75,15 +97,7 @@ export async function getFacturesForTenant(
         },
         siteFilterForModel("facture", sessionObj.user)
       ),
-      include: {
-        eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classeId: true, classe: { select: { nom: true } } } },
-        paiements: {
-          where: siteFilterForModel("paiement", sessionObj.user),
-          include: { enregistrePar: { select: { id: true, name: true } } },
-        },
-        relances: { select: { id: true, niveau: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
+      select: selectListe,
       orderBy: { createdAt: "desc" },
       take: limit,
     });
@@ -133,15 +147,7 @@ export async function getFacturesForTenant(
 
   return prisma.facture.findMany({
     where: mergeFilters(where, siteFilterForModel("facture", sessionObj.user)),
-    include: {
-      eleve: { select: { id: true, nom: true, prenom: true, matricule: true, classeId: true, classe: { select: { nom: true } } } },
-      paiements: {
-        where: siteFilterForModel("paiement", sessionObj.user),
-        include: { enregistrePar: { select: { id: true, name: true } } },
-      },
-      relances: { select: { id: true, niveau: true } },
-      createdBy: { select: { id: true, name: true } },
-    },
+    select: selectListe,
     orderBy: { createdAt: "desc" },
     take: limit,
   });

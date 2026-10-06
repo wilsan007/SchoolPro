@@ -14,7 +14,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getClassesHierarchie } from "@/lib/classes-hierarchie";
 import { getActivityFeed, type ActivityItem } from "@/lib/activity-feed";
 import { TaskTimeline, type TacheData } from "@/components/taches/TaskTimeline";
-import { synchroniserTachesAuto } from "@/lib/tache-engine";
+import { synchroniserTachesEnArrierePlan } from "@/lib/tache-engine";
 import prisma from "@/lib/prisma";
 import type { Jour, Role } from "@prisma/client";
 
@@ -97,9 +97,7 @@ export default async function MonEspacePage() {
   // Auto-sync silencieux : régénère les tâches depuis l'état du système.
   // Non-bloquant : lancé en arrière-plan pour ne pas ralentir la page.
   try {
-    void synchroniserTachesAuto(tenantId, claims).catch((e) =>
-      console.error("[Mon espace] Auto-sync tâches échoué:", e)
-    );
+    synchroniserTachesEnArrierePlan(tenantId, claims, "Mon espace");
   } catch (e) {
     console.error("[Mon espace] Auto-sync tâches (init):", e);
   }

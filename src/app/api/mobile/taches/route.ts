@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMobileScope, mobileUnauthorized } from "@/lib/mobile-auth";
 import { siteFilterForModel } from "@/lib/site-scope";
-import { synchroniserTachesAuto, getTachesUtilisateur } from "@/lib/tache-engine";
+import { synchroniserTachesEnArrierePlan, getTachesUtilisateur } from "@/lib/tache-engine";
 import { bucketPour, BUCKET_ORDER, type BucketTache } from "@/lib/tache-buckets";
 import { getDemoNow } from "@/lib/demo-now";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
@@ -52,9 +52,7 @@ export async function GET(req: NextRequest) {
   // Auto-sync : régénère les tâches depuis l'état du système avant lecture.
   // Non-bloquant : lancé en arrière-plan pour ne pas ralentir l'API mobile.
   try {
-    void synchroniserTachesAuto(user.tenantId, user).catch((e) =>
-      console.error("[Mobile Taches GET] Auto-sync échoué:", e)
-    );
+    synchroniserTachesEnArrierePlan(user.tenantId, user, "Mobile Taches GET");
   } catch (e) {
     console.error("[Mobile Taches GET] Auto-sync (init):", e);
   }

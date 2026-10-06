@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { withRlsExtension } from "@/lib/prisma-rls";
 import { extensionHorizonDemo } from "@/lib/demo-horizon";
 import { createAuditExtension } from "@/lib/prisma-audit-extension";
+import { extensionProfil } from "@/lib/prisma-profil";
 import { famillesAInvalider, invaliderReferentiel } from "@/lib/cache-referentiel";
 
 /**
@@ -106,13 +107,13 @@ const appDbUrl = withConnectionLimit(
   // En prod : 7 connexions max par machine (pooler transaction, port 6543).
   // En dev : 10 connexions pour permettre plus de parallélisme sur base distante.
   // Le pool session Supabase a 15 connexions ; 10 pour l'app + 3 pour le
-  // background = 13 < 15.
-  process.env.NODE_ENV === "production" ? 7 : 10,
+  // background = 13 < 15. `PRISMA_CONNECTION_LIMIT` réduit ce nombre pour un
+  // second serveur de dev lancé à côté du premier (sinon 10 + 10 > 15).
+  process.env.NODE_ENV === "production" ? 7 : Number(process.env.PRISMA_CONNECTION_LIMIT) || 10,
 );
 
-export const prisma =
-  globalForPrisma.prisma ??
-  withRlsExtension(
+function creerClient(): PrismaClient {
+  const client = withRlsExtension(
     new PrismaClient({
       log: ["error"],
       datasources: {
@@ -124,7 +125,13 @@ export const prisma =
   )
     .$extends(extensionHorizonDemo())
     .$extends(extensionInvalidationReferentiels())
-    .$extends(createAuditExtension()) as PrismaClient;
+    .$extends(createAuditExtension());
+  // Diagnostic hors production : voir src/lib/prisma-profil.ts.
+  const profil = process.env.NODE_ENV !== "production" ? process.env.PRISMA_PROFIL : undefined;
+  return (profil ? client.$extends(extensionProfil(profil)) : client) as PrismaClient;
+}
+
+export const prisma = globalForPrisma.prisma ?? creerClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 

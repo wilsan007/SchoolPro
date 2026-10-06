@@ -199,8 +199,12 @@ export async function getActivityFeed(
   // plus de requêtes en parallèle réduit le temps total car le pool
   // peut traiter plusieurs requêtes simultanément.
 
-  // Batch 1 — Inscription + Bulletins + Notes + Absences (4 requêtes)
-  const [inscriptionEvents, bulletinsHistorique, notes, absences] = await Promise.all([
+  // Les trois lots partent ENSEMBLE et sont attendus d'un seul bloc. Ils
+  // s'enchaînaient (lot 1, puis 2, puis 3) alors qu'aucun ne dépend d'un
+  // autre : chaque attente ajoutait la durée de son lot le plus lent.
+
+  // Lot 1 — Inscription + Bulletins + Notes + Absences (4 requêtes)
+  const lot1 = Promise.all([
     prisma.inscriptionHistorique.findMany({
       where: {
         tenantId,
@@ -286,9 +290,9 @@ export async function getActivityFeed(
     }),
   ]);
 
-  // Batch 2 — Incidents (3) + Sanctions + Finance (3) + RH (2) = 9 requêtes
-  const [incidentsRapportes, incidentsResolus, incidentsClasses, sanctionsReintegrees, paiements, factures, depenses, congesDemandes, congesApprouves] =
-    await Promise.all([
+  // Lot 2 — Incidents (3) + Sanctions + Finance (3) + RH (2) = 9 requêtes
+  const lot2 =
+    Promise.all([
       prisma.incident.findMany({
         where: {
           tenantId,
@@ -461,8 +465,8 @@ export async function getActivityFeed(
       }),
     ]);
 
-  // Batch 3 — Santé + Conseil + Communication + Séances + Audit = 5 requêtes
-  const [passagesInfirmerie, entretiensConseil, notifications, seanceCommentaires, audits] = await Promise.all([
+  // Lot 3 — Santé + Conseil + Communication + Séances + Audit = 5 requêtes
+  const lot3 = Promise.all([
     prisma.passageInfirmerie.findMany({
       where: {
         tenantId,
@@ -552,6 +556,12 @@ export async function getActivityFeed(
       take: limite,
     }),
   ]);
+
+  const [
+    [inscriptionEvents, bulletinsHistorique, notes, absences],
+    [incidentsRapportes, incidentsResolus, incidentsClasses, sanctionsReintegrees, paiements, factures, depenses, congesDemandes, congesApprouves],
+    [passagesInfirmerie, entretiensConseil, notifications, seanceCommentaires, audits],
+  ] = await Promise.all([lot1, lot2, lot3]);
 
   // ──────────────────────────────────────────────────────────────────────────
   // Normalisation en items partiels avec acteurId
