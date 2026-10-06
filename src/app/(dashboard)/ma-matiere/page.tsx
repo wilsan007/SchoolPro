@@ -1,4 +1,7 @@
+import { Fragment } from "react";
 import { auth } from "@/lib/auth";
+import { SEUIL_REGROUPEMENT, regrouper } from "@/lib/regroupement";
+import { libelleNiveau } from "@/lib/niveau-display";
 import prisma from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -208,6 +211,17 @@ export default async function MaMatierePage() {
     .filter((x): x is NonNullable<typeof x> => x !== null)
     .sort((a, b) => a.nom.localeCompare(b.nom));
 
+  // Au-delà de 20 classes, le tableau est découpé par niveau (intertitres).
+  const modeleNiveaux =
+    moyennesParClasse.length > SEUIL_REGROUPEMENT
+      ? (await prisma.tenant.findUnique({ where: { id: tenantId }, select: { modeleNiveaux: true } }))
+          ?.modeleNiveaux
+      : undefined;
+  const groupesClasses =
+    moyennesParClasse.length > SEUIL_REGROUPEMENT
+      ? regrouper(moyennesParClasse, { id: "niveau", cle: (c) => libelleNiveau(c.niveau, modeleNiveaux) })
+      : [{ cle: "toutes", libelle: "", items: moyennesParClasse }];
+
   const toutesNotes = notes.map((n) => (n.noteMax > 0 ? (n.valeur / n.noteMax) * 20 : n.valeur));
   const moyenneGenerale = toutesNotes.length > 0 ? toutesNotes.reduce((a, b) => a + b, 0) / toutesNotes.length : null;
 
@@ -314,15 +328,26 @@ export default async function MaMatierePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {moyennesParClasse.map((c) => (
-                      <tr key={c.id} className="border-b last:border-0">
-                        <td className="py-2 pr-4 font-medium">{c.nom}</td>
-                        <td className="py-2 pr-4">
-                          {c.moyenne !== null ? c.moyenne.toFixed(2) : "—"}
-                        </td>
-                        <td className="py-2 pr-4">{c.nbEleves}</td>
-                        <td className="py-2">{c.tauxReussite}%</td>
-                      </tr>
+                    {groupesClasses.map((g) => (
+                      <Fragment key={g.cle}>
+                        {groupesClasses.length > 1 && (
+                          <tr className="border-b bg-muted/60">
+                            <td colSpan={4} className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide">
+                              {g.libelle}
+                            </td>
+                          </tr>
+                        )}
+                        {g.items.map((c) => (
+                          <tr key={c.id} className="border-b last:border-0">
+                            <td className="py-2 pr-4 font-medium">{c.nom}</td>
+                            <td className="py-2 pr-4">
+                              {c.moyenne !== null ? c.moyenne.toFixed(2) : "—"}
+                            </td>
+                            <td className="py-2 pr-4">{c.nbEleves}</td>
+                            <td className="py-2">{c.tauxReussite}%</td>
+                          </tr>
+                        ))}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

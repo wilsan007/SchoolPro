@@ -9,6 +9,8 @@ import {
 import { useTranslations, useFormatter } from "next-intl";
 import { cn } from "@/lib/utils";
 import { TexteRegle } from "@/components/learnos/TexteRegle";
+import { ListeGroupee } from "@/components/ui/liste-groupee";
+import type { AxeRegroupement } from "@/lib/regroupement";
 import type { CompetenceDuDossier, DossierEleve } from "@/lib/learnos/dossier-eleve";
 
 /**
@@ -26,6 +28,10 @@ import type { CompetenceDuDossier, DossierEleve } from "@/lib/learnos/dossier-el
  * estimations, pas des notes, et les confondre est le plus sûr moyen de faire
  * perdre confiance dans les deux.
  */
+const AXES_COMPETENCES: AxeRegroupement<CompetenceDuDossier>[] = [
+  { id: "matiere", cle: (c) => c.matiere },
+];
+
 export function DossierEnfant({
   dossier,
   perspective,
@@ -306,9 +312,12 @@ function ColonneCompetences({
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">{vide}</p>
         ) : (
-          <ul className="space-y-1.5 text-sm">
-            {items.map((c) => (
-              <li key={c.competenceId} className="space-y-0.5">
+          <ListeGroupee
+            className="space-y-1.5 text-sm"
+            items={items}
+            axes={AXES_COMPETENCES}
+            rendu={(c) => (
+              <div key={c.competenceId} className="space-y-0.5">
                 <p className="leading-snug">{c.libelle}</p>
                 <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                   {c.matiere}
@@ -319,9 +328,9 @@ function ColonneCompetences({
                     </span>
                   )}
                 </p>
-              </li>
-            ))}
-          </ul>
+              </div>
+            )}
+          />
         )}
       </CardContent>
     </Card>

@@ -1,4 +1,4 @@
-import { test as base, expect, type Browser, type Page } from "@playwright/test";
+import { test as base, expect, type Browser, type FrameLocator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -77,5 +77,27 @@ export const test = base.extend<{ authedPage: Page }, { storageStatePath: string
     }
   },
 });
+
+/**
+ * Racine du contenu applicatif.
+ *
+ * Le tableau de bord rend ses pages dans une iframe (`…?embedded=1`) : la
+ * fenêtre du « workspace ». Les locators posés sur la page elle-même ne voient
+ * donc que la coquille — barre du haut, menu — et jamais le contenu. Les specs
+ * qui cherchaient « Faire l'appel » ou « Valider l'appel » sur `page`
+ * échouaient pour cette seule raison, sans que l'application soit en cause.
+ *
+ * Retourne la frame quand elle existe, la page sinon (login, pages hors
+ * workspace), pour que les specs s'écrivent de la même façon dans les deux cas.
+ */
+export async function contenu(page: Page, timeout = 20000): Promise<FrameLocator | Page> {
+  const cadre = page.locator('iframe[src*="embedded=1"]').first();
+  try {
+    await cadre.waitFor({ state: "attached", timeout });
+  } catch {
+    return page;
+  }
+  return page.frameLocator('iframe[src*="embedded=1"]');
+}
 
 export { expect };

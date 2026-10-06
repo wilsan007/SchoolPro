@@ -15,6 +15,9 @@ import {
 import { getDemoNow } from "@/lib/demo-now";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { cn } from "@/lib/utils";
+import { GroupesStatiques } from "@/components/ui/groupes-statiques";
+import { SEUIL_REGROUPEMENT, cleTemporelle, type AxeRegroupement } from "@/lib/regroupement";
+import { libelleNiveau } from "@/lib/niveau-display";
 
 /**
  * Travail à faire — vue élève / parent.
@@ -28,9 +31,10 @@ export default async function TravailPage({
 }: {
   searchParams: Promise<{ enfant?: string }>;
 }) {
-  const [session, t, locale] = await Promise.all([
+  const [session, t, tGroupes, locale] = await Promise.all([
     auth(),
     getTranslations("travail"),
+    getTranslations("regroupement"),
     getLocale(),
   ]);
   await guardPage(session);
@@ -60,7 +64,7 @@ export default async function TravailPage({
       nom: true,
       prenom: true,
       classeId: true,
-      classe: { select: { id: true, nom: true, niveau: true } },
+      classe: { select: { id: true, nom: true, niveau: true, site: { select: { nom: true } } } },
     },
     orderBy: [{ prenom: "asc" }, { nom: "asc" }],
   });
@@ -115,13 +119,48 @@ export default async function TravailPage({
     orderBy: { dateRendu: "asc" },
   });
 
+  // Regroupement au-delà de 20 éléments. Un enseignant voit tous ses élèves :
+  // on les range par niveau puis par classe. Les devoirs se lisent par semaine
+  // d'échéance, la plus proche en premier.
+  // Le modèle de niveaux du tenant ne sert qu'à libeller ces groupes.
+  const modeleNiveaux =
+    eleves.length > SEUIL_REGROUPEMENT
+      ? (await prisma.tenant.findUnique({ where: { id: tenantId }, select: { modeleNiveaux: true } }))
+          ?.modeleNiveaux
+      : undefined;
+  const axesEleves: AxeRegroupement<(typeof eleves)[number]>[] = [
+    { id: "niveau", cle: (e) => (e.classe ? libelleNiveau(e.classe.niveau, modeleNiveaux) : null) },
+    // Deux sites portent des classes homonymes : le site les distingue.
+    {
+      id: "classe",
+      cle: (e) => (e.classe ? [e.classe.nom, e.classe.site?.nom].filter(Boolean).join(" · ") : null),
+    },
+  ];
+  const axesDevoirs: AxeRegroupement<(typeof devoirs)[number]>[] = [
+    {
+      id: "semaine",
+      cle: (d) => cleTemporelle(d.dateRendu, "semaine"),
+      libelle: (lundi) =>
+        tGroupes("semaineLibelle", {
+          date: formatDate(new Date(`${lundi}T00:00:00Z`), locale, { day: "numeric", month: "long" }),
+        }),
+    },
+    { id: "matiere", cle: (d) => d.matiere?.nom },
+  ];
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {entete}
       <div className="flex-1 space-y-4 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 scrollbar-thin">
         {eleves.length > 1 && (
-          <nav className="flex flex-wrap gap-2">
-            {eleves.map((e) => (
+          <nav>
+            <GroupesStatiques
+              className="flex flex-wrap gap-2"
+              items={eleves}
+              axes={axesEleves}
+              ouvertSi={(e) => e.id === choisi.id}
+              libelleSansValeur={tGroupes("nonRenseigne")}
+              rendu={(e) => (
               <Link
                 key={e.id}
                 href={`/travail?enfant=${e.id}`}
@@ -135,7 +174,8 @@ export default async function TravailPage({
               >
                 {e.prenom} {e.nom}
               </Link>
-            ))}
+              )}
+            />
           </nav>
         )}
 
@@ -149,11 +189,15 @@ export default async function TravailPage({
         {devoirs.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("aucunTravail")}</p>
         ) : (
-          <ul className="space-y-3">
-            {devoirs.map((d) => {
+          <GroupesStatiques
+            className="space-y-3"
+            items={devoirs}
+            axes={axesDevoirs}
+            libelleSansValeur={tGroupes("nonRenseigne")}
+            rendu={(d) => {
               const couleur = d.matiere?.couleur ?? "#6366f1";
               return (
-                <li
+                <div
                   key={d.id}
                   className="rounded-xl border border-border bg-card p-4 shadow-sm"
                 >
@@ -193,10 +237,10 @@ export default async function TravailPage({
                       <Badge variant="secondary">{t("rendu")}</Badge>
                     )}
                   </div>
-                </li>
+                </div>
               );
-            })}
-          </ul>
+            }}
+          />
         )}
       </div>
     </div>

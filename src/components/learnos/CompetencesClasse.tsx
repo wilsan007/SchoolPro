@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { SEUIL_REGROUPEMENT } from "@/lib/regroupement";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table, Target, Grid3x3, BarChart3, Loader2, ChevronDown, ChevronRight,
@@ -395,7 +396,7 @@ export function CompetencesClasse({ classeId }: { classeId: string }) {
         )}
 
         {/* Filtre chapitre (apparait seulement si une matière est sélectionnée ou s'il y a peu de chapitres) */}
-        {chapitres.length > 1 && (
+        {chapitres.length > 1 && (matiereFiltre || chapitres.length <= SEUIL_REGROUPEMENT) && (
           <div className="flex flex-wrap gap-2 pl-1">
             <button
               onClick={() => setChapitreFiltre(null)}
