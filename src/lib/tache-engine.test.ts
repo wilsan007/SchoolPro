@@ -366,6 +366,40 @@ describe("synchroniserTachesAuto", () => {
     expect(mockPrisma.tache.updateMany).not.toHaveBeenCalled();
   });
 
+  it("cherche les tâches existantes sans exiger de classe (pas de doublons)", async () => {
+    mockPrisma.evaluation.findMany.mockResolvedValue([
+      {
+        id: "eval-1",
+        titre: "Contrôle 1",
+        date: new Date("2026-01-10"),
+        classeId: "cl-1",
+        matiereId: "mat-1",
+        classe: { nom: "5ème A", profPrincipalId: "prof-1" },
+        matiere: { nom: "Maths" },
+      },
+    ]);
+    mockPrisma.affectationEnseignant.findMany.mockResolvedValue([
+      {
+        classeId: "cl-1",
+        matiereId: "mat-1",
+        enseignantId: "ens-1",
+        enseignant: { id: "ens-1", userId: "user-ens-1", user: { name: "M. Ahmed" } },
+      },
+    ]);
+    mockPrisma.tache.findMany.mockResolvedValue([]);
+
+    await synchroniserTachesAuto("t1", CLAIMS);
+
+    // Une tâche sans classe (facture en retard, bulletin…) doit être retrouvée :
+    // filtrer sur `classe.annee` seul la faisait recréer à chaque synchronisation.
+    const recherche = mockPrisma.tache.findMany.mock.calls
+      .map(([arg]) => arg?.where)
+      .find((where) => where?.sourceId);
+    expect(recherche).toBeDefined();
+    expect(recherche.classe).toBeUndefined();
+    expect(recherche.OR).toContainEqual({ classeId: null });
+  });
+
   it("ferme les tâches dont la source n'est plus pertinente", async () => {
     // Aucune source active (tous les scanners renvoient vide par défaut)
     // Mais une tâche existe encore

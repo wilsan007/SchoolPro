@@ -104,13 +104,21 @@ async function syncLot(
   const sourceTypes = [...new Set(sources.map((s) => s.sourceType))];
   const sourceIds = sources.map((s) => s.sourceId);
 
+  // Le filtre d'année ne doit PAS exclure les tâches sans classe (factures en
+  // retard, bulletins, devoirs, incidents) : exiger `classe.annee` les rendait
+  // invisibles ici, donc « manquantes », et chaque synchronisation les
+  // recréait toutes — plusieurs centaines d'insertions à chaque ouverture de
+  // page, et des doublons par centaines pour une même source.
+  // eslint-disable-next-line ecolpro/require-annee-filter -- année filtrée dans le OR (classe.annee, ou tâche sans classe) ; lecture bornée par sourceIds
   const existantes = await prisma.tache.findMany({
     where: {
       tenantId,
       sourceType: { in: sourceTypes },
       sourceId: { in: sourceIds },
       statut: { in: ["A_FAIRE", "EN_COURS"] },
-      ...(anneeLibelle ? { classe: { annee: anneeLibelle } } : {}),
+      OR: anneeLibelle
+        ? [{ classeId: null }, { classe: { annee: anneeLibelle } }]
+        : undefined,
     },
     select: { id: true, sourceType: true, sourceId: true, statut: true },
   });
