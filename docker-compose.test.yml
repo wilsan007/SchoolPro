@@ -7,7 +7,7 @@
 # RLS** — `FORCE ROW LEVEL SECURITY` lui-même ne s'applique pas à lui.
 # Conséquence : une politique RLS absente, cassée ou trop permissive est
 # INVISIBLE dans le labo de développement, et ne se manifeste qu'en
-# production, où l'application se connecte en `ecolpro_app` (rôle non
+# production, où l'application se connecte en `schoolpro_app` (rôle non
 # propriétaire, non superutilisateur).
 #
 # Ce fichier reconstruit donc l'environnement dans lequel la sécurité
@@ -74,7 +74,7 @@ services:
   # ----------------------------------------------------------
   init-prep:
     image: alpine/openssl:3.3.2
-    container_name: ecolpro-test-init-prep
+    container_name: schoolpro-test-init-prep
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -83,7 +83,7 @@ services:
         if [ ! -f /tls/server.crt ]; then
           openssl req -new -x509 -days 3650 -nodes \
             -out /tls/server.crt -keyout /tls/server.key \
-            -subj "/CN=ecolpro-test-db" \
+            -subj "/CN=schoolpro-test-db" \
             -addext "subjectAltName=DNS:db,DNS:localhost"
           chmod 0600 /tls/server.key
           chmod 0644 /tls/server.crt
@@ -110,8 +110,8 @@ services:
     build:
       context: .
       dockerfile: docker/postgres/Dockerfile
-    image: ecolpro/postgres:17
-    container_name: ecolpro-test-db
+    image: schoolpro/postgres:17
+    container_name: schoolpro-test-db
     restart: "no"
     depends_on:
       init-prep:

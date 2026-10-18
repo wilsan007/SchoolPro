@@ -47,7 +47,7 @@ async function creeUnCycle(
     // La fuite est nulle en pratique : le parcours part d'identifiants déjà
     // validés par `validerPrerequis` sous filtre de site, et ne rend qu'un
     // booléen. L'autorisation d'écrire, elle, est établie ligne 72.
-    // eslint-disable-next-line ecolpro/require-site-filter -- intégrité du graphe, cf. ci-dessus
+    // eslint-disable-next-line schoolpro/require-site-filter -- intégrité du graphe, cf. ci-dessus
     const noeuds = await withAllSites("intégrité du graphe de prérequis", () => prisma.competence.findMany({
       where: { tenantId, id: { in: frontiere } },
       select: { prerequis: { select: { id: true } } },

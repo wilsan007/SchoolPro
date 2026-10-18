@@ -12,7 +12,7 @@ export async function checkEvaluationDeletable(
   // Accès par identifiant (`evaluationId`) : ni le site ni l'année ne se déduisent
   // d'une évaluation — l'appelant les a validés. Ce garde-fou ne fait qu'une
   // chose : refuser la suppression d'une évaluation déjà notée.
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter
   const noteCount = await prisma.note.count({
     where: { evaluationId, tenantId },
   });

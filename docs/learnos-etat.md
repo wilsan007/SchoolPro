@@ -17,7 +17,7 @@ dans une `route.ts`, Prisma entraîné dans un bundle client).
 Garde-fou : le nombre d'`eslint-disable` dans `src/` ne doit pas gonfler sans
 justification écrite (référence 131 au départ du chantier, **185 aujourd'hui**).
 
-La règle est désormais : **tout `eslint-disable ecolpro/require-site-filter`
+La règle est désormais : **tout `eslint-disable schoolpro/require-site-filter`
 porte sa raison sur la même ligne**, après `--`. Un compteur seul ne dit pas si
 la dérive est légitime ; la justification, si.
 

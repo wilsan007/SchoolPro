@@ -144,7 +144,7 @@ async function competencesMaitrisees(
   const alertes: AlertePedagogique[] = [];
 
   for (const [classeId, comps] of parClasse) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+    // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
     const eleves = await prisma.eleve.findMany({
       where: {
         tenantId,
@@ -214,7 +214,7 @@ async function devoirsEnRetard(
   const alertes: AlertePedagogique[] = [];
 
   for (const devoir of devoirs) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+    // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
     const eleves = await prisma.eleve.findMany({
       where: {
         tenantId,
@@ -270,7 +270,7 @@ async function chapitresNonEnseignes(
 
   const semaineCourante = semaineScolaire(maintenant, annee.dateDebut);
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+  // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
   const planifications = await prisma.planificationChapitre.findMany({
     where: {
       tenantId,
@@ -300,7 +300,7 @@ async function chapitresNonEnseignes(
   for (const plan of planifications) {
     // Si classeId est null, la planification s'applique à toutes les classes
     // du niveau — on notifie tous les élèves du niveau correspondant.
-    // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+    // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
     const eleves = await prisma.eleve.findMany({
       where: {
         tenantId,
@@ -387,7 +387,7 @@ async function elevesEnDifficulte(
   const compLibelle = new Map(planComps.map((p) => [p.competenceId, p.competence.libelle]));
 
   // Profils d'élèves en NEEDS_REVIEW sur ces compétences.
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+  // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
   const profils = await prisma.studentLearningProfile.findMany({
     where: {
       tenantId,
@@ -404,7 +404,7 @@ async function elevesEnDifficulte(
 
   const eleveIds = [...new Set(profils.map((p) => p.eleveId))];
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+  // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
   const eleves = await prisma.eleve.findMany({
     where: {
       tenantId,
@@ -466,7 +466,7 @@ async function parentsDEleves(
 ): Promise<ParentCible[]> {
   if (eleveIds.length === 0) return [];
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
+  // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire
   const liens = await prisma.eleveParent.findMany({
     where: {
       eleveId: { in: [...new Set(eleveIds)] },

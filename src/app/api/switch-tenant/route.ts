@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     await prisma.$transaction([
-      // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, reset des flags isDefault sur ses propres adhésions
+      // eslint-disable-next-line schoolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, reset des flags isDefault sur ses propres adhésions
       prisma.userTenant.updateMany({
         where: { userId, isDefault: true },
         data: { isDefault: false },
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         where: { userId_tenantId: { userId, tenantId } },
         data: { isDefault: true },
       }),
-      // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
+      // eslint-disable-next-line schoolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
       prisma.user.update({
         where: { id: userId },
         data: { tenantId, role: userTenant.role, siteId: null },

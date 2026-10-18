@@ -117,7 +117,7 @@ export async function getEleveForEdit(id: string) {
       // EleveParent n'a pas de colonne siteId propre : l'isolation passe par
       // l'élève parent qui est déjà filtré par tenantId et siteId. Un lien
       // eleveParent appartient forcément au même périmètre que son élève.
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       parents: {
         include: { parent: true },
         orderBy: { isGardien: "desc" },
@@ -188,7 +188,7 @@ export async function createEleve(
     matricule = `ECL-${anneeInscription}-${String(count + 1).padStart(4, "0")}`;
   }
 
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- findUnique sur contrainte unique tenantId_matricule, le tenantId est dans la clé composite
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- findUnique sur contrainte unique tenantId_matricule, le tenantId est dans la clé composite
   const existing = await withAllSites("unicité du matricule dans l'établissement", () => prisma.eleve.findUnique({
     where: { tenantId_matricule: { tenantId, matricule } },
   }));
@@ -347,7 +347,7 @@ export async function updateEleve(
   const existing = await prisma.eleve.findFirst({
     where: { id, tenantId, ...siteFilterForModel("eleve", session.user) },
     // Voir ci-dessus : eleveParent est isolé par son élève parent.
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     include: { parents: { include: { parent: true } } },
   });
   if (!existing) throw new Error("Élève non trouvé");
@@ -393,7 +393,7 @@ export async function updateEleve(
   // classe d'un autre site/tenant à cet élève.
   let resolvedSiteId = existing.siteId;
   if (values.classeId) {
-    // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de la classe (résolution du site de l'élève)
+    // eslint-disable-next-line schoolpro/require-annee-filter -- accès par identifiant de la classe (résolution du site de l'élève)
     const classe = await prisma.classe.findFirst({
       where: {
         id: values.classeId,

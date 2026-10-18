@@ -29,7 +29,7 @@ warn() { echo "${YELLOW}[deploy]${NC} $*"; }
 err()  { echo "${RED}[deploy]${NC} $*" >&2; exit 1; }
 
 VPS=""
-DEPLOY_DIR="/opt/ecolpro"
+DEPLOY_DIR="/opt/schoolpro"
 SKIP_BUILD=false
 ROLLBACK=true
 
@@ -145,9 +145,9 @@ set -euo pipefail
 cd "${DEPLOY_DIR}"
 
 # Marque l'image en service comme « précédente », pour pouvoir y revenir.
-if docker image inspect ecolpro/app:latest >/dev/null 2>&1; then
-  docker tag ecolpro/app:latest ecolpro/app:previous
-  echo "[vps] Image actuelle étiquetée ecolpro/app:previous (rollback possible)"
+if docker image inspect schoolpro/app:latest >/dev/null 2>&1; then
+  docker tag schoolpro/app:latest schoolpro/app:previous
+  echo "[vps] Image actuelle étiquetée schoolpro/app:previous (rollback possible)"
 fi
 
 echo "[vps] Récupération des images de base..."
@@ -172,7 +172,7 @@ docker compose --env-file .env.runtime up -d db pgbouncer
 
 echo "[vps] Attente de PostgreSQL..."
 for i in $(seq 1 60); do
-  docker exec ecolpro-db pg_isready -U postgres -q 2>/dev/null && break
+  docker exec schoolpro-db pg_isready -U postgres -q 2>/dev/null && break
   [ "$i" -eq 60 ] && { echo "[vps] PostgreSQL n'est pas prêt."; exit 1; }
   sleep 2
 done
@@ -180,7 +180,7 @@ done
 # Sauvegarde avant migration : c'est le point de retour si une migration
 # de schéma se révèle destructive.
 echo "[vps] Sauvegarde avant migration..."
-docker exec ecolpro-db pgbackrest --stanza=ecolpro --type=incr backup 2>/dev/null \
+docker exec schoolpro-db pgbackrest --stanza=schoolpro --type=incr backup 2>/dev/null \
   || echo "[vps] (première exécution : pas encore de sauvegarde de référence)"
 
 echo "[vps] Migrations Prisma..."
@@ -200,7 +200,7 @@ HEALTHY=false
 for i in $(seq 1 30); do
   # On interroge l'application depuis l'intérieur du conteneur : cela
   # valide l'application indépendamment du tunnel et du DNS.
-  if ssh "${VPS}" "docker exec ecolpro-app node -e \"
+  if ssh "${VPS}" "docker exec schoolpro-app node -e \"
       fetch('http://127.0.0.1:3000/api/health')
         .then(r => r.json())
         .then(j => process.exit(j.ok ? 0 : 1))
@@ -216,15 +216,15 @@ if [ "${HEALTHY}" = true ]; then
   log "     Application opérationnelle"
 else
   warn "     L'application NE RÉPOND PAS."
-  ssh "${VPS}" "docker logs ecolpro-app --tail 40" 2>/dev/null || true
+  ssh "${VPS}" "docker logs schoolpro-app --tail 40" 2>/dev/null || true
 
   if [ "${ROLLBACK}" = true ]; then
     warn "     Retour à la version précédente..."
     ssh "${VPS}" DEPLOY_DIR="${DEPLOY_DIR}" 'bash -s' <<'REMOTE'
 set -uo pipefail
 cd "${DEPLOY_DIR}"
-if docker image inspect ecolpro/app:previous >/dev/null 2>&1; then
-  docker tag ecolpro/app:previous ecolpro/app:latest
+if docker image inspect schoolpro/app:previous >/dev/null 2>&1; then
+  docker tag schoolpro/app:previous schoolpro/app:latest
   docker compose --env-file .env.runtime up -d --force-recreate app
   echo "[vps] Version précédente remise en service."
   echo "[vps] ATTENTION : les migrations de schéma NE SONT PAS annulées."
@@ -250,7 +250,7 @@ echo " Déploiement terminé — version ${GIT_SHA}"
 echo "==============================================${NC}"
 echo
 log "État        : ssh ${VPS} 'cd ${DEPLOY_DIR} && docker compose ps'"
-log "Journaux    : ssh ${VPS} 'docker logs ecolpro-app -f'"
+log "Journaux    : ssh ${VPS} 'docker logs schoolpro-app -f'"
 log "Application : ${APP_URL}"
 echo
 warn "Si le tunnel Cloudflare n'est pas encore configuré, le site n'est pas"

@@ -21,7 +21,7 @@ export async function creerMentorat(
   }
 
   // Vérifier qu'une relation active n'existe pas déjà
-  // eslint-disable-next-line ecolpro/require-tenant-id -- create avec tenantId explicite
+  // eslint-disable-next-line schoolpro/require-tenant-id -- create avec tenantId explicite
   const existant = await prisma.mentorat.findUnique({
     where: {
       mentorId_mentoreId: { mentorId, mentoreId },

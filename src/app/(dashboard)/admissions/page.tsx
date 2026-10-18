@@ -44,7 +44,7 @@ async function getCandidatures(tenantId: string, siteFilter: Record<string, unkn
   // Charger les factures liées à ces candidatures
   const candidatureIds = candidatures.map((c) => c.id);
   const factures = candidatureIds.length > 0
-    ? // eslint-disable-next-line ecolpro/require-site-filter -- recherche par candidatureIds, pas de filtre site nécessaire
+    ? // eslint-disable-next-line schoolpro/require-site-filter -- recherche par candidatureIds, pas de filtre site nécessaire
       await prisma.facture.findMany({
         where: { candidatureId: { in: candidatureIds }, tenantId },
         select: {

@@ -44,7 +44,7 @@ export async function GET(
   const tenantId = session.user.tenantId;
 
   // Vérifier l'accès à la classe
-  // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de la classe
+  // eslint-disable-next-line schoolpro/require-annee-filter -- accès par identifiant de la classe
   const classe = await prisma.classe.findFirst({
     where: mergeFilters(
       { id: classeId, tenantId },
@@ -90,7 +90,7 @@ export async function GET(
   // suit les deux, et restreindre au seul tenant cacherait le référentiel.
   // La fuite est nulle : les compétences ne contiennent aucune donnée
   // sensible — ce sont des libellés pédagogiques publics.
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- référentiel national + tenant, cf. ci-dessus
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- référentiel national + tenant, cf. ci-dessus
   const competences = await withAllSites("référentiel national et de l'établissement", () => prisma.competence.findMany({
     where: {
       chapitre: { niveau: classe.niveau },

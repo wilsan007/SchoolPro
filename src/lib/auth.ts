@@ -173,7 +173,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           } else {
             // Vérifier en base que l'utilisateur est bien SUPER_ADMIN
             // (ne pas se fier à token.role, qui est un état client signé).
-            // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification de sécurité cross-tenant : on relit le rôle en base pour confirmer que l'utilisateur est SUPER_ADMIN, sans filtre tenantId/site
+            // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- vérification de sécurité cross-tenant : on relit le rôle en base pour confirmer que l'utilisateur est SUPER_ADMIN, sans filtre tenantId/site
             const adminUser = await prisma.user.findUnique({
               where: { id: token.id as string },
               select: { role: true },
@@ -339,7 +339,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // normalisation des données. `findFirst` est obligatoire ici,
         // `findUnique` n'acceptant pas `mode: "insensitive"`. L'unicité reste
         // garantie par la contrainte `@unique` sur `email`.
-        // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- login: no session exists yet, user must be looked up across all sites/tenants
+        // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- login: no session exists yet, user must be looked up across all sites/tenants
         const user = await prisma.user.findFirst({
           where: { email: { equals: email, mode: "insensitive" } },
           select: {
@@ -410,7 +410,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // passe vient d'être vérifié ci-dessus (ligne 118), pas d'une entrée
         // utilisateur : aucune vérification d'appartenance supplémentaire
         // n'est possible ni nécessaire à ce stade (avant même l'émission du JWT).
-        // eslint-disable-next-line ecolpro/require-tenant-id
+        // eslint-disable-next-line schoolpro/require-tenant-id
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },

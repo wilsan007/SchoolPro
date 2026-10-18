@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   // API-H3 (audit v2) : recherche par token (prioritaire) ou par ID (legacy).
   let invitation;
   if (token) {
-    // eslint-disable-next-line ecolpro/require-tenant-id -- token public, pas de tenant
+    // eslint-disable-next-line schoolpro/require-tenant-id -- token public, pas de tenant
     invitation = await prisma.invitationReinscription.findFirst({
       where: { token },
       include: { campagne: true },

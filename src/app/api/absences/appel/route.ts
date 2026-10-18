@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
       const finJournee = new Date(appelDate);
       finJournee.setHours(23, 59, 59, 999);
 
-      // eslint-disable-next-line ecolpro/require-site-filter -- notifications filtrées par tenantId + titre
+      // eslint-disable-next-line schoolpro/require-site-filter -- notifications filtrées par tenantId + titre
       const notifsExistantes = await prisma.notification.findMany({
         where: {
           tenantId,

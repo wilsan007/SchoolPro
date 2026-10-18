@@ -215,7 +215,7 @@ export async function identifierParent(
   const sans = brut.startsWith("+") ? brut.slice(1) : brut;
   const variantes = [sans, `+${sans}`, `00${sans}`];
 
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter
   const parent = await prisma.parent.findFirst({
     where: {
       OR: [{ phone: { in: variantes } }, { phone2: { in: variantes } }],

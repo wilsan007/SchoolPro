@@ -1,5 +1,5 @@
 /**
- * EcolPro — ISO-5 : Matrice d'isolation applicative
+ * SchoolPro — ISO-5 : Matrice d'isolation applicative
  * ================================================
  *
  * Vérifie que les routes API appliquent correctement l'isolation

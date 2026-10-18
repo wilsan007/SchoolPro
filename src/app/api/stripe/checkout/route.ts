@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Facture non payable" }, { status: 400 });
     }
 
-    // eslint-disable-next-line ecolpro/require-site-filter -- paiement sans tenantId direct, scopé via factureId déjà validé avec tenantId ci-dessus
+    // eslint-disable-next-line schoolpro/require-site-filter -- paiement sans tenantId direct, scopé via factureId déjà validé avec tenantId ci-dessus
     const totalPaye = await prisma.paiement.aggregate({
       where: { factureId },
       _sum: { montant: true },

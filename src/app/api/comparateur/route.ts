@@ -5,7 +5,7 @@ import { checkPermission } from "@/lib/rbac";
 import { isTenantWideRole } from "@/lib/site-scope";
 import { anneeActiveId, getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 
-/* eslint-disable ecolpro/require-site-filter -- comparateur inter-sites :
+/* eslint-disable schoolpro/require-site-filter -- comparateur inter-sites :
    cet agrégat compare volontairement tous les sites du tenant entre eux.
    L'accès est restreint à TENANT_ADMIN et SUPER_ADMIN pour le mode sites,
    et le mode annees accepte un siteId optionnel. Le filtrage par site serait
@@ -397,7 +397,7 @@ export async function GET(req: NextRequest) {
             deletedAt: null,
           },
         }),
-        // eslint-disable-next-line ecolpro/require-annee-filter -- comparaison historique : `annee` est le paramètre de la boucle, borné par `createdAt` dans la fenêtre de l'année
+        // eslint-disable-next-line schoolpro/require-annee-filter -- comparaison historique : `annee` est le paramètre de la boucle, borné par `createdAt` dans la fenêtre de l'année
         prisma.note.aggregate({
           where: {
             tenantId,
@@ -408,7 +408,7 @@ export async function GET(req: NextRequest) {
           _avg: { valeur: true },
           _count: { id: true },
         }),
-        // eslint-disable-next-line ecolpro/require-annee-filter -- comparaison historique : `annee` est le paramètre de la boucle, borné par `date` dans la fenêtre de l'année
+        // eslint-disable-next-line schoolpro/require-annee-filter -- comparaison historique : `annee` est le paramètre de la boucle, borné par `date` dans la fenêtre de l'année
         prisma.absence.count({
           where: {
             tenantId,

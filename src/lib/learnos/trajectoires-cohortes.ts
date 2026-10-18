@@ -151,7 +151,7 @@ export async function analyserEcartGenre(
   claims: SessionSiteClaims,
 ): Promise<EcartGenre> {
   // 1. Charger tous les bulletins du périmètre avec l'élève et la période.
-  // eslint-disable-next-line ecolpro/require-annee-filter -- analyse de COHORTES : plusieurs années par construction
+  // eslint-disable-next-line schoolpro/require-annee-filter -- analyse de COHORTES : plusieurs années par construction
   const bulletins = await prisma.bulletin.findMany({
     where: {
       tenantId,
@@ -345,7 +345,7 @@ export async function comparerBoursiers(
 ): Promise<BoursiersVsNonBoursiers> {
   // 1. Charger tous les bulletins du périmètre avec l'élève, la période
   //    et la classe (pour le niveau).
-  // eslint-disable-next-line ecolpro/require-annee-filter -- analyse de COHORTES : plusieurs années par construction
+  // eslint-disable-next-line schoolpro/require-annee-filter -- analyse de COHORTES : plusieurs années par construction
   const bulletins = await prisma.bulletin.findMany({
     where: {
       tenantId,
@@ -1109,7 +1109,7 @@ export async function predireRemplissageClasses(
   }
 
   // 2. Charger les classes actives du périmètre.
-  // eslint-disable-next-line ecolpro/require-annee-filter -- analyse de COHORTES : plusieurs années par construction
+  // eslint-disable-next-line schoolpro/require-annee-filter -- analyse de COHORTES : plusieurs années par construction
   const classes = await prisma.classe.findMany({
     where: {
       tenantId,

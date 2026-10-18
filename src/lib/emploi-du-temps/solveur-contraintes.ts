@@ -77,7 +77,7 @@ export async function verifierEdt(
 ): Promise<ResultatVerification> {
   const annee = anneeLibelle ?? (await getAnneeCouranteLibelle(tenantId));
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const seances = await prisma.emploiTemps.findMany({
     where: {
       tenantId,
@@ -93,7 +93,7 @@ export async function verifierEdt(
   // Récupérer les salles séparément (salle est un String sur EmploiTemps, pas une relation)
   const salleNoms = [...new Set(seances.map((s) => s.salle).filter(Boolean))] as string[];
   const salles = salleNoms.length > 0
-    // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
     ? await prisma.salle.findMany({
         where: { tenantId, nom: { in: salleNoms } },
         select: { nom: true, capacite: true },

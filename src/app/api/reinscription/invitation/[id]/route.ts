@@ -41,7 +41,7 @@ export async function GET(
   // Pas de filtre tenant — l'invitation est introuvable sans le token correct.
   let invitation;
   if (parsedToken?.success) {
-    // eslint-disable-next-line ecolpro/require-tenant-id -- token public, pas de tenant
+    // eslint-disable-next-line schoolpro/require-tenant-id -- token public, pas de tenant
     invitation = await prisma.invitationReinscription.findFirst({
       where: { token: parsedToken.data },
       include: {
@@ -62,7 +62,7 @@ export async function GET(
     });
   } else {
     // Fallback legacy : recherche par ID (à retirer après migration complète)
-    // eslint-disable-next-line ecolpro/require-tenant-id -- route publique legacy
+    // eslint-disable-next-line schoolpro/require-tenant-id -- route publique legacy
     invitation = await prisma.invitationReinscription.findUnique({
       where: { id: new URL(req.url).searchParams.get("id") ?? "" },
       include: {

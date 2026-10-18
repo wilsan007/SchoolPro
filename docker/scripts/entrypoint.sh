@@ -1,14 +1,14 @@
 #!/bin/sh
 # ============================================================
-# EcolPro — Entrypoint du conteneur applicatif
+# SchoolPro — Entrypoint du conteneur applicatif
 #
 # Deux modes :
 #   entrypoint.sh            → attend les dépendances puis démarre Next.js
 #   entrypoint.sh migrate    → applique les migrations Prisma puis sort
 #
 # Les migrations tournent dans un conteneur ÉPHÉMÈRE distinct, avec le rôle
-# `ecolpro_owner` (seul habilité au DDL). Le conteneur applicatif de longue
-# durée ne reçoit que `ecolpro_app`, sans droit DDL : même compromis, il ne
+# `schoolpro_owner` (seul habilité au DDL). Le conteneur applicatif de longue
+# durée ne reçoit que `schoolpro_app`, sans droit DDL : même compromis, il ne
 # peut ni supprimer une table ni modifier le schéma.
 # ============================================================
 set -eu
@@ -47,13 +47,13 @@ if [ "${1:-}" = "migrate" ]; then
   # transaction de PgBouncer ne peut pas maintenir entre deux requêtes.
   wait_for db 5432 "PostgreSQL" 90
 
-  log "Application des migrations Prisma (rôle ecolpro_owner)..."
+  log "Application des migrations Prisma (rôle schoolpro_owner)..."
   node node_modules/prisma/build/index.js migrate deploy
   log "Migrations appliquées."
 
-  # Les tables viennent d'être créées par ecolpro_owner. ALTER DEFAULT
+  # Les tables viennent d'être créées par schoolpro_owner. ALTER DEFAULT
   # PRIVILEGES (voir 02-roles.sh) leur a déjà accordé les droits pour
-  # ecolpro_app. On ne refait donc aucun GRANT ici : si cette étape était
+  # schoolpro_app. On ne refait donc aucun GRANT ici : si cette étape était
   # nécessaire, cela signalerait que les privilèges par défaut sont mal
   # posés, et il faudrait le corriger à la racine.
   exit 0

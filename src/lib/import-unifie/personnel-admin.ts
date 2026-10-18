@@ -82,7 +82,7 @@ export async function analyserPersonnelAdmin(
     // Vérifier si l'utilisateur existe déjà
     let existe = false;
     if (email) {
-      // eslint-disable-next-line ecolpro/require-site-filter -- recherche par email pour import
+      // eslint-disable-next-line schoolpro/require-site-filter -- recherche par email pour import
       const user = await prisma.user.findFirst({
         where: { email, tenantId },
       });

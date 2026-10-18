@@ -146,7 +146,7 @@ export async function getDirectionCounts(
       },
     }),
     // CongePersonnel n'a pas de siteId : filtre au niveau tenant uniquement.
-    // eslint-disable-next-line ecolpro/require-site-filter -- pas de siteId sur ce modèle
+    // eslint-disable-next-line schoolpro/require-site-filter -- pas de siteId sur ce modèle
     prisma.congePersonnel.count({
       where: {
         tenantId,

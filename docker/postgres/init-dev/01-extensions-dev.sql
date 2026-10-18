@@ -1,5 +1,5 @@
 -- ============================================================
--- EcolPro — Extensions PostgreSQL, base de développement locale
+-- SchoolPro — Extensions PostgreSQL, base de développement locale
 -- Exécuté une seule fois, au premier démarrage (initdb).
 --
 -- Volontairement un sous-ensemble de docker/postgres/init/01-extensions.sql

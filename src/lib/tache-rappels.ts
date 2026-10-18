@@ -28,7 +28,7 @@ export async function rappelerEcheancesTaches(): Promise<{ count: number }> {
     dans3jours.setHours(23, 59, 59, 999);
 
     // Tâche système cron : balaie tous les tenants.
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-annee-filter -- cron système borné par la fenêtre d'échéance (3 jours) ; `Tache` ne porte aucune année
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-annee-filter -- cron système borné par la fenêtre d'échéance (3 jours) ; `Tache` ne porte aucune année
     const taches = await prisma.tache.findMany({
       where: {
         statut: { in: ["A_FAIRE", "EN_COURS"] },
@@ -60,7 +60,7 @@ export async function rappelerEcheancesTaches(): Promise<{ count: number }> {
         // Idempotence : vérifier si une notification a déjà été envoyée
         // pour ce palier de cette tâche.
         const titreNotif = `[${palier.label}] ${tache.titre}`;
-        // eslint-disable-next-line ecolpro/require-site-filter -- tâche système cron, vérification bornée par tenantId
+        // eslint-disable-next-line schoolpro/require-site-filter -- tâche système cron, vérification bornée par tenantId
         const dejaEnvoyee = await prisma.notification.findFirst({
           where: {
             tenantId: tache.tenantId,

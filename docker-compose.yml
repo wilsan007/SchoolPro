@@ -37,7 +37,7 @@ services:
     build:
       context: .
       dockerfile: docker/postgres/Dockerfile
-    image: ecolpro/postgres:17
+    image: schoolpro/postgres:17
     container_name: ecolpro-db
     restart: unless-stopped
     <<: *hardening
@@ -131,8 +131,8 @@ services:
     build:
       context: .
       dockerfile: docker/pgbouncer/Dockerfile
-    image: ecolpro/pgbouncer:1
-    container_name: ecolpro-pgbouncer
+    image: schoolpro/pgbouncer:1
+    container_name: schoolpro-pgbouncer
     restart: unless-stopped
     <<: *hardening
     read_only: true
@@ -163,7 +163,7 @@ services:
 
   # ==========================================================
   # Migrations Prisma — conteneur éphémère
-  # Seul détenteur des identifiants `ecolpro_owner` (DDL).
+  # Seul détenteur des identifiants `schoolpro_owner` (DDL).
   # ==========================================================
   migrate:
     build:
@@ -172,7 +172,7 @@ services:
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
         NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EcolPro}
-    image: ecolpro/app:latest
+    image: schoolpro/app:latest
     container_name: ecolpro-migrate
     <<: *hardening
     read_only: true
@@ -184,8 +184,8 @@ services:
     environment:
       # Connexion DIRECTE à PostgreSQL : `migrate deploy` a besoin d'un
       # verrou de session, incompatible avec le mode transaction de PgBouncer.
-      DIRECT_URL: "postgresql://ecolpro_owner:${PG_OWNER_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
-      DATABASE_URL: "postgresql://ecolpro_owner:${PG_OWNER_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
+      DIRECT_URL: "postgresql://schoolpro_owner:${PG_OWNER_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
+      DATABASE_URL: "postgresql://schoolpro_owner:${PG_OWNER_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
     tmpfs:
       - /tmp:mode=1777,size=64m
     networks:
@@ -202,8 +202,8 @@ services:
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
         NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EcolPro}
-    image: ecolpro/app:latest
-    container_name: ecolpro-app
+    image: schoolpro/app:latest
+    container_name: schoolpro-app
     restart: unless-stopped
     <<: *hardening
     read_only: true
@@ -216,11 +216,11 @@ services:
       # --- Base de données : rôle applicatif, via PgBouncer --------------
       # `pgbouncer=true` désactive les prepared statements nommés de Prisma,
       # incompatibles avec le mode transaction.
-      DATABASE_URL: "postgresql://ecolpro_app:${PG_APP_PASSWORD}@pgbouncer:6432/${POSTGRES_DB:-ecolpro}?schema=public&pgbouncer=true&sslmode=require&connection_limit=10"
+      DATABASE_URL: "postgresql://schoolpro_app:${PG_APP_PASSWORD}@pgbouncer:6432/${POSTGRES_DB:-ecolpro}?schema=public&pgbouncer=true&sslmode=require&connection_limit=10"
       # Prisma exige que directUrl soit défini (déclaré dans schema.prisma).
       # On y met le rôle applicatif, PAS le propriétaire : aucun DDL possible
       # depuis ce conteneur, même en contournant PgBouncer.
-      DIRECT_URL: "postgresql://ecolpro_app:${PG_APP_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
+      DIRECT_URL: "postgresql://schoolpro_app:${PG_APP_PASSWORD}@db:5432/${POSTGRES_DB:-ecolpro}?schema=public&sslmode=require"
       # --- Authentification ---------------------------------------------
       AUTH_SECRET: ${AUTH_SECRET:?}
       AUTH_URL: ${NEXT_PUBLIC_APP_URL:?}
@@ -306,8 +306,8 @@ services:
     build:
       context: .
       dockerfile: docker/caddy/Dockerfile
-    image: ecolpro/caddy:2
-    container_name: ecolpro-caddy
+    image: schoolpro/caddy:2
+    container_name: schoolpro-caddy
     restart: unless-stopped
     <<: *hardening
     read_only: true
@@ -336,7 +336,7 @@ services:
   # ==========================================================
   cloudflared:
     image: cloudflare/cloudflared:2025.1.0
-    container_name: ecolpro-cloudflared
+    container_name: schoolpro-cloudflared
     restart: unless-stopped
     <<: *hardening
     read_only: true
@@ -375,7 +375,7 @@ services:
   # volume, mode privilégié…).
   socket-proxy:
     image: tecnativa/docker-socket-proxy:0.3.0
-    container_name: ecolpro-socket-proxy
+    container_name: schoolpro-socket-proxy
     restart: unless-stopped
     <<: *hardening
     cap_add:
@@ -420,7 +420,7 @@ services:
   # ==========================================================
   ofelia:
     image: mcuadros/ofelia:v0.3.16
-    container_name: ecolpro-ofelia
+    container_name: schoolpro-ofelia
     restart: unless-stopped
     <<: *hardening
     read_only: true
@@ -449,7 +449,7 @@ services:
   # ==========================================================
   uptime-kuma:
     image: louislam/uptime-kuma:1.23.16
-    container_name: ecolpro-uptime
+    container_name: schoolpro-uptime
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

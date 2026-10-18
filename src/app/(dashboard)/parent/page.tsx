@@ -858,7 +858,7 @@ function StatCard({
  * Préférences de la famille, avec repli sur les valeurs par défaut.
  */
 async function preferencesDuCompte(tenantId: string, userId: string) {
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const parent = await prisma.parent.findFirst({
     where: { tenantId, userId },
     select: {

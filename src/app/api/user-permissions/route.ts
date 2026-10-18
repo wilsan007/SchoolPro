@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: invalide }, { status: 400 });
     }
 
-    // eslint-disable-next-line ecolpro/require-site-filter -- UserPermission is tenant-scoped, not site-scoped
+    // eslint-disable-next-line schoolpro/require-site-filter -- UserPermission is tenant-scoped, not site-scoped
     const user = await prisma.user.findFirst({
       where: { id: userId, tenantId },
       select: { id: true },

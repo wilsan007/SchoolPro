@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const cours = await prisma.cours.findFirst({
     where: { id, tenantId: session.user.tenantId, ...siteFilter },
     include: {
-      // eslint-disable-next-line ecolpro/require-site-filter -- contenus enfants du cours déjà filtré par site (ligne 42)
+      // eslint-disable-next-line schoolpro/require-site-filter -- contenus enfants du cours déjà filtré par site (ligne 42)
       contenus: { orderBy: { ordre: "asc" } },
       // `ProgressionEleve` porte le nom complet de l'élève (`eleveNom`), son
       // pourcentage d'avancement et sa note finale. `cours:read` étant accordé

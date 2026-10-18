@@ -19,7 +19,7 @@ export async function lierExamenAFeuille(
 ) {
   // Vérifier que l'examen et la feuille appartiennent au tenant
   const [examen, feuille] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- la fonction reçoit tenantId en paramètre
+    // eslint-disable-next-line schoolpro/require-site-filter -- la fonction reçoit tenantId en paramètre
     prisma.examen.findFirst({ where: { id: examenId, tenantId } }),
     prisma.feuilleExercices.findFirst({ where: { id: feuilleExercicesId, tenantId } }),
   ]);
@@ -48,7 +48,7 @@ export async function delierExamenDeFeuille(examenId: string, tenantId: string) 
  * Récupère un examen avec sa feuille d'exercices et les exercices assignés.
  */
 export async function getExamenAvecFeuille(examenId: string, tenantId: string) {
-  // eslint-disable-next-line ecolpro/require-site-filter -- tenantId passé en paramètre
+  // eslint-disable-next-line schoolpro/require-site-filter -- tenantId passé en paramètre
   return prisma.examen.findFirst({
     where: { id: examenId, tenantId },
     include: {
@@ -71,7 +71,7 @@ export async function getExamenAvecFeuille(examenId: string, tenantId: string) {
  * Liste les examens qui ont une feuille d'exercices liée.
  */
 export async function listerExamensAvecFeuille(tenantId: string) {
-  // eslint-disable-next-line ecolpro/require-site-filter -- tenantId passé en paramètre
+  // eslint-disable-next-line schoolpro/require-site-filter -- tenantId passé en paramètre
   return prisma.examen.findMany({
     where: { tenantId, feuilleExercicesId: { not: null } },
     include: {

@@ -33,8 +33,8 @@ L=""
 add() { L="${L}$1"$'\n'; }
 
 # --- Sauvegardes ----------------------------------------------------------
-if pgbackrest --stanza=ecolpro info >/dev/null 2>&1; then
-  INFO=$(pgbackrest --stanza=ecolpro info --output=json 2>/dev/null)
+if pgbackrest --stanza=schoolpro info >/dev/null 2>&1; then
+  INFO=$(pgbackrest --stanza=schoolpro info --output=json 2>/dev/null)
   NB=$(echo "${INFO}" | grep -o '"type":"' | wc -l | tr -d ' ')
   LAST_TS=$(echo "${INFO}" | grep -o '"stop":[0-9]*' | tail -1 | cut -d: -f2)
   if [ -n "${LAST_TS}" ]; then

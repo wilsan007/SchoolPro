@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# EcolPro — Migration de Supabase Cloud vers le VPS
+# SchoolPro — Migration de Supabase Cloud vers le VPS
 #
 # Points d'attention traités par ce script :
 #
@@ -19,7 +19,7 @@
 #     Supabase que PostgreSQL.
 #
 #  3. PROPRIÉTÉ DES OBJETS. Sur le VPS, les tables doivent appartenir à
-#     `ecolpro_owner`. On restaure donc sans propriétaire ni privilèges,
+#     `schoolpro_owner`. On restaure donc sans propriétaire ni privilèges,
 #     puis on réattribue.
 #
 #  4. AUCUNE PERTE POSSIBLE. Le dump local est conservé et le script
@@ -44,8 +44,8 @@ SB_USER="postgres"
 SB_DB="postgres"
 SB_PASSWORD=""
 VPS=""
-DEPLOY_DIR="/opt/ecolpro"
-DUMP="ecolpro-supabase-$(date +%Y%m%d_%H%M%S).dump"
+DEPLOY_DIR="/opt/schoolpro"
+DUMP="schoolpro-supabase-$(date +%Y%m%d_%H%M%S).dump"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -104,7 +104,7 @@ log "     Source : ${COUNTS_BEFORE}"
 log "2/6 — Extraction du schéma public"
 # ============================================================
 # --schema=public       : ignore auth/storage/realtime, propres à Supabase
-# --no-owner            : les objets seront réattribués à ecolpro_owner
+# --no-owner            : les objets seront réattribués à schoolpro_owner
 # --no-privileges       : les GRANT du VPS proviennent de 02-roles.sh
 # --no-publications     : la réplication logique de Supabase n'a pas de sens ici
 # --format=custom       : compressé et restaurable sélectivement
@@ -144,14 +144,14 @@ set -euo pipefail
 cd "${DEPLOY_DIR}"
 
 echo "[vps] Sauvegarde de sécurité avant restauration..."
-docker exec ecolpro-db pgbackrest --stanza=ecolpro --type=incr backup \
+docker exec schoolpro-db pgbackrest --stanza=schoolpro --type=incr backup \
   || echo "[vps] AVERTISSEMENT : la sauvegarde préalable a échoué."
 
 echo "[vps] Arrêt de l'application (évite les écritures pendant la restauration)..."
 docker compose stop app
 
 echo "[vps] Copie du dump dans le conteneur..."
-docker cp "/tmp/${DUMP}" ecolpro-db:/tmp/restore.dump
+docker cp "/tmp/${DUMP}" schoolpro-db:/tmp/restore.dump
 
 echo "[vps] Restauration du schéma public..."
 # --clean --if-exists : supprime les objets existants sans échouer s'ils
@@ -159,10 +159,10 @@ echo "[vps] Restauration du schéma public..."
 # Le code de sortie est ignoré car pg_restore signale des avertissements
 # non bloquants (extensions déjà présentes, par exemple) ; la vérification
 # des effectifs, plus bas, est le véritable juge.
-docker exec ecolpro-db psql -U postgres -d ecolpro -c \
+docker exec schoolpro-db psql -U postgres -d ecolpro -c \
   "SELECT 1" >/dev/null
 
-docker exec ecolpro-db pg_restore \
+docker exec schoolpro-db pg_restore \
   --username=postgres \
   --dbname=ecolpro \
   --schema=public \
@@ -172,30 +172,30 @@ docker exec ecolpro-db pg_restore \
   --exit-on-error=false \
   /tmp/restore.dump 2>&1 | tail -30 || true
 
-echo "[vps] Réattribution de la propriété à ecolpro_owner..."
-docker exec ecolpro-db psql -U postgres -d ecolpro -v ON_ERROR_STOP=1 <<'SQL'
+echo "[vps] Réattribution de la propriété à schoolpro_owner..."
+docker exec schoolpro-db psql -U postgres -d ecolpro -v ON_ERROR_STOP=1 <<'SQL'
 -- pg_restore a créé les objets au nom du superutilisateur. On rétablit le
--- modèle de privilèges : ecolpro_owner possède, ecolpro_app consomme.
+-- modèle de privilèges : schoolpro_owner possède, schoolpro_app consomme.
 DO $$
 DECLARE r RECORD;
 BEGIN
   FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP
-    EXECUTE format('ALTER TABLE public.%I OWNER TO ecolpro_owner', r.tablename);
+    EXECUTE format('ALTER TABLE public.%I OWNER TO schoolpro_owner', r.tablename);
   END LOOP;
   FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname='public' LOOP
-    EXECUTE format('ALTER SEQUENCE public.%I OWNER TO ecolpro_owner', r.sequencename);
+    EXECUTE format('ALTER SEQUENCE public.%I OWNER TO schoolpro_owner', r.sequencename);
   END LOOP;
   FOR r IN SELECT table_name FROM information_schema.views WHERE table_schema='public' LOOP
-    EXECUTE format('ALTER VIEW public.%I OWNER TO ecolpro_owner', r.table_name);
+    EXECUTE format('ALTER VIEW public.%I OWNER TO schoolpro_owner', r.table_name);
   END LOOP;
 END $$;
 
 -- Les droits du rôle applicatif sont réappliqués : pg_restore --clean a pu
 -- recréer des tables sans eux.
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ecolpro_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ecolpro_app;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ecolpro_app;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO ecolpro_backup, ecolpro_ro;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO schoolpro_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO schoolpro_app;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO schoolpro_app;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO schoolpro_backup, schoolpro_ro;
 SQL
 
 echo "[vps] Alignement de l'état des migrations Prisma..."
@@ -206,14 +206,14 @@ docker compose run --rm migrate || echo "[vps] AVERTISSEMENT : migrate deploy a 
 echo "[vps] Redémarrage de l'application..."
 docker compose up -d app
 
-docker exec ecolpro-db rm -f /tmp/restore.dump
+docker exec schoolpro-db rm -f /tmp/restore.dump
 rm -f "/tmp/${DUMP}"
 REMOTE
 
 # ============================================================
 log "6/6 — Vérification"
 # ============================================================
-COUNTS_AFTER=$(ssh "${VPS}" "docker exec ecolpro-db psql -U postgres -d ecolpro -t -A -X -q -c \"
+COUNTS_AFTER=$(ssh "${VPS}" "docker exec schoolpro-db psql -U postgres -d ecolpro -t -A -X -q -c \"
   SELECT 'tenants='  || (SELECT count(*) FROM public.tenants)
       || ' users='   || (SELECT count(*) FROM public.users)
       || ' eleves='  || (SELECT count(*) FROM public.eleves)

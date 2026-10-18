@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     if (apiKey) {
       // Auth par API key (agent local)
-      // eslint-disable-next-line ecolpro/require-tenant-id -- authentification par apiKey : le tenantId est obtenu depuis cette lookup, il ne peut pas être vérifié avant
+      // eslint-disable-next-line schoolpro/require-tenant-id -- authentification par apiKey : le tenantId est obtenu depuis cette lookup, il ne peut pas être vérifié avant
       const syncConfig = await prisma.syncConfig.findUnique({
         where: { apiKey },
         select: {
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
       const { searchParams } = new URL(request.url);
       const apiKey = searchParams.get("apiKey");
       if (apiKey) {
-        // eslint-disable-next-line ecolpro/require-tenant-id
+        // eslint-disable-next-line schoolpro/require-tenant-id
         const config = await prisma.syncConfig.findFirst({
           where: { apiKey },
           select: { id: true, tenantId: true },

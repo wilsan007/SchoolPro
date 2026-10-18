@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   // Récupérer la classe si spécifiée
   let classe: { nom: string; niveau: string } | undefined;
   if (body.classeId) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId, la route vérifie les permissions
+    // eslint-disable-next-line schoolpro/require-site-filter -- filtré par tenantId, la route vérifie les permissions
     const c = await prisma.classe.findFirst({
       where: { id: body.classeId, tenantId, annee: annee.libelle },
       select: { nom: true, niveau: true },
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
   if (body.classeId) where.classeId = body.classeId;
   if (body.eleveIds) where.id = { in: body.eleveIds };
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId, la route vérifie les permissions
+  // eslint-disable-next-line schoolpro/require-site-filter -- filtré par tenantId, la route vérifie les permissions
   const elevesDb = await prisma.eleve.findMany({
     where,
     select: {

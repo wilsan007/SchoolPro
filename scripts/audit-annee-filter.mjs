@@ -6,7 +6,7 @@
  * POURQUOI CE SCRIPT EXISTE
  * La règle non négociable n°2 (AGENTS.md) interdit toute requête de données
  * pédagogiques sans filtre d'année. Sa violation a déjà coûté un incident sur
- * 42 fichiers (août 2026). La règle ESLint `ecolpro/require-annee-filter`
+ * 42 fichiers (août 2026). La règle ESLint `schoolpro/require-annee-filter`
  * signale chaque cas dans l'éditeur ; ce script en donne le COMPTE, pour que la
  * dette ne puisse pas grandir sans que personne ne le voie.
  *
@@ -29,7 +29,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), "..");
-const REGLE = "ecolpro/require-annee-filter";
+const REGLE = "schoolpro/require-annee-filter";
 
 /**
  * Plafond de référence — ramené à ZÉRO le 29/09/2026, la dette étant éteinte.

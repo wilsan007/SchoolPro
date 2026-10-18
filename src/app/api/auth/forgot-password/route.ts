@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
   const email = normaliserEmail(parsed.data.email);
 
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- pre-auth: no session yet
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- pre-auth: no session yet
   const user = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" }, isActive: true },
     select: { id: true, email: true, name: true },

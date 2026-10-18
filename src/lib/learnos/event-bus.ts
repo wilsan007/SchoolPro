@@ -176,7 +176,7 @@ export async function drainEvents(limit = DEFAULT_BATCH): Promise<DrainResult> {
   try {
     // Tâche système : elle balaie délibérément tous les tenants, comme les
     // autres crons de l'application (cf. api/cron/purge-sites).
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter
     enAttente = await prisma.learnosEvent.findMany({
       where: { processedAt: null, attempts: { lt: MAX_ATTEMPTS } },
       orderBy: { occurredAt: "asc" },
@@ -295,11 +295,11 @@ export async function eventBacklog(tenantId: string): Promise<{
   // que cet indicateur existe pour rendre visible. Aucune donnée nominative
   // n'est lue : deux entiers en sortent.
   const [pending, abandoned] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- compteur d'infrastructure, cf. ci-dessus
+    // eslint-disable-next-line schoolpro/require-site-filter -- compteur d'infrastructure, cf. ci-dessus
     prisma.learnosEvent.count({
       where: { tenantId, processedAt: null, attempts: { lt: MAX_ATTEMPTS } },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- compteur d'infrastructure, cf. ci-dessus
+    // eslint-disable-next-line schoolpro/require-site-filter -- compteur d'infrastructure, cf. ci-dessus
     prisma.learnosEvent.count({
       where: { tenantId, processedAt: null, attempts: { gte: MAX_ATTEMPTS } },
     }),

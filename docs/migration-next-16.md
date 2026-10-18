@@ -109,7 +109,7 @@ changement de **comportement**, qui ne doit pas voyager en passager clandestin
 d'une montée de version. Elles sont donc passées en **`warn`**, chacune nommée
 explicitement (aucun joker, pour qu'une règle future se manifeste en `error`).
 Objectif : 0, puis retour en `error` — le chemin déjà parcouru par
-`ecolpro/require-annee-filter` (380 → 0).
+`schoolpro/require-annee-filter` (380 → 0).
 
 ### 6. `tsconfig.json` modifié automatiquement par Next 16
 

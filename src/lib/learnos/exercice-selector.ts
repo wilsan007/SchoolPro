@@ -1003,7 +1003,7 @@ export async function composerFeuille(
   // Le site vient de l'élève, seule source de vérité du rattachement — on le
   // lit pour le *poser* sur la feuille, non pour décider d'un droit d'accès
   // (déjà tranché par le filtre appliqué à la lecture de l'élève ci-dessus).
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     select: { siteId: true },

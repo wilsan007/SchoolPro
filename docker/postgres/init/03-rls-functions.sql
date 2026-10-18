@@ -1,5 +1,5 @@
 -- ============================================================
--- EcolPro — Fonctions de contexte multi-tenant (RLS)
+-- SchoolPro — Fonctions de contexte multi-tenant (RLS)
 --
 -- Ces fonctions injectent le tenant, le site courant et le périmètre de
 -- sites autorisés dans des paramètres de session (`app.*`) que les
@@ -174,30 +174,30 @@ $$;
 -- ============================================================
 -- Les fonctions appartiennent au propriétaire du schéma, pas au
 -- superutilisateur, pour rester cohérent avec le modèle de privilèges.
-ALTER FUNCTION public.set_tenant_context(TEXT)                       OWNER TO ecolpro_owner;
-ALTER FUNCTION public.set_site_context(TEXT)                         OWNER TO ecolpro_owner;
-ALTER FUNCTION public.set_app_context(TEXT, TEXT, TEXT, BOOLEAN)     OWNER TO ecolpro_owner;
-ALTER FUNCTION public.current_tenant_id()                            OWNER TO ecolpro_owner;
-ALTER FUNCTION public.current_site_id()                              OWNER TO ecolpro_owner;
-ALTER FUNCTION public.current_site_ids()                             OWNER TO ecolpro_owner;
-ALTER FUNCTION public.rls_context_is_set()                           OWNER TO ecolpro_owner;
-ALTER FUNCTION public.is_super_admin()                               OWNER TO ecolpro_owner;
-ALTER FUNCTION public.tenant_matches(TEXT)                           OWNER TO ecolpro_owner;
-ALTER FUNCTION public.site_matches(TEXT)                             OWNER TO ecolpro_owner;
+ALTER FUNCTION public.set_tenant_context(TEXT)                       OWNER TO schoolpro_owner;
+ALTER FUNCTION public.set_site_context(TEXT)                         OWNER TO schoolpro_owner;
+ALTER FUNCTION public.set_app_context(TEXT, TEXT, TEXT, BOOLEAN)     OWNER TO schoolpro_owner;
+ALTER FUNCTION public.current_tenant_id()                            OWNER TO schoolpro_owner;
+ALTER FUNCTION public.current_site_id()                              OWNER TO schoolpro_owner;
+ALTER FUNCTION public.current_site_ids()                             OWNER TO schoolpro_owner;
+ALTER FUNCTION public.rls_context_is_set()                           OWNER TO schoolpro_owner;
+ALTER FUNCTION public.is_super_admin()                               OWNER TO schoolpro_owner;
+ALTER FUNCTION public.tenant_matches(TEXT)                           OWNER TO schoolpro_owner;
+ALTER FUNCTION public.site_matches(TEXT)                             OWNER TO schoolpro_owner;
 
-GRANT EXECUTE ON FUNCTION public.set_tenant_context(TEXT)                   TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.set_site_context(TEXT)                     TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.set_app_context(TEXT, TEXT, TEXT, BOOLEAN) TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.current_tenant_id()                        TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.current_site_id()                          TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.current_site_ids()                         TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.rls_context_is_set()                       TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.is_super_admin()                           TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.tenant_matches(TEXT)                       TO ecolpro_app;
-GRANT EXECUTE ON FUNCTION public.site_matches(TEXT)                         TO ecolpro_app;
+GRANT EXECUTE ON FUNCTION public.set_tenant_context(TEXT)                   TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.set_site_context(TEXT)                     TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.set_app_context(TEXT, TEXT, TEXT, BOOLEAN) TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.current_tenant_id()                        TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.current_site_id()                          TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.current_site_ids()                         TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.rls_context_is_set()                       TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.is_super_admin()                           TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.tenant_matches(TEXT)                       TO schoolpro_app;
+GRANT EXECUTE ON FUNCTION public.site_matches(TEXT)                         TO schoolpro_app;
 
 -- Le rôle de diagnostic peut lire le contexte, pas le poser : un accès en
 -- lecture seule ne doit pas pouvoir se faire passer pour un tenant.
-GRANT EXECUTE ON FUNCTION public.current_tenant_id()  TO ecolpro_ro;
-GRANT EXECUTE ON FUNCTION public.current_site_id()    TO ecolpro_ro;
-GRANT EXECUTE ON FUNCTION public.rls_context_is_set() TO ecolpro_ro;
+GRANT EXECUTE ON FUNCTION public.current_tenant_id()  TO schoolpro_ro;
+GRANT EXECUTE ON FUNCTION public.current_site_id()    TO schoolpro_ro;
+GRANT EXECUTE ON FUNCTION public.rls_context_is_set() TO schoolpro_ro;

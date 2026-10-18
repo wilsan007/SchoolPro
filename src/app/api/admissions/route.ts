@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       ?? req.headers.get("x-real-ip")
       ?? "unknown";
     const cinqMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- rate limiting global par IP
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- rate limiting global par IP
     const recentCount = await prisma.candidature.count({
       where: { createdAt: { gte: cinqMinAgo } },
     });
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     } else if (data.classeId && tenantId) {
       const anneeCourante = await getAnneeCouranteLibelle(tenantId);
       // Appel public avec classeId : résoudre sans filtre de site
-      // eslint-disable-next-line ecolpro/require-site-filter -- appel public, pas de session utilisateur
+      // eslint-disable-next-line schoolpro/require-site-filter -- appel public, pas de session utilisateur
       const classe = await prisma.classe.findFirst({
         where: { id: data.classeId, tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
         select: { nom: true, siteId: true },

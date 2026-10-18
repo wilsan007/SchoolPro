@@ -4,7 +4,7 @@ import { withRlsContext, withSystemContext } from "@/lib/rls-context";
 import { withRlsExtension } from "@/lib/prisma-rls";
 
 /**
- * EcolPro — Preuve d'isolation multi-tenant au niveau BASE DE DONNÉES
+ * SchoolPro — Preuve d'isolation multi-tenant au niveau BASE DE DONNÉES
  * ===================================================================
  *
  * CE QUE CES TESTS PROUVENT — ET POURQUOI ILS EXISTENT
@@ -28,10 +28,10 @@ import { withRlsExtension } from "@/lib/prisma-rls";
 
 const LAB_URL =
   process.env.RLS_TEST_DATABASE_URL ??
-  "postgresql://ecolpro_app:test_app_local_only@127.0.0.1:55433/ecolpro_test?sslmode=require";
+  "postgresql://schoolpro_app:test_app_local_only@127.0.0.1:55433/schoolpro_test?sslmode=require";
 const LAB_OWNER_URL =
   process.env.RLS_TEST_OWNER_URL ??
-  "postgresql://ecolpro_owner:test_owner_local_only@127.0.0.1:55433/ecolpro_test?sslmode=require";
+  "postgresql://schoolpro_owner:test_owner_local_only@127.0.0.1:55433/schoolpro_test?sslmode=require";
 
 /** Rôle propriétaire : sert UNIQUEMENT à préparer le jeu de données. */
 const owner = new PrismaClient({ datasources: { db: { url: LAB_OWNER_URL } } });

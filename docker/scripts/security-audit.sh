@@ -97,10 +97,10 @@ fi
 section "B. Durcissement des conteneurs"
 # ============================================================
 if has docker && docker info >/dev/null 2>&1; then
-  RUNNING=$(docker ps --format '{{.Names}}' 2>/dev/null | grep '^ecolpro-' || true)
+  RUNNING=$(docker ps --format '{{.Names}}' 2>/dev/null | grep '^schoolpro-' || true)
 
   if [ -z "${RUNNING}" ]; then
-    warn "aucun conteneur ecolpro-* en fonctionnement"
+    warn "aucun conteneur schoolpro-* en fonctionnement"
   else
     for c in ${RUNNING}; do
       USER_SPEC=$(docker inspect -f '{{.Config.User}}' "${c}" 2>/dev/null)
@@ -118,7 +118,7 @@ if has docker && docker info >/dev/null 2>&1; then
       # PostgreSQL doit écrire dans PGDATA : rootfs inscriptible attendu.
       # Uptime Kuma persiste sa base SQLite : idem.
       case "${c}" in
-        ecolpro-db|ecolpro-uptime|ecolpro-socket-proxy)
+        schoolpro-db|schoolpro-uptime|schoolpro-socket-proxy)
           [ "${RO}" = "false" ] && ok "${c} rootfs inscriptible (attendu)" ;;
         *)
           if [ "${RO}" = "true" ]; then ok "${c} rootfs en lecture seule"
@@ -129,7 +129,7 @@ if has docker && docker info >/dev/null 2>&1; then
       # basculer d'utilisateur dans son entrypoint.
       EFF_UID=$(docker exec "${c}" id -u 2>/dev/null || echo "?")
       case "${c}" in
-        ecolpro-db)
+        schoolpro-db)
           # L'entrypoint officiel démarre root puis bascule sur postgres.
           [ "${EFF_UID}" = "0" ] && warn "${c} exécute son processus en root" \
                                  || ok "${c} tourne en uid ${EFF_UID}" ;;
@@ -154,7 +154,7 @@ if has docker && docker info >/dev/null 2>&1; then
   for c in $(docker ps --format '{{.Names}}' 2>/dev/null); do
     if docker inspect -f '{{range .Mounts}}{{.Source}} {{end}}' "${c}" 2>/dev/null \
        | grep -q 'docker.sock'; then
-      [ "${c}" = "ecolpro-socket-proxy" ] || OFFENDERS="${OFFENDERS} ${c}"
+      [ "${c}" = "schoolpro-socket-proxy" ] || OFFENDERS="${OFFENDERS} ${c}"
     fi
   done
 
@@ -165,9 +165,9 @@ if has docker && docker info >/dev/null 2>&1; then
   fi
 
   # Le mandataire doit refuser tout ce qui n'est pas `exec`.
-  if docker ps --format '{{.Names}}' | grep -q '^ecolpro-socket-proxy$'; then
+  if docker ps --format '{{.Names}}' | grep -q '^schoolpro-socket-proxy$'; then
     for forbidden in VOLUMES NETWORKS IMAGES BUILD SWARM SECRETS; do
-      VAL=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' ecolpro-socket-proxy 2>/dev/null \
+      VAL=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' schoolpro-socket-proxy 2>/dev/null \
             | grep "^${forbidden}=" | cut -d= -f2)
       [ "${VAL}" = "1" ] && crit "socket-proxy autorise ${forbidden} (doit être 0)"
     done
@@ -178,7 +178,7 @@ fi
 # ============================================================
 section "D. Secrets"
 # ============================================================
-DEPLOY_DIR="${DEPLOY_DIR:-/opt/ecolpro}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/schoolpro}"
 
 # Un .env en clair qui traîne annule l'intérêt du chiffrement SOPS.
 LEAKED=$(find "${DEPLOY_DIR}" -maxdepth 2 -name '.env*' -o -maxdepth 2 -name '*.env' 2>/dev/null \
@@ -303,7 +303,7 @@ fi
 section "I. Vulnérabilités des images"
 # ============================================================
 if has trivy; then
-  for img in ecolpro/app:latest ecolpro/postgres:17 ecolpro/caddy:2 ecolpro/pgbouncer:1; do
+  for img in schoolpro/app:latest schoolpro/postgres:17 schoolpro/caddy:2 schoolpro/pgbouncer:1; do
     docker image inspect "${img}" >/dev/null 2>&1 || continue
     COUNT=$(trivy image --quiet --severity CRITICAL --format json "${img}" 2>/dev/null \
             | grep -o '"Severity":"CRITICAL"' | wc -l | tr -d ' ')
@@ -321,9 +321,9 @@ fi
 # ============================================================
 section "J. Sauvegardes"
 # ============================================================
-if has docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ecolpro-db$'; then
-  if docker exec ecolpro-db pgbackrest --stanza=ecolpro info >/dev/null 2>&1; then
-    LAST_TS=$(docker exec ecolpro-db pgbackrest --stanza=ecolpro info --output=json 2>/dev/null \
+if has docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^schoolpro-db$'; then
+  if docker exec schoolpro-db pgbackrest --stanza=schoolpro info >/dev/null 2>&1; then
+    LAST_TS=$(docker exec schoolpro-db pgbackrest --stanza=schoolpro info --output=json 2>/dev/null \
               | grep -o '"stop":[0-9]*' | tail -1 | cut -d: -f2)
     if [ -n "${LAST_TS}" ]; then
       AGE_H=$(( ( $(date +%s) - LAST_TS ) / 3600 ))
@@ -334,7 +334,7 @@ if has docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ecolpro
       crit "aucune sauvegarde présente dans le dépôt"
     fi
 
-    if docker exec ecolpro-db pgbackrest --stanza=ecolpro info --output=json 2>/dev/null \
+    if docker exec schoolpro-db pgbackrest --stanza=schoolpro info --output=json 2>/dev/null \
        | grep -q '"repo":2'; then
       ok "dépôt de sauvegarde hors site actif"
     else
@@ -344,14 +344,14 @@ if has docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ecolpro
     crit "pgBackRest ne répond pas"
   fi
 else
-  warn "conteneur ecolpro-db absent : sauvegardes non vérifiées"
+  warn "conteneur schoolpro-db absent : sauvegardes non vérifiées"
 fi
 
 # ============================================================
 section "K. Base de données"
 # ============================================================
-if has docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ecolpro-db$'; then
-  if docker exec ecolpro-db /usr/local/bin/security-audit-db.sh >/tmp/audit-db.out 2>&1; then
+if has docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^schoolpro-db$'; then
+  if docker exec schoolpro-db /usr/local/bin/security-audit-db.sh >/tmp/audit-db.out 2>&1; then
     ok "audit base de données : aucun problème critique"
     grep -E '^\s+ALERTE' /tmp/audit-db.out | head -10 | while IFS= read -r l; do
       warn "base : $(echo "${l}" | sed 's/^ *ALERTE *//')"
@@ -361,7 +361,7 @@ if has docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ecolpro
     grep -E '^\s+GRAVE' /tmp/audit-db.out | head -10 | while IFS= read -r l; do
       info "${l}"
     done
-    info "Détail : docker exec ecolpro-db /usr/local/bin/security-audit-db.sh"
+    info "Détail : docker exec schoolpro-db /usr/local/bin/security-audit-db.sh"
   fi
   rm -f /tmp/audit-db.out
 fi

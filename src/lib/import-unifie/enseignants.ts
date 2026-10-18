@@ -61,12 +61,12 @@ export async function analyserEnseignants(
     // Vérifier si l'enseignant existe déjà
     let existe = false;
     if (email) {
-      // eslint-disable-next-line ecolpro/require-site-filter -- recherche par email pour import, pas de scope site
+      // eslint-disable-next-line schoolpro/require-site-filter -- recherche par email pour import, pas de scope site
       const user = await prisma.user.findFirst({
         where: { email, tenantId },
       });
       if (user) {
-        // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- vérification par userId
+        // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- vérification par userId
         const ens = await prisma.enseignant.findFirst({
           where: { userId: user.id },
         });

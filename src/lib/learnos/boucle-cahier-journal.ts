@@ -82,7 +82,7 @@ async function mettreAJourPlanificationChapitre(
   // fiable. Sinon, on retrouve la planification par chapitre + classe + année.
   // Événement drainé : borné par tenantId, et par les identifiants du payload.
    
-  // eslint-disable-next-line ecolpro/require-annee-filter -- événement drainé : la séance est identifiée par le payload
+  // eslint-disable-next-line schoolpro/require-annee-filter -- événement drainé : la séance est identifiée par le payload
   const seance = await prisma.seancePedagogique.findFirst({
     where: { id: p.seanceId, tenantId },
     select: { planificationId: true },
@@ -91,7 +91,7 @@ async function mettreAJourPlanificationChapitre(
   let planifId = seance?.planificationId ?? null;
 
   let planif = planifId
-    ? // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+    ? // eslint-disable-next-line schoolpro/require-site-filter -- événement drainé, cf. ci-dessus
       await prisma.planificationChapitre.findFirst({
         where: { id: planifId, tenantId },
       })
@@ -101,7 +101,7 @@ async function mettreAJourPlanificationChapitre(
   // On cherche d'abord la correspondance exacte (classeId renseigné), puis
   // le plan générique (classeId null = toutes les classes du niveau).
   if (!planif) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+    // eslint-disable-next-line schoolpro/require-site-filter -- événement drainé, cf. ci-dessus
     planif = await prisma.planificationChapitre.findFirst({
       where: {
         tenantId,
@@ -112,7 +112,7 @@ async function mettreAJourPlanificationChapitre(
     });
 
     if (!planif) {
-      // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, cf. ci-dessus
+      // eslint-disable-next-line schoolpro/require-site-filter -- événement drainé, cf. ci-dessus
       planif = await prisma.planificationChapitre.findFirst({
         where: {
           tenantId,
@@ -282,7 +282,7 @@ async function verifierCompetencesChapitreCouvertes(
   classeId: string
 ): Promise<boolean> {
   // Récupérer toutes les compétences du chapitre.
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- événement drainé, tenantId déjà vérifié
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- événement drainé, tenantId déjà vérifié
   const competences = await prisma.competence.findMany({
     where: { chapitreId },
     select: { id: true },

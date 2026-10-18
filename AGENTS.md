@@ -160,7 +160,7 @@ cahier-journal, etc.) DOIVENT être filtrées par l'année scolaire courante via
 sans filtre d'année mélange les données de toutes les années — c'est la cause du bug
 qui a affecté 42 fichiers en août 2026.
 
-La règle est **vérifiée automatiquement** : `ecolpro/require-annee-filter` est en
+La règle est **vérifiée automatiquement** : `schoolpro/require-annee-filter` est en
 `error` (elle était en `warn` pendant la résorption de la dette, 380 → 0 le
 29/09/2026). Une violation se corrige, ou s'exempte avec un motif **écrit sur la
 ligne**. Suivi : `pnpm audit:annee`, plafond **0** — le dépasser fait échouer la

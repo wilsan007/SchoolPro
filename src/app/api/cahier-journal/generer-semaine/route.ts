@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
     // puis on indexe par (classeId|matiereId) — en distinguant les planifications
     // spécifiques à une classe (prioritaires) des planifications génériques
     // (classeId null = toutes les classes du niveau).
-    // eslint-disable-next-line ecolpro/require-site-filter -- planificationChapitre filtré par tenantId + anneeId + semaine
+    // eslint-disable-next-line schoolpro/require-site-filter -- planificationChapitre filtré par tenantId + anneeId + semaine
     const planifications = await prisma.planificationChapitre.findMany({
       where: {
         tenantId,
@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
       // (DateTime) mais pas d'heure séparée : on compare donc sur le jour pour
       // éviter les doublons, ce qui suffit car un créneau EDT = une séance.
        
-      // eslint-disable-next-line ecolpro/require-annee-filter -- idempotence : classe + matière + semaine, fenêtre d'un jour
+      // eslint-disable-next-line schoolpro/require-annee-filter -- idempotence : classe + matière + semaine, fenêtre d'un jour
       const existante = await prisma.seancePedagogique.findFirst({
         where: {
           tenantId,

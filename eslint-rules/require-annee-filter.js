@@ -146,7 +146,7 @@
  * mesure plus.
  *
  * Règle 4 — exemption explicite et motivée :
- *   // eslint-disable-next-line ecolpro/require-annee-filter -- lecture
+ *   // eslint-disable-next-line schoolpro/require-annee-filter -- lecture
  *   inter-années assumée (comparaison N / N-1)
  */
 

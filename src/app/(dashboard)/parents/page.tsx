@@ -40,7 +40,7 @@ async function getParentsData(tenantId: string, claims: SessionSiteClaims, annee
   // relancée une fois plutôt que de faire tomber la page.
   const [parents, comptes, liens, eleves, classes] = await lectureAvecReprise(() => Promise.all([
     prisma.parent.findMany({ where: parentsVisibles, orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- comptes des parents visibles uniquement, bornés par `parents: parentsVisibles`
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- comptes des parents visibles uniquement, bornés par `parents: parentsVisibles`
     prisma.user.findMany({
       where: { parents: { some: parentsVisibles } },
       select: { id: true, name: true, email: true, avatarUrl: true, lastLoginAt: true },
@@ -50,7 +50,7 @@ async function getParentsData(tenantId: string, claims: SessionSiteClaims, annee
     prisma.eleveParent.findMany({
       where: { AND: [siteFilterForModel("eleveParent", claims), { parent: parentsVisibles }] },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- lecture d'appoint, bornée par les liens filtrés par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- lecture d'appoint, bornée par les liens filtrés par site
     prisma.eleve.findMany({
       where: enfantsDesParents,
       select: {
@@ -64,7 +64,7 @@ async function getParentsData(tenantId: string, claims: SessionSiteClaims, annee
         bulletins: { select: { moyenneGenerale: true, isPublie: true }, orderBy: { createdAt: "desc" }, take: 1 },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- table de correspondance id → nom des classes des enfants
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- table de correspondance id → nom des classes des enfants
     prisma.classe.findMany({
       where: { tenantId, eleves: { some: enfantsDesParents } },
       select: { id: true, nom: true, niveau: true },

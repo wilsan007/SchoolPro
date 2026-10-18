@@ -90,9 +90,9 @@ BEGIN
     END IF;
   END LOOP;
   -- Rôle applicatif du VPS (docker/postgres/init/02-roles.sh) : la fonction seule.
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ecolpro_app') THEN
-    REVOKE ALL ON TABLE facture_sequences FROM ecolpro_app;
-    GRANT EXECUTE ON FUNCTION next_facture_numeros(TEXT, TEXT, INTEGER) TO ecolpro_app;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'schoolpro_app') THEN
+    REVOKE ALL ON TABLE facture_sequences FROM schoolpro_app;
+    GRANT EXECUTE ON FUNCTION next_facture_numeros(TEXT, TEXT, INTEGER) TO schoolpro_app;
   END IF;
 END $$;
 

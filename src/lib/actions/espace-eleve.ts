@@ -47,7 +47,7 @@ export async function choisirEleveEspaceAction(
     // Fail-closed : la fiche doit être un enfant ACTIF du compte, dans ce
     // tenant. Un identifiant arbitraire — l'élève d'un autre compte — est
     // refusé ici, avant même de toucher au cookie.
-    // eslint-disable-next-line ecolpro/require-site-filter -- validation du périmètre familial : parent.userId borne déjà au compte connecté
+    // eslint-disable-next-line schoolpro/require-site-filter -- validation du périmètre familial : parent.userId borne déjà au compte connecté
     const enfant = await prisma.eleve.findFirst({
       where: {
         id: eleveId,

@@ -5,7 +5,7 @@
  * Améliorations v2 :
  *  - Trace les variables `where` construites en amont (const where = mergeFilters(...),
  *    const where = { tenantId, ... }) et vérifie leur contenu.
- *  - Détecte les commentaires eslint-disable ecolpro/require-tenant-id (exceptions légitimes).
+ *  - Détecte les commentaires eslint-disable schoolpro/require-tenant-id (exceptions légitimes).
  *  - Élargit la liste des modèles système/globaux à ignorer.
  *  - Détecte les appels qui passent une variable `where` (prisma.x.findMany({ where }))
  *    et remonte jusqu'à sa définition.

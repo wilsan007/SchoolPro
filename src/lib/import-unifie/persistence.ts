@@ -51,14 +51,14 @@ export async function appliquerImportEnseignants(
   const details: string[] = [];
 
   // Précharger les matières et classes du tenant pour résolution par nom
-  // eslint-disable-next-line ecolpro/require-site-filter -- import batch, résolution globale par tenant
+  // eslint-disable-next-line schoolpro/require-site-filter -- import batch, résolution globale par tenant
   const matieres = await withAllSites("import : résolution des matières de l'établissement", () => prisma.matiere.findMany({
     where: { tenantId },
     select: { id: true, nom: true },
   }));
   const matiereParNom = new Map(matieres.map((m) => [m.nom.toLowerCase(), m.id]));
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- import batch, résolution globale par tenant
+  // eslint-disable-next-line schoolpro/require-site-filter -- import batch, résolution globale par tenant
   const classes = await withAllSites("import : résolution des classes de l'établissement", () => prisma.classe.findMany({
     where: { tenantId, annee: opts.annee },
     select: { id: true, nom: true, siteId: true },
@@ -79,13 +79,13 @@ export async function appliquerImportEnseignants(
 
       // Vérifier si l'utilisateur existe déjà
       if (d.email) {
-        // eslint-disable-next-line ecolpro/require-site-filter -- recherche par email
+        // eslint-disable-next-line schoolpro/require-site-filter -- recherche par email
         const existingUser = await prisma.user.findFirst({
           where: { email: d.email, tenantId },
         });
         if (existingUser) {
           userId = existingUser.id;
-          // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- vérification par userId
+          // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- vérification par userId
           const existingEns = await prisma.enseignant.findFirst({
             where: { userId: existingUser.id },
           });
@@ -243,7 +243,7 @@ export async function appliquerImportPersonnelAdmin(
       // Vérifier si l'utilisateur existe
       let user = null;
       if (d.email) {
-        // eslint-disable-next-line ecolpro/require-site-filter -- recherche par email
+        // eslint-disable-next-line schoolpro/require-site-filter -- recherche par email
         user = await prisma.user.findFirst({
           where: { email: d.email, tenantId },
         });

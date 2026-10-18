@@ -60,7 +60,7 @@ export async function analyserEdtExternes(
   const lignes: LigneImport<DonneesEdtExterne>[] = [];
 
   // Charger tous les enseignants du tenant pour la résolution par nom
-  // eslint-disable-next-line ecolpro/require-site-filter -- import: résolution par nom sur tout le tenant
+  // eslint-disable-next-line schoolpro/require-site-filter -- import: résolution par nom sur tout le tenant
   const enseignants = await prisma.enseignant.findMany({
     where: { tenantId },
     include: { user: { select: { name: true, email: true } } },
@@ -185,7 +185,7 @@ export async function appliquerImportEdtExternes(
 
       // Vérifier qu'une indispo identique n'existe pas déjà (même enseignant,
       // jour, heures, période) pour éviter les doublons à la ré-import.
-      // eslint-disable-next-line ecolpro/require-site-filter -- import: dédoublonnage par clé métier
+      // eslint-disable-next-line schoolpro/require-site-filter -- import: dédoublonnage par clé métier
       const existant = await withAllSites("import : dédoublonnage des indisponibilités", () => prisma.indisponibiliteEnseignant.findFirst({
         where: {
           tenantId,

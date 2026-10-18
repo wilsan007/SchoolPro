@@ -77,7 +77,7 @@ export async function addUserToTenant(params: {
   // que cette action doit précisément lier.
   // Insensible à la casse : rattacher un compte existant doit fonctionner
   // quelle que soit la casse sous laquelle il a été enregistré.
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter
   const existingUser = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
     select: { id: true, name: true, password: true },
@@ -95,7 +95,7 @@ export async function addUserToTenant(params: {
     });
 
     // Vérifier s'il possède déjà ce rôle dans UserRole
-    // eslint-disable-next-line ecolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; vérification d'existence du rôle
+    // eslint-disable-next-line schoolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; vérification d'existence du rôle
     const existingUserRole = await prisma.userRole.findUnique({
       where: {
         userId_tenantId_role: {
@@ -239,7 +239,7 @@ async function ensureBusinessRecord(
   email: string
 ): Promise<void> {
   if (role === "TEACHER" || role === "CLASS_TEACHER") {
-    // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup, vérification d'existence
+    // eslint-disable-next-line schoolpro/require-site-filter -- self-lookup, vérification d'existence
     const existing = await prisma.enseignant.findFirst({
       where: { userId, tenantId },
       select: { id: true },
@@ -250,7 +250,7 @@ async function ensureBusinessRecord(
       });
     }
   } else if (role === "PARENT") {
-    // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup, vérification d'existence
+    // eslint-disable-next-line schoolpro/require-site-filter -- self-lookup, vérification d'existence
     const existing = await prisma.parent.findFirst({
       where: { userId, tenantId },
       select: { id: true },
@@ -346,7 +346,7 @@ export async function getUserTenants(userId: string) {
   // fonction est d'énumérer tous les tenants de l'utilisateur. L'isolation
   // est portée par le contrôle d'autorisation ci-dessus (userId === appelant,
   // ou SUPER_ADMIN), pas par un filtre tenantId.
-  // eslint-disable-next-line ecolpro/require-tenant-id
+  // eslint-disable-next-line schoolpro/require-tenant-id
   return prisma.userTenant.findMany({
     where: { userId, isActive: true },
     include: {

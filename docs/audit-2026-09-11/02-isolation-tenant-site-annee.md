@@ -20,7 +20,7 @@
 
 - **Fermé par défaut, réellement.** `resolveSiteScope` renvoie `NONE` (donc `DENY_ALL`) pour un membre du personnel sans site (`site-scope.ts:130-138`), et `siteFilterForModel` renvoie `DENY_ALL` pour un modèle inconnu (`:579-583`). Un test vérifie que chaque modèle Prisma a un chemin de site déclaré (`site-scope.model.test.ts`).
 - **Site sélectionné revérifié** contre les sites autorisés (`:141-146`) : un jeton manipulé ou périmé ne peut pas choisir un site hors de son rattachement.
-- **Politiques RLS générées depuis le schéma**, avec un contrôle `pnpm rls:check` qui échoue si une table n'est pas couverte, et un **labo PostgreSQL fidèle à la production** (rôles `ecolpro_app` / `ecolpro_owner`, `FORCE ROW LEVEL SECURITY`) sur lequel `tests/rls/isolation.test.ts` prouve l'étanchéité.
+- **Politiques RLS générées depuis le schéma**, avec un contrôle `pnpm rls:check` qui échoue si une table n'est pas couverte, et un **labo PostgreSQL fidèle à la production** (rôles `schoolpro_app` / `schoolpro_owner`, `FORCE ROW LEVEL SECURITY`) sur lequel `tests/rls/isolation.test.ts` prouve l'étanchéité.
 - **Garde-fou de base cible** fondé sur l'empreinte du schéma, et pas seulement sur l'hôte (`GARDE-FOUS.md`) : il résiste au tunnel SSH oublié.
 - **Deux règles ESLint maison** (`require-tenant-id`, `require-site-filter`) en erreur sur `src/lib`, `src/app/api` et `src/app/(dashboard)`.
 
@@ -106,7 +106,7 @@ Le workflow `.github/workflows/security.yml` (RLS en labo, `rls:check`) n'existe
 
 ### ISO-3 — Justification obligatoire des exemptions *(P1, 0,5 j + revue)*
 
-1. Ajouter à `.eslintrc.json` la règle `eslint-comments/require-description` (paquet `eslint-plugin-eslint-comments`), limitée aux règles `ecolpro/*`.
+1. Ajouter à `.eslintrc.json` la règle `eslint-comments/require-description` (paquet `eslint-plugin-eslint-comments`), limitée aux règles `schoolpro/*`.
 2. Créer un test `scripts/count-eslint-disable.mjs --max <N>` qui échoue si le total augmente. Fixer `N` à la valeur courante, puis la faire baisser à chaque lot.
 3. Traiter les 120 exemptions muettes (87 site, 33 tenant). Pour chacune : ajouter le filtre, ou écrire la raison. Faire un lot par dossier (`api/orientation`, `api/bulletins`, `api/mobile`…), chaque lot relu par une seconde personne.
 
@@ -132,7 +132,7 @@ Créer `tests/rls/matrice-routes.test.ts` (sur le labo) :
 ### ISO-6 — Contrôle automatique de la règle « année courante » *(P2, 1,5 j)* — ✅ LIVRÉ
 
 1. Déclarer dans `src/lib/annee-scope.ts` la liste `MODELES_ANNUALISES` (`note`, `evaluation`, `absence`, `devoir`, `emploiTemps`, `seancePedagogique`, `bulletin`, `facture`…), en la validant avec le métier.
-2. Créer une règle ESLint `ecolpro/require-annee-filter` : un `findMany` ou `count` sur ces modèles doit contenir `annee`, `anneeId` ou `periode`, ou porter une exemption justifiée. **Fait** le 29/09/2026 (`eslint-rules/require-annee-filter.js`).
+2. Créer une règle ESLint `schoolpro/require-annee-filter` : un `findMany` ou `count` sur ces modèles doit contenir `annee`, `anneeId` ou `periode`, ou porter une exemption justifiée. **Fait** le 29/09/2026 (`eslint-rules/require-annee-filter.js`).
 3. Corriger les violations, ou les justifier une par une. **Fait** : 380 signalements au premier passage (dont 319 faux positifs de la règle, corrigés), puis 61 → 54 → 37 → 22 → **0**. La règle est passée en `error`, et le plafond de `pnpm audit:annee` est à **0**.
 
 **Cinq bugs réels** sont sortis de cette relecture — tous du même motif, une année

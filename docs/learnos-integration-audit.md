@@ -17,7 +17,7 @@ Pour chaque brique demandée par LEARNOS : **EXISTE** (réutiliser tel quel) / *
 | Authentification | EXISTE | NextAuth v5 (`src/lib/auth.ts`), credentials + bcrypt, JWT enrichi de `tenantId/role/siteId/siteIds` |
 | RBAC | EXISTE | `src/lib/rbac.ts` — matrice `ROLE_PERMISSIONS` par rôle, `checkPermission()` dans chaque route |
 | Multi-tenancy | EXISTE | `tenantId` sur (quasi) tous les modèles + `Tenant`/`Site`/`UserSite`/`EnseignantSite` |
-| Isolation multi-site | EXISTE | Couche dédiée `src/lib/site-scope.ts` (`siteFilterForModel`, `mergeFilters`) + wrapper `prismaSiteScoped()` + **2 règles ESLint custom** (`ecolpro/require-site-filter`, `ecolpro/require-tenant-id`) qui font échouer le build si une requête Prisma sur un modèle sensible omet le filtre |
+| Isolation multi-site | EXISTE | Couche dédiée `src/lib/site-scope.ts` (`siteFilterForModel`, `mergeFilters`) + wrapper `prismaSiteScoped()` + **2 règles ESLint custom** (`schoolpro/require-site-filter`, `schoolpro/require-tenant-id`) qui font échouer le build si une requête Prisma sur un modèle sensible omet le filtre |
 
 ## 2. Entités pédagogiques existantes (à réutiliser, ne pas dupliquer)
 
@@ -65,7 +65,7 @@ Pour chaque brique demandée par LEARNOS : **EXISTE** (réutiliser tel quel) / *
 L'ajout de données d'apprentissage individuelles (bien plus sensibles qu'une note) sur une couche d'isolation déjà imparfaite serait aggravant. État actuel (`pnpm run lint`, 2026-08-12) :
 
 ```
-103 erreurs ecolpro/require-site-filter | ecolpro/require-tenant-id
+103 erreurs schoolpro/require-site-filter | schoolpro/require-tenant-id
   86 × require-site-filter (requêtes Prisma sans filtre de site, ou include non filtré)
   17 × require-tenant-id  (écriture par id sans vérification d'appartenance au tenant)
 répartis sur 39 fichiers

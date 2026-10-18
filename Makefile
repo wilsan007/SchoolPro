@@ -10,7 +10,7 @@
 SHELL := /usr/bin/env bash
 
 VPS ?= root@localhost
-DEPLOY_DIR ?= /opt/ecolpro
+DEPLOY_DIR ?= /opt/schoolpro
 
 # ============================================================
 # Garde-fou d'inter-projets
@@ -45,10 +45,10 @@ verifier-vps:
 
 # Labo de test (docker-compose.test.yml) — mots de passe publics assumés :
 # base éphémère, en mémoire, publiée sur 127.0.0.1 uniquement.
-RLS_TEST_OWNER_URL ?= postgresql://ecolpro_owner:test_owner_local_only@127.0.0.1:55433/ecolpro_test?schema=public&sslmode=require
+RLS_TEST_OWNER_URL ?= postgresql://schoolpro_owner:test_owner_local_only@127.0.0.1:55433/schoolpro_test?schema=public&sslmode=require
 # client_min_messages=warning : les « policy does not exist, skipping » des
 # DROP POLICY IF EXISTS noieraient une vraie erreur sous 109 lignes de bruit.
-RLS_TEST_PSQL ?= host=127.0.0.1 port=5432 user=ecolpro_owner dbname=ecolpro_test sslmode=require options=-cclient_min_messages=warning
+RLS_TEST_PSQL ?= host=127.0.0.1 port=5432 user=schoolpro_owner dbname=schoolpro_test sslmode=require options=-cclient_min_messages=warning
 
 # Couleurs pour l'aide
 G := \033[0;32m
@@ -104,7 +104,7 @@ audit-db: verifier-vps ## Sécurité — audit de la base de données (rôles, R
 trivy: verifier-vps ## Sécurité — analyse les images Docker avec Trivy
 	@echo "$(B)[1/1] Analyse Trivy des images$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && \
-		for img in ecolpro/app ecolpro/db ecolpro/pgbouncer ecolpro/caddy; do \
+		for img in schoolpro/app schoolpro/db schoolpro/pgbouncer schoolpro/caddy; do \
 			docker image inspect $$img >/dev/null 2>&1 && trivy image --severity HIGH,CRITICAL $$img || true; \
 		done'
 
@@ -145,11 +145,11 @@ deploy-no-build: verifier-vps ## Déploiement — déploie sans reconstruire les
 	./docker/scripts/deploy.sh --vps $(VPS) --deploy-dir $(DEPLOY_DIR) --skip-build
 
 .PHONY: rollback
-rollback: verifier-vps ## Déploiement — revient à l'image précédente (ecolpro/app:previous)
+rollback: verifier-vps ## Déploiement — revient à l'image précédente (schoolpro/app:previous)
 	@echo "$(B)[1/1] Rollback vers l'image précédente$(N)"
 	ssh $(VPS) 'cd $(DEPLOY_DIR) && \
-		docker image inspect ecolpro/app:previous >/dev/null 2>&1 && \
-		docker tag ecolpro/app:previous ecolpro/app:latest && \
+		docker image inspect schoolpro/app:previous >/dev/null 2>&1 && \
+		docker tag schoolpro/app:previous schoolpro/app:latest && \
 		docker compose --env-file .env.runtime up -d --force-recreate app && \
 		echo "Rollback effectué. ATTENTION : les migrations de schéma ne sont PAS annulées." || \
 		echo "Aucune image précédente disponible."'
@@ -160,19 +160,19 @@ status: verifier-vps ## Déploiement — affiche l'état de la stack sur le VPS
 
 .PHONY: logs
 logs: verifier-vps ## Déploiement — journaux de l'application en direct
-	ssh $(VPS) 'docker logs -f --tail 100 ecolpro-app'
+	ssh $(VPS) 'docker logs -f --tail 100 schoolpro-app'
 
 .PHONY: logs-db
 logs-db: verifier-vps ## Déploiement — journaux de PostgreSQL en direct
-	ssh $(VPS) 'docker logs -f --tail 100 ecolpro-db'
+	ssh $(VPS) 'docker logs -f --tail 100 schoolpro-db'
 
 .PHONY: shell
 shell: verifier-vps ## Déploiement — ouvre un shell sur le conteneur applicatif
-	ssh $(VPS) 'docker exec -it ecolpro-app sh'
+	ssh $(VPS) 'docker exec -it schoolpro-app sh'
 
 .PHONY: shell-db
 shell-db: verifier-vps ## Déploiement — ouvre psql sur le conteneur PostgreSQL
-	ssh $(VPS) 'docker exec -it ecolpro-db psql -U postgres -d ecolpro'
+	ssh $(VPS) 'docker exec -it schoolpro-db psql -U postgres -d ecolpro'
 
 .PHONY: ps
 ps: status
@@ -190,7 +190,7 @@ fix-passwords: verifier-vps ## Migration — répare les hash de mots de passe d
 	@echo "$(B)[1/2] Envoi du script de réparation$(N)"
 	scp prisma/sql/MANUAL-02-fix-hash-mots-de-passe.sql $(VPS):/tmp/fix-hash.sql
 	@echo "$(B)[2/2] Exécution — « comptes_casses » doit finir à 0$(N)"
-	ssh $(VPS) 'docker exec -i ecolpro-db psql -U postgres -d ecolpro -v ON_ERROR_STOP=1 < /tmp/fix-hash.sql && rm -f /tmp/fix-hash.sql'
+	ssh $(VPS) 'docker exec -i schoolpro-db psql -U postgres -d ecolpro -v ON_ERROR_STOP=1 < /tmp/fix-hash.sql && rm -f /tmp/fix-hash.sql'
 
 # ============================================================
 # Sauvegardes
@@ -199,7 +199,7 @@ fix-passwords: verifier-vps ## Migration — répare les hash de mots de passe d
 .PHONY: backup
 backup: verifier-vps ## Maintenance — déclenche une sauvegarde pgBackRest immédiate
 	@echo "$(B)[1/1] Sauvegarde pgBackRest$(N)"
-	ssh $(VPS) 'docker exec ecolpro-db pgbackrest --stanza=ecolpro --type=full backup'
+	ssh $(VPS) 'docker exec schoolpro-db pgbackrest --stanza=schoolpro --type=full backup'
 
 .PHONY: backup-verify
 backup-verify: verifier-vps ## Maintenance — teste la restauration sur une base scratch
@@ -209,16 +209,16 @@ backup-verify: verifier-vps ## Maintenance — teste la restauration sur une bas
 .PHONY: backup-offsite-init
 backup-offsite-init: verifier-vps ## Maintenance — initialise et teste le dépôt de sauvegarde hors site
 	@echo "$(B)[1/3] Création de la stanza sur le dépôt distant$(N)"
-	ssh $(VPS) 'docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=ecolpro --repo=2 stanza-create"'
+	ssh $(VPS) 'docker exec schoolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=schoolpro --repo=2 stanza-create"'
 	@echo "$(B)[2/3] Vérification de l'\''accès au dépôt$(N)"
-	ssh $(VPS) 'docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=ecolpro --repo=2 check"'
+	ssh $(VPS) 'docker exec schoolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=schoolpro --repo=2 check"'
 	@echo "$(B)[3/3] Première sauvegarde complète hors site$(N)"
-	ssh $(VPS) 'docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=ecolpro --repo=2 --type=full backup"'
+	ssh $(VPS) 'docker exec schoolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && pgbackrest --stanza=schoolpro --repo=2 --type=full backup"'
 	@echo "$(G)Dépôt hors site opérationnel.$(N) Vérifier : make backup-list"
 
 .PHONY: backup-list
 backup-list: verifier-vps ## Maintenance — liste les sauvegardes disponibles
-	ssh $(VPS) 'docker exec ecolpro-db pgbackrest --stanza=ecolpro info'
+	ssh $(VPS) 'docker exec schoolpro-db pgbackrest --stanza=schoolpro info'
 
 # ============================================================
 # Maintenance VPS
@@ -295,7 +295,7 @@ test-db-up: ## Vérification — démarre le labo Postgres fidèle à la prod (R
 	docker compose -f docker-compose.test.yml up -d --build
 	@echo "$(B)[2/2] Attente de disponibilité$(N)"
 	@for i in $$(seq 1 40); do \
-		[ "$$(docker inspect -f '{{.State.Health.Status}}' ecolpro-test-db 2>/dev/null)" = "healthy" ] \
+		[ "$$(docker inspect -f '{{.State.Health.Status}}' schoolpro-test-db 2>/dev/null)" = "healthy" ] \
 			&& { echo "  Labo prêt sur 127.0.0.1:55433"; exit 0; }; \
 		sleep 3; \
 	done; \
@@ -310,9 +310,9 @@ test-db-logs: ## Vérification — journaux du labo Postgres
 	docker compose -f docker-compose.test.yml logs -f db
 
 .PHONY: test-db-psql
-test-db-psql: ## Vérification — psql sur le labo, en tant que ecolpro_app (rôle de l'app)
-	docker exec -it ecolpro-test-db env PGPASSWORD=test_app_local_only \
-		psql "host=127.0.0.1 port=5432 user=ecolpro_app dbname=ecolpro_test sslmode=require"
+test-db-psql: ## Vérification — psql sur le labo, en tant que schoolpro_app (rôle de l'app)
+	docker exec -it schoolpro-test-db env PGPASSWORD=test_app_local_only \
+		psql "host=127.0.0.1 port=5432 user=schoolpro_app dbname=schoolpro_test sslmode=require"
 
 # --- Row Level Security --------------------------------------------------
 
@@ -330,10 +330,10 @@ rls-apply-test: ## Sécurité — applique fonctions + politiques RLS sur le lab
 	DATABASE_URL="$(RLS_TEST_OWNER_URL)" DIRECT_URL="$(RLS_TEST_OWNER_URL)" \
 		pnpm exec prisma db push --skip-generate --accept-data-loss
 	@echo "$(B)[2/3] Fonctions de contexte$(N)"
-	docker exec -i ecolpro-test-db env PGPASSWORD=test_owner_local_only psql -q -v ON_ERROR_STOP=1 \
+	docker exec -i schoolpro-test-db env PGPASSWORD=test_owner_local_only psql -q -v ON_ERROR_STOP=1 \
 		"$(RLS_TEST_PSQL)" < docker/postgres/init/03-rls-functions.sql
 	@echo "$(B)[3/3] Politiques$(N)"
-	docker exec -i ecolpro-test-db env PGPASSWORD=test_owner_local_only psql -q -v ON_ERROR_STOP=1 \
+	docker exec -i schoolpro-test-db env PGPASSWORD=test_owner_local_only psql -q -v ON_ERROR_STOP=1 \
 		"$(RLS_TEST_PSQL)" < prisma/sql/rls/02-policies.sql
 	@echo "  Politiques en place."
 
@@ -353,10 +353,10 @@ rls-apply-prod: verifier-vps ## Sécurité — applique fonctions + politiques R
 	@echo "$(B)[1/3] Sauvegarde préalable$(N)"
 	$(MAKE) backup
 	@echo "$(B)[2/3] Fonctions de contexte$(N)"
-	ssh $(VPS) 'docker exec -i ecolpro-db sh -c "PGPASSWORD=\$$PG_OWNER_PASSWORD psql -q -v ON_ERROR_STOP=1 -U ecolpro_owner -d \$${POSTGRES_DB:-ecolpro} -h /var/run/postgresql"' \
+	ssh $(VPS) 'docker exec -i schoolpro-db sh -c "PGPASSWORD=\$$PG_OWNER_PASSWORD psql -q -v ON_ERROR_STOP=1 -U schoolpro_owner -d \$${POSTGRES_DB:-ecolpro} -h /var/run/postgresql"' \
 		< docker/postgres/init/03-rls-functions.sql
 	@echo "$(B)[3/3] Politiques$(N)"
-	ssh $(VPS) 'docker exec -i ecolpro-db sh -c "PGPASSWORD=\$$PG_OWNER_PASSWORD psql -q -v ON_ERROR_STOP=1 -U ecolpro_owner -d \$${POSTGRES_DB:-ecolpro} -h /var/run/postgresql"' \
+	ssh $(VPS) 'docker exec -i schoolpro-db sh -c "PGPASSWORD=\$$PG_OWNER_PASSWORD psql -q -v ON_ERROR_STOP=1 -U schoolpro_owner -d \$${POSTGRES_DB:-ecolpro} -h /var/run/postgresql"' \
 		< prisma/sql/rls/02-policies.sql
 	@echo "$(G)Politiques en place.$(N) Vérifier IMMÉDIATEMENT une page de notes et une page de facturation."
 	@echo "Retour arrière si besoin : make shell-db puis DROP POLICY <nom> ON <table>;"

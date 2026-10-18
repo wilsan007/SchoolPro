@@ -109,7 +109,7 @@ async function syncLot(
   // invisibles ici, donc « manquantes », et chaque synchronisation les
   // recréait toutes — plusieurs centaines d'insertions à chaque ouverture de
   // page, et des doublons par centaines pour une même source.
-  // eslint-disable-next-line ecolpro/require-annee-filter -- année filtrée dans le OR (classe.annee, ou tâche sans classe) ; lecture bornée par sourceIds
+  // eslint-disable-next-line schoolpro/require-annee-filter -- année filtrée dans le OR (classe.annee, ou tâche sans classe) ; lecture bornée par sourceIds
   const existantes = await prisma.tache.findMany({
     where: {
       tenantId,
@@ -406,7 +406,7 @@ async function scannerBulletinsAPublier(
     bulletins.map((b) => b.eleve.classe?.profPrincipalId).filter(Boolean) as string[]
   );
   const profs = profPrincipalIds.size > 0
-    // eslint-disable-next-line ecolpro/require-site-filter -- résolution d'ID, bornée par tenantId + IDs déjà filtrés par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- résolution d'ID, bornée par tenantId + IDs déjà filtrés par site
     ? await prisma.enseignant.findMany({
         where: { id: { in: [...profPrincipalIds] }, tenantId },
         select: { id: true, userId: true },
@@ -468,7 +468,7 @@ async function scannerIncidentsATraiter(
     incidents.map((i) => i.eleve.classe?.profPrincipalId).filter(Boolean) as string[]
   );
   const profs = profPrincipalIds.size > 0
-    // eslint-disable-next-line ecolpro/require-site-filter -- résolution d'ID, bornée par tenantId + IDs déjà filtrés par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- résolution d'ID, bornée par tenantId + IDs déjà filtrés par site
     ? await prisma.enseignant.findMany({
         where: { id: { in: [...profPrincipalIds] }, tenantId },
         select: { id: true, userId: true },
@@ -528,7 +528,7 @@ async function scannerAbsencesAJustifier(
     absences.map((a) => a.eleve.classe?.profPrincipalId).filter(Boolean) as string[]
   );
   const profs = profPrincipalIds.size > 0
-    // eslint-disable-next-line ecolpro/require-site-filter -- résolution d'ID, bornée par tenantId + IDs déjà filtrés par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- résolution d'ID, bornée par tenantId + IDs déjà filtrés par site
     ? await prisma.enseignant.findMany({
         where: { id: { in: [...profPrincipalIds] }, tenantId },
         select: { id: true, userId: true },
@@ -584,7 +584,7 @@ async function scannerFacturesEnRetard(
   if (factures.length === 0) return [];
 
   // Trouver un comptable ou admin du tenant pour assigner la tâche.
-  // eslint-disable-next-line ecolpro/require-site-filter -- résolution d'ID système, bornée par tenantId
+  // eslint-disable-next-line schoolpro/require-site-filter -- résolution d'ID système, bornée par tenantId
   const comptable = await prisma.user.findFirst({
     where: {
       tenantId,
@@ -637,7 +637,7 @@ async function scannerReinscriptionsEnAttente(
 
   let parentMap = new Map<string, string>(); // eleveId → userId
   if (eleveIdsReels.length > 0) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- résolution d'ID, bornée par tenantId + eleveIds déjà filtrés
+    // eslint-disable-next-line schoolpro/require-site-filter -- résolution d'ID, bornée par tenantId + eleveIds déjà filtrés
     const eleveParents = await prisma.eleveParent.findMany({
       where: { eleveId: { in: eleveIdsReels }, isGardien: true },
       select: {

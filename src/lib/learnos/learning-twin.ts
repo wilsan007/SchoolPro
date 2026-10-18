@@ -41,7 +41,7 @@
  * l'événement drainé sur la voie de fond. Un élève appartient à un seul site :
  * une fois l'élève autorisé, ses preuves et ses profils le sont aussi.
  *
- * Les `eslint-disable ecolpro/require-site-filter` de ce fichier renvoient tous
+ * Les `eslint-disable schoolpro/require-site-filter` de ce fichier renvoient tous
  * ici. Ils ne valent QUE pour des requêtes bornées par un `eleveId` déjà
  * autorisé. Une lecture qui ne serait pas bornée ainsi doit porter le filtre.
  */
@@ -288,7 +288,7 @@ export async function etatDesPrerequis(
   eleveId: string,
   competenceId: string
 ): Promise<EtatPrerequis[]> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- moteur hors session, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- moteur hors session, cf. en-tête « ISOLATION »
   const competence = await prisma.competence.findFirst({
     where: { id: competenceId, tenantId },
     select: {
@@ -297,7 +297,7 @@ export async function etatDesPrerequis(
   });
   if (!competence || competence.prerequis.length === 0) return [];
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const profils = await prisma.studentLearningProfile.findMany({
     where: {
       tenantId,
@@ -340,7 +340,7 @@ export async function recalculerProfil(
   competenceId: string,
   maintenant: Date = new Date()
 ): Promise<ProfilCalcule> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const lignes = await prisma.learningEvidence.findMany({
     where: { tenantId, eleveId, competenceId },
     select: {
@@ -364,7 +364,7 @@ export async function recalculerProfil(
   // exigé ci-dessous, et à l'origine de `eleveId` — un événement publié depuis
   // une requête déjà filtrée par site. On lit d'ailleurs le site pour le
   // *poser* sur le profil, non pour décider d'un droit d'accès.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     select: { siteId: true },
@@ -411,7 +411,7 @@ export async function recalculerProfilsApresPreuve(event: DrainedEvent): Promise
   const p = event.payload as NoteRecordedPayload;
   if (!p?.noteId || !p.eleveId) return;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, noteId), cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- événement drainé, borné par (tenantId, noteId), cf. en-tête « ISOLATION »
   const preuves = await prisma.learningEvidence.findMany({
     where: {
       tenantId: event.tenantId,

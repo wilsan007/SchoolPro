@@ -126,7 +126,7 @@ export default async function CahierJournalPage() {
   };
   const lireSeances = (semaine: number | { gte: number; lte: number; not: number }) =>
     lectureAvecReprise(() =>
-      // eslint-disable-next-line ecolpro/require-annee-filter -- `filtreSeances` porte le site ; `classeIds` = classes de l'ANNÉE COURANTE (getClassesHierarchie), fail-closed si la liste est vide
+      // eslint-disable-next-line schoolpro/require-annee-filter -- `filtreSeances` porte le site ; `classeIds` = classes de l'ANNÉE COURANTE (getClassesHierarchie), fail-closed si la liste est vide
       prisma.seancePedagogique.findMany({ where: { ...filtreSeances, semaine }, orderBy: { date: "asc" } }),
     );
   const [matieres, enseignants, seances, chapitres, premiereSemaine] = await Promise.all([
@@ -155,7 +155,7 @@ export default async function CahierJournalPage() {
     }),
     // Première semaine de la fenêtre qui porte des séances : c'est sur elle que
     // s'ouvre la vue calendrier, comme lorsque tout était chargé d'un coup.
-    // eslint-disable-next-line ecolpro/require-annee-filter -- même filtre que `lireSeances`
+    // eslint-disable-next-line schoolpro/require-annee-filter -- même filtre que `lireSeances`
     prisma.seancePedagogique.aggregate({
       where: { ...filtreSeances, ...filtreFenetreSeances },
       _min: { semaine: true },

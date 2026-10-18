@@ -277,7 +277,7 @@ async function teacherClasseFilter(actor: Actor): Promise<Record<string, unknown
 
   // Fiche de l'émetteur lui-même, retrouvée par son propre `userId` :
   // aucun filtre de site à appliquer, la requête ne peut viser personne d'autre.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const enseignant = await prisma.enseignant.findFirst({
     where: { userId: actor.id, tenantId: actor.tenantId },
     select: { id: true },
@@ -306,7 +306,7 @@ async function parentClasseFilter(actor: Actor): Promise<Record<string, unknown>
   if (actor.role !== "PARENT") return {};
 
   // Fiche de l'émetteur lui-même : voir `teacherClasseFilter` ci-dessus.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const parent = await prisma.parent.findFirst({
     where: { userId: actor.id, tenantId: actor.tenantId },
     select: { id: true },
@@ -317,7 +317,7 @@ async function parentClasseFilter(actor: Actor): Promise<Record<string, unknown>
   // Enfants de l'émetteur : c'est le lien de filiation qui borne la requête,
   // pas le site — un parent dont les enfants sont sur deux sites doit pouvoir
   // cibler les deux classes.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const enfants = await prisma.eleve.findMany({
     where: {
       tenantId: actor.tenantId,
@@ -352,7 +352,7 @@ async function siteIdsForScope(actor: Actor, scope: AudienceScope): Promise<stri
   if (classeIds.length === 0) return [];
   // `classeIds` sort de `classeIdsForScope`, qui applique déjà
   // `siteFilterForModel("classe", actor)` : la portée est acquise en amont.
-  // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-annee-filter, schoolpro/require-site-filter
   const classes = await prisma.classe.findMany({
     where: { id: { in: classeIds }, tenantId: actor.tenantId },
     select: { siteId: true },
@@ -402,7 +402,7 @@ async function resolveParents(actor: Actor, scope: AudienceScope) {
   // L'isolation passe par la relation : `eleveWhere` porte déjà
   // `siteFilterForModel("eleve", actor)`. Un lien élève↔parent n'a pas de
   // site propre à filtrer.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const liens = await prisma.eleveParent.findMany({
     where: { eleve: eleveWhere },
     select: { parent: { select: { id: true, userId: true } } },
@@ -436,12 +436,12 @@ async function resolveEnseignants(actor: Actor, scope: AudienceScope) {
   // et à l'année active.
   const anneeCourante = await getAnneeCouranteLibelle(actor.tenantId);
   const [classes, creneaux] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-annee-filter, schoolpro/require-site-filter
     prisma.classe.findMany({
       where: { id: { in: classeIds }, tenantId: actor.tenantId },
       select: { profPrincipal: { select: { userId: true } } },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     prisma.emploiTemps.findMany({
       where: {
         classeId: { in: classeIds },
@@ -693,7 +693,7 @@ export async function scopeLabel(actor: Actor, scope: AudienceScope): Promise<st
       return structure?.nom ?? "structure";
     }
     case "CLASSE": {
-      // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant de portée (`scope.id`)
+      // eslint-disable-next-line schoolpro/require-annee-filter -- accès par identifiant de portée (`scope.id`)
       const classe = await prisma.classe.findFirst({
         where: mergeFilters(
           { id: scope.id, tenantId: actor.tenantId },

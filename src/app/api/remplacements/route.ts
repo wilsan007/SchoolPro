@@ -240,7 +240,7 @@ export async function PATCH(req: NextRequest) {
     // validation du remplacement.
     if (statut === "VALIDE" && existing.enseignantRemplacantId) {
       try {
-        // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- existing vérifié avec tenantId ci-dessus
+        // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- existing vérifié avec tenantId ci-dessus
         const remplacant = await prisma.enseignant.findUnique({
           where: { id: existing.enseignantRemplacantId },
           select: { userId: true },

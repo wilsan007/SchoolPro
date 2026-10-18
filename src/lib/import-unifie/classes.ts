@@ -44,7 +44,7 @@ export async function analyserClasses(
       continue;
     }
 
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId
+    // eslint-disable-next-line schoolpro/require-site-filter -- filtré par tenantId
     const existe = !!(await withAllSites("import : dédoublonnage des classes", () => prisma.classe.findFirst({
       where: { nom, tenantId, ...(anneeCourante ? { annee: anneeCourante } : {}) },
     })));

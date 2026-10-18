@@ -79,7 +79,7 @@ Trois points d'attention connus **avant même de commencer** :
    la dérive résiduelle, pas la supposer nulle. → **Phase 3, contrôle 3.4**.
 3. **Dette d'exemptions ESLint** : 185 `eslint-disable` dans `src/` (référence
    131 en début de chantier), dont **76 exemptions muettes** de la règle
-   `ecolpro/require-site-filter`. Chacune est une fuite d'isolation potentielle
+   `schoolpro/require-site-filter`. Chacune est une fuite d'isolation potentielle
    non prouvée. → **Phase 1, contrôle 1.5**.
 
 ---
@@ -281,11 +281,11 @@ dans le code. C'est le contrôle le plus important du document.
 
 | ID | Contrôle | Commande | Attendu | Sév. |
 |---|---|---|---|---|
-| 4.1 | Labo PostgreSQL fidèle à la production | `make test-db-up` | Conteneur `ecolpro-test-db` sain (`healthy`) | S1 |
+| 4.1 | Labo PostgreSQL fidèle à la production | `make test-db-up` | Conteneur `schoolpro-test-db` sain (`healthy`) | S1 |
 | 4.2 | Application des fonctions + politiques RLS | `make rls-apply-test` | `docker/postgres/init/03-rls-functions.sql` et `prisma/sql/rls/02-policies.sql` appliqués sans erreur | S1 |
 | 4.3 | **Preuve d'isolation** | `make rls-test` (⇔ `RLS_MODE=enforce pnpm test:rls`) | `tests/rls/isolation.test.ts` : 100 % vert. Un tenant A ne lit **aucune** ligne d'un tenant B, y compris en écriture et en jointure | S1 |
 | 4.4 | Chaîne complète d'un trait | `make rls-full` | Enchaîne 4.1 → 4.3 sans intervention | S1 |
-| 4.5 | Le rôle applicatif n'est pas superutilisateur | `make test-db-psql` puis `SELECT current_user, usesuper FROM pg_user WHERE usename = current_user;` | `ecolpro_app`, `usesuper = false` — sinon la RLS est contournée et **tous les tests de 4.3 ne prouvent rien** | S1 |
+| 4.5 | Le rôle applicatif n'est pas superutilisateur | `make test-db-psql` puis `SELECT current_user, usesuper FROM pg_user WHERE usename = current_user;` | `schoolpro_app`, `usesuper = false` — sinon la RLS est contournée et **tous les tests de 4.3 ne prouvent rien** | S1 |
 | 4.6 | Couverture des politiques | Comparer la liste des tables tenant-scopées du schéma avec `pg_policies` | Aucune table tenant-scopée sans politique | S1 |
 | 4.7 | Contexte RLS transporté | Revue de `src/lib/rls-context.ts`, `rls-session.ts`, `prisma-rls.ts` | `AsyncLocalStorage` alimenté à chaque requête authentifiée ; aucune variable de module partagée entre requêtes | S1 |
 | 4.8 | Exceptions super-admin recensées | `grep -rn "withSystemContext\|superAdmin: true" src/` | Chaque usage est justifié en commentaire et correspond à un cas documenté (SUPER_ADMIN authentifié, ou opération d'avant-authentification) | S1 |
@@ -647,7 +647,7 @@ visuelle hors de ce document).
 | 12.6 | Démarrage de la stack | `make up` puis `make status` | Tous les conteneurs `healthy` | S1 |
 | 12.7 | Étape de migration | Service `migrate` du compose | S'exécute avant `app`, idempotent, et échoue **bruyamment** si une migration casse | S1 |
 | 12.8 | Vérification post-déploiement | Section dédiée du `RUNBOOK.md` | Tous les points passent | S1 |
-| 12.9 | Rollback applicatif | `make rollback` sur un environnement de test | Retour à `ecolpro/app:previous` en < 5 min, application fonctionnelle | S1 |
+| 12.9 | Rollback applicatif | `make rollback` sur un environnement de test | Retour à `schoolpro/app:previous` en < 5 min, application fonctionnelle | S1 |
 | 12.10 | Sauvegarde | `make backup` | Sauvegarde pgBackRest créée, listée par `make backup-list` | S1 |
 | 12.11 | **Restauration testée** | `make backup-verify` | Restauration sur base scratch réussie, comptages conformes à 3.11. *Une sauvegarde jamais restaurée n'est pas une sauvegarde* | S1 |
 | 12.12 | Reprise après sinistre | Exercice complet du `RUNBOOK.md` (VPS neuf, dépôt hors site R2) | RTO mesuré et comparé à l'objectif ; **point de rupture identifié : la clé age** — vérifier qu'elle est sauvegardée hors de la machine | S1 |

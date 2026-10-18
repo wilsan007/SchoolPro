@@ -74,7 +74,7 @@ export async function getParentsForSettings() {
   // en relation — aucune liste d'identifiants ne transite — et les cinq
   // partent ensemble. Le résultat a exactement la même forme.
   const [parents, liens, eleves, classes, comptes] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- périmètre de site porté par `parentSiteScope` (relation enfants)
+    // eslint-disable-next-line schoolpro/require-site-filter -- périmètre de site porté par `parentSiteScope` (relation enfants)
     prisma.parent.findMany({ where: parentsVisibles, orderBy: { nom: "asc" } }),
     // Un parent peut avoir des enfants sur plusieurs sites : sans le filtre de
     // site, la fiche affichait ceux des sites hors périmètre.
@@ -84,12 +84,12 @@ export async function getParentsForSettings() {
     }),
     // Sur-ensemble volontaire : tous les enfants des parents visibles. Seuls
     // ceux qu'un lien (déjà filtré par site ci-dessus) référence sont utilisés.
-    // eslint-disable-next-line ecolpro/require-site-filter -- lecture d'appoint, bornée par les liens filtrés par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- lecture d'appoint, bornée par les liens filtrés par site
     prisma.eleve.findMany({
       where: { tenantId, parents: { some: { parent: parentsVisibles } } },
       select: { id: true, nom: true, prenom: true, matricule: true, classeId: true },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- table de correspondance id → nom, toutes années : un élève rattaché peut appartenir à n'importe laquelle
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- table de correspondance id → nom, toutes années : un élève rattaché peut appartenir à n'importe laquelle
     prisma.classe.findMany({
       where: { tenantId },
       select: {
@@ -102,7 +102,7 @@ export async function getParentsForSettings() {
         structure: { select: { type: true } },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- comptes des parents visibles uniquement, bornés par `parents: parentsVisibles`
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- comptes des parents visibles uniquement, bornés par `parents: parentsVisibles`
     prisma.user.findMany({
       where: { parents: { some: parentsVisibles } },
       select: { id: true, email: true, isActive: true },
@@ -215,7 +215,7 @@ export async function createParent(data: ParentFormData & { eleveIds?: string[] 
     for (const { id: eleveId } of elevesAutorises) {
       // Identifiant déjà autorisé par la requête site-filtrée ci-dessus, et la
       // clé composite ne peut de toute façon désigner que ce parent-ci.
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       const existing = await prisma.eleveParent.findUnique({
         where: { eleveId_parentId: { eleveId, parentId: parent.id } },
       });
@@ -241,7 +241,7 @@ export async function linkParentToEleves(parentId: string, eleveIds: string[], l
   if (denied) throw new Error("Permissions insuffisantes");
 
   // Isolation portée par la relation enfants → élève (voir `parentSiteScope`).
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const parent = await prisma.parent.findFirst({
     where: {
       id: parentId,
@@ -265,7 +265,7 @@ export async function linkParentToEleves(parentId: string, eleveIds: string[], l
   for (const { id: eleveId } of elevesAutorises) {
     // Élève et parent tous deux validés ci-dessus ; la clé composite ne peut
     // désigner qu'un couple déjà autorisé.
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     const existing = await prisma.eleveParent.findUnique({
       where: { eleveId_parentId: { eleveId, parentId } },
     });

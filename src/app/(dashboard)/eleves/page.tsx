@@ -61,13 +61,13 @@ function baseEleveWhere(
  
 async function getElevesStats(where: Prisma.EleveWhereInput) {
   const [byStatut, bySexe, byRegime, total] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
     prisma.eleve.groupBy({ by: ["statut"], where, _count: true }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
     prisma.eleve.groupBy({ by: ["sexe"], where, _count: true }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
     prisma.eleve.groupBy({ by: ["regime"], where, _count: true }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+    // eslint-disable-next-line schoolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
     prisma.eleve.count({ where }),
   ]);
 
@@ -92,7 +92,7 @@ async function getElevesStats(where: Prisma.EleveWhereInput) {
  * silence. Un `groupBy` donne le compte exact quel que soit le volume.
  */
 async function getEffectifsParClasse(where: Prisma.EleveWhereInput, tenantId: string, noClassLabel: string) {
-  // eslint-disable-next-line ecolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
+  // eslint-disable-next-line schoolpro/require-site-filter -- where reçu en paramètre, déjà filtré par site
   const parClasse = await prisma.eleve.groupBy({
     by: ["classeId"],
     where,
@@ -171,7 +171,7 @@ async function getElevesData(
     // paramètres : sur une base distante, c'était l'essentiel du temps de la
     // page. La classe vient de la hiérarchie déjà chargée, le tuteur de la
     // lecture suivante.
-    // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
+    // eslint-disable-next-line schoolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.findMany({
       where,
       // Uniquement les colonnes que `ElevesTable` affiche : la fiche complète
@@ -191,12 +191,12 @@ async function getElevesData(
     }),
     // Tuteur légal de chaque élève du tableau. Le lien élève↔parent n'a pas de
     // site propre : il est borné par l'élève, filtré par le même `where`.
-    // eslint-disable-next-line ecolpro/require-site-filter -- borné par `eleve: where` (site et année déjà filtrés)
+    // eslint-disable-next-line schoolpro/require-site-filter -- borné par `eleve: where` (site et année déjà filtrés)
     prisma.eleveParent.findMany({
       where: { isGardien: true, eleve: where },
       select: { eleveId: true, parent: { select: { nom: true, prenom: true, phone: true } } },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
+    // eslint-disable-next-line schoolpro/require-site-filter -- where is built from { tenantId, ...siteFilter } in getElevesData
     prisma.eleve.count({ where }),
     // Les statistiques d'en-tête décrivent l'établissement (hors filtres
     // d'écran) ; les effectifs par classe décrivent ce que le tableau montre.
@@ -212,7 +212,7 @@ async function getElevesData(
     ...new Set(elevesPlats.map((e) => e.classeId).filter((id): id is string => !!id && !classesParId.has(id))),
   ];
   if (classesManquantes.length > 0) {
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- classes des élèves déjà filtrés par site et année
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- classes des élèves déjà filtrés par site et année
     const complement = await prisma.classe.findMany({
       where: { tenantId, id: { in: classesManquantes } },
       select: { id: true, nom: true, niveau: true, structure: { select: { type: true } }, site: { select: { id: true, nom: true } } },

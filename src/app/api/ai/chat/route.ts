@@ -213,7 +213,7 @@ async function buildSystemPrompt(scope: AiScope, tenantId: string, userId: strin
     const [nbEleves, nbClasses, nbAbsencesAujourdhui] = await Promise.all([
       prisma.eleve.count({ where: { tenantId, ...siteFilter, statut: "ACTIF" } }),
       prisma.classe.count({ where: { tenantId, ...siteFilter, ...(anneeCourante ? { annee: anneeCourante } : {}) } }),
-      // eslint-disable-next-line ecolpro/require-site-filter -- absenceFilter = siteFilterForRelation(session.user, "eleve"), spread sous un nom de variable
+      // eslint-disable-next-line schoolpro/require-site-filter -- absenceFilter = siteFilterForRelation(session.user, "eleve"), spread sous un nom de variable
       prisma.absence.count({ where: { tenantId, ...absenceFilter, ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}), date: { gte: debutJour, lte: finJour } } }),
     ]);
 
@@ -243,7 +243,7 @@ Pour toute question sur l'emploi du temps, les classes, les enseignants ou les s
   }
 
   // ai:parent — grounded strictly on this parent's own linked children.
-  // eslint-disable-next-line ecolpro/require-site-filter -- parent scoping via userId (personal scope), not site-based access
+  // eslint-disable-next-line schoolpro/require-site-filter -- parent scoping via userId (personal scope), not site-based access
   const parent = await prisma.parent.findFirst({
     where: { userId, tenantId },
     include: {
@@ -251,7 +251,7 @@ Pour toute question sur l'emploi du temps, les classes, les enseignants ou les s
       // `userId` : le périmètre est personnel, pas géographique. Un parent peut
       // d'ailleurs avoir des enfants sur plusieurs sites, filtrer par site serait
       // faux (voir RELATION_SCOPED_ROLES dans site-scope.ts).
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       enfants: {
         include: {
            

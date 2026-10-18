@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     // création de l'incident.
     if (gravite >= 2) {
       try {
-        // eslint-disable-next-line ecolpro/require-site-filter -- eleve vérifié avec tenantId + siteFilter ci-dessus
+        // eslint-disable-next-line schoolpro/require-site-filter -- eleve vérifié avec tenantId + siteFilter ci-dessus
         const eleveAvecParents = await prisma.eleve.findUnique({
           where: { id: eleveId },
           select: {

@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     // `absentEleveIds` est un sous-ensemble de `eleveIdsSaisis`, dont l'appartenance
     // à la classe, au tenant et au périmètre de sites vient d'être vérifiée
     // ci-dessus (rejet en 403 sinon) : la portée est acquise en amont.
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     const eleveParents = await prisma.eleveParent.findMany({
       where: {
         eleveId: { in: absentEleveIds },

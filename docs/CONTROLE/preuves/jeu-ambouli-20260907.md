@@ -54,7 +54,7 @@
 | Patterns pédago. | 188 |
 | Audit logs | 10 |
 
-## Tests RLS (via `SET ROLE ecolpro_app`)
+## Tests RLS (via `SET ROLE schoolpro_app`)
 
 | Test | Résultat | Attendu | Statut |
 |------|----------|---------|--------|

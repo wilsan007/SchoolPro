@@ -63,7 +63,7 @@ export async function calculerAssiduiteEnseignant(
 ): Promise<AssiduitePersonnel | null> {
   const annee = await getAnneeCouranteLibelle(tenantId);
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const enseignant = await prisma.enseignant.findFirst({
     where: { id: enseignantId, tenantId },
     include: { user: { select: { name: true } } },
@@ -72,7 +72,7 @@ export async function calculerAssiduiteEnseignant(
   if (!enseignant) return null;
 
   // Heures prévues : compter les séances de l'EDT
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const seances = await prisma.emploiTemps.findMany({
     where: {
       tenantId,
@@ -96,7 +96,7 @@ export async function calculerAssiduiteEnseignant(
   const heuresPrevues = heuresParSemaine * nbSemaines;
 
   // Absences dans la période
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const absences = await prisma.absencePersonnel.findMany({
     where: {
       tenantId,
@@ -155,7 +155,7 @@ export async function calculerAssiduiteTenant(
   dateDebut: Date,
   dateFin: Date
 ): Promise<{ individus: AssiduitePersonnel[]; resume: ResumeAssiduite }> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const enseignants = await prisma.enseignant.findMany({
     where: { tenantId },
     select: { id: true },

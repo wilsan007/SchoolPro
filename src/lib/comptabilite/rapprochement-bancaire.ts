@@ -203,7 +203,7 @@ export async function rapprocher(
   });
 
   // Récupérer les paiements de l'année
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const paiements = await prisma.paiement.findMany({
     where: {
       facture: {

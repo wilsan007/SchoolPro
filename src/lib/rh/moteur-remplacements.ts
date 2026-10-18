@@ -72,7 +72,7 @@ export async function detecterCreneauxImpactes(
   // Fonction de bibliothèque appelée depuis des server actions qui valident
   // déjà la session et le périmètre de site. Le filtrage par site est assuré
   // par l'appelant (ex: moteur-remplacements.ts dans un contexte server action).
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const enseignant = await prisma.enseignant.findFirst({
     where: { id: enseignantId, tenantId },
     include: { user: { select: { name: true } } },
@@ -81,7 +81,7 @@ export async function detecterCreneauxImpactes(
   if (!enseignant) return [];
 
   // Récupérer les séances de l'EDT de cet enseignant
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const seances = await prisma.emploiTemps.findMany({
     where: {
       tenantId,
@@ -130,7 +130,7 @@ export async function chercherCandidatsRemplacement(
   const annee = await getAnneeCouranteLibelle(tenantId);
 
   // Récupérer les enseignants de la même matière
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const enseignants = await prisma.enseignant.findMany({
     where: {
       tenantId,
@@ -150,7 +150,7 @@ export async function chercherCandidatsRemplacement(
 
   for (const ens of enseignants) {
     // Calculer la charge horaire hebdomadaire
-    // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
     const seancesTotales = await prisma.emploiTemps.count({
       where: {
         tenantId,
@@ -164,7 +164,7 @@ export async function chercherCandidatsRemplacement(
     const chargeResiduelle = Math.max(0, chargeHebdoMax - chargeHebdoActuelle);
 
     // Vérifier la disponibilité sur ce créneau (même jour + même heure)
-    // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
     const conflits = await prisma.emploiTemps.findMany({
       where: {
         tenantId,

@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   // Les parents ne peuvent voir que la révision de leurs enfants.
   if (session.user.role === "PARENT") {
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     const lien = await prisma.eleveParent.findFirst({
       where: { eleveId, parent: { userId: session.user.id } },
     });

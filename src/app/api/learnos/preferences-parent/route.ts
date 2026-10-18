@@ -30,7 +30,7 @@ const PatchSchema = z.object({
 async function parentDuCompte(tenantId: string, userId: string) {
   // Pas de filtre de site : les préférences appartiennent à la famille, et le
   // rôle PARENT n'est de toute façon pas borné par site (voir site-scope.ts).
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   return prisma.parent.findFirst({
     where: { tenantId, userId },
     select: { id: true },

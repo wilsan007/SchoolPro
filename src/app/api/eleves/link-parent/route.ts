@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (!parent) return NextResponse.json({ error: "Parent introuvable" }, { status: 404 });
 
   // Check if link already exists — isolé via la relation eleve
-  // eslint-disable-next-line ecolpro/require-site-filter -- eleveParent isolé via eleve.tenantId + siteFilter validé au findFirst ci-dessus (ligne 34)
+  // eslint-disable-next-line schoolpro/require-site-filter -- eleveParent isolé via eleve.tenantId + siteFilter validé au findFirst ci-dessus (ligne 34)
   const existing = await prisma.eleveParent.findUnique({
     where: { eleveId_parentId: { eleveId, parentId } },
   });
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   const eleveId = searchParams.get("eleveId");
 
   if (eleveId) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- eleveParent isolé via la relation eleve (tenantId + siteFilter sur eleve)
+    // eslint-disable-next-line schoolpro/require-site-filter -- eleveParent isolé via la relation eleve (tenantId + siteFilter sur eleve)
     const parents = await prisma.eleveParent.findMany({
       where: { eleveId, eleve: { tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) } },
       include: { parent: { select: { id: true, nom: true, prenom: true, phone: true, email: true } } },
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
   }
 
   // List all links with eleve and parent info
-  // eslint-disable-next-line ecolpro/require-site-filter -- eleveParent isolé via la relation eleve (tenantId + siteFilter sur eleve)
+  // eslint-disable-next-line schoolpro/require-site-filter -- eleveParent isolé via la relation eleve (tenantId + siteFilter sur eleve)
   const links = await prisma.eleveParent.findMany({
     where: { eleve: { tenantId: session.user.tenantId, ...siteFilterForModel("eleve", session.user) } },
     include: {

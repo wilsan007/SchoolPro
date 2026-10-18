@@ -49,7 +49,7 @@ export async function registerTenant(data: RegisterFormData) {
   // (cf. src/lib/auth.ts).
   // Insensible à la casse : un compte enregistré avec une majuscule doit
   // être détecté comme doublon (cf. src/lib/email.ts).
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter
   const existingUser = await prisma.user.findFirst({
     where: { email: { equals: values.adminEmail, mode: "insensitive" } },
     select: { id: true },

@@ -58,7 +58,7 @@ export async function chargerDetailsEnfants(eleveIds: string[]): Promise<Record<
 
   const claims = session.user;
   const eleves = await lectureAvecReprise(() =>
-    // eslint-disable-next-line ecolpro/require-site-filter -- périmètre de site porté par le lien parent-enfant et par le parent, comme sur la page
+    // eslint-disable-next-line schoolpro/require-site-filter -- périmètre de site porté par le lien parent-enfant et par le parent, comme sur la page
     prisma.eleve.findMany({
       where: {
         id: { in: ids },

@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     // Recherche insensible à la casse, comme sur le chemin web : un compte
     // enregistré avec une majuscule doit rester joignable. `findUnique`
     // n'accepte pas `mode: "insensitive"`, d'où `findFirst`.
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- endpoint d'authentification mobile : lookup par email/password, pas de session utilisateur disponible
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- endpoint d'authentification mobile : lookup par email/password, pas de session utilisateur disponible
     const user = await prisma.user.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },
       select: {
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Cet compte n'appartient pas à cet établissement" }, { status: 403 });
     }
 
-    // eslint-disable-next-line ecolpro/require-tenant-id -- self-update après authentification réussie : user.id provient du findUnique ci-dessus, pas d'entrée utilisateur
+    // eslint-disable-next-line schoolpro/require-tenant-id -- self-update après authentification réussie : user.id provient du findUnique ci-dessus, pas d'entrée utilisateur
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },

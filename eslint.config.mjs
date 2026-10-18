@@ -61,7 +61,7 @@ const eslintConfig = [
   // tard DOIT se manifester en « error », et non hériter silencieusement de
   // cette indulgence.
   // Objectif : 0, puis retour en « error » — le chemin déjà suivi par
-  // `ecolpro/require-annee-filter` (380 → 0) et suivi par `pnpm audit:annee`.
+  // `schoolpro/require-annee-filter` (380 → 0) et suivi par `pnpm audit:annee`.
   {
     // Même périmètre que le config Next : c'est là que son plugin est
     // enregistré, et une redéfinition de règle doit couvrir, au minimum, les
@@ -89,9 +89,9 @@ const eslintConfig = [
   // --- Règles globales : désactivées par défaut ---
   {
     rules: {
-      "ecolpro/require-tenant-id": "off",
-      "ecolpro/require-site-filter": "off",
-      "ecolpro/require-annee-filter": "off",
+      "schoolpro/require-tenant-id": "off",
+      "schoolpro/require-site-filter": "off",
+      "schoolpro/require-annee-filter": "off",
     },
   },
 
@@ -103,8 +103,8 @@ const eslintConfig = [
       "src/app/(dashboard)/**/*.{ts,tsx}",
     ],
     rules: {
-      "ecolpro/require-tenant-id": "error",
-      "ecolpro/require-site-filter": "error",
+      "schoolpro/require-tenant-id": "error",
+      "schoolpro/require-site-filter": "error",
       // « error » : la dette est à ZÉRO (mesure du 29/09/2026) — la règle est
       // désormais un garde-fou, plus un simple thermomètre.
       //
@@ -131,7 +131,7 @@ const eslintConfig = [
       //
       // Toute nouvelle violation DOIT être corrigée, ou exemptée avec un motif
       // écrit sur la ligne. Métrique de suivi : `pnpm audit:annee`, plafond 0.
-      "ecolpro/require-annee-filter": "error",
+      "schoolpro/require-annee-filter": "error",
     },
   },
 
@@ -147,9 +147,9 @@ const eslintConfig = [
       "playwright.config.ts",
     ],
     rules: {
-      "ecolpro/require-tenant-id": "off",
-      "ecolpro/require-site-filter": "off",
-      "ecolpro/require-annee-filter": "off",
+      "schoolpro/require-tenant-id": "off",
+      "schoolpro/require-site-filter": "off",
+      "schoolpro/require-annee-filter": "off",
     },
   },
 

@@ -51,7 +51,7 @@ export async function budgetDuJour(
   // pas du campus. Le filtrer par site laisserait chaque campus consommer le
   // plafond entier, et le multiplierait par leur nombre. Le résultat n'est
   // qu'un entier — aucune ligne du journal ne sort d'ici.
-  // eslint-disable-next-line ecolpro/require-site-filter -- plafond d'établissement, cf. ci-dessus
+  // eslint-disable-next-line schoolpro/require-site-filter -- plafond d'établissement, cf. ci-dessus
   const utilise = await prisma.aiDecisionLog.count({
     where: {
       tenantId,

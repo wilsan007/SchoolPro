@@ -44,13 +44,13 @@ async function resolveRecipients(
 
   switch (cible) {
     case "TOUS": {
-      // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
+      // eslint-disable-next-line schoolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
       const users = await prisma.user.findMany({
         where: { tenantId, isActive: true },
         select: { id: true, email: true },
       });
       users.forEach((u) => { if (u.email) emails.add(u.email); userIds.add(u.id); });
-      // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
+      // eslint-disable-next-line schoolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
       const parents = await prisma.parent.findMany({
         where: { tenantId },
         select: { email: true, phone: true, userId: true },
@@ -59,7 +59,7 @@ async function resolveRecipients(
       break;
     }
     case "PARENTS": {
-      // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
+      // eslint-disable-next-line schoolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
       const parents = await prisma.parent.findMany({
         where: { tenantId },
         select: { email: true, phone: true, userId: true },
@@ -68,7 +68,7 @@ async function resolveRecipients(
       break;
     }
     case "ENSEIGNANTS": {
-      // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
+      // eslint-disable-next-line schoolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
       const ens = await prisma.enseignant.findMany({
         where: { tenantId },
         select: { user: { select: { id: true, email: true } } },
@@ -80,7 +80,7 @@ async function resolveRecipients(
       break;
     }
     case "DIRECTION": {
-      // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
+      // eslint-disable-next-line schoolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
       const direction = await prisma.user.findMany({
         where: {
           tenantId,
@@ -98,7 +98,7 @@ async function resolveRecipients(
     case "ELEVES":
     case "CLASSE":
     case "NIVEAU": {
-      // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
+      // eslint-disable-next-line schoolpro/require-site-filter -- notification dispatch, tenant-wide recipient resolution
       const parents = await prisma.parent.findMany({
         where: {
           tenantId,
@@ -141,7 +141,7 @@ export async function dispatchNotification(
   notificationId: string,
   tenantId: string
 ): Promise<DispatchResult> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- notification lookup by id+tenantId, site scoping is caller's responsibility
+  // eslint-disable-next-line schoolpro/require-site-filter -- notification lookup by id+tenantId, site scoping is caller's responsibility
   const notif = await prisma.notification.findFirst({
     where: { id: notificationId, tenantId },
   });
@@ -203,7 +203,7 @@ export async function dispatchNotification(
       // indépendamment du tenant ; la désactivation ne lit ni ne renvoie aucune
       // donnée, seul le champ `token` (déjà connu de l'appelant) sert de clé.
       if (r.invalidTokens.length > 0) {
-        // eslint-disable-next-line ecolpro/require-tenant-id
+        // eslint-disable-next-line schoolpro/require-tenant-id
         await prisma.deviceToken.updateMany({
           where: { token: { in: r.invalidTokens } },
           data: { isActive: false },

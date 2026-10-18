@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   // code déjà pris sur un autre site, et la création partirait quand même en
   // violation de contrainte — une 500 au lieu d'un message clair. Le contrôle
   // doit porter sur le même périmètre que la contrainte qu'il anticipe.
-  // eslint-disable-next-line ecolpro/require-site-filter -- périmètre de la contrainte d'unicité, cf. ci-dessus
+  // eslint-disable-next-line schoolpro/require-site-filter -- périmètre de la contrainte d'unicité, cf. ci-dessus
   const doublon = await withAllSites("unicité d'une compétence à l'échelle de l'établissement", () => prisma.competence.findFirst({
     where: { tenantId, code },
     select: { id: true },

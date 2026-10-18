@@ -32,7 +32,7 @@ export async function notifyDirection({
 }: NotifyDirectionParams): Promise<void> {
   try {
     // Résoudre les userIds de la direction pour les compteurs
-    // eslint-disable-next-line ecolpro/require-site-filter -- notification dispatch, tenant-wide direction resolution
+    // eslint-disable-next-line schoolpro/require-site-filter -- notification dispatch, tenant-wide direction resolution
     const direction = await prisma.user.findMany({
       where: {
         tenantId,

@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
           // un bulletin autorisé. `BulletinMatiere` n'offre par ailleurs aucun
           // chemin de site propre (elle passe par le bulletin, qui n'a pas de
           // colonne `siteId`).
-          // eslint-disable-next-line ecolpro/require-site-filter
+          // eslint-disable-next-line schoolpro/require-site-filter
           matieres: { include: { matiere: { select: { id: true, nom: true, code: true } } } },
         },
       }),

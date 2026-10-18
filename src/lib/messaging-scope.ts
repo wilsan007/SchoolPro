@@ -217,7 +217,7 @@ async function recipientScopeFilter(
       // Fiche de l'émetteur lui-même, retrouvée par son propre `userId` :
       // aucun filtre de site à appliquer, la requête ne peut viser personne
       // d'autre.
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       const enseignant = await prisma.enseignant.findFirst({
         where: { userId, tenantId },
         select: { id: true },
@@ -262,7 +262,7 @@ async function recipientScopeFilter(
   if (role === "PARENT") {
     if (type === "PARENT_TEACHER") {
       // Fiche de l'émetteur lui-même : voir plus haut, pas de filtre de site.
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       const parent = await prisma.parent.findFirst({
         where: { userId, tenantId },
         select: { id: true },
@@ -275,7 +275,7 @@ async function recipientScopeFilter(
       // qui borne la requête, pas le site. Un parent dont les enfants sont sur
       // deux sites doit joindre les enseignants des deux.
       const anneeCourante = await getAnneeCouranteLibelle(tenantId);
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       const classes = await prisma.classe.findMany({
         where: {
           tenantId,
@@ -313,7 +313,7 @@ async function recipientScopeFilter(
       // seuls les parents qui ont un enfant dans une classe où l'émetteur a
       // aussi un enfant sont proposés.
       // Fiche de l'émetteur lui-même : voir plus haut, pas de filtre de site.
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       const parent = await prisma.parent.findFirst({
         where: { userId, tenantId },
         select: { id: true },
@@ -321,7 +321,7 @@ async function recipientScopeFilter(
       if (!parent) return null;
 
       // Enfants de l'émetteur : bornés par la filiation, voir ci-dessus.
-      // eslint-disable-next-line ecolpro/require-site-filter
+      // eslint-disable-next-line schoolpro/require-site-filter
       const mesEnfants = await prisma.eleve.findMany({
         where: {
           tenantId,
@@ -419,7 +419,7 @@ async function classeUserFilter(
   // accès par identifiant : `classeId` est vérifié par l'appelant — la route
   // contrôle `canAccessSite(actor, classe.siteId)` avant d'ouvrir la
   // conversation. Ni le site ni l'année ne se déduisent de cet appel.
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter
   const classe = await prisma.classe.findFirst({
     where: { id: classeId, tenantId },
     select: { id: true, profPrincipal: { select: { userId: true } } },
@@ -457,16 +457,16 @@ export async function getClassParticipants(
   // périmètre découle donc de `classeId`, et les élèves d'une classe sont par
   // construction sur le site de cette classe.
   const [eleves, classe] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     prisma.eleve.findMany({
       where: { tenantId, classeId, deletedAt: null },
       include: {
         user: { select: { id: true } },
-        // eslint-disable-next-line ecolpro/require-site-filter
+        // eslint-disable-next-line schoolpro/require-site-filter
         parents: { include: { parent: { include: { user: { select: { id: true } } } } } },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- accès par identifiant : `classeId` est vérifié par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- accès par identifiant : `classeId` est vérifié par l'appelant
     prisma.classe.findFirst({
       where: { id: classeId, tenantId },
       include: {

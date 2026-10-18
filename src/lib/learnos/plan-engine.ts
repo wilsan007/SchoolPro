@@ -44,7 +44,7 @@
  * périmètre personnel) sur la voie requête, `tenantId` de l'événement sur la
  * voie de fond. Un plan appartient à un élève, qui appartient à un seul site.
  *
- * Les `eslint-disable ecolpro/require-site-filter` de ce fichier renvoient tous
+ * Les `eslint-disable schoolpro/require-site-filter` de ce fichier renvoient tous
  * ici. Ils ne valent QUE pour des requêtes bornées par un `eleveId` déjà
  * autorisé. Une lecture qui ne serait pas bornée ainsi doit porter le filtre.
  */
@@ -115,7 +115,7 @@ export async function evaluerBesoinDePlans(
 
   const anneeCourante = await getAnneeCouranteLibelle(tenantId);
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const recommandations = (await prisma.recommandation.findMany({
     where: { tenantId, eleveId, resolueLe: null, statut: { not: "ECARTEE" }, ...(anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {}) },
     select: {
@@ -135,7 +135,7 @@ export async function evaluerBesoinDePlans(
   })) as RecoAvecMatiere[];
   if (recommandations.length === 0) return resultat;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const plansEnCours = await prisma.planProgression.findMany({
     where: { tenantId, eleveId, statut: { in: STATUTS_EN_COURS } },
     select: {
@@ -288,7 +288,7 @@ async function proposerPlanMatiere(
   // Traitement de fond déclenché par le drainage, donc sans session : aucun
   // périmètre d'utilisateur à appliquer. L'isolation tient au `tenantId`, et le
   // site est lu pour être *posé* sur le plan, non pour arbitrer un accès.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     select: { siteId: true },
@@ -339,14 +339,14 @@ export async function validerPlan(
   responsableUserId?: string,
   maintenant: Date = new Date()
 ): Promise<boolean> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- moteur hors session, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- moteur hors session, cf. en-tête « ISOLATION »
   const plan = await prisma.planProgression.findFirst({
     where: { tenantId, id: planId, statut: "PROPOSE" },
     select: { id: true, eleveId: true, etapes: { select: { competenceId: true } } },
   });
   if (!plan) return false;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par l'eleveId du plan, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par l'eleveId du plan, cf. en-tête « ISOLATION »
   const profils = await prisma.studentLearningProfile.findMany({
     where: {
       tenantId,
@@ -402,7 +402,7 @@ export async function synchroniserEtapes(
   competenceId: string,
   maintenant: Date = new Date()
 ): Promise<{ validees: number; rouvertes: number }> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const profil = await prisma.studentLearningProfile.findFirst({
     where: { tenantId, eleveId, competenceId },
     select: { masteryStatus: true, masteryScore: true },
@@ -470,7 +470,7 @@ async function cloturerPlansAcheves(
   eleveId: string,
   maintenant: Date
 ): Promise<void> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const plans = await prisma.planProgression.findMany({
     where: { tenantId, eleveId, statut: { in: ["ACTIF", "EN_REVUE"] } },
     select: {
@@ -483,7 +483,7 @@ async function cloturerPlansAcheves(
   for (const plan of plans) {
     if (plan.etapes.some((e) => e.statut !== "VALIDE")) continue;
 
-    // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+    // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
     const profils = await prisma.studentLearningProfile.findMany({
       where: {
         tenantId,
@@ -529,7 +529,7 @@ export async function passerEnRevueLesPlansEchus(
 ): Promise<number> {
   // Tâche système : elle balaie délibérément tous les tenants, comme les autres
   // traitements planifiés.
-  // eslint-disable-next-line ecolpro/require-tenant-id
+  // eslint-disable-next-line schoolpro/require-tenant-id
   const { count } = await prisma.planProgression.updateMany({
     where: { statut: "ACTIF", dateRevue: { lte: maintenant } },
     data: { statut: "EN_REVUE" },

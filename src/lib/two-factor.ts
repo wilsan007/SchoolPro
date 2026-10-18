@@ -210,7 +210,7 @@ export async function setup2FA(userId: string): Promise<Setup2FAResult> {
 
   // Stocker le secret (non vérifié) — twoFactorEnabled reste false
   // jusqu'à la vérification
-  // eslint-disable-next-line ecolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
+  // eslint-disable-next-line schoolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -258,7 +258,7 @@ export async function verify2FA(
   }
 
   // Activer le 2FA
-  // eslint-disable-next-line ecolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
+  // eslint-disable-next-line schoolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -315,7 +315,7 @@ export async function verifyBackupCode(
   const nouveauxCodes = [...user.backupCodes];
   nouveauxCodes.splice(index, 1);
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
+  // eslint-disable-next-line schoolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
   await prisma.user.update({
     where: { id: userId },
     data: { backupCodes: nouveauxCodes },
@@ -328,7 +328,7 @@ export async function verifyBackupCode(
  * Désactive le 2FA pour un utilisateur.
  */
 export async function disable2FA(userId: string): Promise<void> {
-  // eslint-disable-next-line ecolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
+  // eslint-disable-next-line schoolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié, pas de scope tenant
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -372,7 +372,7 @@ export async function verifierCodeConnexion(
     return ok;
   }
 
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- connexion : aucune session n'existe encore, l'utilisateur est identifié par son mot de passe déjà validé
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- connexion : aucune session n'existe encore, l'utilisateur est identifié par son mot de passe déjà validé
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { email: true, totpSecret: true, totpSecretIv: true },
@@ -394,7 +394,7 @@ export async function verifierCodeConnexion(
 }
 
 async function marquerVerification(userId: string): Promise<void> {
-  // eslint-disable-next-line ecolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié
+  // eslint-disable-next-line schoolpro/require-tenant-id -- 2FA agit sur l'utilisateur authentifié
   await prisma.user.update({
     where: { id: userId },
     data: { twoFactorVerifiedAt: new Date() },
@@ -406,7 +406,7 @@ async function marquerVerification(userId: string): Promise<void> {
  * Utilisé par le middleware d'authentification.
  */
 export async function twoFactorRequis(userId: string): Promise<boolean> {
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- 2FA agit sur l'utilisateur authentifié
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- 2FA agit sur l'utilisateur authentifié
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { twoFactorEnabled: true },

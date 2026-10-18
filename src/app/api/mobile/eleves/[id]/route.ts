@@ -61,7 +61,7 @@ export async function GET(
   const anneeClasse = anneeCourante ? { classe: { annee: anneeCourante } } : {};
   const anneeEleve = anneeCourante ? { eleve: { classe: { annee: anneeCourante } } } : {};
   const [parents, notes, absences, incidents] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     prisma.eleveParent.findMany({
       where: { eleveId: id },
       select: {
@@ -72,7 +72,7 @@ export async function GET(
         },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     prisma.note.findMany({
       where: { eleveId: id, tenantId: user.tenantId, ...anneeClasse },
       select: {
@@ -87,14 +87,14 @@ export async function GET(
       orderBy: { date: "desc" },
       take: 20,
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     prisma.absence.findMany({
       where: { eleveId: id, tenantId: user.tenantId, ...anneeEleve },
       select: { id: true, date: true, isRetard: true, statut: true, motif: true },
       orderBy: { date: "desc" },
       take: 10,
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     prisma.incident.findMany({
       where: { eleveId: id, tenantId: user.tenantId, ...anneeEleve },
       select: { id: true, type: true, statut: true, gravite: true, description: true, date: true },

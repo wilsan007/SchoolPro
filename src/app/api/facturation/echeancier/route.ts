@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   const { factureId } = parsed.data;
 
   // Vérifier que la facture appartient au tenant
-  // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId
+  // eslint-disable-next-line schoolpro/require-site-filter -- filtré par tenantId
   const facture = await prisma.facture.findFirst({
     where: { id: factureId, tenantId: session.user.tenantId },
   });
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   const data = parsed.data;
 
   // Vérifier que la facture appartient au tenant
-  // eslint-disable-next-line ecolpro/require-site-filter -- filtré par tenantId
+  // eslint-disable-next-line schoolpro/require-site-filter -- filtré par tenantId
   const facture = await prisma.facture.findFirst({
     where: { id: data.factureId, tenantId: session.user.tenantId },
   });

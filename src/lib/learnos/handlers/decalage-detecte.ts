@@ -24,7 +24,7 @@ export async function onDecalageDetecte(event: DrainedEvent): Promise<void> {
 
   // Idempotence : ne pas recréer si une notification existe déjà pour cet event.
   // Handler LEARNOS — pas de session utilisateur, filtrage par tenantId uniquement.
-  // eslint-disable-next-line ecolpro/require-site-filter -- handler event-bus, pas de session
+  // eslint-disable-next-line schoolpro/require-site-filter -- handler event-bus, pas de session
   const existante = await prisma.notification.findFirst({
     where: { tenantId, titre },
     select: { id: true },
@@ -32,14 +32,14 @@ export async function onDecalageDetecte(event: DrainedEvent): Promise<void> {
   if (existante) return;
 
   // Rechercher les informations de contexte pour le message.
-  // eslint-disable-next-line ecolpro/require-site-filter -- handler event-bus, pas de session
+  // eslint-disable-next-line schoolpro/require-site-filter -- handler event-bus, pas de session
   const chapitre = await prisma.chapitre.findFirst({
     where: { id: payload.chapitreId, tenantId },
     select: { nom: true, matiere: { select: { nom: true } } },
   });
 
   const classe = payload.classeId
-    ? // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- handler event-bus, pas de session
+    ? // eslint-disable-next-line schoolpro/require-annee-filter, schoolpro/require-site-filter -- handler event-bus, pas de session
       await prisma.classe.findFirst({
         where: { id: payload.classeId, tenantId },
         select: { nom: true },

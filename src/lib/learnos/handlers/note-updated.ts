@@ -86,7 +86,7 @@ async function alerterParentBaisseNote(
   tenantId: string,
   p: NoteUpdatedPayload
 ): Promise<void> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, eleveId)
+  // eslint-disable-next-line schoolpro/require-site-filter -- événement drainé, borné par (tenantId, eleveId)
   const eleve = await prisma.eleve.findFirst({
     where: { id: p.eleveId, tenantId },
     select: {

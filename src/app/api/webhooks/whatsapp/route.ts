@@ -17,7 +17,7 @@ function sanitizeForLog(value: string): string {
 // façon protégés par verifyMetaSignature (HMAC clé secrète de l'app).
 const VERIFY_TOKEN =
   process.env.WHATSAPP_VERIFY_TOKEN ??
-  (process.env.NODE_ENV === "production" ? undefined : "ecolpro_whatsapp_token");
+  (process.env.NODE_ENV === "production" ? undefined : "schoolpro_whatsapp_token");
 
 /**
  * GET /api/webhooks/whatsapp

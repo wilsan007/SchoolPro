@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
         // borné au tenant et au périmètre de sites : l'isolation est portée par la
         // relation. (BulletinMatiere n'a par ailleurs aucun chemin propre vers le
         // site : son rattachement passe uniquement par ce bulletin.)
-        // eslint-disable-next-line ecolpro/require-site-filter
+        // eslint-disable-next-line schoolpro/require-site-filter
         matieres: { include: { matiere: true } },
         periode: true,
       },
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // eslint-disable-next-line ecolpro/require-annee-filter -- borné par la période du bulletin et par `eleveId`
+    // eslint-disable-next-line schoolpro/require-annee-filter -- borné par la période du bulletin et par `eleveId`
     const absences = await prisma.absence.count({
       where: { tenantId, ...siteFilterForModel("absence", session.user),
         eleveId,

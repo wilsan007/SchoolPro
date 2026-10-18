@@ -57,7 +57,7 @@ export async function GET(
           },
         },
         tenant: true,
-        // eslint-disable-next-line ecolpro/require-site-filter -- paiement n'a pas de siteId, scopé via la facture parente déjà filtrée par site
+        // eslint-disable-next-line schoolpro/require-site-filter -- paiement n'a pas de siteId, scopé via la facture parente déjà filtrée par site
         paiements: {
           orderBy: { date: "desc" },
           include: { enregistrePar: { select: { name: true } } },

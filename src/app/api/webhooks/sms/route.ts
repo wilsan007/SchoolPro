@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       // Limite connue : si deux établissements enregistrent le même numéro,
       // le message est rattaché arbitrairement au premier trouvé.
       const parent = await withSystemContext("webhook:sms-incoming", () =>
-        // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+        // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter
         prisma.parent.findFirst({
           where: { phone: body.from },
           include: { tenant: true },

@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
   const eleveIds = eleves.map((e) => e.id);
 
   // ── Absences et retards sur la période ──────────────────────────
-  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par eleveIds (élèves de la période) et une plage de dates
+  // eslint-disable-next-line schoolpro/require-annee-filter -- borné par eleveIds (élèves de la période) et une plage de dates
   const absences = await prisma.absence.findMany({
     where: {
       tenantId,
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
   });
 
   // ── Incidents et sanctions ──────────────────────────────────────
-  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par eleveIds (élèves de la période) et une plage de dates
+  // eslint-disable-next-line schoolpro/require-annee-filter -- borné par eleveIds (élèves de la période) et une plage de dates
   const incidents = await prisma.incident.findMany({
     where: {
       tenantId,
@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
 
   // ── Recommandations LEARNOS actives ─────────────────────────────
   // `ECARTEE` = écartée par l'enseignant ; tout le reste est « active ».
-  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par eleveIds (élèves de la période)
+  // eslint-disable-next-line schoolpro/require-annee-filter -- borné par eleveIds (élèves de la période)
   const recommandations = await prisma.recommandation.findMany({
     where: {
       tenantId,

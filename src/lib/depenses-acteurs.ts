@@ -29,7 +29,7 @@ export async function verifierActeursDepense(
     // Le rôle se lit dans l'appartenance au tenant, pas dans `User.role` : un
     // compte multi-établissements porte un rôle par tenant, et un même compte
     // peut cumuler plusieurs rôles dans un établissement (UserRole).
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- tenant borné par les deux relations ; la direction et la comptabilité agissent pour tous les sites
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- tenant borné par les deux relations ; la direction et la comptabilité agissent pour tous les sites
     const membre = await prisma.user.findFirst({
       where: {
         id,

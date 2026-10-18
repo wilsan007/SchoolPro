@@ -53,7 +53,7 @@ export async function changePassword(data: {
   }
 
   // Récupérer le mot de passe actuel hashé
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- self-lookup de l'utilisateur connecté
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { password: true },
@@ -76,7 +76,7 @@ export async function changePassword(data: {
 
   const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- self-update: session.user.id est l'utilisateur connecté lui-même
+  // eslint-disable-next-line schoolpro/require-tenant-id -- self-update: session.user.id est l'utilisateur connecté lui-même
   await prisma.user.update({
     where: { id: session.user.id },
     data: {

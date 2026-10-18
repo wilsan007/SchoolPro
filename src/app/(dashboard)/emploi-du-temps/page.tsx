@@ -123,7 +123,7 @@ export default async function EmploiDuTempsPage() {
   let mesClasses = classes;
   let mesEmplois = emplois;
   if (estEnseignant) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- résolution de l'enseignant par userId+tenantId
+    // eslint-disable-next-line schoolpro/require-site-filter -- résolution de l'enseignant par userId+tenantId
     const ens = await prisma.enseignant.findFirst({
       where: { userId: session.user.id, tenantId: session.user.tenantId },
       select: { id: true },

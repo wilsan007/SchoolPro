@@ -62,7 +62,7 @@ export async function onAbsenceRecorded(event: DrainedEvent): Promise<void> {
     return;
   }
 
-  // eslint-disable-next-line ecolpro/require-annee-filter -- événement drainé : comptage sur une plage de dates déjà calculée
+  // eslint-disable-next-line schoolpro/require-annee-filter -- événement drainé : comptage sur une plage de dates déjà calculée
   const lignes = await prisma.absence.groupBy({
     by: ["isRetard"],
     where: {

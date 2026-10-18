@@ -137,8 +137,8 @@ Le script `deploy.sh` :
 3. Synchronise le code via rsync
 4. Construit les images sur le VPS
 5. Prend une sauvegarde de sécurité
-6. Lance les migrations Prisma (rôle `ecolpro_owner`)
-7. Démarre la stack (rôle `ecolpro_app` pour le runtime)
+6. Lance les migrations Prisma (rôle `schoolpro_owner`)
+7. Démarre la stack (rôle `schoolpro_app` pour le runtime)
 8. Vérifie la santé de l'application
 9. **Rollback automatique** si l'app ne répond pas dans 2 min
 10. Lance un audit de sécurité
@@ -154,7 +154,7 @@ Le script `migrate-from-supabase.sh` :
 
 - Utilise la connexion **directe** Supabase (pas le pooler)
 - Extrait uniquement le schéma `public` (ignore auth/storage/realtime)
-- Restaure sans propriétaire, puis réattribue à `ecolpro_owner`
+- Restaure sans propriétaire, puis réattribue à `schoolpro_owner`
 - Vérifie les effectifs avant/après
 - Conserve le dump local jusqu'à validation
 
@@ -200,8 +200,8 @@ Voir `RUNBOOK.md` — section « Restauration PostgreSQL ».
 - **Zéro port entrant** : seul SSH est ouvert. Le trafic web arrive par le
   tunnel Cloudflare (connexion sortante).
 - **Secrets chiffrés** : SOPS + age, jamais en clair dans Git
-- **Rôles PostgreSQL séparés** : `ecolpro_owner` (migrations),
-  `ecolpro_app` (runtime, pas de DDL), `ecolpro_backup`, `ecolpro_ro`
+- **Rôles PostgreSQL séparés** : `schoolpro_owner` (migrations),
+  `schoolpro_app` (runtime, pas de DDL), `schoolpro_backup`, `schoolpro_ro`
 - **Conteneur non-root** : l'app tourne en UID 1001, rootfs en lecture seule
 - **pgaudit** : journalisation des requêtes DDL et de lecture/écriture
 - **SCRAM-SHA-256** : authentification PostgreSQL moderne
@@ -235,7 +235,7 @@ L'architecture est conçue pour évoluer sans refonte :
 
 ```bash
 make logs
-ssh root@VPS_IP 'docker exec ecolpro-app node -e "
+ssh root@VPS_IP 'docker exec schoolpro-app node -e "
   fetch(\"http://127.0.0.1:3000/api/health\")
     .then(r => r.json()).then(j => console.log(j))
     .catch(e => console.error(e.message))
@@ -245,7 +245,7 @@ ssh root@VPS_IP 'docker exec ecolpro-app node -e "
 ### Le tunnel Cloudflare ne répond pas
 
 1. Dashboard Cloudflare → Tunnels → vérifier le statut (Healthy)
-2. `ssh root@VPS_IP 'docker logs ecolpro-cloudflared --tail 50'`
+2. `ssh root@VPS_IP 'docker logs schoolpro-cloudflared --tail 50'`
 3. Vérifier que `TUNNEL_TOKEN` est correct dans les secrets
 4. Vérifier que le hostname pointe vers `http://caddy:80`
 

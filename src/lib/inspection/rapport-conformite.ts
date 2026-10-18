@@ -71,22 +71,22 @@ async function calculerRatiosEncadrement(
   });
 
   const [totalEleves, totalEnseignants, totalClasses] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
     prisma.eleve.count({
       where: { tenantId, statut: "ACTIF" },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
     prisma.enseignant.count({
       where: { tenantId },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
     prisma.classe.count({
       where: { tenantId, annee: anneeLibelle, deletedAt: null },
     }),
   ]);
 
   // Enseignants par type de contrat (proxy pour qualification)
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const enseignants = await prisma.enseignant.findMany({
     where: { tenantId },
     select: { typeContrat: true, specialite: true },
@@ -120,14 +120,14 @@ async function calculerCouvertureHoraire(
   anneeLibelle: string
 ): Promise<CouvertureHoraireMatiere[]> {
   // Récupérer toutes les matières du tenant
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const matieres = await prisma.matiere.findMany({
     where: { tenantId },
     select: { id: true, nom: true },
   });
 
   // Récupérer les séances d'EDT par matière
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const seances = await prisma.emploiTemps.findMany({
     where: { tenantId, annee: anneeLibelle },
     select: { matiereId: true, heureDebut: true, heureFin: true },
@@ -187,7 +187,7 @@ async function calculerDistributionMoyennes(
 
   for (const periode of periodes) {
     // Récupérer les bulletins avec les élèves pour cette période
-    // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+    // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const bulletins = await prisma.bulletin.findMany({
       where: {
         tenantId,
@@ -240,7 +240,7 @@ async function calculerDistributionMoyennes(
 async function calculerRepartitionGeographique(
   tenantId: string
 ): Promise<RepartitionGeographique[]> {
-  // eslint-disable-next-line ecolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
+  // eslint-disable-next-line schoolpro/require-site-filter -- fonction de bibliothèque, site filtré par l'appelant
   const eleves = await prisma.eleve.findMany({
     where: { tenantId, statut: "ACTIF" },
     select: { lieuNaissance: true, nationalite: true },

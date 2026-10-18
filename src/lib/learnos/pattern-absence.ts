@@ -210,7 +210,7 @@ export async function analyserPatternsAbsence(
 
   // Charger les séances pour ces classes sur la fenêtre, groupées par date.
   const seances = classeIds.length > 0
-  // eslint-disable-next-line ecolpro/require-annee-filter -- fenêtre glissante bornée par des dates (analyse de comportement, pas de cohorte)
+  // eslint-disable-next-line schoolpro/require-annee-filter -- fenêtre glissante bornée par des dates (analyse de comportement, pas de cohorte)
     ? await prisma.seancePedagogique.findMany({
         where: {
           tenantId,
@@ -426,7 +426,7 @@ export async function tauxAssiduiteRecent(
 
   // Le filtre de site passe par la relation `eleve` — l'absence n'a pas de
   // `siteId` direct. Le tenantId borne déjà la requête au tenant courant.
-  // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- scope via tenantId + eleveId (déjà borné)
+  // eslint-disable-next-line schoolpro/require-annee-filter, schoolpro/require-site-filter -- scope via tenantId + eleveId (déjà borné)
   const lignes = await prisma.absence.groupBy({
     by: ["isRetard"],
     where: {

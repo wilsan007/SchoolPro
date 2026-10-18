@@ -123,7 +123,7 @@ export async function PATCH(
   if (data.statut === "ADMIS" && candidature.statut !== "ADMIS") {
     const anneeCourante = await getAnneeCouranteLibelle(tenantId);
     // a) Idempotence : vérifier qu'aucune facture n'existe déjà pour cette candidature
-    // eslint-disable-next-line ecolpro/require-site-filter -- recherche par candidatureId, pas de filtre site nécessaire
+    // eslint-disable-next-line schoolpro/require-site-filter -- recherche par candidatureId, pas de filtre site nécessaire
     const factureExistante = await prisma.facture.findFirst({
       where: { candidatureId: candidature.id, tenantId },
       select: { id: true },
@@ -136,7 +136,7 @@ export async function PATCH(
       // alors que classeVoulue contient le NOM de la classe (ex: "Terminale A").
       // On résout d'abord la classe pour récupérer son niveau.
       let niveauTarif = candidature.classeVoulue; // fallback : utiliser classeVoulue tel quel
-      // eslint-disable-next-line ecolpro/require-site-filter -- recherche par nom dans le site de la candidature
+      // eslint-disable-next-line schoolpro/require-site-filter -- recherche par nom dans le site de la candidature
       const classeForNiveau = await prisma.classe.findFirst({
         where: {
           tenantId,
@@ -213,7 +213,7 @@ export async function PATCH(
   // ── Gate de paiement au passage à INSCRIT ──
   if (data.statut === "INSCRIT" && candidature.statut !== "INSCRIT") {
     // Récupérer la facture liée à la candidature avec ses paiements
-    // eslint-disable-next-line ecolpro/require-site-filter -- recherche par candidatureId
+    // eslint-disable-next-line schoolpro/require-site-filter -- recherche par candidatureId
     const factureInscription = await prisma.facture.findFirst({
       where: { candidatureId: candidature.id, tenantId },
       include: { paiements: true },
@@ -478,7 +478,7 @@ export async function PATCH(
       // g) Créer le compte User pour l'élève (username = matricule, password = DOB)
       const password = formatDOB(candidature.dateNaissance);
       if (password) {
-        // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'unicité globale par email
+        // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- vérification d'unicité globale par email
         const existingUser = await prisma.user.findFirst({
           where: { email: { equals: result.matricule, mode: "insensitive" } },
           select: { id: true },

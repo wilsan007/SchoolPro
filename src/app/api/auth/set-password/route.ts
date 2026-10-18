@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- own user record
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- own user record
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { id: true, password: true, email: true },
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- own user record, verified above
+  // eslint-disable-next-line schoolpro/require-tenant-id -- own user record, verified above
   await prisma.user.update({
     where: { id: user.id },
     data: { password: hashedPassword, mustChangePassword: false, sessionVersion: { increment: 1 } },

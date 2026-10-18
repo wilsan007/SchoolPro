@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * EcolPro — Générateur des politiques RLS
+ * SchoolPro — Générateur des politiques RLS
  * =======================================
  *
  * POURQUOI GÉNÉRER PLUTÔT QU'ÉCRIRE À LA MAIN
@@ -230,7 +230,7 @@ ALTER TABLE public."${model.table}" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS ${policy} ON public."${model.table}";
 CREATE POLICY ${policy} ON public."${model.table}"
   FOR ALL
-  TO ecolpro_app
+  TO schoolpro_app
   USING (
       ${pred}
   )
@@ -256,7 +256,7 @@ ALTER TABLE public."${j.table}" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS ${j.table.replace(/^_/, "")}_isolation ON public."${j.table}";
 CREATE POLICY ${j.table.replace(/^_/, "")}_isolation ON public."${j.table}"
   FOR ALL
-  TO ecolpro_app
+  TO schoolpro_app
   USING (
       EXISTS (
         SELECT 1 FROM public.${j.parentTable} c
@@ -275,7 +275,7 @@ CREATE POLICY ${j.table.replace(/^_/, "")}_isolation ON public."${j.table}"
 }
 
 const header = `-- ============================================================
--- EcolPro — Politiques RLS d'isolation multi-tenant
+-- SchoolPro — Politiques RLS d'isolation multi-tenant
 --
 -- ⚠️  FICHIER GÉNÉRÉ — NE PAS MODIFIER À LA MAIN.
 --     Source : prisma/schema.prisma
@@ -288,17 +288,17 @@ const header = `-- ============================================================
 --
 -- CHOIX : ENABLE, PAS « FORCE »
 -- \`FORCE ROW LEVEL SECURITY\` appliquerait aussi les politiques au
--- PROPRIÉTAIRE des tables (ecolpro_owner). Or c'est ce rôle qui exécute
+-- PROPRIÉTAIRE des tables (schoolpro_owner). Or c'est ce rôle qui exécute
 -- les migrations Prisma et les reprises de données : le forcer ferait
 -- échouer silencieusement tout backfill (« 0 ligne mise à jour »).
--- L'application, elle, se connecte en \`ecolpro_app\` — un rôle NI
+-- L'application, elle, se connecte en \`schoolpro_app\` — un rôle NI
 -- propriétaire NI superutilisateur : les politiques s'y appliquent
 -- pleinement, ce qui est le seul cas qui compte. Le propriétaire n'est
 -- utilisé que par un conteneur éphémère, jamais exposé au réseau.
 --
--- CHOIX : \`TO ecolpro_app\`
+-- CHOIX : \`TO schoolpro_app\`
 -- Les politiques ne visent que le rôle applicatif. Le rôle de sauvegarde
--- (\`ecolpro_backup\`, pg_read_all_data) doit continuer à tout lire — une
+-- (\`schoolpro_backup\`, pg_read_all_data) doit continuer à tout lire — une
 -- sauvegarde partielle serait pire qu'inutile.
 --
 -- USING **et** WITH CHECK
@@ -329,7 +329,7 @@ ALTER TABLE public."tenants" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenants_isolation ON public."tenants";
 CREATE POLICY tenants_isolation ON public."tenants"
   FOR ALL
-  TO ecolpro_app
+  TO schoolpro_app
   USING ( is_super_admin() OR id = current_tenant_id() )
   WITH CHECK ( is_super_admin() OR id = current_tenant_id() );
 

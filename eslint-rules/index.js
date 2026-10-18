@@ -14,9 +14,9 @@ module.exports = {
     recommended: {
       plugins: ["ecolpro"],
       rules: {
-        "ecolpro/require-tenant-id": "error",
-        "ecolpro/require-site-filter": "error",
-        "ecolpro/require-annee-filter": "warn",
+        "schoolpro/require-tenant-id": "error",
+        "schoolpro/require-site-filter": "error",
+        "schoolpro/require-annee-filter": "warn",
       },
     },
   },

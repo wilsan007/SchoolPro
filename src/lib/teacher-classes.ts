@@ -47,7 +47,7 @@ export async function getTeacherScope(
     ? await getAnneeCouranteLibelle(tenantId)
     : anneeCourante;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- teacher lookup by userId+tenantId, site scoping is caller's responsibility
+  // eslint-disable-next-line schoolpro/require-site-filter -- teacher lookup by userId+tenantId, site scoping is caller's responsibility
   const enseignant = await prisma.enseignant.findFirst({
     where: { userId, tenantId },
     select: { id: true },
@@ -63,7 +63,7 @@ export async function getTeacherScope(
   const filtreAnneeClasse = anneeEffective ? { annee: anneeEffective } : {};
   const filtreAnneeEmploi = anneeEffective ? { annee: anneeEffective } : {};
 
-  /* eslint-disable ecolpro/require-site-filter -- teacher scope resolution, site scoping is caller's responsibility */
+  /* eslint-disable schoolpro/require-site-filter -- teacher scope resolution, site scoping is caller's responsibility */
   const [affectations, emploiEntries, principalClasses] = await Promise.all([
     // Source principale : AffectationEnseignant
     prisma.affectationEnseignant.findMany({
@@ -86,7 +86,7 @@ export async function getTeacherScope(
       select: { id: true },
     }),
   ]);
-  /* eslint-enable ecolpro/require-site-filter */
+  /* eslint-enable schoolpro/require-site-filter */
 
   const classeIds = Array.from(
     new Set([

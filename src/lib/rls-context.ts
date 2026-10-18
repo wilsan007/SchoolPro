@@ -85,7 +85,7 @@ export function withRlsContext<T>(context: RlsContext, fn: () => Promise<T>): Pr
  * super-admin. La raison est obligatoire : elle apparaît dans les
  * journaux, et rend chaque franchissement audita­ble a posteriori.
  *
- * C'est le pendant, côté base, des `eslint-disable ecolpro/require-tenant-id`
+ * C'est le pendant, côté base, des `eslint-disable schoolpro/require-tenant-id`
  * déjà présents dans le code : même exception, même exigence de
  * justification.
  */
@@ -98,7 +98,7 @@ export function withSystemContext<T>(reason: string, fn: () => Promise<T>): Prom
 
 /**
  * Exécute `fn` en levant la restriction de SITE en base, le tenant restant
- * borné. Pendant de `eslint-disable ecolpro/require-site-filter` : à utiliser
+ * borné. Pendant de `eslint-disable schoolpro/require-site-filter` : à utiliser
  * pour une lecture volontairement inter-sites faite par un utilisateur borné à
  * ses sites (contrôle d'unicité à l'échelle de l'établissement, par exemple).
  * La raison est obligatoire et apparaît dans l'origine du contexte.

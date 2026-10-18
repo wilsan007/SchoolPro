@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // Récupérer les structures déjà existantes pour ce site (ou partagées si siteId=null)
     // pour ne pas les recréer — déduplication par (tenant, site, type)
-    // eslint-disable-next-line ecolpro/require-site-filter -- siteId est filtré explicitement
+    // eslint-disable-next-line schoolpro/require-site-filter -- siteId est filtré explicitement
     const existing = await prisma.structure.findMany({
       where: {
         tenantId,
@@ -139,7 +139,7 @@ export async function DELETE(req: NextRequest) {
     // l'année courante répondrait « 0 classe » alors que la structure est encore
     // référencée par les promotions passées, et la suppression laisserait des
     // classes orphelines (ou échouerait en contrainte de clé étrangère).
-    // eslint-disable-next-line ecolpro/require-annee-filter -- garde de suppression : doit couvrir toutes les années
+    // eslint-disable-next-line schoolpro/require-annee-filter -- garde de suppression : doit couvrir toutes les années
     const classCount = await prisma.classe.count({
       where: { structureId, tenantId: session.user.tenantId, ...siteFilterForModel("classe", session.user) },
     });

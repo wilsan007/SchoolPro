@@ -29,7 +29,7 @@ async function fetchDashboardData(
   const wheres = buildDashboardWheres(tenantId, claims, anneeLibelle);
   // Les filtres `where` sont construits par `buildDashboardWheres` (dans
   // `dashboard-scope.ts`), qui combine `siteFilterForModel` + `personalScopeFilter`
-  // pour chaque modèle. Le linter `ecolpro/require-site-filter` ne remonte pas
+  // pour chaque modèle. Le linter `schoolpro/require-site-filter` ne remonte pas
   // l'appel depuis un autre fichier : on désactive donc la règle sur ce bloc.
 
   // Bornes du « jour courant » selon la date simulée.
@@ -46,7 +46,7 @@ async function fetchDashboardData(
     notesRecentes,
     prochainExamen,
   ] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line schoolpro/require-site-filter -- filtre via buildDashboardWheres
     prisma.eleve.groupBy({
       by: ["statut"],
       where: wheres.eleve,
@@ -54,9 +54,9 @@ async function fetchDashboardData(
     }),
     // Inutile d'interroger la base pour un périmètre relationnel : le filtre
     // est de toute façon fail-closed (cf. `buildDashboardWheres`).
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- filtre via buildDashboardWheres
     wheres.relationScoped ? Promise.resolve(0) : prisma.classe.count({ where: wheres.classe }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- filtre via buildDashboardWheres
     prisma.absence.count({
       where: {
         ...wheres.absence,
@@ -66,11 +66,11 @@ async function fetchDashboardData(
         },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- filtre via buildDashboardWheres
     prisma.absence.count({
       where: { ...wheres.absence, statut: "INJUSTIFIEE" },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-annee-filter -- filtre via buildDashboardWheres
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-annee-filter -- filtre via buildDashboardWheres
     prisma.note.findMany({
       where: wheres.note,
       orderBy: { createdAt: "desc" },
@@ -83,7 +83,7 @@ async function fetchDashboardData(
      
     wheres.relationScoped
       ? Promise.resolve(null)
-      // eslint-disable-next-line ecolpro/require-site-filter -- filtre via buildDashboardWheres
+      // eslint-disable-next-line schoolpro/require-site-filter -- filtre via buildDashboardWheres
       : prisma.examen.findFirst({
           where: { ...wheres.examen, statut: "PROGRAMME", dateDebut: { gte: maintenant } },
           orderBy: { dateDebut: "asc" },

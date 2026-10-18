@@ -100,7 +100,7 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
     //    historiques (créés avant UserRole) n'ont pas de ligne — on
     //    accepte alors le rôle actuel de la session comme possédé.
     __mesure("adhesion");
-    // eslint-disable-next-line ecolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; self-lookup de l'utilisateur connecté
+    // eslint-disable-next-line schoolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; self-lookup de l'utilisateur connecté
     const userRole = await prisma.userRole.findUnique({
       where: {
         userId_tenantId_role: { userId, tenantId, role: targetRole },
@@ -136,7 +136,7 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
       ...(userTenant
         ? [prisma.userTenant.update({ where: { id: userTenant.id }, data: { role: targetRole } })]
         : []),
-      // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
+      // eslint-disable-next-line schoolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
       prisma.user.update({ where: { id: userId }, data: { role: targetRole } }),
     ]);
 

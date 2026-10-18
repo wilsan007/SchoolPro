@@ -19,7 +19,7 @@
 # ============================================================
 set -uo pipefail
 
-STANZA="ecolpro"
+STANZA="schoolpro"
 SCRATCH="/var/lib/postgresql/verify"
 VERIFY_PORT=5499
 SOCKET_DIR="/tmp/verify-sock"
@@ -34,8 +34,8 @@ fail() {
     "$1
 
 Les sauvegardes ne sont peut-être PAS exploitables. À vérifier sans délai :
-  docker exec ecolpro-db pgbackrest --stanza=ecolpro info
-  docker logs ecolpro-db --tail 100" || true
+  docker exec schoolpro-db pgbackrest --stanza=schoolpro info
+  docker logs schoolpro-db --tail 100" || true
   cleanup
   exit 1
 }

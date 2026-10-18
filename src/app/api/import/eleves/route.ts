@@ -287,7 +287,7 @@ export async function POST(req: NextRequest) {
 
     /** Crée le lien EleveParent s'il n'existe pas déjà. */
     const creerLienSiAbsent = async (eleveId: string, parentId: string, lien?: string) => {
-      // eslint-disable-next-line ecolpro/require-site-filter -- clé composite parent↔élève, déjà isolée par tenant
+      // eslint-disable-next-line schoolpro/require-site-filter -- clé composite parent↔élève, déjà isolée par tenant
       const existing = await withAllSites("import : lien parent-élève déjà existant", () => prisma.eleveParent.findUnique({
         where: { eleveId_parentId: { eleveId, parentId } },
       }));
@@ -360,7 +360,7 @@ export async function POST(req: NextRequest) {
     let liensCreated = 0;
     const clesCrees = new Set(aInserer.map((e) => e.identiteKey).filter((k): k is string => !!k));
     if (clesCrees.size > 0) {
-      // eslint-disable-next-line ecolpro/require-site-filter -- récupération des élèves du lot par identiteKey, isolation par tenantId
+      // eslint-disable-next-line schoolpro/require-site-filter -- récupération des élèves du lot par identiteKey, isolation par tenantId
       const elevesCrees = await withAllSites("import : élèves du lot par clé d'identité", () => prisma.eleve.findMany({
         where: { tenantId, identiteKey: { in: [...clesCrees] } },
         select: { id: true, identiteKey: true },

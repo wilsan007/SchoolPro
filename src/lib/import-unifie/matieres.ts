@@ -41,7 +41,7 @@ export async function analyserMatieres(
       continue;
     }
 
-    // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- filtré par tenantId
+    // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- filtré par tenantId
     const existe = !!(await withAllSites("import : dédoublonnage des matières", () => prisma.matiere.findFirst({
       where: { OR: [{ nom, tenantId }, { code, tenantId }].filter((c) => c.code || c.nom) },
     })));

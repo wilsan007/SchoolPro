@@ -107,7 +107,7 @@ const classes = await prisma.classe.findMany({
 
 **Cas C — webhook / cron sans session** (`api/webhooks/sms`, `api/webhooks/whatsapp`, `api/cron/*`) : il n'y a pas d'utilisateur. Résoudre le `tenantId` depuis la donnée entrante (ex. numéro de téléphone → `Parent` → `tenantId`), puis **documenter l'exemption** :
 ```typescript
-// eslint-disable-next-line ecolpro/require-site-filter -- webhook entrant : aucune session ;
+// eslint-disable-next-line schoolpro/require-site-filter -- webhook entrant : aucune session ;
 // le tenant est résolu depuis le numéro appelant, et la réponse ne dévoile aucune donnée d'un autre site.
 const parent = await prisma.parent.findFirst({ where: { telephone } });
 ```

@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     // impossible le réexport des bulletins d'une année close, alors que la
     // matrice et l'aperçu les affichent. Un duplicata réclamé par une famille
     // en septembre pour l'année précédente butait sur « Classe introuvable ».
-    // eslint-disable-next-line ecolpro/require-annee-filter -- accès par identifiant d'une entité déjà datée
+    // eslint-disable-next-line schoolpro/require-annee-filter -- accès par identifiant d'une entité déjà datée
     const classe = await prisma.classe.findFirst({
       where: { id: classeId, tenantId: session.user.tenantId, ...siteFilter },
       select: { nom: true },
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         // tenant et au périmètre de sites : elles ne peuvent appartenir qu'à un
         // bulletin autorisé. `BulletinMatiere` n'a pas de chemin de site propre
         // (elle passe par le bulletin, qui ne porte pas de colonne `siteId`).
-        // eslint-disable-next-line ecolpro/require-site-filter
+        // eslint-disable-next-line schoolpro/require-site-filter
         matieres: { include: { matiere: { select: { nom: true, code: true } } } },
       },
       orderBy: { eleve: { prenom: "asc" } },

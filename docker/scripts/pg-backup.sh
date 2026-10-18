@@ -17,7 +17,7 @@
 set -uo pipefail
 
 TYPE="${1:-incr}"
-STANZA="ecolpro"
+STANZA="schoolpro"
 NOTIFY="/usr/local/bin/notify.sh"
 HEARTBEAT="/usr/local/bin/heartbeat.sh"
 
@@ -78,7 +78,7 @@ if pgbackrest --stanza="${STANZA}" --repo=1 --type="${TYPE}" backup; then
     else
       log "ERREUR : la sauvegarde hors site a échoué."
       "${NOTIFY}" error "Sauvegarde hors site en échec" \
-        "La sauvegarde locale a réussi, mais la copie vers le dépôt distant a échoué. Perdre le VPS signifierait perdre les données ET les sauvegardes. Vérifier les identifiants R2 et : docker logs ecolpro-db." || true
+        "La sauvegarde locale a réussi, mais la copie vers le dépôt distant a échoué. Perdre le VPS signifierait perdre les données ET les sauvegardes. Vérifier les identifiants R2 et : docker logs schoolpro-db." || true
     fi
   else
     log "AVERTISSEMENT : aucun dépôt hors site configuré."
@@ -96,7 +96,7 @@ ${SIZE}" || true
 else
   log "ERREUR : la sauvegarde ${TYPE} a échoué."
   "${NOTIFY}" error "Échec de sauvegarde" \
-    "La sauvegarde ${TYPE} a échoué. Consulter : docker logs ecolpro-db et /var/log/pgbackrest." || true
+    "La sauvegarde ${TYPE} a échoué. Consulter : docker logs schoolpro-db et /var/log/pgbackrest." || true
   "${HEARTBEAT}" backup fail || true
   exit 1
 fi

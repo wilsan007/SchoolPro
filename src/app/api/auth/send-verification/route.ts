@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const normalized = normaliserEmail(email);
 
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- recherche utilisateur hors session
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- recherche utilisateur hors session
   const user = await prisma.user.findFirst({
     where: { email: { equals: normalized, mode: "insensitive" } },
     select: { id: true, tenantId: true, name: true },

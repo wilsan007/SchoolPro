@@ -71,7 +71,7 @@ export async function reinitialiserMotDePasse(
       return { success: false, error: verification.error };
     }
 
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- password reset, hors session
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- password reset, hors session
     const user = await prisma.user.findFirst({
       where: { email: { equals: verification.email, mode: "insensitive" } },
       select: { id: true, email: true, isActive: true, emailVerified: true },
@@ -83,7 +83,7 @@ export async function reinitialiserMotDePasse(
 
     const hashedPassword = await bcrypt.hash(nouveauPassword, 10);
 
-    /* eslint-disable ecolpro/require-tenant-id -- password reset, user already verified above */
+    /* eslint-disable schoolpro/require-tenant-id -- password reset, user already verified above */
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
@@ -98,7 +98,7 @@ export async function reinitialiserMotDePasse(
       }),
       prisma.verificationToken.delete({ where: { token } }),
     ]);
-    /* eslint-enable ecolpro/require-tenant-id */
+    /* eslint-enable schoolpro/require-tenant-id */
 
     auditFire({
       userId: user.id,

@@ -43,14 +43,14 @@ export async function confirmerEmail(
     return { success: false, error: "token_invalide" };
   }
 
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'email, hors session
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- vérification d'email, hors session
   const user = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
     select: { id: true, tenantId: true },
   });
   if (!user) return { success: false, error: "utilisateur_introuvable" };
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- email verification, user already looked up above
+  // eslint-disable-next-line schoolpro/require-tenant-id -- email verification, user already looked up above
   await prisma.user.update({
     where: { id: user.id },
     data: { emailVerified: new Date() },

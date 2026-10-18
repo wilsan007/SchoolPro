@@ -56,7 +56,7 @@ export async function deriveClaims(
   userId: string,
   preferredTenantId?: string | null
 ): Promise<TenantSiteClaims | null> {
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- claims derivation: computing site/tenant claims themselves, filtering would be circular; userId provient du token authentifié, pas d'une entrée cliente
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- claims derivation: computing site/tenant claims themselves, filtering would be circular; userId provient du token authentifié, pas d'une entrée cliente
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -153,7 +153,7 @@ export async function deriveClaims(
   // ---- Sites autorisés DANS le tenant actif ------------------------------
   // La jointure sur `site.tenantId` est la garantie anti-fuite : aucun
   // rattachement d'un autre établissement ne peut franchir la frontière.
-  /* eslint-disable ecolpro/require-site-filter -- claims derivation: resolving site assignments, filtering would be circular */
+  /* eslint-disable schoolpro/require-site-filter -- claims derivation: resolving site assignments, filtering would be circular */
   const [userSites, enseignantSites, tenantSites] = await Promise.all([
     prisma.userSite.findMany({
       where: { userId, site: { tenantId: activeTenantId } },
@@ -171,7 +171,7 @@ export async function deriveClaims(
       select: { id: true },
     }),
   ]);
-  /* eslint-enable ecolpro/require-site-filter */
+  /* eslint-enable schoolpro/require-site-filter */
 
   const tenantSiteIds = new Set(tenantSites.map((s) => s.id));
   const tenantSiteCount = tenantSites.length;
@@ -246,7 +246,7 @@ export async function resolveSiteAccess(
   });
   if (!site) return null;
 
-  // eslint-disable-next-line ecolpro/require-site-filter, ecolpro/require-tenant-id -- site access resolution, filtering would be circular; userId provient du token authentifié
+  // eslint-disable-next-line schoolpro/require-site-filter, schoolpro/require-tenant-id -- site access resolution, filtering would be circular; userId provient du token authentifié
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true, tenantId: true },
@@ -263,7 +263,7 @@ export async function resolveSiteAccess(
 
   // 2. Rattachement explicite : le rôle du site fait foi s'il est défini.
   //    Si role = NULL, on hérite du rôle global (tenantRole).
-  // eslint-disable-next-line ecolpro/require-site-filter -- site access resolution, filtering would be circular
+  // eslint-disable-next-line schoolpro/require-site-filter -- site access resolution, filtering would be circular
   const userSite = await prisma.userSite.findFirst({
     where: { userId, siteId },
     select: { role: true },
@@ -271,7 +271,7 @@ export async function resolveSiteAccess(
   if (userSite) return { role: userSite.role ?? tenantRole };
 
   // 3. Enseignant affecté à ce site, dans ce tenant.
-  // eslint-disable-next-line ecolpro/require-site-filter -- site access resolution, filtering would be circular
+  // eslint-disable-next-line schoolpro/require-site-filter -- site access resolution, filtering would be circular
   const enseignantSite = await prisma.enseignantSite.findFirst({
     where: { siteId, enseignant: { userId, tenantId } },
     select: { id: true },
@@ -302,7 +302,7 @@ export async function resolveSiteAccess(
  *  - changement de rôle dans un tenant.
  */
 export async function incrementerSessionVersion(userId: string): Promise<void> {
-  // eslint-disable-next-line ecolpro/require-tenant-id -- invalidation de session : pas de session, pas de tenant
+  // eslint-disable-next-line schoolpro/require-tenant-id -- invalidation de session : pas de session, pas de tenant
   await prisma.user.update({
     where: { id: userId },
     data: { sessionVersion: { increment: 1 } },

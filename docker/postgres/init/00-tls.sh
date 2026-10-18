@@ -21,7 +21,7 @@ mkdir -p "${TLS_DIR}"
 openssl req -new -x509 -days 3650 -nodes \
   -out "${TLS_DIR}/server.crt" \
   -keyout "${TLS_DIR}/server.key" \
-  -subj "/CN=ecolpro-db" \
+  -subj "/CN=schoolpro-db" \
   -addext "subjectAltName=DNS:db,DNS:localhost" 2>/dev/null
 
 # PostgreSQL refuse de démarrer si la clé est lisible par d'autres.

@@ -137,7 +137,7 @@ export async function POST(
   // Non-bloquante : un échec de notification ne doit pas faire échouer la
   // génération du bulletin.
   try {
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- ficheRH vérifié avec tenantId + siteFilter ci-dessus
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- ficheRH vérifié avec tenantId + siteFilter ci-dessus
     const enseignant = await prisma.enseignant.findUnique({
       where: { id: ficheRH.enseignantId },
       select: { userId: true },

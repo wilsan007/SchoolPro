@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     const eleveNom = `${incident.eleve.prenom} ${incident.eleve.nom}`;
 
     if (action === "notifier-parents") {
-      // eslint-disable-next-line ecolpro/require-site-filter -- parent lookup is tenant-scoped via eleveId
+      // eslint-disable-next-line schoolpro/require-site-filter -- parent lookup is tenant-scoped via eleveId
       const parents = await prisma.parent.findMany({
         where: {
           tenantId,

@@ -1,5 +1,5 @@
 /**
- * EcolPro — Tests du mode RLS `warn`
+ * SchoolPro — Tests du mode RLS `warn`
  * ===================================
  *
  * Vérifie que le mode `warn` :

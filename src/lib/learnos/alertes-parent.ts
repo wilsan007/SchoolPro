@@ -114,7 +114,7 @@ async function absencesRepetees(
   const annee = anneeCourante ?? await getAnneeCouranteLibelle(tenantId);
   const depuis = new Date(maintenant.getTime() - FENETRE_ABSENCES_JOURS * 86_400_000);
 
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const groupes = await prisma.absence.groupBy({
     by: ["eleveId"],
     where: {
@@ -152,7 +152,7 @@ async function parcoursAlArret(
 ): Promise<AlerteDetectee[]> {
   const limite = new Date(maintenant.getTime() - JOURS_RETARD_PARCOURS * 86_400_000);
 
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const plans = await prisma.planProgression.findMany({
     where: {
       tenantId,
@@ -206,7 +206,7 @@ async function jalonsAtteints(
   // appelant qui n'existe pas. L'isolation est faite à l'ENVOI, où chaque alerte
   // est adressée au parent rattaché à l'élève (`plan.siteId` est conservé pour
   // horodater l'alerte sur le bon site).
-  // eslint-disable-next-line ecolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire, cf. ci-dessus
+  // eslint-disable-next-line schoolpro/require-site-filter -- cron d'alertes, balayage tenant volontaire, cf. ci-dessus
   const etapes = await prisma.etapePlan.findMany({
     where: {
       valideeLe: { gte: depuis },
@@ -258,7 +258,7 @@ async function gardiensDe(
   // Tâche système, sans session : il n'y a pas de site « courant » à opposer.
   // Le périmètre est posé autrement — les élèves viennent de requêtes déjà
   // bornées au tenant, et les deux relations le revérifient ci-dessous.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const liens = await prisma.eleveParent.findMany({
     where: {
       eleveId: { in: [...new Set(eleveIds)] },
@@ -346,7 +346,7 @@ export async function envoyerAlertesEnAttente(
   limite = 100,
   maintenant: Date = new Date()
 ): Promise<{ envoyees: number; supprimees: number; echouees: number }> {
-  // eslint-disable-next-line ecolpro/require-tenant-id
+  // eslint-disable-next-line schoolpro/require-tenant-id
   const enAttente = await prisma.alerteParent.findMany({
     where: { statut: "EN_ATTENTE" },
     orderBy: { createdAt: "asc" },
@@ -381,7 +381,7 @@ export async function envoyerAlertesEnAttente(
   for (const alerte of enAttente) {
     const prefs = alerte.parent.learnosPreferences ?? PREFERENCES_PAR_DEFAUT;
 
-    // eslint-disable-next-line ecolpro/require-tenant-id
+    // eslint-disable-next-line schoolpro/require-tenant-id
     const dejaEnvoyees = await prisma.alerteParent.count({
       where: {
         parentId: alerte.parentId,
@@ -392,7 +392,7 @@ export async function envoyerAlertesEnAttente(
 
     const decision = deciderEnvoi(alerte.niveau, prefs, dejaEnvoyees);
     if (!decision.envoyer) {
-      // eslint-disable-next-line ecolpro/require-tenant-id
+      // eslint-disable-next-line schoolpro/require-tenant-id
       await prisma.alerteParent.update({
         where: { id: alerte.id },
         data: { statut: "SUPPRIMEE", motifSuppression: decision.motif },
@@ -409,7 +409,7 @@ export async function envoyerAlertesEnAttente(
 
     const resultat = await sendWhatsAppMessage(alerte.parent.phone, texte);
 
-    // eslint-disable-next-line ecolpro/require-tenant-id
+    // eslint-disable-next-line schoolpro/require-tenant-id
     await prisma.alerteParent.update({
       where: { id: alerte.id },
       data: resultat.success

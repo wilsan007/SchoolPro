@@ -232,7 +232,7 @@ async function ficheDeLAnnee(tenantId: string, fiche: FicheEleve): Promise<Fiche
   const annee = await getAnneeCouranteLibelle(tenantId);
   if (!annee || fiche.classe?.annee === annee) return fiche;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- rapprochement d'identité au sein du tenant : la fiche visée est la même personne que celle déjà autorisée ci-dessus
+  // eslint-disable-next-line schoolpro/require-site-filter -- rapprochement d'identité au sein du tenant : la fiche visée est la même personne que celle déjà autorisée ci-dessus
   const deLAnnee = await withAllSites("rapprochement d'identité d'une année à l'autre", () => prisma.eleve.findFirst({
     where: {
       tenantId,
@@ -284,7 +284,7 @@ async function eleveChoisiPourEspace(
   const brut = (await cookies()).get(ESPACE_ELEVE_CHOISI_COOKIE)?.value;
   if (!brut) return null;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- validation du périmètre familial : parent.userId borne déjà au compte connecté
+  // eslint-disable-next-line schoolpro/require-site-filter -- validation du périmètre familial : parent.userId borne déjà au compte connecté
   const choisie = await prisma.eleve.findFirst({
     where: {
       id: brut,
@@ -318,7 +318,7 @@ export async function enfantsDuComptePourBascule(
   const userId = claims.userId ?? claims.id;
   if (!userId) return [];
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- périmètre familial : parent.userId borne déjà au compte connecté
+  // eslint-disable-next-line schoolpro/require-site-filter -- périmètre familial : parent.userId borne déjà au compte connecté
   const enfants = await prisma.eleve.findMany({
     where: {
       tenantId,

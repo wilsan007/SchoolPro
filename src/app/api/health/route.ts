@@ -26,7 +26,7 @@ export async function GET() {
   // 1. Vérifier la connectivité base de données avec mesure de latence.
   try {
     const start = Date.now();
-    // eslint-disable-next-line ecolpro/require-site-filter -- health check système sans session
+    // eslint-disable-next-line schoolpro/require-site-filter -- health check système sans session
     await withSystemContext("health-check", () => prisma.user.count());
     const latencyMs = Date.now() - start;
     checks.database = { ok: true, latencyMs };

@@ -71,33 +71,33 @@ fi
 
 # Le rôle applicatif ne doit JAMAIS être superutilisateur ni pouvoir créer
 # des rôles : c'est ce qui borne l'impact d'une injection SQL.
-APP_SUPER=$(q "SELECT rolsuper::text FROM pg_roles WHERE rolname='ecolpro_app';")
-APP_CREATEROLE=$(q "SELECT rolcreaterole::text FROM pg_roles WHERE rolname='ecolpro_app';")
-APP_CREATEDB=$(q "SELECT rolcreatedb::text FROM pg_roles WHERE rolname='ecolpro_app';")
+APP_SUPER=$(q "SELECT rolsuper::text FROM pg_roles WHERE rolname='schoolpro_app';")
+APP_CREATEROLE=$(q "SELECT rolcreaterole::text FROM pg_roles WHERE rolname='schoolpro_app';")
+APP_CREATEDB=$(q "SELECT rolcreatedb::text FROM pg_roles WHERE rolname='schoolpro_app';")
 
-[ "${APP_SUPER}" = "false" ] && ok "ecolpro_app n'est pas superutilisateur" \
-  || crit "ecolpro_app EST superutilisateur"
-[ "${APP_CREATEROLE}" = "false" ] && ok "ecolpro_app ne peut pas créer de rôle" \
-  || crit "ecolpro_app peut créer des rôles"
-[ "${APP_CREATEDB}" = "false" ] && ok "ecolpro_app ne peut pas créer de base" \
-  || crit "ecolpro_app peut créer des bases"
+[ "${APP_SUPER}" = "false" ] && ok "schoolpro_app n'est pas superutilisateur" \
+  || crit "schoolpro_app EST superutilisateur"
+[ "${APP_CREATEROLE}" = "false" ] && ok "schoolpro_app ne peut pas créer de rôle" \
+  || crit "schoolpro_app peut créer des rôles"
+[ "${APP_CREATEDB}" = "false" ] && ok "schoolpro_app ne peut pas créer de base" \
+  || crit "schoolpro_app peut créer des bases"
 
 # --- 4. Absence de droits DDL pour le rôle applicatif ---------------------
-# Contrôle décisif : si ecolpro_app détient CREATE sur le schéma public, il
+# Contrôle décisif : si schoolpro_app détient CREATE sur le schéma public, il
 # peut créer des objets, donc contourner le modèle de privilèges.
-APP_CREATE=$(q "SELECT has_schema_privilege('ecolpro_app','public','CREATE')::text;")
+APP_CREATE=$(q "SELECT has_schema_privilege('schoolpro_app','public','CREATE')::text;")
 if [ "${APP_CREATE}" = "false" ]; then
-  ok "ecolpro_app n'a pas CREATE sur le schéma public"
+  ok "schoolpro_app n'a pas CREATE sur le schéma public"
 else
-  crit "ecolpro_app a CREATE sur public : il peut modifier le schéma"
+  crit "schoolpro_app a CREATE sur public : il peut modifier le schéma"
 fi
 
-# Le propriétaire du schéma doit rester ecolpro_owner.
+# Le propriétaire du schéma doit rester schoolpro_owner.
 SCHEMA_OWNER=$(q "SELECT nspowner::regrole::text FROM pg_namespace WHERE nspname='public';")
-if [ "${SCHEMA_OWNER}" = "ecolpro_owner" ]; then
-  ok "schéma public possédé par ecolpro_owner"
+if [ "${SCHEMA_OWNER}" = "schoolpro_owner" ]; then
+  ok "schéma public possédé par schoolpro_owner"
 else
-  warn "schéma public possédé par ${SCHEMA_OWNER} (attendu ecolpro_owner)"
+  warn "schéma public possédé par ${SCHEMA_OWNER} (attendu schoolpro_owner)"
 fi
 
 # --- 5. Tables inaccessibles au rôle applicatif ---------------------------
@@ -107,12 +107,12 @@ fi
 UNREADABLE=$(q "
   SELECT count(*) FROM pg_tables
   WHERE schemaname='public'
-    AND NOT has_table_privilege('ecolpro_app', schemaname||'.'||quote_ident(tablename), 'SELECT');
+    AND NOT has_table_privilege('schoolpro_app', schemaname||'.'||quote_ident(tablename), 'SELECT');
 ")
 if [ "${UNREADABLE}" = "0" ]; then
-  ok "toutes les tables sont lisibles par ecolpro_app"
+  ok "toutes les tables sont lisibles par schoolpro_app"
 else
-  crit "${UNREADABLE} table(s) illisibles par ecolpro_app (privilèges par défaut mal posés)"
+  crit "${UNREADABLE} table(s) illisibles par schoolpro_app (privilèges par défaut mal posés)"
 fi
 
 # --- 6. Droits accordés à PUBLIC ------------------------------------------
@@ -223,17 +223,17 @@ else
   crit "rôle(s) avec BYPASSRLS : ${BYPASS} — la RLS ne s'y applique pas"
 fi
 
-# Si ecolpro_app possédait une table, la RLS ne s'y appliquerait PAS
+# Si schoolpro_app possédait une table, la RLS ne s'y appliquerait PAS
 # (le propriétaire est exempté tant que FORCE n'est pas posé). C'est la
 # façon la plus discrète de désactiver l'isolation sur une table.
 APP_OWNED=$(q "
   SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-  WHERE n.nspname='public' AND c.relkind='r' AND c.relowner::regrole::text = 'ecolpro_app';
+  WHERE n.nspname='public' AND c.relkind='r' AND c.relowner::regrole::text = 'schoolpro_app';
 ")
 if [ "${APP_OWNED}" = "0" ]; then
-  ok "ecolpro_app ne possède aucune table (la RLS s'y applique donc pleinement)"
+  ok "schoolpro_app ne possède aucune table (la RLS s'y applique donc pleinement)"
 else
-  crit "ecolpro_app possède ${APP_OWNED} table(s) : la RLS y est sans effet"
+  crit "schoolpro_app possède ${APP_OWNED} table(s) : la RLS y est sans effet"
 fi
 
 # --- 4.7 Fonctions SECURITY DEFINER inattendues --------------------------
@@ -278,8 +278,8 @@ fi
 
 # --- 9. Fraîcheur des sauvegardes ----------------------------------------
 log "6. Sauvegardes"
-if pgbackrest --stanza=ecolpro info >/dev/null 2>&1; then
-  LAST_TS=$(pgbackrest --stanza=ecolpro info --output=json 2>/dev/null \
+if pgbackrest --stanza=schoolpro info >/dev/null 2>&1; then
+  LAST_TS=$(pgbackrest --stanza=schoolpro info --output=json 2>/dev/null \
     | grep -o '"stop":[0-9]*' | tail -1 | cut -d: -f2)
   if [ -n "${LAST_TS}" ]; then
     AGE_H=$(( ( $(date +%s) - LAST_TS ) / 3600 ))
@@ -296,7 +296,7 @@ if pgbackrest --stanza=ecolpro info >/dev/null 2>&1; then
 
   # Un dépôt unique, situé sur la machine à sauvegarder, ne protège pas
   # d'une perte du VPS. On le signale tant que le dépôt hors site est absent.
-  if pgbackrest --stanza=ecolpro info --output=json 2>/dev/null | grep -q '"repo":2'; then
+  if pgbackrest --stanza=schoolpro info --output=json 2>/dev/null | grep -q '"repo":2'; then
     ok "dépôt de sauvegarde hors site configuré"
   else
     warn "AUCUN dépôt hors site : la perte du VPS entraînerait la perte des sauvegardes"
@@ -336,7 +336,7 @@ log "=========================================="
 if [ "${CRITICAL}" -gt 0 ]; then
   "${NOTIFY}" error "Audit base de données : ${CRITICAL} problème(s) critique(s)" \
     "${REPORT}
-Détail complet : docker logs ecolpro-db --tail 200" || true
+Détail complet : docker logs schoolpro-db --tail 200" || true
   exit 1
 fi
 

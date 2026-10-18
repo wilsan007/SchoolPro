@@ -79,7 +79,7 @@ export async function PATCH(
   // décision sur le congé.
   if (action === "APPROUVE" || action === "REFUSE") {
     try {
-      // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- conge vérifié avec tenantId + siteFilter ci-dessus
+      // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- conge vérifié avec tenantId + siteFilter ci-dessus
       const enseignant = await prisma.enseignant.findUnique({
         where: { id: conge.enseignantId },
         select: { userId: true },

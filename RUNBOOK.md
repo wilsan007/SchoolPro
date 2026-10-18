@@ -61,7 +61,7 @@ curl -I https://ecolpro.com/api/health
 make rollback VPS=root@VPS_IP
 ```
 
-Remet `ecolpro/app:previous` en service. **Les migrations de schéma ne
+Remet `schoolpro/app:previous` en service. **Les migrations de schéma ne
 sont PAS annulées** : si la panne vient d'une migration, voir la section
 « Restauration PostgreSQL » ci-dessous.
 
@@ -95,10 +95,10 @@ cd /opt/ecolpro
 docker compose stop app
 
 # 2. Voir les sauvegardes disponibles
-docker exec ecolpro-db pgbackrest --stanza=ecolpro info
+docker exec ecolpro-db pgbackrest --stanza=schoolpro info
 
 # 3. Restaurer à un instant T (remplacer la date)
-docker exec ecolpro-db pgbackrest --stanza=ecolpro \
+docker exec ecolpro-db pgbackrest --stanza=schoolpro \
   --type=time --target="2025-01-15 14:30:00" --target-action=promote \
   restore
 
@@ -119,7 +119,7 @@ docker compose up -d app
 ssh root@VPS_IP
 cd /opt/ecolpro
 docker compose stop app
-docker exec ecolpro-db pgbackrest --stanza=ecolpro --type=full restore
+docker exec ecolpro-db pgbackrest --stanza=schoolpro --type=full restore
 docker compose restart db
 docker compose up -d app
 ```
@@ -165,7 +165,7 @@ make deploy VPS=root@NEW_VPS_IP
 ssh root@NEW_VPS_IP 'cd /opt/ecolpro && \
   docker compose stop app && \
   docker exec ecolpro-db sh -c ". /usr/local/bin/pgbackrest-offsite.sh && \
-    pgbackrest --stanza=ecolpro --repo=2 --type=full restore" && \
+    pgbackrest --stanza=schoolpro --repo=2 --type=full restore" && \
   docker compose restart db && \
   docker compose up -d app'
 
@@ -254,16 +254,16 @@ en main, sur un VPS jetable :
 
 - Le site est inaccessible publiquement
 - `make status` montre la stack opérationnelle
-- L'app répond en local (`docker exec ecolpro-app curl localhost:3000/api/health`)
+- L'app répond en local (`docker exec schoolpro-app curl localhost:3000/api/health`)
 
 ### Procédure
 
 ```bash
 # 1. Vérifier le statut du tunnel
-ssh root@VPS_IP 'docker logs ecolpro-cloudflared --tail 50'
+ssh root@VPS_IP 'docker logs schoolpro-cloudflared --tail 50'
 
 # 2. Vérifier le token
-ssh root@VPS_IP 'docker exec ecolpro-cloudflared cloudflared tunnel info'
+ssh root@VPS_IP 'docker exec schoolpro-cloudflared cloudflared tunnel info'
 
 # 3. Dashboard Cloudflare → Networks → Tunnels
 #    Vérifier que le tunnel est "Healthy"
@@ -299,7 +299,7 @@ ssh root@VPS_IP 'docker system df'
 make prune VPS=root@VPS_IP
 
 # 3. Nettoyer les anciennes sauvegardes pgBackRest
-ssh root@VPS_IP 'docker exec ecolpro-db pgbackrest --stanza=ecolpro expire --retention-full=4 --retention-diff=2'
+ssh root@VPS_IP 'docker exec ecolpro-db pgbackrest --stanza=schoolpro expire --retention-full=4 --retention-diff=2'
 
 # 4. Nettoyer les journaux Docker
 ssh root@VPS_IP 'docker system prune -a --volumes --filter "until=48h" -f'
@@ -323,21 +323,21 @@ ssh root@VPS_IP 'journalctl --vacuum-time=7d'
 
 ```bash
 # 1. Consulter les logs
-ssh root@VPS_IP 'docker exec ecolpro-db pgbackrest --stanza=ecolpro info'
+ssh root@VPS_IP 'docker exec ecolpro-db pgbackrest --stanza=schoolpro info'
 ssh root@VPS_IP 'docker logs ecolpro-db --tail 100'
 
 # 2. Cause fréquente : espace disque
 ssh root@VPS_IP 'df -h'
 
 # 3. Cause fréquente : stanza non initialisée (premier démarrage)
-ssh root@VPS_IP 'docker exec ecolpro-db pgbackrest --stanza=ecolpro stanza-create'
+ssh root@VPS_IP 'docker exec ecolpro-db pgbackrest --stanza=schoolpro stanza-create'
 
 # 4. Relancer manuellement
 make backup VPS=root@VPS_IP
 
 # 5. Si l'échec persiste, faire un pg_dump de secours
 ssh root@VPS_IP 'docker exec ecolpro-db pg_dump -U postgres -d ecolpro --format=custom -f /tmp/emergency.dump'
-ssh root@VPS_IP 'docker cp ecolpro-db:/tmp/emergency.dump /opt/ecolpro/emergency-$(date +%Y%m%d).dump'
+ssh root@VPS_IP 'docker cp ecolpro-db:/tmp/emergency.dump /opt/schoolpro/emergency-$(date +%Y%m%d).dump'
 ```
 
 ---
@@ -444,7 +444,7 @@ nouvelle clé publique à ajouter à `.sops.yaml`.
 
 ## Rotation du mot de passe PostgreSQL
 
-Le mot de passe `ecolpro_app` est utilisé par l'application via PgBouncer.
+Le mot de passe `schoolpro_app` est utilisé par l'application via PgBouncer.
 Le changer nécessite de coordonner PostgreSQL, PgBouncer et l'app.
 
 ```bash
@@ -457,7 +457,7 @@ echo "Nouveau mot de passe : $NEW_PASS"
 
 # 2. Modifier dans PostgreSQL
 docker exec ecolpro-db psql -U postgres -d ecolpro -c \
-  "ALTER USER ecolpro_app WITH PASSWORD '$NEW_PASS';"
+  "ALTER USER schoolpro_app WITH PASSWORD '$NEW_PASS';"
 
 # 3. Modifier dans PgBouncer (userlist.txt est régénéré au démarrage)
 #    Mettre à jour .env.runtime avec le nouveau mot de passe
@@ -467,7 +467,7 @@ docker exec ecolpro-db psql -U postgres -d ecolpro -c \
 docker compose restart pgbouncer app
 
 # 5. Vérifier
-docker exec ecolpro-app node -e "
+docker exec schoolpro-app node -e "
   fetch('http://127.0.0.1:3000/api/health')
     .then(r => r.json()).then(j => console.log(j))
 "
@@ -497,7 +497,7 @@ Si un dimanche il n'arrive pas :
 ```bash
 make status
 ```
-puis `docker logs ecolpro-ofelia --tail 50` et, en dernier recours,
+puis `docker logs schoolpro-ofelia --tail 50` et, en dernier recours,
 `make audit`.
 
 ### Le signal de vie externe (à mettre en place une fois)
@@ -641,7 +641,7 @@ make rls-apply-prod
 
 La cible demande une confirmation, déclenche une sauvegarde, puis applique les
 deux fichiers via `psql` **dans le conteneur PostgreSQL**, en tant que
-`ecolpro_owner` (le seul rôle habilité au DDL ; l'image applicative ne contient
+`schoolpro_owner` (le seul rôle habilité au DDL ; l'image applicative ne contient
 pas `psql`, et c'est très bien ainsi).
 
 Les fonctions de contexte ne s'exécutent normalement qu'à la création de la

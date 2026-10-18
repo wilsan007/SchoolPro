@@ -109,7 +109,7 @@ export async function envoyerRelancesAutomatiques(): Promise<{
 
   for (const tenant of tenants) {
     const anneeId = await anneeActiveId(tenant.id);
-    // eslint-disable-next-line ecolpro/require-site-filter
+    // eslint-disable-next-line schoolpro/require-site-filter
     const factures = await prisma.facture.findMany({
       where: {
         tenantId: tenant.id,
@@ -120,11 +120,11 @@ export async function envoyerRelancesAutomatiques(): Promise<{
       include: {
         eleve: {
           include: {
-            // eslint-disable-next-line ecolpro/require-site-filter -- cross-tenant system task
+            // eslint-disable-next-line schoolpro/require-site-filter -- cross-tenant system task
             parents: { include: { parent: { include: { user: { select: { email: true } } } } } },
           },
         },
-        // eslint-disable-next-line ecolpro/require-site-filter -- cross-tenant system task
+        // eslint-disable-next-line schoolpro/require-site-filter -- cross-tenant system task
         paiements: { select: { montant: true } },
         relances: { select: { niveau: true, envoyeeLe: true } },
       },

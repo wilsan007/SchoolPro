@@ -91,12 +91,12 @@ export async function POST(req: NextRequest) {
   // car l'affectation peut relier un enseignant multi-sites à une classe
   // d'un site spécifique.
   const [enseignant, classe, matiere] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-site-filter -- validation tenant-only
+    // eslint-disable-next-line schoolpro/require-site-filter -- validation tenant-only
     prisma.enseignant.findFirst({
       where: { id: enseignantId, tenantId },
       select: { id: true },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- validation tenant-only
+    // eslint-disable-next-line schoolpro/require-site-filter -- validation tenant-only
     prisma.classe.findFirst({
       where: {
         id: classeId,
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       },
       select: { id: true },
     }),
-    // eslint-disable-next-line ecolpro/require-site-filter -- validation tenant-only
+    // eslint-disable-next-line schoolpro/require-site-filter -- validation tenant-only
     prisma.matiere.findFirst({
       where: { id: matiereId, tenantId },
       select: { id: true },

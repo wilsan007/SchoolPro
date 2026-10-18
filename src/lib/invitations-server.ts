@@ -101,7 +101,7 @@ export async function creerInvitation(
   // ensuite en base (erreur opaque) au lieu d'être refusé ici avec un message
   // clair. Même convention que `createUser`
   // (src/lib/actions/parametres/utilisateurs.ts).
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- unicité d'email à l'échelle de la plateforme
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- unicité d'email à l'échelle de la plateforme
   const compteExistant = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
     select: { id: true },
@@ -224,7 +224,7 @@ export async function infoInvitation(token: string): Promise<InfoInvitation | nu
     // `tenantId` serait impossible sans le divulguer dans l'URL. L'accès est
     // borné autrement : jeton de 256 bits haché, usage unique, expiration, et
     // contexte système explicite (`withSystemContext`).
-    // eslint-disable-next-line ecolpro/require-tenant-id -- recherche pré-auth par jeton, tenant inconnu par construction
+    // eslint-disable-next-line schoolpro/require-tenant-id -- recherche pré-auth par jeton, tenant inconnu par construction
     const invitation = await prisma.invitation.findUnique({
       where: { tokenHash },
       select: {
@@ -283,7 +283,7 @@ export async function accepterInvitation(
   return withSystemContext("invitation:accepter", async () => {
     // Même exception que dans `infoInvitation` : recherche par jeton, avant
     // toute session — le tenant est porté par l'invitation, pas par l'appelant.
-    // eslint-disable-next-line ecolpro/require-tenant-id -- recherche pré-auth par jeton, tenant inconnu par construction
+    // eslint-disable-next-line schoolpro/require-tenant-id -- recherche pré-auth par jeton, tenant inconnu par construction
     const invitation = await prisma.invitation.findUnique({
       where: { tokenHash },
       select: {
@@ -318,7 +318,7 @@ export async function accepterInvitation(
     // Le compte a-t-il été créé entre-temps (autre onglet, import) ?
     // Même exception que plus haut : unicité d'email à l'échelle de la
     // plateforme, et nous sommes encore hors session.
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- unicité d'email à l'échelle de la plateforme
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- unicité d'email à l'échelle de la plateforme
     const compteExistant = await prisma.user.findFirst({
       where: { email: { equals: invitation.email, mode: "insensitive" } },
       select: { id: true },

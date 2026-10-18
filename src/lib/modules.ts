@@ -84,7 +84,7 @@ export async function activerModule(
   }
 
   // Upsert : si une activation existe (même désactivée), on la réactive
-  // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
+  // eslint-disable-next-line schoolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
   const existing = await prisma.moduleActivation.findUnique({
     where: {
       tenantId_moduleId: { tenantId, moduleId: module.id },
@@ -130,7 +130,7 @@ export async function desactiverModule(
     throw new Error(`Module inconnu: ${moduleCode}`);
   }
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
+  // eslint-disable-next-line schoolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
   const activation = await prisma.moduleActivation.findUnique({
     where: {
       tenantId_moduleId: { tenantId, moduleId: moduleEntity.id },
@@ -168,7 +168,7 @@ export async function moduleEstActif(
   // Si le module est activé par défaut et n'a pas d'activation explicite,
   // il est considéré comme actif
   if (moduleEntity.actifParDefaut) {
-    // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
+    // eslint-disable-next-line schoolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
     const activation = await prisma.moduleActivation.findUnique({
       where: {
         tenantId_moduleId: { tenantId, moduleId: moduleEntity.id },
@@ -178,7 +178,7 @@ export async function moduleEstActif(
     return activation.statut === "ACTIF";
   }
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
+  // eslint-disable-next-line schoolpro/require-tenant-id -- l'activation a été vérifiée par findUnique ci-dessus
   const activation = await prisma.moduleActivation.findUnique({
     where: {
       tenantId_moduleId: { tenantId, moduleId: moduleEntity.id },

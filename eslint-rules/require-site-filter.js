@@ -18,7 +18,7 @@
  *   → OK : le Proxy injecte automatiquement le filtre.
  *
  * @example .eslintrc.js
- * rules: { "ecolpro/require-site-filter": "error" }
+ * rules: { "schoolpro/require-site-filter": "error" }
  */
 
 "use strict";

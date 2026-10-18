@@ -117,7 +117,7 @@ export async function getTeacherDelays(
     }),
 
     // 3. Devoirs rendus mais non corrigés (dans l'année active)
-  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par fenetreDebut = annee.dateDebut (année active)
+  // eslint-disable-next-line schoolpro/require-annee-filter -- borné par fenetreDebut = annee.dateDebut (année active)
     prisma.devoir.findMany({
       where: {
         tenantId,
@@ -158,7 +158,7 @@ export async function getTeacherDelays(
     }),
 
     // 5. Incidents ouverts (survenus dans l'année active)
-  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par fenetreDebut = annee.dateDebut (année active)
+  // eslint-disable-next-line schoolpro/require-annee-filter -- borné par fenetreDebut = annee.dateDebut (année active)
     prisma.incident.findMany({
       where: {
         tenantId,
@@ -182,7 +182,7 @@ export async function getTeacherDelays(
     }),
 
     // 6. Absences en attente de justification (dans l'année active)
-  // eslint-disable-next-line ecolpro/require-annee-filter -- borné par fenetreDebut = annee.dateDebut (année active)
+  // eslint-disable-next-line schoolpro/require-annee-filter -- borné par fenetreDebut = annee.dateDebut (année active)
     prisma.absence.findMany({
       where: {
         tenantId,

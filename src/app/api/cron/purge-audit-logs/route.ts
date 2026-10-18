@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     do {
       // Tâche système authentifiée par CRON_SECRET : purge globale
       // indépendante du tenant, par conception.
-      // eslint-disable-next-line ecolpro/require-tenant-id
+      // eslint-disable-next-line schoolpro/require-tenant-id
       const idsToDelete = await prisma.auditLog.findMany({
         where: { createdAt: { lt: cutoff } },
         select: { id: true },
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       // Purge système : tenantId non applicable car les ids proviennent de la
       // sélection précédente (déjà filtrées par date) et aucun autre tenant n'est
       // ciblé ici.
-      // eslint-disable-next-line ecolpro/require-tenant-id
+      // eslint-disable-next-line schoolpro/require-tenant-id
       const result = await prisma.auditLog.deleteMany({
         where: { id: { in: idsToDelete.map((r) => r.id) } },
       });

@@ -321,7 +321,7 @@ export async function purgerAuditAncien(): Promise<
     );
 
     try {
-      // eslint-disable-next-line ecolpro/require-tenant-id -- cron système de purge, scanne tous les tenants
+      // eslint-disable-next-line schoolpro/require-tenant-id -- cron système de purge, scanne tous les tenants
       const supprimes = await prisma.auditLog.deleteMany({
         where: {
           action,

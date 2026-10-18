@@ -115,7 +115,7 @@ export async function generateBulkPlan(opts: BulkGenerateOptions): Promise<BulkG
   const annee = await getAnneeCouranteLibelle(tenantId);
   if (!annee) throw new Error("Aucune année scolaire active pour ce tenant");
 
-  /* eslint-disable ecolpro/require-site-filter -- library function, caller passes tenantId and is responsible for site scoping */
+  /* eslint-disable schoolpro/require-site-filter -- library function, caller passes tenantId and is responsible for site scoping */
   const [classeExistants, autresCreneaux, allEnseignants, salles, disponibilites, indisponibilites] = await Promise.all([
     prisma.emploiTemps.findMany({
       where: { tenantId, classeId, annee },
@@ -127,7 +127,7 @@ export async function generateBulkPlan(opts: BulkGenerateOptions): Promise<BulkG
     prisma.disponibiliteEnseignant.findMany({ where: { tenantId } }),
     prisma.indisponibiliteEnseignant.findMany({ where: { tenantId } }),
   ]);
-  /* eslint-enable ecolpro/require-site-filter */
+  /* eslint-enable schoolpro/require-site-filter */
 
   // Matières et volume horaire cibles : fournis explicitement, sinon déduits
   // de l'emploi du temps actuel de la classe (on préserve le volume horaire

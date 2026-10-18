@@ -48,7 +48,7 @@ export async function detecterDevoirsEnRetard(
 
     // Tâche système : elle balaie délibérément tous les tenants, comme les
     // autres crons de l'application (cf. api/cron/dispatch, alertes-parent).
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-annee-filter -- l'année est filtrée DANS la requête : `OR: scopesAnnuels` croise tenant × année active
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-annee-filter -- l'année est filtrée DANS la requête : `OR: scopesAnnuels` croise tenant × année active
     const devoirsEnRetard = await prisma.devoir.findMany({
       where: {
         statut: { in: ["A_FAIRE", "EN_COURS"] },
@@ -70,7 +70,7 @@ export async function detecterDevoirsEnRetard(
       // existe déjà pour ce devoir. On vérifie par aggregateId + eventType,
       // ce qui couvre tous les tenants sans ambiguïté (l'identifiant du
       // devoir est unique au sein de son tenant).
-      // eslint-disable-next-line ecolpro/require-site-filter -- vérification d'unicité, bornée par tenantId + aggregateId
+      // eslint-disable-next-line schoolpro/require-site-filter -- vérification d'unicité, bornée par tenantId + aggregateId
       const dejaAlerte = await prisma.learnosEvent.findFirst({
         where: {
           tenantId: devoir.tenantId,

@@ -116,7 +116,7 @@ export async function createUser(data: UserFormData) {
   // l'existence est utilisée, aucune donnée de l'autre tenant n'est exposée.
   // Unicité insensible à la casse : les comptes déjà enregistrés avec une
   // majuscule doivent être détectés comme doublons.
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter
   const existing = await prisma.user.findFirst({
     where: { email: { equals: v.email, mode: "insensitive" } },
     select: { id: true },

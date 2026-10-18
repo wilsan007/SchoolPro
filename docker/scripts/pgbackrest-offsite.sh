@@ -60,7 +60,7 @@ cat > "${OFFSITE_CONF}" <<EOF
 repo2-type=s3
 repo2-s3-region=${PGBACKREST_REPO2_S3_REGION:-auto}
 repo2-s3-uri-style=path
-repo2-path=${PGBACKREST_REPO2_PATH:-/ecolpro}
+repo2-path=${PGBACKREST_REPO2_PATH:-/opt/schoolpro}
 repo2-cipher-type=aes-256-cbc
 repo2-retention-full=${PGBACKREST_REPO2_RETENTION_FULL:-8}
 repo2-retention-archive-type=full

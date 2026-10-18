@@ -47,7 +47,7 @@
  * un élève selon le site depuis lequel le calcul est déclenché, ce qui rendrait
  * les recommandations non reproductibles.
  *
- * Les `eslint-disable ecolpro/require-site-filter` de ce fichier renvoient tous
+ * Les `eslint-disable schoolpro/require-site-filter` de ce fichier renvoient tous
  * ici. Une lecture ni bornée par un `eleveId` autorisé, ni structurelle, doit
  * porter le filtre.
  */
@@ -259,7 +259,7 @@ export async function resoudreSeuils(
   const memo = cacheSeuils.get(cle);
   if (memo) return memo;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- barème structurel, volontairement tenant-wide, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- barème structurel, volontairement tenant-wide, cf. en-tête « ISOLATION »
   const lignes = await withAllSites("barème structurel de l'établissement", () => prisma.seuilsRecommandation.findMany({
     where: {
       tenantId,
@@ -327,7 +327,7 @@ export async function compterCompetencesEnAval(
   let frontiere = [competenceId];
 
   for (let profondeur = 0; profondeur < PROFONDEUR_MAX_AVAL && frontiere.length > 0; profondeur++) {
-    // eslint-disable-next-line ecolpro/require-site-filter -- graphe de prérequis structurel, volontairement tenant-wide, cf. en-tête « ISOLATION »
+    // eslint-disable-next-line schoolpro/require-site-filter -- graphe de prérequis structurel, volontairement tenant-wide, cf. en-tête « ISOLATION »
     const suivantes = await withAllSites("graphe de prérequis structurel", () => prisma.competence.findMany({
       where: { tenantId, prerequis: { some: { id: { in: frontiere } } } },
       select: { id: true },
@@ -357,7 +357,7 @@ export async function recalculerRecommandation(
   // `findFirst` plutôt que `findUnique` sur la clé composite : il accepte un
   // `where` non unique, donc permet d'exiger le `tenantId`. Une lecture par
   // identifiant ne se contente pas d'un identifiant.
-  // eslint-disable-next-line ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const profil = await prisma.studentLearningProfile.findFirst({
     where: { tenantId, eleveId, competenceId },
     select: {
@@ -369,7 +369,7 @@ export async function recalculerRecommandation(
   });
   if (!profil) return null;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- libellé structurel de la compétence, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- libellé structurel de la compétence, cf. en-tête « ISOLATION »
   const competence = await withAllSites("libellé structurel d'une compétence", () => prisma.competence.findFirst({
     where: { id: competenceId, tenantId },
     select: { libelle: true, chapitre: { select: { niveau: true, matiereId: true } } },
@@ -382,7 +382,7 @@ export async function recalculerRecommandation(
   });
 
   const bande = evaluerBande(profil, seuils);
-  // eslint-disable-next-line ecolpro/require-annee-filter, ecolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-annee-filter, schoolpro/require-site-filter -- borné par un eleveId autorisé, cf. en-tête « ISOLATION »
   const existante = await prisma.recommandation.findFirst({
     where: { tenantId, eleveId, competenceId },
     select: { id: true, statut: true },
@@ -447,7 +447,7 @@ export async function recalculerRecommandation(
 
   // `upsert` exige un sélecteur unique ; la contrainte `@@unique([eleveId, competenceId])`
   // n'inclut pas `tenantId`. On remplace par updateMany/create pour garder le
-  // filtre `tenantId` dans le `where` (règle ecolpro/require-tenant-id).
+  // filtre `tenantId` dans le `where` (règle schoolpro/require-tenant-id).
   // `existante` a déjà été lu avec `tenantId` (ligne 374), donc la portée est sûre.
   if (existante) {
     await prisma.recommandation.updateMany({
@@ -475,7 +475,7 @@ export async function recalculerRecommandationsApresProfil(
   const p = event.payload as NoteRecordedPayload;
   if (!p?.noteId || !p.eleveId) return;
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- événement drainé, borné par (tenantId, noteId), cf. en-tête « ISOLATION »
+  // eslint-disable-next-line schoolpro/require-site-filter -- événement drainé, borné par (tenantId, noteId), cf. en-tête « ISOLATION »
   const preuves = await prisma.learningEvidence.findMany({
     where: {
       tenantId: event.tenantId,

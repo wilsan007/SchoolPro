@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# EcolPro — Entrypoint PgBouncer
+# SchoolPro — Entrypoint PgBouncer
 #
 # Prépare, dans un tmpfs (donc en mémoire, jamais sur le disque du VPS) :
 #   - pgbouncer.ini (recopié depuis le modèle en lecture seule de l'image)
@@ -33,9 +33,9 @@ chmod 0600 "${CONF_DIR}/pgbouncer.ini"
 # `auth_type = scram-sha-256` sans pré-calculer les hachages.
 echo "[pgbouncer] Génération de userlist.txt..."
 cat > "${CONF_DIR}/userlist.txt" <<EOF
-"ecolpro_app" "${PG_APP_PASSWORD}"
-"ecolpro_owner" "${PG_OWNER_PASSWORD}"
-"ecolpro_ro" "${PG_RO_PASSWORD}"
+"schoolpro_app" "${PG_APP_PASSWORD}"
+"schoolpro_owner" "${PG_OWNER_PASSWORD}"
+"schoolpro_ro" "${PG_RO_PASSWORD}"
 "pgbouncer_admin" "${PGBOUNCER_ADMIN_PASSWORD}"
 EOF
 chmod 0600 "${CONF_DIR}/userlist.txt"
@@ -46,7 +46,7 @@ if [ ! -f "${TLS_DIR}/server.crt" ]; then
   openssl req -new -x509 -days 3650 -nodes \
     -out "${TLS_DIR}/server.crt" \
     -keyout "${TLS_DIR}/server.key" \
-    -subj "/CN=ecolpro-pgbouncer" \
+    -subj "/CN=schoolpro-pgbouncer" \
     -addext "subjectAltName=DNS:pgbouncer,DNS:localhost" 2>/dev/null
   chmod 0600 "${TLS_DIR}/server.key"
   chmod 0644 "${TLS_DIR}/server.crt"

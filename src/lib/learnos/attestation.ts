@@ -151,7 +151,7 @@ export async function candidatsAttestation(
   // Un seul groupBy plutôt qu'une requête par compétence : la boucle tourne
   // après chaque séance, et un aller-retour par compétence la rendrait
   // sensible au nombre de compétences du niveau.
-  // eslint-disable-next-line ecolpro/require-site-filter
+  // eslint-disable-next-line schoolpro/require-site-filter
   const preuves = await prisma.learningEvidence.groupBy({
     by: ["competenceId", "evidenceType"],
     where: { tenantId, eleveId, competenceId: { in: competenceIds } },

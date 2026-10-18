@@ -293,7 +293,7 @@ export async function assignUserSites(userId: string, sites: { siteId: string; r
   // Les sites autorisés d'un enseignant sont l'union UserSite ∪ EnseignantSite :
   // sans alignement, retirer un site ici ne retirait rien, et l'enseignant
   // restait listé sur son ancien site.
-  // eslint-disable-next-line ecolpro/require-site-filter -- fiche du compte déjà validé ci-dessus, on en réécrit justement les sites
+  // eslint-disable-next-line schoolpro/require-site-filter -- fiche du compte déjà validé ci-dessus, on en réécrit justement les sites
   const enseignant = await prisma.enseignant.findFirst({
     where: { userId, tenantId: session.user.tenantId },
     select: { id: true },

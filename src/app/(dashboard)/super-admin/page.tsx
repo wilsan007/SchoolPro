@@ -37,25 +37,25 @@ export default async function SuperAdminPage() {
   // Pour chaque tenant, calculer les métriques en parallèle
   const tenantHealthPromises = tenants.map(async (tenant) => {
     const [activeUsers, lastLoginAgg, elevesCount, facturesCeMois, adminUser] = await Promise.all([
-      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line schoolpro/require-site-filter -- super-admin cross-tenant query
       prisma.user.count({
         where: { tenantId: tenant.id, isActive: true },
       }),
-      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line schoolpro/require-site-filter -- super-admin cross-tenant query
       prisma.user.aggregate({
         where: { tenantId: tenant.id },
         _max: { lastLoginAt: true },
       }),
-      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line schoolpro/require-site-filter -- super-admin cross-tenant query
       prisma.eleve.count({
         where: { tenantId: tenant.id, statut: "ACTIF", deletedAt: null },
       }),
-      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line schoolpro/require-site-filter -- super-admin cross-tenant query
       prisma.facture.count({
         where: { tenantId: tenant.id, createdAt: { gte: debutMois } },
       }),
       // Trouver un admin du tenant pour la prise de contrôle
-      // eslint-disable-next-line ecolpro/require-site-filter -- super-admin cross-tenant query
+      // eslint-disable-next-line schoolpro/require-site-filter -- super-admin cross-tenant query
       prisma.user.findFirst({
         where: {
           tenantId: tenant.id,
@@ -87,7 +87,7 @@ export default async function SuperAdminPage() {
   // Le modèle Paiement n'a pas de champ `statut` ni d'enum StatutPaiement.
   // On utilise les factures en statut EN_RETARD comme proxy des échecs de
   // paiement, avec les relations eleve et tenant.
-  // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- super-admin cross-tenant query
+  // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- super-admin cross-tenant query
   const facturesEnRetard = await prisma.facture.findMany({
     where: {
       statut: "EN_RETARD",
@@ -119,7 +119,7 @@ export default async function SuperAdminPage() {
   const tenantNameMap = new Map(tenants.map((t) => [t.id, t.name]));
 
   const [journalAudit, auditLogEntries] = await Promise.all([
-    // eslint-disable-next-line ecolpro/require-tenant-id -- super-admin cross-tenant query
+    // eslint-disable-next-line schoolpro/require-tenant-id -- super-admin cross-tenant query
     prisma.journalApprentissage.findMany({
       where: { typeAnalyse: "impersonation" },
       orderBy: { createdAt: "desc" },
@@ -128,7 +128,7 @@ export default async function SuperAdminPage() {
         tenant: { select: { name: true } },
       },
     }),
-    // eslint-disable-next-line ecolpro/require-tenant-id -- super-admin cross-tenant query
+    // eslint-disable-next-line schoolpro/require-tenant-id -- super-admin cross-tenant query
     prisma.auditLog.findMany({
       where: { action: { startsWith: "impersonation:" } },
       orderBy: { createdAt: "desc" },

@@ -93,7 +93,7 @@ export async function getBulletinData(
    * de vérifier que `eleveId` relève bien du périmètre de sites de
    * l'utilisateur avant d'appeler cette fonction.
    */
-  /* eslint-disable ecolpro/require-site-filter */
+  /* eslint-disable schoolpro/require-site-filter */
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     include: {
@@ -165,7 +165,7 @@ export async function getBulletinData(
     },
     select: { matiereId: true, moyenneEleve: true },
   });
-  /* eslint-enable ecolpro/require-site-filter */
+  /* eslint-enable schoolpro/require-site-filter */
 
   const moyenneClasseByMatiere: Record<string, number | null> = {};
   const matiereIds = [...new Set(allBulletinsMatieres.map(bm => bm.matiereId))];
@@ -308,7 +308,7 @@ export async function getBulletinAnnuelData(
    * est vérifiée sur l'élève et sur l'année, et tout le reste dérive de ces
    * deux lectures. La vérification du site incombe à la route appelante.
    */
-  /* eslint-disable ecolpro/require-site-filter */
+  /* eslint-disable schoolpro/require-site-filter */
   const eleve = await prisma.eleve.findFirst({
     where: { id: eleveId, tenantId },
     include: {
@@ -461,7 +461,7 @@ export async function getBulletinAnnuelData(
       },
       select: { bulletin: { select: { eleveId: true } }, moyenneEleve: true },
     });
-  /* eslint-enable ecolpro/require-site-filter */
+  /* eslint-enable schoolpro/require-site-filter */
     // Actually we need matiereId, not code. Let's use the map.
     // Skip for now - too complex for this iteration
     matiere.rangAnnuel = null;

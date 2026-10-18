@@ -85,7 +85,7 @@ async function getSignauxAbsenteisme(
 
   // La fenêtre glissante de 30 jours borne déjà le périmètre temporel : un
   // filtre d'année scolaire en plus ne changerait rien au résultat.
-  // eslint-disable-next-line ecolpro/require-annee-filter -- fenêtre de dates explicite
+  // eslint-disable-next-line schoolpro/require-annee-filter -- fenêtre de dates explicite
   const lignes = await prisma.absence.groupBy({
     by: ["eleveId", "isRetard"],
     where: {

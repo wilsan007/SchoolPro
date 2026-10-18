@@ -67,7 +67,7 @@ export async function suggestSlots(opts: {
   const annee = await getAnneeCouranteLibelle(tenantId);
   if (!annee) throw new Error("Aucune année scolaire active pour ce tenant");
 
-  /* eslint-disable ecolpro/require-site-filter -- library function, caller passes tenantId and is responsible for site scoping */
+  /* eslint-disable schoolpro/require-site-filter -- library function, caller passes tenantId and is responsible for site scoping */
   const [classCreneaux, allCreneaux, allEnseignants, salles, disponibilites, indisponibilites, matiere] = await Promise.all([
     prisma.emploiTemps.findMany({ where: { tenantId, classeId, annee } }),
     prisma.emploiTemps.findMany({ where: { tenantId, annee } }),
@@ -77,7 +77,7 @@ export async function suggestSlots(opts: {
     prisma.indisponibiliteEnseignant.findMany({ where: { tenantId } }),
     prisma.matiere.findFirst({ where: { id: matiereId, tenantId }, select: { nom: true } }),
   ]);
-  /* eslint-enable ecolpro/require-site-filter */
+  /* eslint-enable schoolpro/require-site-filter */
 
   // Il n'existe pas de relation Enseignant <-> Matiere en base : on se base
   // sur le champ libre `specialite`. Si aucun prof ne correspond à la

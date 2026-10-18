@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   const eleveParId = new Map(eleves.map((e) => [e.id, e]));
 
   // 2. Récupérer les EleveParent pour ces élèves, avec le Parent
-  // eslint-disable-next-line ecolpro/require-site-filter -- filtrage par eleveIds déjà isolés par siteFilter ci-dessus
+  // eslint-disable-next-line schoolpro/require-site-filter -- filtrage par eleveIds déjà isolés par siteFilter ci-dessus
   const eleveParents = await prisma.eleveParent.findMany({
     where: {
       eleveId: { in: eleveIds },
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
     // Unicité vérifiée sans tenir compte de la casse : la connexion recherche
     // désormais en `mode: "insensitive"`, deux comptes ne différant que par la
     // casse rendraient donc l'authentification ambiguë.
-    // eslint-disable-next-line ecolpro/require-tenant-id, ecolpro/require-site-filter -- vérification d'unicité globale par email
+    // eslint-disable-next-line schoolpro/require-tenant-id, schoolpro/require-site-filter -- vérification d'unicité globale par email
     const existing = await prisma.user.findFirst({
       where: { email: { equals: username, mode: "insensitive" } },
       select: { id: true },

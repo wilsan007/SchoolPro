@@ -39,7 +39,7 @@ export async function demanderLienEnfant(data: {
   const { matricule, dateNaissance } = parsed.data;
 
   // Trouver le Parent associé à l'utilisateur connecté
-  // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup du parent lié à l'utilisateur connecté
+  // eslint-disable-next-line schoolpro/require-site-filter -- self-lookup du parent lié à l'utilisateur connecté
   const parent = await prisma.parent.findFirst({
     where: { userId: session.user.id, tenantId: session.user.tenantId },
     select: { id: true },
@@ -50,7 +50,7 @@ export async function demanderLienEnfant(data: {
   }
 
   // Trouver l'élève par matricule dans le tenant
-  // eslint-disable-next-line ecolpro/require-site-filter -- recherche par matricule unique dans le tenant, isolation par tenantId
+  // eslint-disable-next-line schoolpro/require-site-filter -- recherche par matricule unique dans le tenant, isolation par tenantId
   const eleve = await prisma.eleve.findFirst({
     where: { matricule, tenantId: session.user.tenantId },
     select: {
@@ -84,7 +84,7 @@ export async function demanderLienEnfant(data: {
   }
 
   // Vérifier qu'un lien n'existe pas déjà
-  // eslint-disable-next-line ecolpro/require-site-filter -- clé composite parent↔élève, déjà isolée par tenant
+  // eslint-disable-next-line schoolpro/require-site-filter -- clé composite parent↔élève, déjà isolée par tenant
   const lienExistant = await prisma.eleveParent.findUnique({
     where: { eleveId_parentId: { eleveId: eleve.id, parentId: parent.id } },
   });
@@ -93,7 +93,7 @@ export async function demanderLienEnfant(data: {
   }
 
   // Vérifier qu'une demande n'est pas déjà en attente
-  // eslint-disable-next-line ecolpro/require-tenant-id -- clé composite parent↔élève, déjà isolée par tenant
+  // eslint-disable-next-line schoolpro/require-tenant-id -- clé composite parent↔élève, déjà isolée par tenant
   const demandeExistante = await prisma.demandeLienParent.findUnique({
     where: { parentId_eleveId: { parentId: parent.id, eleveId: eleve.id } },
   });
@@ -206,7 +206,7 @@ export async function validerDemandeLien(demandeId: string, lien: LienParente = 
   }
 
   // Créer le lien EleveParent s'il n'existe pas
-  // eslint-disable-next-line ecolpro/require-site-filter -- clé composite, demande déjà filtrée par tenantId
+  // eslint-disable-next-line schoolpro/require-site-filter -- clé composite, demande déjà filtrée par tenantId
   const lienExistant = await prisma.eleveParent.findUnique({
     where: { eleveId_parentId: { eleveId: demande.eleveId, parentId: demande.parentId } },
   });
@@ -234,7 +234,7 @@ export async function validerDemandeLien(demandeId: string, lien: LienParente = 
   // --- Notification IN_APP au parent : lien validé ---
   try {
     // Récupérer le nom de l'enfant et le userId du parent
-    // eslint-disable-next-line ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
+    // eslint-disable-next-line schoolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
     const demandeInfo = await prisma.demandeLienParent.findFirst({
       where: { id: demandeId },
       select: {
@@ -303,7 +303,7 @@ export async function refuserDemandeLien(demandeId: string, motifRefus: string) 
   // --- Notification IN_APP au parent : lien refusé ---
   try {
     // Récupérer le nom de l'enfant
-    // eslint-disable-next-line ecolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
+    // eslint-disable-next-line schoolpro/require-tenant-id -- demande déjà filtrée par tenantId ci-dessus
     const demandeInfo = await prisma.demandeLienParent.findFirst({
       where: { id: demandeId },
       select: {
@@ -345,7 +345,7 @@ export async function getMesDemandesLien() {
     return [];
   }
 
-  // eslint-disable-next-line ecolpro/require-site-filter -- self-lookup du parent lié à l'utilisateur connecté
+  // eslint-disable-next-line schoolpro/require-site-filter -- self-lookup du parent lié à l'utilisateur connecté
   const parent = await prisma.parent.findFirst({
     where: { userId: session.user.id, tenantId: session.user.tenantId },
     select: { id: true },
@@ -353,7 +353,7 @@ export async function getMesDemandesLien() {
 
   if (!parent) return [];
 
-  // eslint-disable-next-line ecolpro/require-tenant-id -- parent.id provient du findFirst ci-dessus, déjà isolé par tenant
+  // eslint-disable-next-line schoolpro/require-tenant-id -- parent.id provient du findFirst ci-dessus, déjà isolé par tenant
   return prisma.demandeLienParent.findMany({
     where: { parentId: parent.id },
     include: {
