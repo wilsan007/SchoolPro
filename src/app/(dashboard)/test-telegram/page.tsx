@@ -150,9 +150,9 @@ export default function TestTelegramPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium block mb-1">Chat ID Telegram</label>
+            <label className="text-sm font-medium block mb-1">{tc("chatIdTelegram")}</label>
             <Input
-              aria-label="Chat ID Telegram"
+              aria-label={tc("chatIdTelegram")}
               value={chatId}
               onChange={(e) => setChatId(e.target.value)}
               placeholder="ex: 123456789"

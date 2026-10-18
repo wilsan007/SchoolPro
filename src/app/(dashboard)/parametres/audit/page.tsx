@@ -195,8 +195,8 @@ export default function AuditJournalPage() {
           </select>
           <input
             type="text"
-            aria-label="Filtrer par action"
-            placeholder="Action (ex: auth:login)"
+            aria-label={ta("filtrerAction")}
+            placeholder={ta("actionPlaceholder")}
             value={filters.action}
             onChange={(e) => setFilters({ ...filters, action: e.target.value })}
             className="px-3 py-2 border rounded-lg text-sm"

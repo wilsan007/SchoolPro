@@ -19,6 +19,10 @@ import { roleHasPermission } from "@/lib/permissions";
 import { AttestationsAValider, type Attestation } from "./AttestationsAValider";
 import { PlansAValider, type PlanAValider } from "./PlansAValider";
 import { RecommandationsView } from "./RecommandationsView";
+import { CorrectionsAValider } from "./CorrectionsAValider";
+import type { CorrectionDeLaFile } from "@/lib/learnos/entrainement/file-corrections";
+import type { EtatBudget } from "@/lib/learnos/entrainement/budget-ia";
+import type { FiabiliteCorrecteur } from "@/lib/learnos/entrainement/fiabilite-correcteur";
 
 interface RecommandationItem {
   id: string;
@@ -50,19 +54,28 @@ export function RecommandationsTabs({
   attestations,
   plans,
   recommandations,
+  corrections,
+  budget,
+  fiabilite,
   roleKey,
 }: {
   attestations: Attestation[];
   plans: PlanAValider[];
   recommandations: RecommandationItem[];
+  corrections: CorrectionDeLaFile[];
+  budget: EtatBudget;
+  fiabilite: FiabiliteCorrecteur | null;
   roleKey: string;
 }) {
   const t = useTranslations("learnos.recommandations");
   const tAtt = useTranslations("learnos.attestations");
   const tPlans = useTranslations("learnos.plans");
+  const tCorr = useTranslations("learnos.corrections");
 
   const [nbAttestations, setNbAttestations] = useState(attestations.length);
+  const [nbCorrections, setNbCorrections] = useState(corrections.length);
   const onAttestationsCountChange = useCallback((n: number) => setNbAttestations(n), []);
+  const onCorrectionsCountChange = useCallback((n: number) => setNbCorrections(n), []);
 
   // Compter les recommandations par niveau pour les cartes de synthèse.
   const recParNiveau = useMemo(() => {
@@ -77,7 +90,6 @@ export function RecommandationsTabs({
 
   const totalRecommandations = recommandations.length;
   const totalPlans = plans.length;
-  const totalGlobal = nbAttestations + totalPlans + totalRecommandations;
 
   // Attestations et plans sont des workflows de validation : seuls les rôles
   // qui peuvent valider (`entrainement:valider`) voient l'onglet attestations,
@@ -85,15 +97,21 @@ export function RecommandationsTabs({
   // plans. Les recommandations sont visibles par tous les rôles qui accèdent
   // à la page (permission `curriculum:read`).
   const canValidateAttestations = roleHasPermission(roleKey, "entrainement:valider");
+  const canValidateCorrections = roleHasPermission(roleKey, "entrainement:valider");
   const canWritePlans = roleHasPermission(roleKey, "curriculum:write");
 
+  const totalCorrections = corrections.length;
+  const totalGlobal = nbAttestations + totalPlans + totalRecommandations + totalCorrections;
+
   // L'onglet par défaut est celui qui a le plus de travail urgent.
-  // Attestations > Plans > Recommandations (par ordre de priorité).
-  const defaultTab = canValidateAttestations && nbAttestations > 0
-    ? "attestations"
-    : canWritePlans && totalPlans > 0
-      ? "plans"
-      : "recommandations";
+  // Corrections > Attestations > Plans > Recommandations (par ordre de priorité).
+  const defaultTab = canValidateCorrections && totalCorrections > 0
+    ? "corrections"
+    : canValidateAttestations && nbAttestations > 0
+      ? "attestations"
+      : canWritePlans && totalPlans > 0
+        ? "plans"
+        : "recommandations";
 
   const [activeTab, setActiveTab] = useState(defaultTab);
 
@@ -110,6 +128,17 @@ export function RecommandationsTabs({
     count: number;
   };
   const cartes: Carte[] = [
+    canValidateCorrections && {
+      key: "corrections",
+      tab: "corrections",
+      icone: CheckCircle2,
+      couleur: "text-emerald-600",
+      bg: "bg-emerald-500/10",
+      border: "border-emerald-500/20",
+      label: tCorr("titre"),
+      sub: tCorr("sousTitre", { n: nbCorrections }),
+      count: nbCorrections,
+    },
     canValidateAttestations && {
       key: "attestations",
       tab: "attestations",
@@ -210,6 +239,17 @@ export function RecommandationsTabs({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
         <div className="px-4 sm:px-6 lg:px-8 pb-2">
           <TabsList className="w-full justify-start h-auto p-1 flex-wrap">
+            {canValidateCorrections && (
+              <TabsTrigger value="corrections" className="gap-1.5 py-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                {tCorr("titre")}
+                {nbCorrections > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {nbCorrections}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
             {canValidateAttestations && (
               <TabsTrigger value="attestations" className="gap-1.5 py-2">
                 <BadgeCheck className="h-4 w-4 text-amber-600" />
@@ -246,6 +286,16 @@ export function RecommandationsTabs({
 
         {/* Contenu — scrollable */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-6 scrollbar-thin">
+          {canValidateCorrections && (
+            <TabsContent value="corrections" className="space-y-4 mt-0">
+              <CorrectionsAValider
+                corrections={corrections}
+                budget={{ reste: budget.restant, total: budget.plafond }}
+                fiabilite={fiabilite}
+                onCountChange={onCorrectionsCountChange}
+              />
+            </TabsContent>
+          )}
           {canValidateAttestations && (
             <TabsContent value="attestations" className="space-y-4 mt-0">
               <AttestationsAValider

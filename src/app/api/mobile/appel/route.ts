@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
 
       if (tuteur.email) {
         try {
-          const html = renderNotificationEmail(
+          const html = await renderNotificationEmail(
             ecoleNom,
             "Signalement d'absence",
             `Bonjour ${tuteur.prenom} ${tuteur.nom},\n\nNous vous informons que ${eleveNom} a été signalé(e) absent(e) le ${dateFr}.\n\nVeuillez contacter l'établissement pour régulariser cette absence.\n\nCordialement,\n${ecoleNom}`

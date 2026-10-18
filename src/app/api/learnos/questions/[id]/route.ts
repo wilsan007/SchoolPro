@@ -5,13 +5,15 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { siteFilterForModel } from "@/lib/site-scope";
-import { parseStructure } from "@/lib/learnos/entrainement";
+import { grilleCoherente, parseGrille, parseStructure } from "@/lib/learnos/entrainement";
 import { estAutoCorrigeable } from "@/lib/learnos/formats";
 
 const Schema = z.object({
   enonce: z.string().min(1).max(2000).optional(),
   structure: z.unknown().optional(),
   bareme: z.number().positive().max(100).optional(),
+  /** Remplace la grille. Chaque remplacement incrémente `grilleVersion`. */
+  grille: z.unknown().optional(),
   actif: z.boolean().optional(),
   /** `true` = l'enseignant valide la question générée. Jamais `false`. */
   relue: z.literal(true).optional(),
@@ -54,7 +56,7 @@ export async function PATCH(
       tenantId: session.user.tenantId,
       ...siteFilterForModel("question", session.user),
     },
-    select: { id: true, format: true, origine: true, relueLe: true },
+    select: { id: true, format: true, origine: true, relueLe: true, bareme: true, grille: true },
   });
   if (!question) return erreurJson("QUESTION_INTROUVABLE");
 
@@ -74,12 +76,31 @@ export async function PATCH(
     }
   }
 
+  // Grille : celle qu'on envoie, sinon celle déjà en base — le barème a pu
+  // changer, et une grille qui ne totalise plus le barème est incohérente.
+  const baremeFinal = (data.bareme as number | undefined) ?? question.bareme;
+  if (parsed.data.grille !== undefined) {
+    const lue = parseGrille(parsed.data.grille);
+    if (!lue) return erreurJson("GRILLE_INVALIDE");
+    if (!grilleCoherente(lue, baremeFinal)) return erreurJson("GRILLE_INCOHERENTE");
+    data.grille = lue;
+    // Une preuve est corrigée sous UNE version de grille : l'incrémenter à chaque
+    // remplacement garde l'historique explicable et permet la réévaluation.
+    data.grilleVersion = { increment: 1 };
+  } else if (data.bareme !== undefined && question.grille) {
+    const existante = parseGrille(question.grille);
+    if (existante && !grilleCoherente(existante, baremeFinal)) {
+      return erreurJson("GRILLE_INCOHERENTE");
+    }
+  }
+
   // Corriger une question, c'est l'avoir lue : la signature suit, sans qu'on
   // ait à la demander séparément. L'oublier laisserait décotées des questions
   // qu'un enseignant vient pourtant de reprendre à la main.
   const signe =
     parsed.data.relue === true ||
     parsed.data.structure !== undefined ||
+    parsed.data.grille !== undefined ||
     parsed.data.enonce !== undefined;
 
   if (signe && !question.relueLe) {

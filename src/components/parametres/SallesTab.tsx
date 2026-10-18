@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { ListeGroupee } from "@/components/ui/liste-groupee";
 import type { AxeRegroupement } from "@/lib/regroupement";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ const AXES_SALLES: AxeRegroupement<Salle>[] = [
 ];
 
 export function SallesTab({ canManage }: Props) {
+  const t = useTranslations("parametres");
   const [salles, setSalles] = useState<Salle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -133,8 +135,8 @@ export function SallesTab({ canManage }: Props) {
           <div className="flex gap-2 flex-wrap">
             <input
               type="text"
-              aria-label="Nom de la salle"
-              placeholder="Nom de la salle"
+              aria-label={t("nomSalle")}
+              placeholder={t("nomSallePlaceholder")}
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               className="flex-1 min-w-40 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"

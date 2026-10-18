@@ -12,6 +12,9 @@ import {
 } from "@/lib/site-scope";
 import { getTeacherScope, isTeacherRole } from "@/lib/teacher-classes";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
+import { chargerFileCorrections } from "@/lib/learnos/entrainement/file-corrections";
+import { budgetDuJour } from "@/lib/learnos/entrainement/budget-ia";
+import { fiabiliteObservee, type MesureValidation } from "@/lib/learnos/entrainement/fiabilite-correcteur";
 import type { Role, Prisma } from "@prisma/client";
 
 /**
@@ -206,23 +209,100 @@ async function getAttestations(
   }));
 }
 
+/**
+ * Corrections assistées en attente de relecture, dans le périmètre de l'appelant.
+ *
+ * Réutilise la même requête que l'API `GET /learnos/corrections` pour qu'il n'y
+ * ait qu'une seule source de vérité sur le filtre d'année et le périmètre.
+ */
+async function getCorrectionsAValider(
+  tenantId: string,
+  claims: SessionSiteClaims,
+  scope?: { classeIds: string[]; isRestricted: boolean }
+) {
+  return chargerFileCorrections(
+    tenantId,
+    claims,
+    scope
+      ? { classeIds: scope.classeIds, isRestricted: scope.isRestricted }
+      : undefined,
+    "TOUS"
+  );
+}
+
+/** Budget IA consommé aujourd'hui par l'établissement. */
+async function getBudgetDuJour(tenantId: string) {
+  return budgetDuJour(tenantId);
+}
+
+/**
+ * Fiabilité OBSERVÉE du correcteur assisté, dans le périmètre de l'appelant.
+ *
+ * Même calcul que la route `GET /learnos/corrections/fiabilite` : chaque
+ * validation/rejet est une mesure faite sur une vraie copie.
+ */
+async function getFiabilite(
+  tenantId: string,
+  claims: SessionSiteClaims
+): Promise<{
+  relues: number;
+  tauxConfirmees: number;
+  tauxEcartCriteres: number;
+  tauxRejets: number;
+  suffisant: boolean;
+} | null> {
+  const lues = await prisma.correctionAssistee.findMany({
+    where: mergeFilters(
+      { tenantId, statut: { in: ["VALIDEE", "REJETEE"] } },
+      siteFilterForModel("correctionAssistee", claims)
+    ),
+    select: { statut: true, criteresReussis: true, criteresValides: true, details: true },
+    orderBy: { valideeLe: "desc" },
+    take: 1000,
+  });
+
+  if (lues.length === 0) return null;
+
+  const mesures: MesureValidation[] = lues.map((c) => {
+    const proposes = Array.isArray(c.criteresReussis)
+      ? (c.criteresReussis as string[])
+      : [];
+    const valides = Array.isArray(c.criteresValides)
+      ? (c.criteresValides as string[])
+      : [];
+    const evalues = Array.isArray(c.details)
+      ? (c.details as { id: string }[]).map((d) => d.id)
+      : [];
+    const p = new Set(proposes);
+    const v = new Set(valides);
+    return {
+      validee: c.statut === "VALIDEE",
+      ecarts: evalues.filter((id) => p.has(id) !== v.has(id)).length,
+      nbCriteres: evalues.length,
+    };
+  });
+
+  return fiabiliteObservee(mesures);
+}
+
 export default async function RecommandationsPage() {
   const [session, t] = await Promise.all([auth(), getTranslations("learnos.recommandations")]);
   await guardPage(session);
 
+  const tenantId = session!.user.tenantId!;
   const scope = isTeacherRole(session!.user.role as Role)
-    ? await getTeacherScope(
-        session!.user.tenantId!,
-        session!.user.id,
-        session!.user.role as Role
-      )
+    ? await getTeacherScope(tenantId, session!.user.id, session!.user.role as Role)
     : undefined;
 
-  const [recommandations, plans, attestations] = await Promise.all([
-    getRecommandations(session!.user.tenantId!, session!.user, scope),
-    getPlansAValider(session!.user.tenantId!, session!.user, scope),
-    getAttestations(session!.user.tenantId!, session!.user, scope),
-  ]);
+  const [recommandations, plans, attestations, corrections, budget, fiabilite] =
+    await Promise.all([
+      getRecommandations(tenantId, session!.user, scope),
+      getPlansAValider(tenantId, session!.user, scope),
+      getAttestations(tenantId, session!.user, scope),
+      getCorrectionsAValider(tenantId, session!.user, scope),
+      getBudgetDuJour(tenantId),
+      getFiabilite(tenantId, session!.user),
+    ]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -236,6 +316,9 @@ export default async function RecommandationsPage() {
         attestations={attestations}
         plans={plans}
         recommandations={recommandations}
+        corrections={corrections}
+        budget={budget}
+        fiabilite={fiabilite}
         roleKey={session!.user.role}
       />
     </div>

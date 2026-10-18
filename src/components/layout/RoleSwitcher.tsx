@@ -90,14 +90,19 @@ export function RoleSwitcher({ availableRoles, currentRole }: RoleSwitcherProps)
         // Naviguer vers l'accueil du nouveau rôle : rester sur la page
         // courante enverrait vers /acces-bloque tout rôle sans droit sur
         // elle (ex. basculer vers STUDENT depuis /direction).
+        //
+        // `router.push` suffit : la Server Action a invalidé le cache avec
+        // `revalidatePath`, donc la page de destination est rendue à neuf,
+        // avec le nouveau cookie. Le `router.refresh()` qui suivait en
+        // déclenchait un SECOND rendu complet de cette même page — mesuré à
+        // une douzaine de secondes en développement, pour un résultat
+        // identique. Il n'est conservé que lorsqu'aucune navigation n'a lieu.
         const accueil = accueilPourRole(role);
         if (accueil) {
           router.push(accueil);
+        } else {
+          router.refresh();
         }
-        // La Server Action a déjà appelé revalidatePath, mais on
-        // force un router.refresh() pour que les Server Components
-        // re-render avec le nouveau rôle immédiatement.
-        router.refresh();
       } catch (error) {
         console.error("Erreur switch role:", error);
         setSwitchingTo(null);

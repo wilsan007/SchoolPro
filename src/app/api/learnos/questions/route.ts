@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
 import { siteFilterForModel, siteIdForCreate } from "@/lib/site-scope";
-import { parseStructure } from "@/lib/learnos/entrainement";
+import { grilleCoherente, parseGrille, parseStructure } from "@/lib/learnos/entrainement";
 import { estAutoCorrigeable } from "@/lib/learnos/formats";
 
 const PALIERS = ["RESTITUTION", "APPLICATION", "CONSOLIDATION", "TRANSFERT", "OUVERTURE"] as const;
@@ -50,6 +50,8 @@ export async function GET(req: NextRequest) {
       format: true,
       structure: true,
       bareme: true,
+      grille: true,
+      grilleVersion: true,
       origine: true,
       relueLe: true,
       relueParId: true,
@@ -72,6 +74,8 @@ const SchemaCreation = z.object({
   format: z.enum(FORMATS),
   bareme: z.number().positive().max(100).optional(),
   structure: z.unknown().optional(),
+  /** Critères, erreurs anticipées, explication. Validée par `parseGrille`. */
+  grille: z.unknown().optional(),
 });
 
 /**
@@ -92,7 +96,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return erreurJson("DONNEES_INVALIDES", undefined, { details: parsed.error.flatten() });
   }
-  const { competenceId, enonce, palier, format, bareme, structure } = parsed.data;
+  const { competenceId, enonce, palier, format, bareme, structure, grille } = parsed.data;
 
   const competence = await prisma.competence.findFirst({
     where: {
@@ -114,6 +118,15 @@ export async function POST(req: NextRequest) {
     baremeCalcule = bareme ?? lue.etapes.reduce((s, e) => s + e.points, 0);
   }
 
+  // Une grille est validée comme une structure, et doit dire la même chose que
+  // le barème : deux totaux pour une même copie rendraient la note contestable.
+  let grilleValidee = null;
+  if (grille !== undefined) {
+    grilleValidee = parseGrille(grille);
+    if (!grilleValidee) return erreurJson("GRILLE_INVALIDE");
+    if (!grilleCoherente(grilleValidee, baremeCalcule)) return erreurJson("GRILLE_INCOHERENTE");
+  }
+
   const question = await prisma.question.create({
     data: {
       tenantId: session.user.tenantId,
@@ -126,6 +139,7 @@ export async function POST(req: NextRequest) {
       format,
       structure: (structureValidee ?? undefined) as Prisma.InputJsonValue | undefined,
       bareme: baremeCalcule,
+      grille: (grilleValidee ?? undefined) as Prisma.InputJsonValue | undefined,
       // Écrite à la main : elle n'a rien à relire, elle l'est d'origine.
       origine: "humain",
       actif: true,

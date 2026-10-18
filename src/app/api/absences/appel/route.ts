@@ -300,8 +300,8 @@ export async function POST(req: NextRequest) {
           if (tuteur.email) {
             tasks.push({
               kind: "sent",
-              run: () => {
-                const html = renderNotificationEmail(ecoleNom, titreNotif, contenuNotif);
+              run: async () => {
+                const html = await renderNotificationEmail(ecoleNom, titreNotif, contenuNotif);
                 return sendEmail(
                   [tuteur.email!],
                   `[${ecoleNom}] ${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} de ${eleveNom}`,

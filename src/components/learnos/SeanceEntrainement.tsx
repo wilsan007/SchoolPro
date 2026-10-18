@@ -45,6 +45,7 @@ interface Element {
 interface EtapeVue {
   index: number;
   enonce: string;
+  partie?: string;
   format: "SAISIE_COURTE" | "CHOIX_UNIQUE" | "REMISE_EN_ORDRE" | "APPARIEMENT";
   options?: Element[];
   gauche?: Element[];
@@ -67,6 +68,9 @@ interface ExerciceVue {
   motifParams: Record<string, unknown> | null;
   nbEtapes: number;
   etapeCourante: number;
+  /** Présent seulement pour un dossier (grand exercice découpé en parties). */
+  parties?: { id: string; titre: string; but?: string }[];
+  partieCourante?: number | null;
   termine: boolean;
   etapes: EtapeVue[];
 }
@@ -81,6 +85,8 @@ interface SeanceVue {
 
 interface ResultatEtape {
   correcte: boolean;
+  statut?: "JUSTE" | "FAUSSE" | "PARTIELLE" | "NON_EVALUEE";
+  proportion?: number;
   tentatives: number;
   close: boolean;
   corrige: string | null;
@@ -469,6 +475,50 @@ function Seance({ eleveId, matiereId }: { eleveId?: string; matiereId: string | 
 
           <p className="font-medium leading-relaxed">{exercice.enonce}</p>
 
+          {/* Dossier : la route entière est montrée dès l'ouverture, et la partie
+              en cours est nommée. Sans cela, vingt étapes se lisent comme vingt
+              questions sans fin ; avec, comme cinq parties dont on voit
+              l'avancement. Aucune réponse ne transite ici — les titres seuls. */}
+          {exercice.parties && exercice.parties.length > 0 && (
+            <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+              <p className="text-xs font-medium">
+                {exercice.partieCourante != null
+                  ? t("partieSur", {
+                      n: exercice.partieCourante + 1,
+                      total: exercice.parties.length,
+                    })
+                  : t("partiesAide")}
+              </p>
+              <ol className="flex flex-wrap gap-1.5" aria-label={t("partiesAide")}>
+                {exercice.parties.map((partie, i) => {
+                  const fait = exercice.partieCourante == null || i < exercice.partieCourante;
+                  const enCours = i === exercice.partieCourante;
+                  return (
+                    <li
+                      key={partie.id}
+                      aria-current={enCours ? "step" : undefined}
+                      title={partie.but}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-xs",
+                        fait && "border-emerald-500/40 bg-emerald-500/10",
+                        enCours && "border-primary bg-primary/10 font-medium",
+                        !fait && !enCours && "opacity-60"
+                      )}
+                    >
+                      {partie.titre}
+                    </li>
+                  );
+                })}
+              </ol>
+              {exercice.partieCourante != null &&
+                exercice.parties[exercice.partieCourante]?.but && (
+                  <p className="text-xs text-muted-foreground">
+                    {exercice.parties[exercice.partieCourante].but}
+                  </p>
+                )}
+            </div>
+          )}
+
           <div className="space-y-3">
             {exercice.etapes.map((etape) => {
               const close = etape.correcte !== null;
@@ -576,6 +626,12 @@ function Seance({ eleveId, matiereId }: { eleveId?: string; matiereId: string | 
                     </p>
                   )}
 
+                  {/* « Presque » ne crédite rien : il dit seulement qu'une partie
+                      de la réponse tient, pour que l'élève ne reparte pas de zéro. */}
+                  {active && dernier?.statut === "PARTIELLE" && !dernier.correcte && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">{t("presque")}</p>
+                  )}
+
                   {active && etape.indice && (
                     <p className="text-xs flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
                       <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -586,6 +642,47 @@ function Seance({ eleveId, matiereId }: { eleveId?: string; matiereId: string | 
               );
             })}
           </div>
+
+          {/* Rassemblement : à la fin d'un dossier, l'élève repart avec ce qu'il a
+              construit, partie par partie. C'est ce qui fait de vingt réponses
+              courtes un seul résultat qu'on peut recopier dans son cahier.
+              Rien de nouveau n'est exposé : une étape close montre déjà son
+              corrigé, ce récapitulatif ne fait que les ranger. */}
+          {exercice.termine && exercice.parties && exercice.parties.length > 0 && (
+            <div className="space-y-3 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+              <div>
+                <p className="text-sm font-medium">{t("recapTitre")}</p>
+                <p className="text-xs text-muted-foreground">{t("recapAide")}</p>
+              </div>
+              {exercice.parties.map((partie, i) => {
+                const etapesPartie = exercice.etapes.filter((e) => e.partie === partie.id);
+                return (
+                  <div key={partie.id} className="space-y-1.5">
+                    <p className="text-xs font-semibold">
+                      {t("partieSur", { n: i + 1, total: exercice.parties!.length })} — {partie.titre}
+                    </p>
+                    <ul className="space-y-1 pl-3 text-xs">
+                      {etapesPartie.map((e) => (
+                        <li key={e.index} className="flex items-start gap-1.5">
+                          {e.correcte ? (
+                            <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" />
+                          ) : (
+                            <X className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+                          )}
+                          <span>
+                            {e.enonce}{" "}
+                            <span className="text-muted-foreground">
+                              → {e.correcte ? e.reponse : e.corrige}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {exercice.termine && (
             <div className="flex items-center justify-between border-t pt-4">

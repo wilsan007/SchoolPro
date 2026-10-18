@@ -126,6 +126,7 @@ export const SITE_PATHS: Record<string, SitePath> = {
   // EtapePlan n'a pas de siteId : son rattachement passe par le plan.
   etapePlan: { one: "plan" },
   question: "column",
+  correctionAssistee: "column",
   feuilleExercices: "column",
   // Ni l'exercice servi ni la réponse ne portent de siteId : ils appartiennent
   // à la feuille, qui appartient à l'élève. Un siteId propre pourrait diverger

@@ -5,6 +5,7 @@ import { getAttestationData } from "@/lib/attestation-generator";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { checkPermission } from "@/lib/rbac";
+import { getTranslations } from "next-intl/server";
 
 const BodySchema = z.object({
   eleveId: z.string().min(1),
@@ -34,11 +35,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Élève introuvable" }, { status: 404 });
   }
 
-  const html = generateAttestationHTML(data);
+  const t = await getTranslations("attestation");
+  const html = generateAttestationHTML(data, t);
   return NextResponse.json({ html });
 }
 
-function generateAttestationHTML(data: ReturnType<typeof getAttestationData> extends Promise<infer T> ? T : never): string {
+function generateAttestationHTML(data: ReturnType<typeof getAttestationData> extends Promise<infer T> ? T : never, t: Awaited<ReturnType<typeof getTranslations>>): string {
   if (!data) return "";
   const d = data;
   const dateFr = format(d.dateDelivrance, "dd MMMM yyyy", { locale: fr });
@@ -88,39 +90,39 @@ function generateAttestationHTML(data: ReturnType<typeof getAttestationData> ext
   <div class="eleve-info">
     <table>
       <tr>
-        <td class="label">Nom & Prénom:</td><td><strong>${d.eleveNom} ${d.elevePrenom}</strong></td>
-        <td class="label">Matricule:</td><td>${d.eleveMatricule}</td>
+        <td class="label">${t("labelNomPrenom")}:</td><td><strong>${d.eleveNom} ${d.elevePrenom}</strong></td>
+        <td class="label">${t("labelMatricule")}:</td><td>${d.eleveMatricule}</td>
       </tr>
       <tr>
-        <td class="label">Né(e) le:</td><td>${dateNaissance}</td>
+        <td class="label">${t("labelNeLe")}:</td><td>${dateNaissance}</td>
         <td class="label">Sexe:</td><td>${d.eleveSexe === "M" ? "Masculin" : "Féminin"}</td>
       </tr>
       <tr>
-        <td class="label">Classe:</td><td>${d.eleveClasse}</td>
-        <td class="label">Niveau:</td><td>${d.eleveNiveau}</td>
+        <td class="label">${t("labelClasse")}:</td><td>${d.eleveClasse}</td>
+        <td class="label">${t("labelNiveau")}:</td><td>${d.eleveNiveau}</td>
       </tr>
       <tr>
-        <td class="label">Année scolaire:</td><td colspan="3"><strong>${d.annee}</strong></td>
+        <td class="label">${t("labelAnneeScolaire")}:</td><td colspan="3"><strong>${d.annee}</strong></td>
       </tr>
     </table>
   </div>
 
   <div class="body">
-    <p>Je soussigné(e) <strong>${d.honorifique} ${d.chefEtablissement ?? "_______________"}</strong>,
-    Directeur(trice) de l'établissement <strong>${d.ecoleName}</strong>,</p>
-    <p>atteste par la présente que l'élève <strong>${d.eleveNom} ${d.elevePrenom}</strong>,
+    <p>${t("corpsJeSoussigne")} <strong>${d.honorifique} ${d.chefEtablissement ?? "_______________"}</strong>,
+    ${t("corpsDirecteurTrice")} <strong>${d.ecoleName}</strong>,</p>
+    <p>${t("corpsAtteste")} <strong>${d.eleveNom} ${d.elevePrenom}</strong>,
     ${d.eleveDateNaissance ? `né(e) le ${dateNaissance},` : ""} matricule N° <strong>${d.eleveMatricule}</strong>,
-    est régulièrement inscrit(e) en classe de <strong>${d.eleveClasse}</strong> (${d.eleveNiveau})
-    pour l'année scolaire <strong>${d.annee}</strong>.</p>
-    <p>En foi de quoi la présente ${d.titre.toLowerCase()} lui est délivrée pour servir et valoir ce que de droit.</p>
+    ${t("corpsEstRegulierementInscrit")} <strong>${d.eleveClasse}</strong> (${d.eleveNiveau})
+    ${t("corpsPourLAnnee")} <strong>${d.annee}</strong>.</p>
+    <p>${t("corpsEnFoiDeQuoi")} ${d.titre.toLowerCase()} ${t("corpsLuiEstDelivree")}</p>
   </div>
 
   <div class="footer">
-    <div class="date-lieu">Fait à ${d.ecoleVille}, le ${dateFr}</div>
+    <div class="date-lieu">${t("footerFaitA")} ${d.ecoleVille}, ${t("footerLe")} ${dateFr}</div>
     <div class="signature">
       ${d.signatureUrl ? `<img src="${d.signatureUrl}" alt="Signature" /><br/>` : ''}
-      <div class="name">${d.chefEtablissement ?? "Le Directeur"}</div>
-      <div style="font-size:10px;color:#666">Directeur de l'établissement</div>
+      <div class="name">${d.chefEtablissement ?? t("footerLeDirecteur")}</div>
+      <div style="font-size:10px;color:#666">${t("footerDirecteur")}</div>
     </div>
   </div>
   ${d.cachetUrl ? `<img src="${d.cachetUrl}" class="cachet" alt="Cachet" />` : ''}

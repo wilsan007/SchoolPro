@@ -167,7 +167,7 @@ export async function dispatchNotification(
   switch (notif.canal) {
     case "EMAIL": {
       nbDestinataires = emails.length;
-      const html = renderNotificationEmail(ecoleNom, notif.titre, notif.contenu);
+      const html = await renderNotificationEmail(ecoleNom, notif.titre, notif.contenu);
       const r = await sendEmail(emails, `[${ecoleNom}] ${notif.titre}`, html, {
         tenantId: notif.tenantId,
         type: "notification",

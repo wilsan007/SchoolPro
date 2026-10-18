@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>SchoolPro — L'oubli se prévient (25s)</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script src="assets/audio-data.js"></script>
+    <style>
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-500.woff2") format("woff2"); font-weight: 500; font-style: normal; }
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-600.woff2") format("woff2"); font-weight: 600; font-style: normal; }
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+      @font-face { font-family: "Plus Jakarta Sans"; src: url("assets/fonts/jakarta-600.woff2") format("woff2"); font-weight: 400 800; font-style: normal; }
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/jbmono-600.woff2") format("woff2"); font-weight: 600; font-style: normal; }
+
+      :root {
+        --bg: #0f111a; --card: #131622; --turquoise: #38bdf8; --azure: #0ea5e9;
+        --violet: #9b6fe0; --violet-light: #b79cf0; --teal: #14b8a6; --amber: #eab308;
+        --red: #dc2626; --red-text: #f87171; --green: #059669; --fg: #e6e9f0;
+        --muted: #919aa6; --border: rgba(56, 189, 248, 0.14);
+      }
+      body { margin: 0; background: #000; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: var(--fg); }
+      .clip { position: absolute; inset: 0; overflow: hidden; }
+      .scene { position: absolute; inset: 0; padding: 150px 90px 130px; display: flex; flex-direction: column; justify-content: center; }
+
+      .glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
+      .glow-turquoise { width: 720px; height: 720px; left: -180px; bottom: -240px; background: radial-gradient(circle, rgba(14,165,233,0.5) 0%, rgba(14,165,233,0) 70%); opacity: 0.14; }
+      .glow-violet { width: 640px; height: 640px; right: -220px; top: -180px; background: radial-gradient(circle, rgba(155,111,224,0.55) 0%, rgba(155,111,224,0) 70%); opacity: 0.12; }
+      .ghost { position: absolute; font-family: "Clash Grotesk", sans-serif; font-weight: 700; color: rgba(230,233,240,0.05); letter-spacing: 0.02em; white-space: nowrap; pointer-events: none; }
+      .grain { position: absolute; inset: 0; background-image: radial-gradient(rgba(230,233,240,0.045) 1px, transparent 1px); background-size: 7px 7px; pointer-events: none; }
+
+      .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 26px; font-weight: 600; letter-spacing: 0.28em; color: var(--muted); margin-bottom: 44px; }
+      .display { font-family: "Clash Grotesk", sans-serif; font-weight: 600; line-height: 1.08; letter-spacing: -0.01em; }
+      .t-turquoise { color: var(--turquoise); }
+      .t-violet { color: var(--violet-light); }
+      .t-amber { color: var(--amber); }
+      .t-red { color: var(--red-text); }
+      .mono { font-family: "JetBrains Mono", monospace; font-weight: 600; }
+      .word { display: inline-block; margin-right: 0.28em; white-space: nowrap; }
+
+      .chip { display: inline-flex; align-items: center; gap: 14px; border-radius: 999px; padding: 14px 30px; font-size: 26px; font-weight: 700; }
+      .chip-violet { background: rgba(155,111,224,0.12); color: var(--violet-light); border: 2px solid rgba(155,111,224,0.35); }
+      .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--violet); }
+      .card { background: var(--card); border: 2px solid var(--border); border-radius: 26px; border-left: 8px solid var(--violet); padding: 44px 48px; }
+
+      /* ── Barre de décroissance ── */
+      .decay-track { height: 74px; background: rgba(230,233,240,0.06); border-radius: 999px; overflow: hidden; margin-top: 64px; }
+      .decay-fill { height: 100%; width: 100%; border-radius: 999px; background: linear-gradient(90deg, #0ea5e9, #38bdf8); transform-origin: left center; }
+      .decay-caption { display: flex; justify-content: space-between; margin-top: 26px; font-size: 30px; color: var(--muted); font-weight: 600; }
+
+      /* ── Courbe ── */
+      .curve-wrap { margin-top: 48px; }
+      .curve-svg { width: 100%; height: auto; display: block; }
+      .pt { fill: var(--turquoise); }
+      .seg { stroke: var(--turquoise); stroke-width: 7; stroke-linecap: round; }
+
+      /* ── Checklist ── */
+      .check-row { display: flex; align-items: center; gap: 26px; padding: 26px 0; border-bottom: 2px solid rgba(145,154,166,0.12); font-size: 36px; font-weight: 600; }
+      .check-row:last-child { border-bottom: none; }
+      .check-box { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 16px; background: rgba(5,150,105,0.14); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; }
+
+      .pupil-chip { display: inline-flex; align-items: center; gap: 12px; background: rgba(234,179,8,0.1); border: 2px solid rgba(234,179,8,0.35); color: var(--amber); border-radius: 999px; padding: 12px 26px; font-size: 27px; font-weight: 700; margin-right: 14px; margin-bottom: 14px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="v2-oubli" data-start="0" data-width="1080" data-height="1920" data-duration="25">
+
+      <!-- ═══ SCÈNE 1 · HOOK (0–3s) ═══ -->
+      <section id="sc1" class="clip" data-start="0" data-duration="3" data-track-index="0">
+        <div class="scene" id="s1">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div class="ghost" id="s1-ghost" style="font-size: 210px; right: -40px; bottom: 200px;" data-layout-ignore>e^(−λt)</div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s1-eyebrow">SCHOOLPRO — LEARNOS</div>
+            <div class="display" style="font-size: 88px;" id="s1-l1">Pendant les vacances,</div>
+            <div class="display" style="font-size: 88px; margin-top: 14px;"><span class="word" id="s1-w1">votre</span><span class="word" id="s1-w2">classe</span><span class="word t-red" id="s1-w3">oublie.</span></div>
+            <div class="decay-track" id="s1-track"><div class="decay-fill" id="s1-fill"></div></div>
+            <div class="decay-caption" id="s1-capl"><span>maîtrise mesurée</span><span class="mono" id="s1-capr">j0 → j45</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 2 · LA DEMI-VIE (3–8s) ═══ -->
+      <section id="sc2" class="clip" data-start="3" data-duration="5" data-track-index="1">
+        <div class="scene" id="s2">
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s2-eyebrow">CE QUI SE MESURE SE PRÉVIENT</div>
+            <div class="display" style="font-size: 74px;" id="s2-title">Chaque compétence<br />a <span class="t-turquoise">une demi-vie.</span></div>
+            <div class="curve-wrap" id="s2-curve">
+              <svg class="curve-svg" viewBox="0 0 900 560" aria-hidden="true">
+                <line x1="60" y1="500" x2="880" y2="500" stroke="rgba(145,154,166,0.25)" stroke-width="3" />
+                <line x1="60" y1="40" x2="60" y2="500" stroke="rgba(145,154,166,0.25)" stroke-width="3" />
+                <g id="s2-seg1"><line class="seg" x1="92" y1="78" x2="252" y2="188" /></g>
+                <g id="s2-seg2"><line class="seg" x1="252" y1="188" x2="412" y2="278" /></g>
+                <g id="s2-seg3"><line class="seg" x1="412" y1="278" x2="572" y2="352" /></g>
+                <g id="s2-seg4"><line class="seg" x1="572" y1="352" x2="732" y2="408" /></g>
+                <g id="s2-seg5"><line class="seg" x1="732" y1="408" x2="872" y2="450" /></g>
+                <circle class="pt" id="s2-p1" cx="92" cy="78" r="17" />
+                <circle class="pt" id="s2-p2" cx="252" cy="188" r="17" />
+                <circle class="pt" id="s2-p3" cx="412" cy="278" r="17" />
+                <circle class="pt" id="s2-p4" cx="572" cy="352" r="17" />
+                <circle class="pt" id="s2-p5" cx="732" cy="408" r="17" />
+                <circle class="pt" id="s2-p6" cx="872" cy="450" r="17" />
+                <g id="s2-halflife">
+                  <line x1="252" y1="60" x2="252" y2="500" stroke="rgba(155,111,224,0.6)" stroke-width="3" stroke-dasharray="10 12" />
+                  <circle cx="252" cy="188" r="30" fill="none" stroke="#9b6fe0" stroke-width="4" />
+                </g>
+              </svg>
+            </div>
+            <div class="mono" style="font-size: 32px; color: var(--muted); margin-top: 40px;" id="s2-eq">mastery(t) = m₀ × e^(−λt) <span class="t-violet">— demi-vie = ln(2)/λ</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 3 · ALERTE VACANCES CREUSES (8–13.5s) ═══ -->
+      <section id="sc3" class="clip" data-start="8" data-duration="5.5" data-track-index="0">
+        <div class="scene" id="s3">
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div class="ghost" style="font-size: 190px; left: -60px; top: 120px;" data-layout-ignore>14 élèves</div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s3-eyebrow">ALERTE — PROJECTION DE RETOUR</div>
+            <div class="card" id="s3-card">
+              <div class="display" style="font-size: 56px; margin-bottom: 20px;" id="s3-title">Vacances creuses</div>
+              <div style="font-size: 40px; font-weight: 600; margin-bottom: 34px;" id="s3-line"><span class="t-amber mono" style="font-size: 46px;">14 élèves</span> passeront sous<br />le seuil <span class="t-turquoise">au retour.</span></div>
+              <div id="s3-chips" style="display: flex; flex-wrap: wrap;">
+                <span class="pupil-chip" id="s3-c1">Amina — fractions</span>
+                <span class="pupil-chip" id="s3-c2">Yusuf — Thalès</span>
+                <span class="pupil-chip" id="s3-c3">Hodan — orthographe</span>
+                <span class="pupil-chip" id="s3-c4">Farah — conjugaison</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 4 · RÉVISIONS CIBLÉES (13.5–19s) ═══ -->
+      <section id="sc4" class="clip" data-start="13.5" data-duration="5.5" data-track-index="1">
+        <div class="scene" id="s4">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s4-eyebrow">LE PLAN D'AVANT-DÉPART</div>
+            <div class="display" style="font-size: 78px; margin-bottom: 48px;" id="s4-title">Révisions ciblées.<br /><span class="t-turquoise">Avant le départ.</span></div>
+            <div class="card" id="s4-card" style="border-left-color: var(--turquoise);">
+              <div class="check-row" id="s4-r1"><div class="check-box" id="s4-b1">✓</div><div>Fractions — 6 exercices</div></div>
+              <div class="check-row" id="s4-r2"><div class="check-box" id="s4-b2">✓</div><div>Théorème de Thalès — résumé guidé</div></div>
+              <div class="check-row" id="s4-r3"><div class="check-box" id="s4-b3">✓</div><div>Orthographe du récit — 10 lignes</div></div>
+            </div>
+            <div style="font-size: 34px; color: var(--muted); margin-top: 44px; font-weight: 500;" id="s4-caption">Quand c'est <span class="t-turquoise" style="font-weight: 700;">encore efficace.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 5 · OUTRO (19–25s) ═══ -->
+      <section id="sc5" class="clip" data-start="19" data-duration="6" data-track-index="0">
+        <div class="scene" id="s5" style="align-items: center; text-align: center;">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2; width: 100%;">
+            <div class="display" style="font-size: 76px;" id="s5-l1">On ne subit pas l'oubli.</div>
+            <div class="display t-turquoise" style="font-size: 96px; margin-top: 20px;" id="s5-l2">On l'anticipe.</div>
+            <div id="s5-logo" style="display: flex; align-items: center; justify-content: center; gap: 30px; margin-top: 90px;">
+              <svg width="96" height="96" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="url(#lg2)"/>
+                <path d="M12 4.5L4.5 10v9h5v-4h5v4h5v-9L12 4.5z" fill="#0f111a"/>
+                <defs><linearGradient id="lg2" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#9b6fe0"/></linearGradient></defs>
+              </svg>
+              <span class="display" style="font-size: 88px; font-weight: 700;">SchoolPro</span>
+            </div>
+            <div id="s5-tagline" style="font-size: 40px; color: var(--fg); margin-top: 46px; font-weight: 500;">La gestion scolaire<br /><span class="t-turquoise" style="font-weight: 700;">de nouvelle génération.</span></div>
+            <div id="s5-footer" class="mono" style="font-size: 24px; color: var(--muted); margin-top: 80px; letter-spacing: 0.2em;">© SCHOOLPRO — DJIBOUTI</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ AUDIO ═══ -->
+      <audio id="music" data-start="0" data-duration="25" data-track-index="10" data-volume="0.35" data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.8,"v":0.35},{"t":23.3,"v":0.35},{"t":24.8,"v":0}]}]}' src="assets/music/music.mp3"></audio>
+      <audio id="sfx-decay1" data-start="0.56" data-duration="0.05" data-track-index="11" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-decay2" data-start="1.09" data-duration="0.05" data-track-index="11" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-decay3" data-start="1.64" data-duration="0.05" data-track-index="11" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-pt1" data-start="3.82" data-duration="0.11" data-track-index="11" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-pt2" data-start="4.39" data-duration="0.11" data-track-index="11" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-pt3" data-start="4.91" data-duration="0.11" data-track-index="11" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-pt4" data-start="5.34" data-duration="0.11" data-track-index="11" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-pt5" data-start="6.00" data-duration="0.11" data-track-index="11" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-pt6" data-start="6.56" data-duration="0.11" data-track-index="11" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-alert" data-start="8.74" data-duration="0.12" data-track-index="12" data-volume="0.75" src="assets/sfx/bong_001.ogg"></audio>
+      <audio id="sfx-chip1" data-start="9.83" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-chip2" data-start="10.37" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-chip3" data-start="10.93" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-chip4" data-start="11.46" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-check1" data-start="14.73" data-duration="0.19" data-track-index="14" data-volume="0.7" src="assets/sfx/card-place-1.ogg"></audio>
+      <audio id="sfx-check2" data-start="15.29" data-duration="0.19" data-track-index="14" data-volume="0.7" src="assets/sfx/card-place-1.ogg"></audio>
+      <audio id="sfx-check3" data-start="15.84" data-duration="0.19" data-track-index="14" data-volume="0.7" src="assets/sfx/card-place-1.ogg"></audio>
+      <audio id="sfx-logo" data-start="22.93" data-duration="1.2" data-track-index="15" data-volume="0.8" src="assets/sfx/impactBell_heavy_000.ogg"></audio>
+    </div>
+
+    <script>
+      var tl = gsap.timeline({ paused: true });
+
+      /* ── Scène 1 ── */
+      tl.fromTo("#s1-eyebrow", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.05);
+      tl.fromTo("#s1-l1", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power4.out" }, 0.15);
+      tl.fromTo("#s1-w1", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 1.0);
+      tl.fromTo("#s1-w2", { y: 54, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 1.04);
+      tl.fromTo("#s1-w3", { y: 66, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, ease: "power4.out" }, 1.08);
+      tl.fromTo("#s1-track", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.3);
+      tl.fromTo("#s1-capl", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.5);
+      // Décroissance crénométrée sur beats vol-12 (0.56 / 1.09 / 1.64)
+      tl.to("#s1-fill", { scaleX: 0.52, backgroundColor: "#eab308", duration: 0.5, ease: "power2.inOut" }, 0.56);
+      tl.to("#s1-fill", { scaleX: 0.30, backgroundColor: "#dc2626", duration: 0.5, ease: "power2.inOut" }, 1.09);
+      tl.to("#s1-fill", { scaleX: 0.22, backgroundColor: "#991b1b", duration: 0.5, ease: "power2.inOut" }, 1.64);
+
+      /* ── Scène 2 ── */
+      tl.fromTo("#s2-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 3.1);
+      tl.fromTo("#s2-title", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 3.2);
+      // beat-grid: 6 points de courbe sur beats consécutifs (3.82 → 6.56)
+      var ptTimes = [3.82, 4.39, 4.91, 5.34, 6.00, 6.56];
+      for (var i = 0; i < 6; i++) {
+        tl.fromTo("#s2-p" + (i + 1), { scale: 0, opacity: 0, transformOrigin: "center" }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, ptTimes[i]);
+        if (i > 0) {
+          tl.fromTo("#s2-seg" + i, { opacity: 0 }, { opacity: 1, duration: 0.22, ease: "none" }, ptTimes[i] - 0.11);
+        }
+      }
+      tl.fromTo("#s2-halflife", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 6.8);
+      tl.fromTo("#s2-eq", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power3.out" }, 6.95);
+
+      /* ── Scène 3 ── */
+      tl.fromTo("#s3-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 8.15);
+      // beat-locked: 8.74 (strongCue vol-12, 0.99)
+      tl.fromTo("#s3-card", { y: 80, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: "power4.out" }, 8.74);
+      // beat-grid: chips sur beats
+      tl.fromTo("#s3-c1", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 9.83);
+      tl.fromTo("#s3-c2", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 10.37);
+      tl.fromTo("#s3-c3", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 10.93);
+      tl.fromTo("#s3-c4", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 11.46);
+
+      /* ── Scène 4 ── */
+      tl.fromTo("#s4-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 13.65);
+      tl.fromTo("#s4-title", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 13.75);
+      tl.fromTo("#s4-card", { y: 70, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 14.1);
+      // beat-grid: coches sur beats (14.73 / 15.29 / 15.84)
+      tl.fromTo("#s4-r1", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 14.73);
+      tl.fromTo("#s4-r2", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 15.29);
+      tl.fromTo("#s4-r3", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 15.84);
+      tl.fromTo("#s4-b1", { scale: 0, rotation: -90 }, { scale: 1, rotation: 0, duration: 0.28, ease: "back.out(2.2)" }, 14.95);
+      tl.fromTo("#s4-b2", { scale: 0, rotation: -90 }, { scale: 1, rotation: 0, duration: 0.28, ease: "back.out(2.2)" }, 15.51);
+      tl.fromTo("#s4-b3", { scale: 0, rotation: -90 }, { scale: 1, rotation: 0, duration: 0.28, ease: "back.out(2.2)" }, 16.06);
+      // beat-locked: 17.47 (strongCue vol-12, 0.99)
+      tl.fromTo("#s4-caption", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 17.47);
+
+      /* ── Scène 5 ── */
+      tl.fromTo("#s5-l1", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power4.out" }, 19.15);
+      tl.fromTo("#s5-l2", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power4.out" }, 20.19);
+      // beat-locked: 22.93 (strongCue vol-12, 1.00 — le plus fort de la fenêtre)
+      tl.fromTo("#s5-logo", { scale: 1.16, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "power4.out" }, 22.93);
+      tl.fromTo("#s5-tagline", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.38, ease: "power3.out" }, 23.46);
+      tl.fromTo("#s5-footer", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 24.02);
+
+      /* ── Seams : cut-the-curve LEFT ── */
+      function seam(prevSelector, nextSelector, T) {
+        tl.to(prevSelector, { x: -130, duration: 0.3, ease: "power4.in" }, T - 0.3);
+        tl.to(prevSelector, { opacity: 0, duration: 0.18, ease: "none" }, T - 0.24);
+        tl.fromTo(nextSelector, { x: 130, opacity: 0.35 }, { x: 0, opacity: 1, duration: 0.36, ease: "power4.out" }, T);
+      }
+      seam("#s1", "#s2", 3.0);
+      seam("#s2", "#s3", 8.0);
+      seam("#s3", "#s4", 13.5);
+      seam("#s4", "#s5", 19.0);
+
+      /* ── Ambient ghost drift ── */
+      tl.to("#s1-ghost", { x: -40, duration: 2.9, ease: "power1.inOut" }, 0.1);
+
+      /* ── Audio-réactif : halos ── */
+      var glows = document.querySelectorAll(".glow-audio");
+      var FRAMES = Math.min(window.AUDIO_DATA.totalFrames, 750);
+      function glowTick(f) {
+        var fr = window.AUDIO_DATA.frames[f];
+        if (!fr) return;
+        var bass = fr.bands[0];
+        for (var g = 0; g < glows.length; g++) {
+          glows[g].style.opacity = 0.13 * (1 + bass * 0.55);
+          glows[g].style.transform = "scale(" + (1 + bass * 0.07) + ")";
+        }
+      }
+      for (var f = 0; f < FRAMES; f++) {
+        (function (ff) {
+          tl.call(function () { glowTick(ff); }, [], ff / 30);
+        })(f);
+      }
+
+      window.__timelines["v2-oubli"] = tl;
+    </script>
+  </body>
+</html>

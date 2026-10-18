@@ -41,8 +41,25 @@ export interface PaireEtape {
   droite: string;
 }
 
+/**
+ * Une partie d'un « dossier » : un grand exercice découpé en temps successifs.
+ *
+ * Une partie ne porte ni réponse ni note : elle NOMME seulement un groupe
+ * d'étapes contigus (« Problématique », « Dérivée », « Tableau de variations »).
+ * Toute la correction reste celle des étapes — c'est ce qui permet d'allonger
+ * un exercice sans ajouter un seul chemin de correction.
+ */
+export interface PartieQuestion {
+  id: string;
+  titre: string;
+  /** Ce que l'élève construit dans cette partie, en une phrase. */
+  but?: string;
+}
+
 export interface EtapeQuestion {
   enonce: string;
+  /** Partie du dossier à laquelle l'étape appartient. Absent hors dossier. */
+  partie?: string;
   format: FormatEtape;
   /** Propositions — `CHOIX_UNIQUE` et `REMISE_EN_ORDRE`. */
   options?: OptionEtape[];
@@ -77,7 +94,24 @@ export interface EtapeQuestion {
  */
 export interface StructureQuestion {
   etapes: EtapeQuestion[];
+  /**
+   * Parties du dossier, dans l'ordre de résolution. Absent pour un exercice
+   * ordinaire : l'absence EST le cas courant, et rien ne change pour lui.
+   */
+  parties?: PartieQuestion[];
 }
+
+/**
+ * Plafond d'étapes d'un exercice.
+ *
+ * Une feuille abandonnée au milieu ne produit aucune preuve : un dossier doit
+ * rester terminable en une séance. Trente gestes courts, c'est la borne
+ * au-delà de laquelle on ne mesure plus la maîtrise mais la patience.
+ */
+export const MAX_ETAPES = 30;
+
+/** Plafond de parties : au-delà, le découpage ne guide plus, il noie. */
+export const MAX_PARTIES = 8;
 
 const FORMATS_ETAPE: readonly FormatEtape[] = [
   "SAISIE_COURTE",
@@ -100,6 +134,11 @@ export function parseStructure(brut: unknown): StructureQuestion | null {
   if (!brut || typeof brut !== "object") return null;
   const source = brut as { etapes?: unknown };
   if (!Array.isArray(source.etapes) || source.etapes.length === 0) return null;
+  if (source.etapes.length > MAX_ETAPES) return null;
+
+  const parties = lireParties((source as { parties?: unknown }).parties);
+  // `undefined` = pas de parties ; `null` = parties déclarées mais invalides.
+  if (parties === null) return null;
 
   const etapes: EtapeQuestion[] = [];
   for (const item of source.etapes) {
@@ -179,8 +218,20 @@ export function parseStructure(brut: unknown): StructureQuestion | null {
 
     const points = typeof e.points === "number" && e.points > 0 ? e.points : 1;
 
+    // Une étape ne se rattache à une partie que si le dossier en déclare : une
+    // référence sans partie serait une étape orpheline, jamais affichée à sa place.
+    let partie: string | undefined;
+    if (typeof e.partie === "string" && e.partie !== "") {
+      if (!parties || !parties.some((p) => p.id === e.partie)) return null;
+      partie = e.partie;
+    } else if (parties) {
+      // Dans un dossier, une étape sans partie ne se laisse pas situer.
+      return null;
+    }
+
     etapes.push({
       enonce: e.enonce,
+      ...(partie ? { partie } : {}),
       format,
       options,
       paires,
@@ -191,5 +242,58 @@ export function parseStructure(brut: unknown): StructureQuestion | null {
     });
   }
 
-  return { etapes };
+  if (parties && !partiesCoherentes(parties, etapes)) return null;
+
+  return parties ? { etapes, parties } : { etapes };
+}
+
+/**
+ * Lit les parties d'un dossier.
+ *
+ * @returns `undefined` si aucune partie n'est déclarée (exercice ordinaire),
+ *   `null` si elles le sont mais mal formées, sinon la liste validée.
+ */
+function lireParties(brut: unknown): PartieQuestion[] | null | undefined {
+  if (brut === undefined || brut === null) return undefined;
+  // Deux parties au moins : une seule ne découpe rien, elle ne fait qu'habiller.
+  if (!Array.isArray(brut) || brut.length < 2 || brut.length > MAX_PARTIES) return null;
+
+  const parties: PartieQuestion[] = [];
+  for (const item of brut) {
+    if (!item || typeof item !== "object") return null;
+    const p = item as Record<string, unknown>;
+    if (typeof p.id !== "string" || p.id.trim() === "") return null;
+    if (typeof p.titre !== "string" || p.titre.trim() === "") return null;
+    parties.push({
+      id: p.id,
+      titre: p.titre.trim(),
+      ...(typeof p.but === "string" && p.but.trim() !== "" ? { but: p.but.trim() } : {}),
+    });
+  }
+  // Des identifiants en double rendraient le rattachement des étapes ambigu.
+  if (new Set(parties.map((p) => p.id)).size !== parties.length) return null;
+  return parties;
+}
+
+/**
+ * Les parties se suivent : chacune a au moins une étape, ses étapes se
+ * touchent, et leur ordre est celui de la déclaration.
+ *
+ * Sans cette règle, la progression « partie 2 sur 5 » mentirait : une partie
+ * vide ne serait jamais atteinte, et des étapes dispersées feraient revenir
+ * l'élève dans une partie qu'il croyait terminée.
+ */
+function partiesCoherentes(parties: PartieQuestion[], etapes: EtapeQuestion[]): boolean {
+  let rang = 0;
+  for (const etape of etapes) {
+    if (etape.partie === parties[rang].id) continue;
+    // Passage à la partie suivante, et à elle seule.
+    if (parties[rang + 1]?.id === etape.partie) {
+      rang++;
+      continue;
+    }
+    return false;
+  }
+  // La dernière partie doit avoir été atteinte : aucune partie vide à la fin.
+  return rang === parties.length - 1;
 }

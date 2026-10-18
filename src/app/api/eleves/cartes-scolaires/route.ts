@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { siteFilterForModel, personalScopeFilter } from "@/lib/site-scope";
 import { checkPermission } from "@/lib/rbac";
+import { getTranslations } from "next-intl/server";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -60,6 +61,8 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
+  const t = await getTranslations("cartesScolaires");
+
   if (!classe || !tenant) {
     return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
   }
@@ -70,27 +73,27 @@ export async function GET(req: NextRequest) {
     <div class="carte">
       <div class="recto">
         <div class="header-carte">
-          ${tenant.logoUrl ? `<img src="${tenant.logoUrl}" class="logo" alt="Logo de l'établissement" />` : ""}
+          ${tenant.logoUrl ? `<img src="${tenant.logoUrl}" class="logo" alt="${t("altLogo")}" />` : ""}
           <div class="ecole-name">${tenant.name}</div>
         </div>
         <div class="photo-area">
-          ${e.photoUrl ? `<img src="${e.photoUrl}" class="photo" alt="Photo de ${e.prenom} ${e.nom}" />` : '<div class="photo-placeholder">PHOTO</div>'}
+          ${e.photoUrl ? `<img src="${e.photoUrl}" class="photo" alt="Photo de ${e.prenom} ${e.nom}" />` : '<div class="photo-placeholder">${t("photoPlaceholder")}</div>'}
         </div>
         <div class="eleve-info">
           <div class="nom">${e.nom} ${e.prenom}</div>
           <div class="matricule">N° ${e.matricule}</div>
           <div class="classe">${classe.nom} — ${classe.niveau}</div>
         </div>
-        <div class="annee">Année ${tenant.currentYear}</div>
+        <div class="annee">${t("annee")} ${tenant.currentYear}</div>
       </div>
       <div class="verso">
         <div class="verso-info">
-          <p><strong>Né(e) le :</strong> ${dateNaissance}</p>
-          <p><strong>Établissement :</strong> ${tenant.name}</p>
-          <p><strong>Adresse :</strong> ${tenant.address ?? "—"}</p>
-          <p><strong>Tél :</strong> ${tenant.phone ?? "—"}</p>
+          <p><strong>${t("labelNeLe")}</strong> ${dateNaissance}</p>
+          <p><strong>${t("labelEtablissement")}</strong> ${tenant.name}</p>
+          <p><strong>${t("labelAdresse")}</strong> ${tenant.address ?? "—"}</p>
+          <p><strong>${t("labelTel")}</strong> ${tenant.phone ?? "—"}</p>
         </div>
-        <div class="qr-placeholder">QR / Matricule: ${e.matricule}</div>
+        <div class="qr-placeholder">${t("qrMatricule")} ${e.matricule}</div>
       </div>
     </div>`;
   }).join("");
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Cartes Scolaires — ${classe.nom}</title>
+<title>${t("title")} — ${classe.nom}</title>
 <style>
   @page { size: A4; margin: 10mm; }
   body { font-family: Arial, sans-serif; font-size: 10px; color: #1a1a1a; margin: 0; padding: 10px; }

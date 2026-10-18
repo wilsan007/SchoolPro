@@ -13,6 +13,7 @@
 import { Resend } from "resend";
 import { journaliserEnvoiEmail } from "./email-log";
 import type { EmailResult, EmailLogContext } from "./email-types";
+import { getTranslations } from "next-intl/server";
 
 export type { EmailResult, EmailLogContext };
 
@@ -94,11 +95,12 @@ export async function sendEmail(
 /**
  * Gabarit HTML simple aux couleurs EcolPro pour les notifications.
  */
-export function renderNotificationEmail(
+export async function renderNotificationEmail(
   ecoleNom: string,
   titre: string,
   contenu: string
-): string {
+): Promise<string> {
+  const t = await getTranslations("notifications");
   const body = contenu.replace(/\n/g, "<br />");
   return `<!DOCTYPE html>
 <html lang="fr"><body style="margin:0;background:#f4f4f7;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
@@ -111,7 +113,7 @@ export function renderNotificationEmail(
           <div style="font-size:15px;line-height:1.6;color:#374151;">${body}</div>
         </td></tr>
         <tr><td style="padding:16px 28px;border-top:1px solid #eee;font-size:12px;color:#9ca3af;">
-          Envoyé via EcolPro — merci de ne pas répondre à cet email.
+          ${t("email.piedDePage")}
         </td></tr>
       </table>
     </td></tr>

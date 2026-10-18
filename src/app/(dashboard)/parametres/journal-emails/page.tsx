@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
 import type { AxeRegroupement } from "@/lib/regroupement";
+import { useTranslations } from "next-intl";
 import {
   Mail, MailCheck, MailX, MailOpen, AlertCircle, Search,
   ChevronLeft, ChevronRight, Filter, Clock,
@@ -43,6 +44,7 @@ const STATUT_CONFIG: Record<string, { label: string; color: string; icon: typeof
 };
 
 export default function JournalEmailsPage() {
+  const t = useTranslations("journalEmails");
   const [logs, setLogs] = useState<EmailLogEntry[]>([]);
   const axesDate = useAxesTemporels<EmailLogEntry>((log) => log.createdAt);
   const axesEmails = useMemo<AxeRegroupement<EmailLogEntry>[]>(
@@ -192,8 +194,8 @@ export default function JournalEmailsPage() {
           </select>
           <input
             type="text"
-            aria-label="Filtrer par destinataire"
-            placeholder="Destinataire"
+            aria-label={t("filtrerDestinataire")}
+            placeholder={t("destinataire")}
             value={filters.to}
             onChange={(e) => setFilters({ ...filters, to: e.target.value })}
             className="px-3 py-2 border border-border rounded-lg text-sm bg-background"

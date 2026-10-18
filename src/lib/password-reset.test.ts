@@ -14,7 +14,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/audit", () => ({ auditFire: vi.fn() }));
 vi.mock("@/lib/tenant-claims", () => ({ incrementerSessionVersion: vi.fn() }));
-vi.mock("@/lib/notifications/email", () => ({ sendEmail: vi.fn(), renderNotificationEmail: vi.fn() }));
+vi.mock("@/lib/notifications/email", () => ({ sendEmail: vi.fn(), renderNotificationEmail: vi.fn().mockResolvedValue("") }));
 
 import prisma from "@/lib/prisma";
 import { genererTokenReset, verifierTokenReset, reinitialiserMotDePasse, PREFIXE_RESET } from "./password-reset";

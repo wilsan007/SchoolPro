@@ -152,6 +152,7 @@ model Tenant {
   learnosPlanificationsCompetences PlanificationCompetence[]
   learnosKpis                      KpiSnapshot[]
   learnosQuestions                 Question[]
+  learnosCorrectionsAssistees      CorrectionAssistee[]
   learnosAlertesParent             AlerteParent[]
   learnosEchangesParent            EchangeParent[]
   learnosPreferencesParent         PreferencesParent[]
@@ -620,6 +621,7 @@ model Site {
   learnosPlanificationsCompetences PlanificationCompetence[]
   learnosKpis                      KpiSnapshot[]
   learnosQuestions                 Question[]
+  learnosCorrectionsAssistees      CorrectionAssistee[]
   learnosAlertesParent             AlerteParent[]
   learnosEchangesParent            EchangeParent[]
   // Pas de `PreferencesParent` ici : les préférences appartiennent à la
@@ -1627,6 +1629,7 @@ model Eleve {
   learnosRecommandations Recommandation[]
   learnosPlans           PlanProgression[]
   learnosFeuilles        FeuilleExercices[]
+  learnosCorrectionsAssistees CorrectionAssistee[]
   learnosAlertesParent   AlerteParent[]
   learnosEchangesParent  EchangeParent[]
   learnosPredictions     PredictionDifficulte[]
@@ -3708,6 +3711,13 @@ enum ErrorType {
   CARELESS_ERROR
   GUESS
   UNKNOWN
+  /// Notation, unité ou convention d'écriture : la notion est comprise, la forme
+  /// est fausse (cm au lieu de cm², « x = » oublié). Distinct d'une erreur de calcul.
+  NOTATION_ERROR
+  /// Affirmation juste mais non étayée : l'élève conclut sans justifier.
+  ARGUMENT_UNJUSTIFIED
+  /// Expression écrite défaillante (syntaxe, vocabulaire) sans que le fond le soit.
+  WRITING_ERROR
 }
 
 /// Bandes de recommandation — couvrent tout le spectre, y compris le haut.
@@ -4607,6 +4617,19 @@ model Question {
   /// Barème de l'item. Sert de `maxScore` à la preuve produite en retour.
   bareme Float @default(1)
 
+  /// Grille de correction : critères, erreurs fréquentes anticipées, explication
+  /// pédagogique. Schéma validé par `parseGrille`
+  /// (src/lib/learnos/entrainement/grille-correction.ts). NULL = pas de grille.
+  ///
+  /// Comme `structure`, ce champ contient le corrigé : il ne sort jamais vers
+  /// un élève.
+  grille Json?
+
+  /// Version de la grille, incrémentée à chaque modification. Une preuve déjà
+  /// produite a été corrigée sous UNE version : sans ce numéro, changer le
+  /// barème rendrait l'historique inexplicable, et la réévaluation impossible.
+  grilleVersion Int @default(1)
+
   /// Langue de l'énoncé : "fr" (français), "so" (somali), "en" (anglais).
   /// Détermine la langue dans laquelle l'exercice est rédigé et servi à l'élève.
   /// Le tirage filtre par langue pour ne servir que des exercices que l'élève
@@ -4633,7 +4656,8 @@ model Question {
   /// gardent leur énoncé, et l'historique reste lisible.
   actif Boolean @default(true)
 
-  exercices ExerciceAssigne[]
+  exercices            ExerciceAssigne[]
+  correctionsAssistees CorrectionAssistee[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4645,6 +4669,94 @@ model Question {
   /// dans la langue de l'élève.
   @@index([competenceId, palier, actif, langue])
   @@map("learnos_questions")
+}
+
+/// État d'une correction proposée par un modèle.
+enum StatutCorrectionAssistee {
+  /// Proposée, confiance suffisante : attend la validation d'un enseignant.
+  A_VALIDER
+  /// Proposée mais incertaine (confiance basse, critère non évalué, ambiguïté
+  /// déclarée). Jamais présentée comme un verdict.
+  INCERTAINE
+  /// Validée par un adulte, éventuellement après modification des critères.
+  VALIDEE
+  /// Écartée par un adulte : la proposition du modèle ne vaut rien.
+  REJETEE
+}
+
+/// Correction PROPOSÉE par un modèle pour une production que personne n'a encore
+/// lue. Table d'attente : rien ici ne compte pour le profil de l'élève.
+///
+/// POURQUOI UNE TABLE ET PAS UNE PREUVE
+/// Une `LearningEvidence` alimente le jumeau d'apprentissage dès son écriture.
+/// Écrire une proposition non relue comme preuve, même à faible confiance,
+/// ferait dépendre le profil d'une sortie de modèle. La preuve n'est créée
+/// qu'à la validation (`VALIDEE`), par un adulte, et c'est alors une preuve
+/// supervisée.
+///
+/// LE SCORE EST CALCULÉ, JAMAIS LU
+/// `criteresReussis` est la seule donnée du modèle qui compte ; `score` en
+/// découle par la grille (cf. `scoreDepuisCriteres`).
+model CorrectionAssistee {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  eleveId String
+  eleve   Eleve  @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  /// Version de la grille sous laquelle la proposition a été produite. Sans elle,
+  /// modifier la grille rendrait la proposition inexplicable.
+  grilleVersion Int
+
+  /// Production de l'élève, telle que soumise (bornée avant écriture).
+  reponse String
+
+  statut StatutCorrectionAssistee
+
+  score    Float
+  maxScore Float
+  /// Identifiants des critères désignés réussis. Seule donnée du modèle retenue.
+  criteresReussis Json
+  /// Détail par critère : libellé, points, réussite, justification, confiance.
+  details Json
+  /// Erreurs relevées (`ErrorType` + description).
+  erreurs Json
+  explication          String?
+  /// Question courte pour départager deux lectures possibles.
+  questionVerification String?
+  confiance            Float
+  /// Clés de motif traduisibles (`confiance_insuffisante`, `ambigu_declare`…).
+  motifs Json
+
+  /// Traçabilité de l'appel : modèle et version de prompt.
+  modele        String
+  promptVersion String
+
+  /// Validation humaine.
+  valideParId String?
+  valideeLe   DateTime?
+  /// Critères retenus APRÈS relecture. Peut différer de `criteresReussis` : la
+  /// différence mesure la fiabilité du modèle, c'est la donnée du banc d'essai.
+  criteresValides Json?
+  scoreValide     Float?
+  /// Preuve produite à la validation. Simple identifiant, sans relation (même
+  /// parti pris que `ExerciceReponse.evidenceId`).
+  evidenceId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, statut])
+  @@index([siteId])
+  @@index([eleveId])
+  @@index([questionId])
+  @@map("learnos_corrections_assistees")
 }
 
 /// Lot d'exercices composé pour UN élève à UN moment.

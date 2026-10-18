@@ -31,9 +31,9 @@
 -- pourrait insérer une ligne au nom d'un autre tenant — invisible pour
 -- lui, bien réelle pour la victime.
 --
--- Couverture : 122 tables
---    57 tenant + site
---    40 tenant seul
+-- Couverture : 124 tables
+--    58 tenant + site
+--    41 tenant seul
 --    25 rattachées via un parent
 --    10 exclues (motivées ci-dessous)
 --
@@ -706,6 +706,19 @@ CREATE POLICY exclusions_eleve_isolation ON public."exclusions_eleve"
       tenant_matches("tenantId")
   );
 
+-- FactureSequence
+ALTER TABLE public."facture_sequences" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS facture_sequences_isolation ON public."facture_sequences";
+CREATE POLICY facture_sequences_isolation ON public."facture_sequences"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
+  );
+
 -- Facture
 ALTER TABLE public."factures" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS factures_isolation ON public."factures";
@@ -918,6 +931,21 @@ CREATE POLICY learnos_competences_isolation ON public."learnos_competences"
   )
   WITH CHECK (
       ("tenantId" IS NULL OR tenant_matches("tenantId"))
+      AND site_matches("siteId")
+  );
+
+-- CorrectionAssistee
+ALTER TABLE public."learnos_corrections_assistees" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS learnos_corrections_assistees_isolation ON public."learnos_corrections_assistees";
+CREATE POLICY learnos_corrections_assistees_isolation ON public."learnos_corrections_assistees"
+  FOR ALL
+  TO ecolpro_app
+  USING (
+      tenant_matches("tenantId")
+      AND site_matches("siteId")
+  )
+  WITH CHECK (
+      tenant_matches("tenantId")
       AND site_matches("siteId")
   );
 

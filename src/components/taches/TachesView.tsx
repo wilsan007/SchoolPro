@@ -4,6 +4,7 @@ import { OptionsGroupees, initiale } from "@/components/classes/OptionsClasses";
 import { useState, useTransition, useMemo } from "react";
 import { ListeGroupee, useAxesTemporels } from "@/components/ui/liste-groupee";
 import type { AxeRegroupement } from "@/lib/regroupement";
+import { useTranslations } from "next-intl";
 import {
   ListTodo,
   Plus,
@@ -70,6 +71,7 @@ const PRIORITE_COLORS: Record<string, string> = {
 };
 
 export function TachesView({ taches: initial, users }: Props) {
+  const t = useTranslations("taches");
   const [taches, setTaches] = useState(initial);
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState<string>("ALL");
@@ -280,6 +282,7 @@ function CreateTacheForm({
   const [priorite, setPriorite] = useState("NORMALE");
   const [echeance, setEcheance] = useState("");
   const [isPending, startTransition] = useTransition();
+  const t = useTranslations("taches");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -326,8 +329,8 @@ function CreateTacheForm({
       <div className="flex gap-2 flex-wrap">
         <input
           type="text"
-          aria-label="Titre de la tâche"
-          placeholder="Titre de la tâche…"
+          aria-label={t("titreTache")}
+          placeholder={t("titreTachePlaceholder")}
           value={titre}
           onChange={(e) => setTitre(e.target.value)}
           className="flex-1 min-w-48 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"

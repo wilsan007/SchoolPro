@@ -45,8 +45,11 @@ const BodySchema = z.object({
  * de ligne dans `UserRole`. Les autres rôles possédés restent intacts.
  */
 export async function switchRoleAction(role: string): Promise<{ success: boolean; error?: string }> {
+  const __t0 = Date.now();
+  const __mesure = (etape: string) => console.log(`[MESURE switch-role] ${etape}: ${Date.now() - __t0} ms`);
   try {
     const session = await auth();
+    __mesure("auth");
     if (!session?.user?.id) {
       return { success: false, error: "NON_AUTORISE" };
     }
@@ -96,6 +99,7 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
     //    UserRole est la source de vérité moderne. Mais les comptes
     //    historiques (créés avant UserRole) n'ont pas de ligne — on
     //    accepte alors le rôle actuel de la session comme possédé.
+    __mesure("adhesion");
     // eslint-disable-next-line ecolpro/require-tenant-id -- la clé composite userId_tenantId_role inclut tenantId ; self-lookup de l'utilisateur connecté
     const userRole = await prisma.userRole.findUnique({
       where: {
@@ -104,6 +108,7 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
       select: { id: true, isActive: true },
     });
 
+    __mesure("userRole");
     // Accepter le rôle actuel de la session pour les comptes sans UserRole.
     const isCurrentRole = session.user.role === targetRole;
     if ((!userRole || !userRole.isActive) && !isCurrentRole) {
@@ -124,21 +129,18 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
       return { success: true };
     }
 
-    // 3. Mettre à jour le rôle ACTIF dans UserTenant (si l'adhésion existe).
-    if (userTenant) {
-      await prisma.userTenant.update({
-        where: { id: userTenant.id },
-        data: { role: targetRole },
-      });
-    }
+    // 3 + 4. Rôle ACTIF dans UserTenant (si l'adhésion existe) et User.role,
+    // en un seul aller-retour : deux `await` successifs coûtaient deux fois la
+    // latence du serveur de base, sur un chemin déjà long.
+    await prisma.$transaction([
+      ...(userTenant
+        ? [prisma.userTenant.update({ where: { id: userTenant.id }, data: { role: targetRole } })]
+        : []),
+      // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
+      prisma.user.update({ where: { id: userId }, data: { role: targetRole } }),
+    ]);
 
-    // 4. Synchroniser User.role.
-    // eslint-disable-next-line ecolpro/require-tenant-id -- self-lookup de l'utilisateur connecté, userId provient de la session
-    await prisma.user.update({
-      where: { id: userId },
-      data: { role: targetRole },
-    });
-
+    __mesure("ecritures");
     // 5. Régénérer le JWT via `unstable_update`.
     //    Dans une Server Action, `unstable_update` persiste correctement
     //    le cookie de session (contrairement aux Route Handlers).
@@ -146,19 +148,12 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
     //    et relit le périmètre complet depuis la base via deriveClaims.
     await unstable_update({ user: { tenantId } } as never);
 
-    // 6. Vérifier que les claims sont corrects.
-    const claims = await deriveClaims(userId, tenantId);
-    if (!claims) {
-      auditFire({
-        userId,
-        tenantId,
-        action: "switch-role",
-        verdict: "DENIED",
-        reason: "deriveClaims a retourné null après bascule",
-      });
-      return { success: false, error: "UTILISATEUR_INTROUVABLE" };
-    }
-
+    __mesure("unstable_update");
+    // 6. Journaliser. `deriveClaims` était rappelé ici juste pour relire les
+    // rôles disponibles et les écrire dans l'audit : une dérivation complète
+    // du périmètre (utilisateur, adhésions, sites) pour une ligne de journal,
+    // alors que `unstable_update` vient de la faire. Les rôles possédés sont
+    // déjà connus de la session appelante.
     auditFire({
       userId,
       tenantId,
@@ -169,13 +164,14 @@ export async function switchRoleAction(role: string): Promise<{ success: boolean
       metadata: {
         previousRole: currentActiveRole,
         newRole: targetRole,
-        availableRoles: claims.availableRoles,
+        availableRoles: session.user.availableRoles ?? [],
       },
     });
 
     // 7. Rafraîchir toutes les pages pour que le middleware, la sidebar
     //    et les Server Components voient le nouveau rôle immédiatement.
     revalidatePath("/", "layout");
+    __mesure("revalidatePath + fin action");
 
     return { success: true };
   } catch (error) {

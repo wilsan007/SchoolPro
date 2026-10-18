@@ -17,6 +17,11 @@ lockfile et le **réécrit** : le dépôt devient impossible à garder propre. L
 raisonnement vaut pour toute dépendance qui déclare `latest` ou une plage
 ouverte : l'épingler dans `overrides`, en documentant la procédure de montée.
 
+**`npx` est cassé DANS ce dépôt** : npm échoue avec `EINVALIDTAGNAME "next>postcss"`
+avant même d'exécuter la commande (config npm du projet). Contournement : exécuter
+`npx <outil>` depuis un répertoire neutre (`/tmp`) en passant le chemin du projet en
+argument quand l'outil le supporte (ex. `npx hyperframes check <dir>`).
+
 ## Stack technique
 
 - Next.js 15 (App Router)
@@ -59,6 +64,81 @@ pnpm prisma generate # Régénérer le client Prisma après modif du schema
 - `CalibrationSeuil` : seuils ajustés par niveau × matière selon l'historique
 - `JournalApprentissage` : trace d'audit de chaque analyse
 - Aucun LLM dans l'analyse — statistiques pures et raisonnement sur graphe
+
+## Entraînement autonome : dossiers, grilles, correction assistée
+
+Arbitrages décidés le 14/10/2026 à partir du cahier des charges « moteur
+d'entraînement adaptatif ». Ils tranchent trois conflits entre ce cahier et les
+principes du projet : **c'est le projet qui l'emporte**.
+
+1. **Aucun LLM ne décide.** Une correction produite par un modèle est une
+   *proposition*. Elle n'écrit qu'une preuve à faible confiance, ne peut jamais
+   à elle seule conduire à `MASTERED` (seule une preuve supervisée le peut, cf.
+   `learning-twin.ts`), et attend la validation d'un enseignant. En cas de
+   doute, la correction est mise **en attente** — jamais déclarée « fausse ».
+2. **`SAISIE_LIBRE` reste hors de l'auto-correction.** Une rédaction demande un
+   lecteur. Ce qui est décomposable (plan, problématique, arguments, étapes de
+   calcul) s'entraîne seul sous forme d'étapes courtes ; la rédaction elle-même
+   relève du travail relevé par l'enseignant (copies papier, devoirs).
+3. **Le score se recalcule, il ne se lit pas.** Un correcteur désigne les
+   critères satisfaits ; la note découle de la grille (`scoreDepuisCriteres`).
+   Jamais un total annoncé dans une prose, jamais une note « improvisée ».
+
+### Le dossier : un grand exercice en étapes courtes
+
+Un dossier est un `ETAPES_GUIDEES` dont la structure déclare des **parties**
+(`structure.parties`, `etape.partie`). Les parties NOMMENT des groupes d'étapes
+contigus ; elles ne portent ni réponse ni note. Toute la correction reste celle
+des étapes : séquence forcée côté serveur, 3 tentatives, crédit dégressif.
+
+- Bornes : `MAX_ETAPES = 30`, `MAX_PARTIES = 8`, deux parties au minimum.
+- Cohérence imposée par `parseStructure` : chaque étape appartient à une partie
+  déclarée, les parties se suivent dans l'ordre, aucune n'est vide.
+- Les titres de parties sont servis dès l'ouverture ; les étapes, une à une.
+  Aucune réponse ne transite par `parties`.
+
+### Grille de correction versionnée
+
+`Question.grille` (critères, erreurs anticipées, explication) et
+`Question.grilleVersion`, incrémenté à chaque remplacement. Le total de la grille
+DOIT égaler le barème (`grilleCoherente`) : deux totaux pour une même copie
+rendraient la note contestable. La grille contient le corrigé : elle ne sort
+jamais vers un élève.
+
+### Qualification d'une réponse
+
+`corrigerEtapeDetaillee` ajoute `JUSTE | FAUSSE | PARTIELLE | NON_EVALUEE` à la
+décision de `corrigerEtape`, sans la rejouer. `PARTIELLE` est informatif : AUCUN
+crédit, et seul l'appariement peut l'être (un ordre à moitié bon ne mène nulle
+part).
+
+### Correction assistée (Phase 2)
+
+Une production qu'aucune règle ne sait corriger (argumentation, justification)
+peut être soumise à un modèle, **par un adulte** (`entrainement:valider`).
+
+- **Le modèle désigne des critères, il ne rend aucune note.** L'outil
+  `proposer_correction` n'a aucun champ de score ou de total
+  (`prompt-correction.ts`) ; la note se calcule depuis la grille
+  (`construireProposition`). Un total annoncé par le modèle est ignoré.
+- **Une proposition n'est jamais une preuve.** Elle s'écrit dans
+  `CorrectionAssistee` (table d'attente), qui ne pèse sur aucun profil. La
+  preuve n'est créée qu'à la validation par un adulte
+  (`validerCorrection`), en `EXERCICE` — c'est-à-dire supervisée. C'est le seul
+  chemin, et le corps de la route ne contient aucune note.
+- **Dans le doute, on s'abstient.** Confiance sous `SEUIL_CONFIANCE`, critère non
+  évalué ou ambiguïté déclarée donnent `INCERTAINE`, jamais « fausse ». Un
+  critère non évalué n'est pas compté à zéro.
+- **Minimisation.** `composerMessage` ne reçoit que l'énoncé, la grille et la
+  copie : ni nom, ni identifiant, ni classe, ni établissement. La copie est
+  délimitée et présentée comme une donnée, pas une consigne.
+- **Budget.** `AI_CORRECTIONS_PAR_JOUR` (défaut 200) par établissement et par
+  jour UTC, vérifié AVANT l'appel et compté dans `AiDecisionLog`. Épuisé : 429.
+- **Fiabilité observée.** Chaque validation compare la proposition au choix de
+  l'enseignant (`/api/learnos/corrections/fiabilite`). Sous `ECHANTILLON_MIN`
+  validations, la fiabilité est déclarée insuffisante, jamais affichée comme un
+  taux. `SEUIL_CONFIANCE` est une hypothèse de départ à recaler sur cette
+  mesure.
 
 ## Règles non négociables
 

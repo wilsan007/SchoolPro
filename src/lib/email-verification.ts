@@ -78,7 +78,7 @@ export async function envoyerEmailVerification(
   const token = await genererTokenVerification(normalized);
   const lien = `${APP_URL}/verify-email?token=${token}`;
   const nom = ecoleNom ?? "EcolPro";
-  const html = renderNotificationEmail(
+  const html = await renderNotificationEmail(
     nom,
     "Vérification de votre adresse email",
     `Cliquez sur le lien suivant pour vérifier votre adresse email :\n\n${lien}\n\nCe lien expire dans 24 heures. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`

@@ -134,6 +134,18 @@ const CATALOGUE = {
       "a un énoncé, une réponse attendue, et que la bonne réponse figure bien " +
       "parmi les propositions.",
   },
+  GRILLE_INVALIDE: {
+    statut: 400,
+    fr:
+      "La grille de correction est incomplète : chaque critère doit avoir un " +
+      "identifiant unique, un libellé et un nombre de points positif.",
+  },
+  GRILLE_INCOHERENTE: {
+    statut: 400,
+    fr:
+      "Le total des points de la grille ne correspond pas au barème de la " +
+      "question : une même copie aurait deux notes possibles.",
+  },
   FEUILLE_DEJA_TRAITEE: {
     statut: 409,
     fr: (p: ParamsErreur) =>

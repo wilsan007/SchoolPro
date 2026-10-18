@@ -73,7 +73,17 @@ async function main() {
     });
   }
 
-  console.log(`Compte QA prêt : ${EMAIL} sur ${tenant.name} (${sites.length} site(s))`);
+  // Rôles possédés : sans lignes `UserRole`, le sélecteur de rôle n'affiche
+  // qu'une entrée et le parcours de bascule ne peut pas être exercé.
+  for (const role of [Role.TENANT_ADMIN, Role.TEACHER, Role.PARENT] as const) {
+    await prisma.userRole.upsert({
+      where: { userId_tenantId_role: { userId: user.id, tenantId: TENANT_ID, role } },
+      update: { isActive: true },
+      create: { userId: user.id, tenantId: TENANT_ID, role, isActive: true },
+    });
+  }
+
+  console.log(`Compte QA prêt : ${EMAIL} sur ${tenant.name} (${sites.length} site(s), 3 rôles)`);
 }
 
 main()

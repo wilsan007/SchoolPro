@@ -8,6 +8,7 @@ import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import { getDemoNow } from "@/lib/demo-now";
 import { checkPermission } from "@/lib/rbac";
 import { erreurJson } from "@/lib/erreurs-api";
+import { getTranslations } from "next-intl/server";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -60,11 +61,13 @@ export async function GET(req: NextRequest) {
   const today = format(await getDemoNow(), "dd MMMM yyyy", { locale: fr });
   const profNom = classe.profPrincipal?.user.name ?? "—";
 
+  const t = await getTranslations("absences");
+
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Feuille de Présence — ${classe.nom}</title>
+<title>${t("feuillePresence.title")} — ${classe.nom}</title>
 <style>
   @page { size: A4 landscape; margin: 10mm; }
   body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; }
@@ -83,23 +86,23 @@ export async function GET(req: NextRequest) {
   <div class="header">
     <div class="ecole">${tenant.name}</div>
     <div style="text-align:right; font-size:11px">
-      Année scolaire: ${tenant.currentYear}<br/>
-      Date: ${today}
+      ${t("feuillePresence.anneeScolaire")}: ${tenant.currentYear}<br/>
+      ${t("feuillePresence.date")}: ${today}
     </div>
   </div>
-  <div class="title">FEUILLE DE PRÉSENCE</div>
+  <div class="title">${t("feuillePresence.title")}</div>
   <div class="info">
-    <strong>Classe :</strong> ${classe.nom} &nbsp;&nbsp; <strong>Niveau :</strong> ${classe.niveau} &nbsp;&nbsp; <strong>Prof. Principal :</strong> ${profNom} &nbsp;&nbsp; <strong>Effectif :</strong> ${eleves.length}
+    <strong>${t("feuillePresence.labelClasse")} :</strong> ${classe.nom} &nbsp;&nbsp; <strong>${t("feuillePresence.labelNiveau")} :</strong> ${classe.niveau} &nbsp;&nbsp; <strong>${t("feuillePresence.labelProfPrincipal")} :</strong> ${profNom} &nbsp;&nbsp; <strong>${t("feuillePresence.labelEffectif")} :</strong> ${eleves.length}
   </div>
   <table>
     <thead>
       <tr>
-        <th style="width:30px">N°</th>
-        <th style="width:100px">Matricule</th>
-        <th class="nom" style="width:200px">Nom & Prénom</th>
-        <th style="width:50px">Sexe</th>
+        <th style="width:30px">${t("feuillePresence.theadN")}</th>
+        <th style="width:100px">${t("feuillePresence.theadMatricule")}</th>
+        <th class="nom" style="width:200px">${t("feuillePresence.theadNomPrenom")}</th>
+        <th style="width:50px">${t("feuillePresence.theadSexe")}</th>
         ${Array.from({ length: 10 }, (_, i) => `<th style="width:40px">${format(new Date(Date.now() + i * 86400000), "dd/MM", { locale: fr })}</th>`).join("")}
-        <th style="width:60px">Total Abs.</th>
+        <th style="width:60px">${t("feuillePresence.theadTotalAbs")}</th>
       </tr>
     </thead>
     <tbody>
@@ -116,8 +119,8 @@ export async function GET(req: NextRequest) {
     </tbody>
   </table>
   <div class="footer">
-    <div>Signature du Professeur: ____________________</div>
-    <div>Visa du Directeur: ____________________</div>
+    <div>${t("feuillePresence.footerSignatureProf")}: ____________________</div>
+    <div>${t("feuillePresence.footerVisaDirecteur")}: ____________________</div>
   </div>
 </body>
 </html>`;

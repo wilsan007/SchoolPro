@@ -105,9 +105,9 @@ export default function TestWhatsAppPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium block mb-1">Numéro de téléphone (format international)</label>
+            <label className="text-sm font-medium block mb-1">{tt("numeroTelephone")}</label>
             <Input
-              aria-label="Numéro de téléphone (format international)"
+              aria-label={tt("numeroTelephone")}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="ex: 253779876543 ou +253779876543"

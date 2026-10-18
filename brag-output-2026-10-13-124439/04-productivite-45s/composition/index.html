@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>SchoolPro — 65 modules. Une plateforme. (45s)</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script src="assets/audio-data.js"></script>
+    <style>
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-500.woff2") format("woff2"); font-weight: 500; font-style: normal; }
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-600.woff2") format("woff2"); font-weight: 600; font-style: normal; }
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+      @font-face { font-family: "Plus Jakarta Sans"; src: url("assets/fonts/jakarta-600.woff2") format("woff2"); font-weight: 400 800; font-style: normal; }
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/jbmono-600.woff2") format("woff2"); font-weight: 600; font-style: normal; }
+
+      :root {
+        --bg: #0f111a; --card: #131622; --turquoise: #38bdf8; --azure: #0ea5e9;
+        --violet: #9b6fe0; --violet-light: #b79cf0; --teal: #14b8a6; --amber: #eab308;
+        --red: #dc2626; --red-text: #f87171; --green: #059669; --green-light: #34d399;
+        --fg: #e6e9f0; --muted: #919aa6; --border: rgba(56, 189, 248, 0.14);
+      }
+      body { margin: 0; background: #000; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: var(--fg); }
+      .clip { position: absolute; inset: 0; overflow: hidden; }
+      .scene { position: absolute; inset: 0; padding: 150px 90px 130px; display: flex; flex-direction: column; justify-content: center; }
+
+      .glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
+      .glow-turquoise { width: 720px; height: 720px; left: -180px; bottom: -240px; background: radial-gradient(circle, rgba(14,165,233,0.5) 0%, rgba(14,165,233,0) 70%); opacity: 0.14; }
+      .glow-violet { width: 640px; height: 640px; right: -220px; top: -180px; background: radial-gradient(circle, rgba(155,111,224,0.55) 0%, rgba(155,111,224,0) 70%); opacity: 0.12; }
+      .ghost { position: absolute; font-family: "Clash Grotesk", sans-serif; font-weight: 700; color: rgba(230,233,240,0.05); letter-spacing: 0.02em; white-space: nowrap; pointer-events: none; }
+      .grain { position: absolute; inset: 0; background-image: radial-gradient(rgba(230,233,240,0.045) 1px, transparent 1px); background-size: 7px 7px; pointer-events: none; }
+
+      .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 26px; font-weight: 600; letter-spacing: 0.28em; color: var(--muted); margin-bottom: 44px; }
+      .display { font-family: "Clash Grotesk", sans-serif; font-weight: 600; line-height: 1.08; letter-spacing: -0.01em; }
+      .t-turquoise { color: var(--turquoise); }
+      .t-violet { color: var(--violet-light); }
+      .mono { font-family: "JetBrains Mono", monospace; font-weight: 600; }
+
+      .chip { display: inline-flex; align-items: center; gap: 14px; border-radius: 999px; padding: 14px 30px; font-size: 26px; font-weight: 700; margin-right: 14px; margin-bottom: 14px; }
+      .chip-turquoise { background: rgba(56,189,248,0.1); color: var(--turquoise); border: 2px solid rgba(56,189,248,0.4); }
+      .chip-amber { background: rgba(234,179,8,0.1); color: var(--amber); border: 2px solid rgba(234,179,8,0.4); }
+      .card { background: var(--card); border: 2px solid var(--border); border-radius: 26px; padding: 44px 48px; }
+
+      /* ── Post-it chaos ── */
+      .postit { display: inline-block; padding: 40px 46px; border-radius: 8px; font-size: 40px; font-weight: 700; font-family: "Plus Jakarta Sans", sans-serif; color: #3a3007; box-shadow: 0 24px 50px rgba(0,0,0,0.45); margin-bottom: 46px; }
+
+      /* ── Grille d'appel ── */
+      .roll-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; margin-top: 56px; }
+      .roll-cell { position: relative; height: 190px; border-radius: 22px; background: var(--card); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; }
+      .roll-avatar { width: 84px; height: 84px; border-radius: 50%; background: rgba(56,189,248,0.14); color: var(--turquoise); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; font-family: "JetBrains Mono", monospace; }
+      .roll-cell.present .roll-avatar { background: rgba(5,150,105,0.2); color: var(--green-light); }
+      .roll-cell.absent { border: 3px solid rgba(220,38,38,0.55); }
+      .roll-cell.absent .roll-avatar { background: rgba(220,38,38,0.18); color: var(--red-text); }
+      .roll-badge { position: absolute; bottom: -16px; right: -12px; border-radius: 999px; font-size: 21px; font-weight: 800; padding: 6px 16px; }
+      .roll-badge.ok { background: var(--green); color: #fff; }
+      .roll-badge.abs { background: var(--red); color: #fff; }
+      .roll-summary { display: inline-flex; align-items: center; gap: 18px; margin-top: 70px; background: rgba(5,150,105,0.12); border: 2px solid rgba(5,150,105,0.4); border-radius: 999px; padding: 20px 44px; font-size: 34px; font-weight: 700; }
+
+      /* ── Bulletin ── */
+      .bulletin { background: #f4f2ea; color: #26241c; border-radius: 18px; padding: 48px 54px; width: 620px; box-shadow: 0 40px 80px rgba(0,0,0,0.5); }
+      .bul-title { font-family: "Clash Grotesk", sans-serif; font-weight: 700; font-size: 34px; margin-bottom: 6px; }
+      .bul-sub { font-size: 22px; color: #6b6753; margin-bottom: 28px; font-weight: 600; }
+      .bul-row { display: flex; justify-content: space-between; font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 26px; padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.1); font-feature-settings: "tnum"; }
+      .bul-moy { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 30px; }
+      .stamp-pub { display: inline-block; font-family: "Clash Grotesk", sans-serif; font-weight: 700; font-size: 30px; color: #059669; border: 4px solid #059669; border-radius: 14px; padding: 10px 24px; transform: rotate(-4deg); }
+
+      /* ── Facturation ── */
+      .cal { width: 300px; height: 300px; border-radius: 26px; background: var(--card); border: 2px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+      .cal-day { font-family: "Clash Grotesk", sans-serif; font-size: 150px; font-weight: 700; color: var(--turquoise); line-height: 1; }
+      .cal-month { font-size: 30px; font-weight: 700; color: var(--muted); letter-spacing: 0.14em; }
+      .facture { display: flex; align-items: center; gap: 24px; background: var(--card); border: 2px solid var(--border); border-radius: 18px; padding: 22px 34px; font-size: 30px; font-weight: 600; margin-top: 22px; width: 640px; }
+      .facture .f-ico { width: 54px; height: 54px; border-radius: 14px; background: rgba(56,189,248,0.14); color: var(--turquoise); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; }
+
+      /* ── Emploi du temps ── */
+      .tt { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 50px; }
+      .tt-slot { height: 92px; border-radius: 12px; background: rgba(230,233,240,0.05); }
+      .tt-course { border: 3px solid var(--turquoise); border-radius: 14px; padding: 14px 18px; font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 14px; }
+      .status-chip { display: inline-flex; align-items: center; gap: 14px; border-radius: 999px; padding: 16px 32px; font-size: 30px; font-weight: 800; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="v4-productivite" data-start="0" data-width="1080" data-height="1920" data-duration="45">
+
+      <!-- ═══ SCÈNE 1 · HOOK (0–3.5s) ═══ -->
+      <section id="sc1" class="clip" data-start="0" data-duration="3.5" data-track-index="0">
+        <div class="scene" id="s1" style="align-items: center; text-align: center;">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2; width: 100%;">
+            <div class="eyebrow" id="s1-eyebrow">SCHOOLPRO — PRODUCTIVITÉ</div>
+            <div class="display" style="font-size: 100px;" id="s1-title">Excel n'est pas<br /><span class="t-turquoise">un logiciel scolaire.</span></div>
+            <div class="mono" style="font-size: 26px; color: var(--muted); margin-top: 70px; letter-spacing: 0.14em;" id="s1-caption">— On dit ça avec affection.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 2 · LE CHAOS (3.5–9s) ═══ -->
+      <section id="sc2" class="clip" data-start="3.5" data-duration="5.5" data-track-index="1">
+        <div class="scene" id="s2">
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div class="ghost" style="font-size: 170px; right: -50px; top: 130px;" data-layout-ignore>à retaper ce soir…</div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s2-eyebrow">AVANT SCHOOLPRO</div>
+            <div id="s2-p1" style="text-align: left;">
+              <div class="postit" style="background: #fde68a;">Appel papier</div>
+            </div>
+            <div id="s2-p2" style="text-align: right;">
+              <div class="postit" style="background: #bae6fd;">Bulletins retapés</div>
+            </div>
+            <div id="s2-p3" style="text-align: left;">
+              <div class="postit" style="background: #fecaca;">Factures en retard</div>
+            </div>
+            <div style="font-size: 36px; color: var(--muted); margin-top: 60px; font-weight: 600;" id="s2-caption">Trois soirées par semaine. <span class="t-turquoise">Minimum.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 3 · APPEL (9–15s) ═══ -->
+      <section id="sc3" class="clip" data-start="9" data-duration="6" data-track-index="0">
+        <div class="scene" id="s3">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s3-eyebrow">APPEL NUMÉRIQUE</div>
+            <div class="display" style="font-size: 80px;" id="s3-title">L'appel en <span class="t-turquoise">30 secondes.</span></div>
+            <div class="roll-grid" id="s3-grid">
+              <div class="roll-cell present" id="s3-c1"><div class="roll-avatar">AM</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c2"><div class="roll-avatar">YB</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c3"><div class="roll-avatar">HA</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c4"><div class="roll-avatar">FA</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c5"><div class="roll-avatar">DK</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell absent" id="s3-c6"><div class="roll-avatar">SA</div><div class="roll-badge abs">A</div></div>
+              <div class="roll-cell present" id="s3-c7"><div class="roll-avatar">MO</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c8"><div class="roll-avatar">AL</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c9"><div class="roll-avatar">ZO</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c10"><div class="roll-avatar">IB</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell present" id="s3-c11"><div class="roll-avatar">NA</div><div class="roll-badge ok">✓</div></div>
+              <div class="roll-cell absent" id="s3-c12"><div class="roll-avatar">RS</div><div class="roll-badge abs">A</div></div>
+            </div>
+            <div class="roll-summary" id="s3-summary"><span class="mono" style="color: var(--green-light);">✓</span> 34 présents · 2 absents — c'est saisi</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 4 · BULLETINS (15–21.5s) ═══ -->
+      <section id="sc4" class="clip" data-start="15" data-duration="6.5" data-track-index="1">
+        <div class="scene" id="s4">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s4-eyebrow">BULLETINS</div>
+            <div class="display" style="font-size: 80px; margin-bottom: 54px;" id="s4-title">Générés.<br /><span class="t-turquoise">Pas retapés.</span></div>
+            <div class="bulletin" id="s4-bul">
+              <div class="bul-title">Bulletin — 2de A1 · T1</div>
+              <div class="bul-sub">Élève : Amina (démo)</div>
+              <div class="bul-row" id="s4-r1"><span>Mathématiques</span><span>14,50</span></div>
+              <div class="bul-row" id="s4-r2"><span>Français</span><span>13,25</span></div>
+              <div class="bul-row" id="s4-r3"><span>Physique-Chimie</span><span>12,00</span></div>
+              <div class="bul-moy" id="s4-moy"><span>Moyenne</span><span style="color: #0284c7; font-size: 40px;">12,50</span></div>
+            </div>
+            <div style="margin-top: 56px;" id="s4-stamprow">
+              <span class="stamp-pub" id="s4-stamp">Publié ✓</span>
+              <span class="mono" style="font-size: 26px; color: var(--muted); margin-left: 30px;" id="s4-note">→ conseil de classe, prêt</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 5 · FACTURATION (21.5–28s) ═══ -->
+      <section id="sc5" class="clip" data-start="21.5" data-duration="6.5" data-track-index="0">
+        <div class="scene" id="s5">
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s5-eyebrow">FINANCES</div>
+            <div class="display" style="font-size: 80px; margin-bottom: 50px;" id="s5-title">Le 1er du mois. <span class="t-violet">02:00.</span></div>
+            <div class="cal" id="s5-cal">
+              <div class="cal-day" id="s5-day">01</div>
+              <div class="cal-month" id="s5-month">DU MOIS</div>
+            </div>
+            <div class="facture" id="s5-f1"><div class="f-ico">#</div><div class="mono">FACTURE #000242 — Amina</div></div>
+            <div class="facture" id="s5-f2"><div class="f-ico">#</div><div class="mono">FACTURE #000243 — Yusuf</div></div>
+            <div class="facture" id="s5-f3"><div class="f-ico">#</div><div class="mono">FACTURE #000244 — Hodan</div></div>
+            <div style="font-size: 36px; font-weight: 600; margin-top: 44px;" id="s5-line">Elles partent <span class="t-turquoise">seules.</span> <span class="chip chip-violet" style="font-size: 24px; padding: 10px 22px;" id="s5-badge">Un mois = une facture. Jamais deux.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 6 · EMPLOI DU TEMPS (28–34.5s) ═══ -->
+      <section id="sc6" class="clip" data-start="28" data-duration="6.5" data-track-index="1">
+        <div class="scene" id="s6">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s6-eyebrow">EMPLOI DU TEMPS</div>
+            <div class="display" style="font-size: 74px; margin-bottom: 40px;" id="s6-title">Zéro chevauchement.<br /><span style="color: var(--muted);">Vérifié </span><span class="t-turquoise">avant publication.</span></div>
+            <div id="s6-tt">
+              <div class="tt-course" id="s6-e1" style="width: 400px;"><span class="mono" style="font-size: 22px; color: var(--muted);">LUN 08:00</span> Math — 2de A1</div>
+              <div class="tt-course" id="s6-e2" style="width: 460px; margin-top: 26px; margin-left: 120px;"><span class="mono" style="font-size: 22px; color: var(--muted);">LUN 09:00</span> Physique — 1re S</div>
+              <div class="tt-course" id="s6-e3" style="width: 430px; margin-top: 26px;"><span class="mono" style="font-size: 22px; color: var(--muted);">LUN 10:00</span> Français — Tle D</div>
+            </div>
+            <div class="status-chip" id="s6-conflict" style="background: rgba(220,38,38,0.14); border: 3px solid var(--red); color: var(--red-text); margin-top: 66px;">Chevauchement détecté — Salle B12</div>
+            <div class="status-chip" id="s6-resolved" style="background: rgba(5,150,105,0.14); border: 3px solid var(--green); color: var(--green-light); margin-top: 66px;">Résolu — décalé à 11:00 ✓</div>
+            <div style="margin-top: 60px;" id="s6-chips">
+              <span class="chip chip-turquoise" id="s6-ch1">Push</span>
+              <span class="chip chip-turquoise" id="s6-ch2">Email</span>
+              <span class="chip chip-turquoise" id="s6-ch3">SMS</span>
+              <span class="chip chip-turquoise" id="s6-ch4">WhatsApp</span>
+              <span style="font-size: 30px; color: var(--muted); font-weight: 600; display: inline-block; margin-top: 26px;" id="s6-chcap">tout le monde est prévenu, partout</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 7 · OUTRO (34.5–45s) ═══ -->
+      <section id="sc7" class="clip" data-start="34.5" data-duration="10.5" data-track-index="0">
+        <div class="scene" id="s7" style="align-items: center; text-align: center;">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2; width: 100%;">
+            <div class="eyebrow" id="s7-eyebrow">SCHOOLPRO — 65 MODULES</div>
+            <div class="display" style="font-size: 104px;" id="s7-l1">Une équipe.</div>
+            <div class="display" style="font-size: 104px; margin-top: 22px;" id="s7-l2">Un logiciel.</div>
+            <div class="display t-turquoise" style="font-size: 104px; margin-top: 22px;" id="s7-l3">Toute l'école.</div>
+            <div id="s7-chips" style="margin-top: 90px;">
+              <span class="chip chip-turquoise" id="s7-c1">Élèves</span>
+              <span class="chip chip-turquoise" id="s7-c2">Notes</span>
+              <span class="chip chip-turquoise" id="s7-c3">Absences</span>
+              <span class="chip chip-turquoise" id="s7-c4">Cours</span>
+              <span class="chip chip-turquoise" id="s7-c5">RH</span>
+              <span class="chip chip-turquoise" id="s7-c6">Caisse</span>
+            </div>
+            <div id="s7-logo" style="display: flex; align-items: center; justify-content: center; gap: 28px; margin-top: 100px;">
+              <svg width="88" height="88" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="url(#lg4)"/>
+                <path d="M12 4.5L4.5 10v9h5v-4h5v4h5v-9L12 4.5z" fill="#0f111a"/>
+                <defs><linearGradient id="lg4" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#9b6fe0"/></linearGradient></defs>
+              </svg>
+              <span class="display" style="font-size: 80px; font-weight: 700;">SchoolPro</span>
+            </div>
+            <div id="s7-tagline" style="font-size: 40px; color: var(--fg); margin-top: 46px; font-weight: 500;">La gestion scolaire <span class="t-turquoise" style="font-weight: 700;">de nouvelle génération.</span></div>
+            <div id="s7-footer" class="mono" style="font-size: 24px; color: var(--muted); margin-top: 64px; letter-spacing: 0.2em;">© SCHOOLPRO — DJIBOUTI</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ AUDIO ═══ -->
+      <audio id="music" data-start="0" data-duration="45" data-track-index="10" data-volume="0.35" data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.8,"v":0.35},{"t":43.2,"v":0.35},{"t":44.8,"v":0}]}]}' src="assets/music/music.mp3"></audio>
+      <audio id="sfx-hook" data-start="0.15" data-duration="0.18" data-track-index="11" data-volume="0.75" src="assets/sfx/impactSoft_medium_001.ogg"></audio>
+      <audio id="sfx-caption1" data-start="2.02" data-duration="0.11" data-track-index="11" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-postit1" data-start="4.02" data-duration="0.19" data-track-index="11" data-volume="0.7" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-postit2" data-start="4.52" data-duration="0.11" data-track-index="11" data-volume="0.7" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-postit3" data-start="5.02" data-duration="0.19" data-track-index="11" data-volume="0.7" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-roll1" data-start="11.02" data-duration="0.06" data-track-index="11" data-volume="0.65" src="assets/sfx/click_001.ogg"></audio>
+      <audio id="sfx-roll2" data-start="12.02" data-duration="0.06" data-track-index="11" data-volume="0.65" src="assets/sfx/click_001.ogg"></audio>
+      <audio id="sfx-roll3" data-start="13.02" data-duration="0.06" data-track-index="11" data-volume="0.65" src="assets/sfx/click_001.ogg"></audio>
+      <audio id="sfx-abs1" data-start="13.52" data-duration="0.05" data-track-index="12" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-abs2" data-start="14.02" data-duration="0.05" data-track-index="12" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-summary" data-start="14.52" data-duration="0.19" data-track-index="13" data-volume="0.75" src="assets/sfx/chips-collide-1.ogg"></audio>
+      <audio id="sfx-bul" data-start="16.02" data-duration="0.29" data-track-index="13" data-volume="0.7" src="assets/sfx/card-slide-1.ogg"></audio>
+      <audio id="sfx-br1" data-start="17.02" data-duration="0.11" data-track-index="14" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-br2" data-start="17.52" data-duration="0.11" data-track-index="14" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-br3" data-start="18.02" data-duration="0.11" data-track-index="14" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-stamp4" data-start="18.52" data-duration="0.12" data-track-index="15" data-volume="0.8" src="assets/sfx/bong_001.ogg"></audio>
+      <audio id="sfx-cal" data-start="22.02" data-duration="0.24" data-track-index="11" data-volume="0.7" src="assets/sfx/switch1.ogg"></audio>
+      <audio id="sfx-f1" data-start="23.02" data-duration="0.29" data-track-index="12" data-volume="0.55" src="assets/sfx/card-slide-3.ogg"></audio>
+      <audio id="sfx-f2" data-start="23.52" data-duration="0.29" data-track-index="13" data-volume="0.55" src="assets/sfx/card-slide-3.ogg"></audio>
+      <audio id="sfx-f3" data-start="24.02" data-duration="0.29" data-track-index="14" data-volume="0.55" src="assets/sfx/card-slide-3.ogg"></audio>
+      <audio id="sfx-fline" data-start="25.02" data-duration="0.11" data-track-index="15" data-volume="0.65" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-conflict" data-start="29.02" data-duration="0.2" data-track-index="11" data-volume="0.6" src="assets/sfx/error_005.ogg"></audio>
+      <audio id="sfx-resolved" data-start="30.02" data-duration="0.12" data-track-index="12" data-volume="0.7" src="assets/sfx/bong_001.ogg"></audio>
+      <audio id="sfx-ch1" data-start="32.02" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-ch2" data-start="32.52" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-ch3" data-start="33.02" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-ch4" data-start="33.52" data-duration="0.11" data-track-index="13" data-volume="0.55" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-o1" data-start="35.02" data-duration="0.11" data-track-index="14" data-volume="0.7" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-o2" data-start="35.52" data-duration="0.11" data-track-index="14" data-volume="0.7" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-o3" data-start="36.02" data-duration="0.19" data-track-index="15" data-volume="0.8" src="assets/sfx/impactSoft_medium_001.ogg"></audio>
+      <audio id="sfx-mc1" data-start="37.02" data-duration="0.11" data-track-index="16" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-mc2" data-start="38.02" data-duration="0.11" data-track-index="16" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-mc3" data-start="39.02" data-duration="0.11" data-track-index="16" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-logo" data-start="41.02" data-duration="0.3" data-track-index="17" data-volume="0.8" src="assets/sfx/impactBell_heavy_000.ogg"></audio>
+      <audio id="sfx-tagline" data-start="42.02" data-duration="0.11" data-track-index="18" data-volume="0.55" src="assets/sfx/drop_002.ogg"></audio>
+    </div>
+
+    <script>
+      var tl = gsap.timeline({ paused: true });
+
+      /* ── Scène 1 : hook ── */
+      tl.fromTo("#s1-eyebrow", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.05);
+      tl.fromTo("#s1-title", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 0.15);
+      tl.fromTo("#s1-caption", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.38, ease: "power3.out" }, 2.02);
+
+      /* ── Scène 2 : post-it chaos (beat-grid 4.02 / 4.52 / 5.02) ── */
+      tl.fromTo("#s2-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 3.65);
+      tl.fromTo("#s2-p1", { y: -70, opacity: 0, rotation: 0 }, { y: 0, opacity: 1, rotation: -3, duration: 0.38, ease: "power3.out" }, 4.02);
+      tl.fromTo("#s2-p2", { y: -70, opacity: 0, rotation: 0 }, { y: 0, opacity: 1, rotation: 2.4, duration: 0.38, ease: "power3.out" }, 4.52);
+      tl.fromTo("#s2-p3", { y: -70, opacity: 0, rotation: 0 }, { y: 0, opacity: 1, rotation: -1.8, duration: 0.38, ease: "power3.out" }, 5.02);
+      tl.fromTo("#s2-caption", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 6.02);
+
+      /* ── Scène 3 : appel ── */
+      tl.fromTo("#s3-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 9.15);
+      tl.fromTo("#s3-title", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 9.25);
+      tl.fromTo("#s3-grid", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 9.7);
+      // beat-grid: vagues de coches (11.02 / 12.02 / 13.02), absences (13.52 / 14.02), badge (14.52)
+      tl.fromTo("#s3-c1, #s3-c2, #s3-c3, #s3-c4", { y: 24, opacity: 0.4 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out", stagger: 0.08 }, 11.02);
+      tl.fromTo("#s3-c5, #s3-c7, #s3-c8, #s3-c9", { y: 24, opacity: 0.4 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out", stagger: 0.08 }, 12.02);
+      tl.fromTo("#s3-c10, #s3-c11", { y: 24, opacity: 0.4 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out", stagger: 0.08 }, 13.02);
+      tl.fromTo("#s3-c6", { scale: 0.9, opacity: 0.5 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, 13.52);
+      tl.fromTo("#s3-c12", { scale: 0.9, opacity: 0.5 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, 14.02);
+      tl.fromTo("#s3-summary", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 14.52);
+
+      /* ── Scène 4 : bulletins ── */
+      tl.fromTo("#s4-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 15.15);
+      tl.fromTo("#s4-title", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 15.25);
+      // beat-locked: 16.02 (strongCue vol-1, 1.00)
+      tl.fromTo("#s4-bul", { x: 260, opacity: 0, rotation: 3 }, { x: 0, opacity: 1, rotation: 0, duration: 0.5, ease: "power3.out" }, 16.02);
+      // beat-grid: lignes de notes sur strongCues consécutifs (17.02 / 17.52 / 18.02)
+      tl.fromTo("#s4-r1", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 17.02);
+      tl.fromTo("#s4-r2", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 17.52);
+      tl.fromTo("#s4-r3", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 18.02);
+      tl.fromTo("#s4-moy", { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(1.8)" }, 18.2);
+      // beat-locked: 18.52 (strongCue vol-1, 1.00)
+      tl.fromTo("#s4-stamp", { scale: 1.4, opacity: 0, rotation: 3 }, { scale: 1, opacity: 1, rotation: -4, duration: 0.34, ease: "power4.out" }, 18.52);
+      tl.fromTo("#s4-note", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" }, 19.52);
+
+      /* ── Scène 5 : facturation ── */
+      tl.fromTo("#s5-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 21.65);
+      tl.fromTo("#s5-title", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 21.75);
+      tl.fromTo("#s5-cal", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.42, ease: "back.out(1.6)" }, 22.02);
+      // beat-grid: factures s'envolent (23.02 / 23.52 / 24.02)
+      tl.fromTo("#s5-f1", { x: 300, opacity: 0 }, { x: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 23.02);
+      tl.fromTo("#s5-f2", { x: 300, opacity: 0 }, { x: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 23.52);
+      tl.fromTo("#s5-f3", { x: 300, opacity: 0 }, { x: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 24.02);
+      tl.fromTo("#s5-line", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 25.02);
+      tl.fromTo("#s5-badge", { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.32, ease: "back.out(2)" }, 26.02);
+
+      /* ── Scène 6 : emploi du temps ── */
+      tl.fromTo("#s6-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 28.15);
+      tl.fromTo("#s6-title", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 28.25);
+      tl.fromTo("#s6-e1", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 28.6);
+      tl.fromTo("#s6-e2", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 28.75);
+      tl.fromTo("#s6-e3", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 28.9);
+      // beat-locked: 29.02 / 30.02 (beats vol-1) — flash rouge → résolution verte
+      tl.fromTo("#s6-conflict", { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" }, 29.02);
+      tl.to("#s6-e2", { borderColor: "#dc2626", duration: 0.2, ease: "power2.inOut" }, 29.02);
+      tl.to("#s6-conflict", { opacity: 0, y: -24, duration: 0.24, ease: "power2.in" }, 29.78);
+      tl.to("#s6-e2", { x: 60, borderColor: "#059669", duration: 0.4, ease: "power2.inOut" }, 30.02);
+      tl.fromTo("#s6-resolved", { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "power3.out" }, 30.02);
+      // beat-grid: chips communication (32.02 → 33.52)
+      tl.fromTo("#s6-ch1", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 32.02);
+      tl.fromTo("#s6-ch2", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 32.52);
+      tl.fromTo("#s6-ch3", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 33.02);
+      tl.fromTo("#s6-ch4", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 33.52);
+      tl.fromTo("#s6-chcap", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.36, ease: "power3.out" }, 33.7);
+
+      /* ── Scène 7 : outro ── */
+      // beat-grid: 3 lignes (35.02 / 35.52 / 36.02)
+      tl.fromTo("#s7-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 34.7);
+      tl.fromTo("#s7-l1", { y: 54, opacity: 0 }, { y: 0, opacity: 1, duration: 0.32, ease: "power4.out" }, 35.02);
+      tl.fromTo("#s7-l2", { y: 54, opacity: 0 }, { y: 0, opacity: 1, duration: 0.32, ease: "power4.out" }, 35.52);
+      tl.fromTo("#s7-l3", { y: 66, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, ease: "power4.out" }, 36.02);
+      // beat-grid: chips modules (37.02 → 39.02)
+      tl.fromTo("#s7-c1", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 37.02);
+      tl.fromTo("#s7-c2", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 37.52);
+      tl.fromTo("#s7-c3", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 38.02);
+      tl.fromTo("#s7-c4", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 38.52);
+      tl.fromTo("#s7-c5", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 39.02);
+      tl.fromTo("#s7-c6", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 39.52);
+      tl.fromTo("#s7-logo", { scale: 1.16, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "power4.out" }, 41.02);
+      tl.fromTo("#s7-tagline", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.38, ease: "power3.out" }, 42.02);
+      tl.fromTo("#s7-footer", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 43.02);
+
+      /* ── Seams : cut-the-curve LEFT ── */
+      function seam(prevSelector, nextSelector, T) {
+        tl.to(prevSelector, { x: -130, duration: 0.3, ease: "power4.in" }, T - 0.3);
+        tl.to(prevSelector, { opacity: 0, duration: 0.18, ease: "none" }, T - 0.24);
+        tl.fromTo(nextSelector, { x: 130, opacity: 0.35 }, { x: 0, opacity: 1, duration: 0.36, ease: "power4.out" }, T);
+      }
+      seam("#s1", "#s2", 3.5);
+      seam("#s2", "#s3", 9.0);
+      seam("#s3", "#s4", 15.0);
+      seam("#s4", "#s5", 21.5);
+      seam("#s5", "#s6", 28.0);
+      seam("#s6", "#s7", 34.5);
+
+      /* ── Ghost drifts ── */
+      tl.to("#s2 .ghost", { x: 36, duration: 5.4, ease: "power1.inOut" }, 3.6);
+
+      /* ── Audio-réactif : halos ── */
+      var glows = document.querySelectorAll(".glow-audio");
+      var FRAMES = Math.min(window.AUDIO_DATA.totalFrames, 1350);
+      function glowTick(f) {
+        var fr = window.AUDIO_DATA.frames[f];
+        if (!fr) return;
+        var bass = fr.bands[0];
+        for (var g = 0; g < glows.length; g++) {
+          glows[g].style.opacity = 0.13 * (1 + bass * 0.55);
+          glows[g].style.transform = "scale(" + (1 + bass * 0.07) + ")";
+        }
+      }
+      for (var f = 0; f < FRAMES; f++) {
+        (function (ff) {
+          tl.call(function () { glowTick(ff); }, [], ff / 30);
+        })(f);
+      }
+
+      window.__timelines["v4-productivite"] = tl;
+    </script>
+  </body>
+</html>

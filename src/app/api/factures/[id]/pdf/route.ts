@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { canAccessSite } from "@/lib/site-filter";
 import { siteFilterForModel } from "@/lib/site-scope";
 import { checkPermission } from "@/lib/rbac";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Impression d'une facture de l'établissement.
@@ -79,6 +80,8 @@ export async function GET(
     const totalPaye = facture.paiements.reduce((sum, p) => sum + p.montant, 0);
     const restant = facture.montant - totalPaye;
 
+    const t = await getTranslations("factures");
+
     function formatMoney(amount: number, devise: string) {
       try {
         return new Intl.NumberFormat("fr-DJ", { style: "currency", currency: devise }).format(amount);
@@ -89,8 +92,8 @@ export async function GET(
     }
 
     const statutLabels: Record<string, string> = {
-      EN_ATTENTE: "En attente",
-      PAYEE: "Payée",
+      EN_ATTENTE: t("statusEnAttente"),
+      PAYEE: t("statusPayee"),
       EN_RETARD: "En retard",
       ANNULEE: "Annulée",
     };
@@ -154,7 +157,7 @@ export async function GET(
   <div class="invoice">
     <div class="header">
       <div>
-        <h1>FACTURE</h1>
+        <h1>${t("title")}</h1>
         <div class="inv-num">N° ${facture.numero}</div>
       </div>
       <div style="text-align:right">
@@ -177,56 +180,56 @@ export async function GET(
     <div class="body">
       <div class="two-col">
         <div>
-          <div class="section-title">Élève</div>
-          <div class="row"><span class="label">Nom & Prénom</span><span class="value">${eleve?.prenom ?? ""} ${eleve?.nom ?? ""}</span></div>
-          <div class="row"><span class="label">Matricule</span><span class="value">${eleve?.matricule ?? ""}</span></div>
-          <div class="row"><span class="label">Classe</span><span class="value">${eleve?.classe?.nom ?? "N/A"} — ${eleve?.classe?.niveau ?? ""}</span></div>
+          <div class="section-title">${t("sectionEleve")}</div>
+          <div class="row"><span class="label">${t("labelNomPrenom")}</span><span class="value">${eleve?.prenom ?? ""} ${eleve?.nom ?? ""}</span></div>
+          <div class="row"><span class="label">${t("labelMatricule")}</span><span class="value">${eleve?.matricule ?? ""}</span></div>
+          <div class="row"><span class="label">${t("labelClasse")}</span><span class="value">${eleve?.classe?.nom ?? "N/A"} — ${eleve?.classe?.niveau ?? ""}</span></div>
         </div>
         <div>
           ${tuteur ? `
-          <div class="section-title">Tuteur légal</div>
-          <div class="row"><span class="label">Nom</span><span class="value">${tuteur.prenom} ${tuteur.nom}</span></div>
-          ${tuteur.phone ? `<div class="row"><span class="label">Téléphone</span><span class="value">${tuteur.phone}</span></div>` : ""}
-          ${tuteur.email ? `<div class="row"><span class="label">Email</span><span class="value">${tuteur.email}</span></div>` : ""}
+          <div class="section-title">${t("labelTuteurLegal")}</div>
+          <div class="row"><span class="label">${t("labelNom")}</span><span class="value">${tuteur.prenom} ${tuteur.nom}</span></div>
+          ${tuteur.phone ? `<div class="row"><span class="label">${t("labelTelephone")}</span><span class="value">${tuteur.phone}</span></div>` : ""}
+          ${tuteur.email ? `<div class="row"><span class="label">${t("labelEmail")}</span><span class="value">${tuteur.email}</span></div>` : ""}
           ` : ""}
         </div>
       </div>
 
-      <div class="section-title" style="margin-top:20px">Détails de la facture</div>
-      <div class="row"><span class="label">Libellé</span><span class="value">${facture.libelle}</span></div>
-      ${facture.echeance ? `<div class="row"><span class="label">Échéance</span><span class="value">${new Date(facture.echeance).toLocaleDateString("fr-FR")}</span></div>` : ""}
-      ${facture.createdBy ? `<div class="row"><span class="label">Émise par</span><span class="value">${facture.createdBy.name}</span></div>` : ""}
+      <div class="section-title" style="margin-top:20px">${t("detailTitle")}</div>
+      <div class="row"><span class="label">${t("labelLibelle")}</span><span class="value">${facture.libelle}</span></div>
+      ${facture.echeance ? `<div class="row"><span class="label">${t("labelEcheance")}</span><span class="value">${new Date(facture.echeance).toLocaleDateString("fr-FR")}</span></div>` : ""}
+      ${facture.createdBy ? `<div class="row"><span class="label">${t("labelEmisePar")}</span><span class="value">${facture.createdBy.name}</span></div>` : ""}
 
       <div class="amount-box">
-        <div class="label">Montant facturé</div>
+        <div class="label">${t("labelMontantFacture")}</div>
         <div class="amount">${formatMoney(facture.montant, facture.devise)}</div>
       </div>
 
       <div class="summary-grid">
         <div class="summary-card summary-invoiced">
-          <div class="label">Facturé</div>
+          <div class="label">${t("resumeFacture")}</div>
           <div class="amount">${formatMoney(facture.montant, facture.devise)}</div>
         </div>
         <div class="summary-card summary-paid">
-          <div class="label">Payé</div>
+          <div class="label">${t("resumePaye")}</div>
           <div class="amount">${formatMoney(totalPaye, facture.devise)}</div>
         </div>
         <div class="summary-card summary-due">
-          <div class="label">Reste à payer</div>
+          <div class="label">${t("resumeReste")}</div>
           <div class="amount">${formatMoney(restant, facture.devise)}</div>
         </div>
       </div>
 
       ${facture.paiements.length > 0 ? `
-      <div class="section-title">Historique des paiements</div>
+      <div class="section-title">${t("historiqueTitle")}</div>
       <table>
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Montant</th>
-            <th>Méthode</th>
-            <th>Référence</th>
-            <th>Enregistré par</th>
+            <th>${t("theadDate")}</th>
+            <th>${t("theadMontant")}</th>
+            <th>${t("theadMethode")}</th>
+            <th>${t("theadReference")}</th>
+            <th>${t("theadEnregistrePar")}</th>
           </tr>
         </thead>
         <tbody>
@@ -246,14 +249,14 @@ export async function GET(
 
     <div class="footer">
       <div class="signature">
-        <div class="signature-line">Cachet & Signature</div>
+        <div class="signature-line">${t("footerCachetSignature")}</div>
       </div>
       <div class="stamp">
-        EcolPro — Facture générée le ${new Date().toLocaleDateString("fr-FR")}
+        EcolPro — ${t("footerGenereLe")} ${new Date().toLocaleDateString("fr-FR")}
       </div>
     </div>
   </div>
-  <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+  <button class="print-btn" onclick="window.print()">🖨️ ${t("btnImprimer")}</button>
 </body>
 </html>`;
 

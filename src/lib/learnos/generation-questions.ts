@@ -47,7 +47,14 @@ import { FORMATS_AUTO_CORRIGEABLES } from "@/lib/learnos/formats";
  * servirait 24 h durant les sorties de l'ancienne consigne, et le journal
  * attribuerait à la nouvelle des questions qu'elle n'a pas produites.
  */
-const VERSION_PROMPT = "questions-v3";
+const VERSION_PROMPT = "questions-v4";
+
+/**
+ * Un dossier tient en peu de lots : chaque question pèse 15 à 30 étapes, et un
+ * lot de cinq dépasserait la limite de sortie du modèle (la sortie tronquée
+ * perd le lot ENTIER, cf. `maxTokens` plus bas).
+ */
+const MAX_DOSSIERS_PAR_APPEL = 2;
 
 /**
  * Sortie demandée en **appel d'outil**, et non en texte libre.
@@ -93,12 +100,30 @@ const OUTIL_QUESTIONS: AiToolDefinition = {
               structure: {
                 type: "object",
                 properties: {
+                  parties: {
+                    type: "array",
+                    description:
+                      "Uniquement pour un DOSSIER : les parties dans l'ordre de résolution.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        titre: { type: "string" },
+                        but: { type: "string" },
+                      },
+                      required: ["id", "titre"],
+                    },
+                  },
                   etapes: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
                         enonce: { type: "string" },
+                        partie: {
+                          type: "string",
+                          description: "Dossier uniquement : identifiant de la partie de l'étape.",
+                        },
                         format: {
                           type: "string",
                           enum: [
@@ -131,6 +156,7 @@ const OUTIL_QUESTIONS: AiToolDefinition = {
                                   "CALCULATION_ERROR",
                                   "READING_ERROR",
                                   "MISSING_PREREQUISITE",
+                                  "NOTATION_ERROR",
                                 ],
                                 description:
                                   "Uniquement sur les MAUVAISES propositions.",
@@ -400,6 +426,80 @@ const EXEMPLE_FORMAT_SOMALI: Partial<Record<FormatQuestion, string>> = {
 }`,
 };
 
+/**
+ * Exemple de DOSSIER : un grand exercice découpé en parties, chaque étape
+ * restant courte. Donné tel quel au modèle, comme les autres exemples — un motif
+ * à imiter, pas un schéma à interpréter.
+ *
+ * Le sujet (étude de fonction) est volontairement MATHÉMATIQUE et abrégé à trois
+ * parties : il montre la forme, pas le programme. Les deux règles qui comptent y
+ * sont visibles — la réponse de chaque étape est courte et comparable, et les
+ * étapes d'une même partie se suivent.
+ */
+const EXEMPLE_DOSSIER = `{
+  "questions": [{
+    "enonce": "Étude de f(x) = x² - 4x + 3.",
+    "structure": {
+      "parties": [
+        { "id": "p1", "titre": "Dérivée", "but": "Calculer f'(x) et trouver où elle s'annule." },
+        { "id": "p2", "titre": "Variations", "but": "En déduire le sens de variation." },
+        { "id": "p3", "titre": "Valeur remarquable", "but": "Calculer l'extremum." }
+      ],
+      "etapes": [
+        {
+          "partie": "p1",
+          "enonce": "Quelle est la dérivée de f ?",
+          "format": "CHOIX_UNIQUE",
+          "options": [
+            { "id": "a", "texte": "f'(x) = 2x - 4" },
+            { "id": "b", "texte": "f'(x) = x - 4", "erreur": "CALCULATION_ERROR" },
+            { "id": "c", "texte": "f'(x) = 2x + 3", "erreur": "PROCEDURAL_ERROR" }
+          ],
+          "reponse": "a",
+          "points": 1
+        },
+        {
+          "partie": "p1",
+          "enonce": "Pour quelle valeur de x la dérivée s'annule-t-elle ?",
+          "format": "SAISIE_COURTE",
+          "reponse": "2",
+          "indice": "Résous 2x - 4 = 0.",
+          "points": 1
+        },
+        {
+          "partie": "p2",
+          "enonce": "Sur l'intervalle ]-∞ ; 2[, la fonction est…",
+          "format": "CHOIX_UNIQUE",
+          "options": [
+            { "id": "a", "texte": "décroissante" },
+            { "id": "b", "texte": "croissante", "erreur": "CONCEPTUAL_ERROR" }
+          ],
+          "reponse": "a",
+          "points": 1
+        },
+        {
+          "partie": "p3",
+          "enonce": "Quelle est la valeur minimale de f ?",
+          "format": "SAISIE_COURTE",
+          "reponse": "-1",
+          "points": 1
+        }
+      ]
+    }
+  }]
+}`;
+
+/** Règles du mode dossier, en complément de l'exemple. */
+const CONSIGNE_DOSSIER =
+  "UN DOSSIER : un grand exercice découpé en 3 à 6 \"parties\" dans l'ordre réel de la " +
+  "résolution, et de 2 à 4 étapes par partie (15 étapes au plus en tout). Déclare " +
+  'les parties dans "structure.parties" (id, titre, but), et rattache CHAQUE étape à une ' +
+  'partie par son "partie". Les étapes d\'une même partie se suivent, sans retour en arrière. ' +
+  "Chaque étape reste COURTE : un nombre, un mot, ou un choix — jamais une phrase à " +
+  "rédiger. Chaque étape est en SAISIE_COURTE, CHOIX_UNIQUE, REMISE_EN_ORDRE ou APPARIEMENT, " +
+  'et porte sa propre "reponse" (sauf APPARIEMENT). Une étape peut s\'appuyer sur le ' +
+  "résultat d'une étape précédente en le rappelant dans son énoncé.";
+
 /** Règles propres à chaque format, en complément de l'exemple. */
 const CONSIGNE_FORMAT: Partial<Record<FormatQuestion, string>> = {
   SAISIE_COURTE: 'UNE seule étape, "format": "SAISIE_COURTE".',
@@ -494,6 +594,15 @@ export interface DemandeGeneration {
   /** Barème de chaque question produite. */
   bareme?: number;
   /**
+   * Produit des DOSSIERS : de grands exercices découpés en parties.
+   *
+   * Réservé à `ETAPES_GUIDEES` — un dossier est une suite d'étapes courtes, et
+   * c'est ce qui le garde corrigeable sans enseignant. Français seulement : les
+   * exemples somalis ne couvrent pas encore ce format, et un modèle qui imite
+   * un exemple absent invente la forme.
+   */
+  dossier?: boolean;
+  /**
    * Langue de rédaction des énoncés : "fr" (français) ou "so" (somali).
    *
    * La génération est **native**, pas traduite : le modèle rédige directement
@@ -527,6 +636,7 @@ interface QuestionBrute {
   enonce?: unknown;
   structure?: unknown;
   etapes?: unknown;
+  parties?: unknown;
   format?: unknown;
 }
 
@@ -545,7 +655,13 @@ interface QuestionBrute {
  */
 function enveloppe(q: QuestionBrute): unknown {
   if (q.structure && typeof q.structure === "object") return q.structure;
-  if (Array.isArray(q.etapes)) return { etapes: q.etapes };
+  // `parties` remonte avec les étapes quand le modèle omet l'enveloppe : sans
+  // elle, un dossier aplati perdrait ses parties et serait rejeté à tort.
+  if (Array.isArray(q.etapes)) {
+    return Array.isArray(q.parties)
+      ? { etapes: q.etapes, parties: q.parties }
+      : { etapes: q.etapes };
+  }
   // Exercice mono-étape aplati : la question EST l'étape.
   if (typeof q.format === "string") return { etapes: [q] };
   return null;
@@ -679,7 +795,22 @@ export async function genererQuestions(
     throw new Error("genererQuestions: compétence introuvable dans votre périmètre.");
   }
 
-  const nombre = Math.min(Math.max(demande.nombre, 1), MAX_PAR_APPEL);
+  const dossier = demande.dossier === true;
+  if (dossier && demande.format !== "ETAPES_GUIDEES") {
+    throw new Error(
+      "genererQuestions: un dossier est une suite d'étapes — le format doit être ETAPES_GUIDEES."
+    );
+  }
+  if (dossier && demande.langue === "so") {
+    throw new Error(
+      "genererQuestions: les dossiers ne sont pas encore générés en somali (aucun exemple de référence)."
+    );
+  }
+
+  const nombre = Math.min(
+    Math.max(demande.nombre, 1),
+    dossier ? MAX_DOSSIERS_PAR_APPEL : MAX_PAR_APPEL
+  );
 
   // Les énoncés déjà en banque sont donnés au modèle pour qu'il ne les
   // reproduise pas. Sans cela, régénérer sur la même compétence renvoie les
@@ -714,10 +845,10 @@ export async function genererQuestions(
     "",
     `Produis ${nombre} exercice(s) distinct(s).`,
     `Niveau de difficulté attendu : ${CONSIGNE_PALIER[demande.palier]}.`,
-    `Format imposé : ${CONSIGNE_FORMAT[demande.format]}`,
+    `Format imposé : ${dossier ? CONSIGNE_DOSSIER : CONSIGNE_FORMAT[demande.format]}`,
     "",
     "Imite EXACTEMENT la forme de cet exemple, en changeant seulement le contenu :",
-    exemples[demande.format] ?? "",
+    (dossier ? EXEMPLE_DOSSIER : exemples[demande.format]) ?? "",
     existantes.length > 0
       ? `\nÉnoncés DÉJÀ en banque, à ne pas reproduire :\n${existantes
           .map((q) => `- ${q.enonce}`)
@@ -740,7 +871,13 @@ export async function genererQuestions(
   const resultat = await routeAi(
     {
       complexity: "complex",
-      promptVersion: estSomali ? `${VERSION_PROMPT}-so` : VERSION_PROMPT,
+      // Le dossier a sa propre consigne : une clé de cache distincte évite de
+      // servir un lot d'étapes ordinaires à qui demande un dossier.
+      promptVersion: estSomali
+        ? `${VERSION_PROMPT}-so`
+        : dossier
+          ? `${VERSION_PROMPT}-dossier`
+          : VERSION_PROMPT,
       action: "question.generate",
       tenantId,
       siteId: competence.siteId,
@@ -762,7 +899,8 @@ export async function genererQuestions(
       // déjà correctement rédigés avant la coupure. C'est le mode d'échec le
       // plus coûteux du module — observé avec un plafond fixe à 2000 sur des
       // étapes guidées par ailleurs valides.
-      maxTokens: 1200 + nombre * 900,
+      // Un dossier pèse bien plus qu'un exercice ordinaire : 15 à 30 étapes.
+      maxTokens: dossier ? 2000 + nombre * 4500 : 1200 + nombre * 900,
       // Forcer le modèle frontier pour le somali.
       ...(estSomali ? { model: modeleSomali } : {}),
     }
@@ -784,6 +922,9 @@ export async function genererQuestions(
     // Le format demandé et le format produit doivent coïncider : une question
     // rangée sous un format qu'elle n'a pas serait servie par le mauvais écran.
     if (!formatConforme(demande.format, structure)) continue;
+    // Un dossier demandé doit EN ÊTRE un : sans parties, c'est un exercice
+    // ordinaire rangé sous une étiquette qu'il n'a pas.
+    if (dossier && !structure.parties) continue;
     valides.push({ enonce: q.enonce.trim(), structure });
   }
 

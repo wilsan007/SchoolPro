@@ -2,9 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/notifications/email", () => ({
   sendEmail: vi.fn().mockResolvedValue({ success: true, sent: 1 }),
-  renderNotificationEmail: vi.fn((ecole: string, sujet: string, contenu: string) =>
-    `<html>${ecole}${sujet}${contenu}</html>`
-  ),
+  renderNotificationEmail: vi.fn().mockResolvedValue("<html>mock</html>"),
 }));
 
 import { sendEmail } from "@/lib/notifications/email";

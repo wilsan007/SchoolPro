@@ -1,0 +1,1 @@
+En binaire, 0,1 + 0,2 ≠ 0,3 — et une moyenne peut basculer un rang. SchoolPro calcule en centièmes entiers et refuse tout accès sans périmètre. 161 tests. 29 migrations. 0 approximation.

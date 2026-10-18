@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { canAccessSite } from "@/lib/site-filter";
 import { checkPermission } from "@/lib/rbac";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Reçu de paiement (document de gestion).
@@ -77,6 +78,8 @@ export async function GET(
     const tuteur = eleve?.parents[0]?.parent;
     const recuNumber = `REC-${new Date(paiement.date).getFullYear()}-${paiement.id.slice(-6).toUpperCase()}`;
 
+    const t = await getTranslations("paiements");
+
     function formatMoney(amount: number, devise: string) {
       try {
         return new Intl.NumberFormat("fr-DJ", { style: "currency", currency: devise }).format(amount);
@@ -123,7 +126,7 @@ export async function GET(
   <div class="receipt">
     <div class="header">
       <div>
-        <h1>REÇU DE PAIEMENT</h1>
+        <h1>${t("recu.title")}</h1>
         <div class="recu-num">N° ${recuNumber}</div>
       </div>
       <div style="text-align:right">
@@ -140,41 +143,41 @@ export async function GET(
     </div>
 
     <div class="body">
-      <div class="section-title">Élève</div>
-      <div class="row"><span class="label">Nom & Prénom</span><span class="value">${eleve?.prenom ?? ""} ${eleve?.nom ?? ""}</span></div>
-      <div class="row"><span class="label">Matricule</span><span class="value">${eleve?.matricule ?? ""}</span></div>
-      <div class="row"><span class="label">Classe</span><span class="value">${eleve?.classe?.nom ?? "N/A"} — ${eleve?.classe?.niveau ?? ""}</span></div>
+      <div class="section-title">${t("recu.sectionEleve")}</div>
+      <div class="row"><span class="label">${t("recu.labelNomPrenom")}</span><span class="value">${eleve?.prenom ?? ""} ${eleve?.nom ?? ""}</span></div>
+      <div class="row"><span class="label">${t("recu.labelMatricule")}</span><span class="value">${eleve?.matricule ?? ""}</span></div>
+      <div class="row"><span class="label">${t("recu.labelClasse")}</span><span class="value">${eleve?.classe?.nom ?? "N/A"} — ${eleve?.classe?.niveau ?? ""}</span></div>
 
       ${tuteur ? `
-      <div class="section-title">Tuteur légal</div>
-      <div class="row"><span class="label">Nom</span><span class="value">${tuteur.prenom} ${tuteur.nom}</span></div>
-      ${tuteur.phone ? `<div class="row"><span class="label">Téléphone</span><span class="value">${tuteur.phone}</span></div>` : ""}
+      <div class="section-title">${t("recu.labelTuteurLegal")}</div>
+      <div class="row"><span class="label">${t("recu.labelNom")}</span><span class="value">${tuteur.prenom} ${tuteur.nom}</span></div>
+      ${tuteur.phone ? `<div class="row"><span class="label">${t("recu.labelTelephone")}</span><span class="value">${tuteur.phone}</span></div>` : ""}
       ` : ""}
 
-      <div class="section-title">Détails du paiement</div>
-      <div class="row"><span class="label">Facture</span><span class="value">${paiement.facture.numero}</span></div>
-      <div class="row"><span class="label">Libellé</span><span class="value">${paiement.facture.libelle}</span></div>
-      <div class="row"><span class="label">Méthode</span><span class="value" style="text-transform:capitalize">${paiement.methode}</span></div>
-      ${paiement.reference ? `<div class="row"><span class="label">Référence</span><span class="value">${paiement.reference}</span></div>` : ""}
-      ${paiement.enregistrePar ? `<div class="row"><span class="label">Enregistré par</span><span class="value">${paiement.enregistrePar.name}</span></div>` : ""}
-      <div class="row"><span class="label">Date de saisie</span><span class="value">${new Date(paiement.dateSaisie).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</span></div>
+      <div class="section-title">${t("recu.sectionDetails")}</div>
+      <div class="row"><span class="label">${t("recu.labelFacture")}</span><span class="value">${paiement.facture.numero}</span></div>
+      <div class="row"><span class="label">${t("recu.labelLibelle")}</span><span class="value">${paiement.facture.libelle}</span></div>
+      <div class="row"><span class="label">${t("recu.labelMethode")}</span><span class="value" style="text-transform:capitalize">${paiement.methode}</span></div>
+      ${paiement.reference ? `<div class="row"><span class="label">${t("recu.labelReference")}</span><span class="value">${paiement.reference}</span></div>` : ""}
+      ${paiement.enregistrePar ? `<div class="row"><span class="label">${t("recu.labelEnregistrePar")}</span><span class="value">${paiement.enregistrePar.name}</span></div>` : ""}
+      <div class="row"><span class="label">${t("recu.labelDateSaisie")}</span><span class="value">${new Date(paiement.dateSaisie).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</span></div>
 
       <div class="amount-box">
-        <div class="label">Montant reçu</div>
+        <div class="label">${t("recu.labelMontantRecu")}</div>
         <div class="amount">${formatMoney(paiement.montant, paiement.devise)}</div>
       </div>
     </div>
 
     <div class="footer">
       <div class="signature">
-        <div class="signature-line">Cachet & Signature</div>
+        <div class="signature-line">${t("recu.footerCachetSignature")}</div>
       </div>
       <div class="stamp">
-        EcolPro — Reçu généré le ${new Date().toLocaleDateString("fr-FR")}
+        EcolPro — ${t("recu.footerGenereLe")} ${new Date().toLocaleDateString("fr-FR")}
       </div>
     </div>
   </div>
-  <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+  <button class="print-btn" onclick="window.print()">🖨️ ${t("recu.btnImprimer")}</button>
 </body>
 </html>`;
 

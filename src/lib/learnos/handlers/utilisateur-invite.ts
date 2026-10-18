@@ -32,5 +32,5 @@ export async function onUtilisateurInvite(event: DrainedEvent): Promise<void> {
     `Pour récupérer vos identifiants de connexion, veuillez contacter l'administration de l'établissement.\n\n` +
     `Cordialement,\n${p.ecoleNom}`;
 
-  await sendEmail([p.email], sujet, renderNotificationEmail(p.ecoleNom, sujet, contenu));
+  await sendEmail([p.email], sujet, await renderNotificationEmail(p.ecoleNom, sujet, contenu));
 }

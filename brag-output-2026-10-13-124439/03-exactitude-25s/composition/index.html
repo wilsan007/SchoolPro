@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>SchoolPro — L'exactitude n'est pas négociable (25s)</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script src="assets/audio-data.js"></script>
+    <style>
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-500.woff2") format("woff2"); font-weight: 500; font-style: normal; }
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-600.woff2") format("woff2"); font-weight: 600; font-style: normal; }
+      @font-face { font-family: "Clash Grotesk"; src: url("assets/fonts/clash-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+      @font-face { font-family: "Plus Jakarta Sans"; src: url("assets/fonts/jakarta-600.woff2") format("woff2"); font-weight: 400 800; font-style: normal; }
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/jbmono-600.woff2") format("woff2"); font-weight: 600; font-style: normal; }
+
+      :root {
+        --bg: #0f111a; --card: #131622; --turquoise: #38bdf8; --azure: #0ea5e9;
+        --violet: #9b6fe0; --violet-light: #b79cf0; --teal: #14b8a6; --amber: #eab308;
+        --red: #dc2626; --red-text: #f87171; --green: #059669; --fg: #e6e9f0;
+        --muted: #919aa6; --border: rgba(56, 189, 248, 0.14);
+      }
+      body { margin: 0; background: #000; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: var(--fg); }
+      .clip { position: absolute; inset: 0; overflow: hidden; }
+      .scene { position: absolute; inset: 0; padding: 150px 90px 130px; display: flex; flex-direction: column; justify-content: center; }
+
+      .glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
+      .glow-turquoise { width: 720px; height: 720px; left: -180px; bottom: -240px; background: radial-gradient(circle, rgba(14,165,233,0.5) 0%, rgba(14,165,233,0) 70%); opacity: 0.14; }
+      .glow-violet { width: 640px; height: 640px; right: -220px; top: -180px; background: radial-gradient(circle, rgba(155,111,224,0.55) 0%, rgba(155,111,224,0) 70%); opacity: 0.12; }
+      .ghost { position: absolute; font-family: "Clash Grotesk", sans-serif; font-weight: 700; color: rgba(230,233,240,0.05); letter-spacing: 0.02em; white-space: nowrap; pointer-events: none; }
+      .grain { position: absolute; inset: 0; background-image: radial-gradient(rgba(230,233,240,0.045) 1px, transparent 1px); background-size: 7px 7px; pointer-events: none; }
+
+      .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 26px; font-weight: 600; letter-spacing: 0.28em; color: var(--muted); margin-bottom: 44px; }
+      .display { font-family: "Clash Grotesk", sans-serif; font-weight: 600; line-height: 1.08; letter-spacing: -0.01em; }
+      .t-turquoise { color: var(--turquoise); }
+      .t-violet { color: var(--violet-light); }
+      .mono { font-family: "JetBrains Mono", monospace; font-weight: 600; }
+
+      .chip { display: inline-flex; align-items: center; gap: 14px; border-radius: 999px; padding: 14px 30px; font-size: 26px; font-weight: 700; margin-right: 14px; margin-bottom: 14px; }
+      .chip-violet { background: rgba(155,111,224,0.12); color: var(--violet-light); border: 2px solid rgba(155,111,224,0.35); }
+      .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--violet); }
+
+      .formula { font-size: 96px; color: var(--fg); }
+      .neq { color: var(--red-text); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="v3-exactitude" data-start="0" data-width="1080" data-height="1920" data-duration="25">
+
+      <!-- ═══ SCÈNE 1 · HOOK (0–3s) ═══ -->
+      <section id="sc1" class="clip" data-start="0" data-duration="3" data-track-index="0">
+        <div class="scene" id="s1" style="align-items: center; text-align: center;">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div class="ghost" style="font-size: 200px; left: -40px; top: 100px;" data-layout-ignore>IEEE 754</div>
+          <div style="position: relative; z-index: 2; width: 100%;">
+            <div class="eyebrow" id="s1-eyebrow">SCHOOLPRO — INTÉGRITÉ DES NOTES</div>
+            <div class="mono formula" id="s1-formula">0,1 + 0,2 <span class="neq" id="s1-neq">≠</span> 0,3</div>
+            <div class="display" style="font-size: 54px; color: var(--muted); margin-top: 56px;" id="s1-sub">En binaire, c'est vrai.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 2 · LA BALANCE (3–8.5s) ═══ -->
+      <section id="sc2" class="clip" data-start="3" data-duration="5.5" data-track-index="1">
+        <div class="scene" id="s2" style="align-items: center; text-align: center;">
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2; width: 100%;">
+            <div class="eyebrow" id="s2-eyebrow">UNE MOYENNE EST UN ACTE DE JUSTICE</div>
+            <div class="mono display" style="font-size: 92px;" id="s2-title">9,995 <span style="color: var(--muted);">ou</span> <span class="t-turquoise">10,00 ?</span></div>
+            <svg id="s2-balance" width="640" height="480" viewBox="0 0 640 480" style="margin-top: 70px;" aria-hidden="true">
+              <g id="s2-bal-arm" style="transform-origin: 320px 120px;">
+                <line x1="80" y1="120" x2="560" y2="120" stroke="#e6e9f0" stroke-width="10" stroke-linecap="round" />
+                <circle cx="80" cy="120" r="16" fill="#919aa6" />
+                <circle cx="560" cy="120" r="16" fill="#38bdf8" />
+              </g>
+              <line x1="320" y1="120" x2="320" y2="300" stroke="#e6e9f0" stroke-width="12" stroke-linecap="round" />
+              <path d="M220 420 L320 300 L420 420 Z" fill="none" stroke="rgba(145,154,166,0.5)" stroke-width="8" stroke-linecap="round" />
+            </svg>
+            <div class="mono" style="font-size: 34px; color: var(--muted); margin-top: 60px;" id="s2-vs"><span id="s2-v-left" style="color: var(--red-text);">9,995 — 42e</span><span style="margin: 0 26px;">→</span><span id="s2-v-right" class="t-turquoise">10,00 — 37e</span></div>
+            <div class="display" style="font-size: 58px; margin-top: 64px;" id="s2-caption">Un rang entier <span class="t-turquoise">peut basculer.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 3 · CENTIÈMES ENTIERS (8.5–14s) ═══ -->
+      <section id="sc3" class="clip" data-start="8.5" data-duration="5.5" data-track-index="0">
+        <div class="scene" id="s3" style="align-items: center; text-align: center;">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div class="ghost" style="font-size: 230px; right: -70px; bottom: 150px;" data-layout-ignore>1450</div>
+          <div style="position: relative; z-index: 2; width: 100%;">
+            <div class="eyebrow" id="s3-eyebrow">LA RÈGLE SCHOOLPRO</div>
+            <div class="display" style="font-size: 66px; margin-bottom: 70px;" id="s3-title">Les moyennes en<br /><span class="t-turquoise">centièmes entiers.</span></div>
+            <div style="position: relative; height: 200px; display: flex; align-items: center; justify-content: center;">
+              <div class="mono" id="s3-old" style="font-size: 130px; color: var(--muted); position: absolute;">14,50</div>
+              <div class="mono" id="s3-new" style="font-size: 170px; position: absolute; color: var(--turquoise); text-shadow: 0 0 60px rgba(56,189,248,0.35);">1450</div>
+            </div>
+            <div class="display" style="font-size: 56px; margin-top: 80px;" id="s3-close">L'erreur d'arrondi <span class="t-turquoise">n'existe plus.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 4 · FAIL-CLOSED (14–19s) ═══ -->
+      <section id="sc4" class="clip" data-start="14" data-duration="5" data-track-index="1">
+        <div class="scene" id="s4">
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2;">
+            <div class="eyebrow" id="s4-eyebrow">SANS PÉRIMÈTRE, PAS D'ACCÈS</div>
+            <div class="display" style="font-size: 72px;" id="s4-title">Un filtre vide ne veut<br />pas dire « tous ».</div>
+            <div class="display t-violet" style="font-size: 72px; margin-top: 20px;" id="s4-l2">Il veut dire « aucun ».</div>
+            <div style="display: flex; align-items: center; gap: 40px; margin-top: 80px;">
+              <svg id="s4-vault" width="200" height="200" viewBox="0 0 200 200" aria-hidden="true">
+                <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(155,111,224,0.5)" stroke-width="10" />
+                <line id="s4-spoke" x1="100" y1="100" x2="100" y2="22" stroke="#9b6fe0" stroke-width="12" stroke-linecap="round" />
+                <circle cx="100" cy="100" r="18" fill="#9b6fe0" />
+              </svg>
+              <div class="display" id="s4-stamp" style="font-size: 64px; color: var(--red-text); border: 5px solid var(--red); border-radius: 26px; padding: 22px 40px; display: inline-block;">Accès refusé.</div>
+            </div>
+            <div style="margin-top: 70px;" id="s4-chips">
+              <span class="chip chip-violet"><span class="dot"></span>Cloisonnement par établissement</span>
+              <span class="chip chip-violet"><span class="dot"></span>Isolation en base — RLS</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SCÈNE 5 · STATS + OUTRO (19–25s) ═══ -->
+      <section id="sc5" class="clip" data-start="19" data-duration="6" data-track-index="0">
+        <div class="scene" id="s5" style="align-items: center; text-align: center;">
+          <div class="glow glow-turquoise glow-audio" data-layout-ignore></div>
+          <div class="glow glow-violet glow-audio" data-layout-ignore></div>
+          <div class="grain"></div>
+          <div style="position: relative; z-index: 2; width: 100%;">
+            <div class="display" style="font-size: 92px;" id="s5-st1">161 <span style="color: var(--muted);">tests.</span></div>
+            <div class="display" style="font-size: 92px; margin-top: 18px;" id="s5-st2">29 <span style="color: var(--muted);">migrations.</span></div>
+            <div class="display" style="font-size: 92px; margin-top: 18px;" id="s5-st3"><span class="t-turquoise">0</span> <span style="color: var(--muted);">approximation.</span></div>
+            <div id="s5-logo" style="display: flex; align-items: center; justify-content: center; gap: 28px; margin-top: 100px;">
+              <svg width="84" height="84" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="url(#lg3)"/>
+                <path d="M12 4.5L4.5 10v9h5v-4h5v4h5v-9L12 4.5z" fill="#0f111a"/>
+                <defs><linearGradient id="lg3" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#9b6fe0"/></linearGradient></defs>
+              </svg>
+              <span class="display" style="font-size: 76px; font-weight: 700;">SchoolPro</span>
+            </div>
+            <div id="s5-tagline" style="font-size: 38px; color: var(--fg); margin-top: 44px; font-weight: 500;">La gestion scolaire <span class="t-turquoise" style="font-weight: 700;">de nouvelle génération.</span></div>
+            <div id="s5-footer" class="mono" style="font-size: 24px; color: var(--muted); margin-top: 60px; letter-spacing: 0.2em;">© SCHOOLPRO — DJIBOUTI</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ AUDIO ═══ -->
+      <audio id="music" data-start="0" data-duration="25" data-track-index="10" data-volume="0.22" data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.8,"v":0.22},{"t":23.3,"v":0.22},{"t":24.8,"v":0}]}]}' src="assets/music/music.mp3"></audio>
+      <audio id="sfx-slam" data-start="0.15" data-duration="0.18" data-track-index="11" data-volume="0.85" src="assets/sfx/impactSoft_medium_001.ogg"></audio>
+      <audio id="sfx-neq" data-start="1.07" data-duration="0.05" data-track-index="11" data-volume="0.55" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-bal1" data-start="4.23" data-duration="0.05" data-track-index="11" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-bal2" data-start="5.28" data-duration="0.05" data-track-index="11" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-bal3" data-start="6.34" data-duration="0.05" data-track-index="11" data-volume="0.6" src="assets/sfx/select_008.ogg"></audio>
+      <audio id="sfx-morph" data-start="10.54" data-duration="0.19" data-track-index="12" data-volume="0.7" src="assets/sfx/card-slide-1.ogg"></audio>
+      <audio id="sfx-close3" data-start="11.60" data-duration="0.19" data-track-index="12" data-volume="0.6" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-l2" data-start="16.34" data-duration="0.11" data-track-index="12" data-volume="0.6" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-vault" data-start="16.86" data-duration="0.24" data-track-index="13" data-volume="0.8" src="assets/sfx/switch1.ogg"></audio>
+      <audio id="sfx-stamp4" data-start="17.91" data-duration="0.12" data-track-index="14" data-volume="0.8" src="assets/sfx/bong_001.ogg"></audio>
+      <audio id="sfx-chips4" data-start="18.44" data-duration="0.19" data-track-index="15" data-volume="0.6" src="assets/sfx/card-place-1.ogg"></audio>
+      <audio id="sfx-st1" data-start="19.48" data-duration="0.11" data-track-index="16" data-volume="0.6" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-st2" data-start="20.02" data-duration="0.11" data-track-index="16" data-volume="0.6" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="sfx-st3" data-start="20.54" data-duration="0.11" data-track-index="16" data-volume="0.7" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="sfx-logo" data-start="22.12" data-duration="0.3" data-track-index="17" data-volume="0.75" src="assets/sfx/impactBell_heavy_004.ogg"></audio>
+    </div>
+
+    <script>
+      var tl = gsap.timeline({ paused: true });
+
+      /* ── Scène 1 : slam mathématique ── */
+      tl.fromTo("#s1-eyebrow", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.05);
+      tl.fromTo("#s1-formula", { scale: 1.35, opacity: 0, y: 40 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power4.out" }, 0.15);
+      tl.fromTo("#s1-neq", { scale: 0 }, { scale: 1.45, duration: 0.34, ease: "back.out(2.5)" }, 1.07);
+      tl.fromTo("#s1-sub", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.38, ease: "power3.out" }, 1.6);
+
+      /* ── Scène 2 : la balance penche (3 crans sur strongCues vol-9) ── */
+      tl.fromTo("#s2-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 3.1);
+      tl.fromTo("#s2-title", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 3.2);
+      tl.fromTo("#s2-balance", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 3.4);
+      // beat-locked: 4.23 / 5.28 / 6.34 (strongCues vol-9, 1.00)
+      tl.to("#s2-bal-arm", { rotation: -3, duration: 0.4, ease: "power2.inOut" }, 4.23);
+      tl.to("#s2-bal-arm", { rotation: -7, duration: 0.4, ease: "power2.inOut" }, 5.28);
+      tl.to("#s2-bal-arm", { rotation: -12, duration: 0.4, ease: "power2.inOut" }, 6.34);
+      tl.fromTo("#s2-vs", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 6.86);
+      tl.fromTo("#s2-caption", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power3.out" }, 7.4);
+
+      /* ── Scène 3 : transformation centièmes ── */
+      tl.fromTo("#s3-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 8.65);
+      tl.fromTo("#s3-title", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 8.75);
+      tl.fromTo("#s3-old", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 9.2);
+      // beat-locked: 10.54 (strongCue vol-9, 1.00) — zoom-through : sortie grandit, entrée grandit (signe Z conservé)
+      tl.to("#s3-old", { scale: 1.18, opacity: 0.15, duration: 0.2, ease: "power3.in" }, 10.4);
+      tl.fromTo("#s3-new", { scale: 0.75, opacity: 0.15 }, { scale: 1, opacity: 1, duration: 0.5, ease: "expo.out" }, 10.54);
+      tl.fromTo("#s3-close", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power3.out" }, 11.6);
+
+      /* ── Scène 4 : fail-closed ── */
+      tl.fromTo("#s4-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 14.15);
+      tl.fromTo("#s4-title", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 14.25);
+      tl.fromTo("#s4-l2", { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 16.34);
+      tl.fromTo("#s4-vault", { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(1.7)" }, 16.5);
+      tl.to("#s4-spoke", { rotation: 110, transformOrigin: "100px 100px", duration: 0.4, ease: "power2.inOut" }, 16.86);
+      tl.fromTo("#s4-stamp", { scale: 1.3, opacity: 0, rotation: -5 }, { scale: 1, opacity: 1, rotation: -2, duration: 0.34, ease: "power4.out" }, 17.91);
+      tl.fromTo("#s4-chips", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 18.44);
+
+      /* ── Scène 5 : stats cascade + logo ── */
+      // beat-grid: 19.48 / 20.02 / 20.54 (beats consécutifs vol-9)
+      tl.fromTo("#s5-st1", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 19.48);
+      tl.fromTo("#s5-st2", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 20.02);
+      tl.fromTo("#s5-st3", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 20.54);
+      tl.fromTo("#s5-logo", { scale: 1.16, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "power4.out" }, 22.12);
+      tl.fromTo("#s5-tagline", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.38, ease: "power3.out" }, 22.64);
+      tl.fromTo("#s5-footer", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 23.17);
+
+      /* ── Seams : cut-the-curve LEFT ── */
+      function seam(prevSelector, nextSelector, T) {
+        tl.to(prevSelector, { x: -130, duration: 0.3, ease: "power4.in" }, T - 0.3);
+        tl.to(prevSelector, { opacity: 0, duration: 0.18, ease: "none" }, T - 0.24);
+        tl.fromTo(nextSelector, { x: 130, opacity: 0.35 }, { x: 0, opacity: 1, duration: 0.36, ease: "power4.out" }, T);
+      }
+      seam("#s1", "#s2", 3.0);
+      seam("#s2", "#s3", 8.5);
+      seam("#s3", "#s4", 14.0);
+      seam("#s4", "#s5", 19.0);
+
+      /* ── Audio-réactif : halos ── */
+      var glows = document.querySelectorAll(".glow-audio");
+      var FRAMES = Math.min(window.AUDIO_DATA.totalFrames, 750);
+      function glowTick(f) {
+        var fr = window.AUDIO_DATA.frames[f];
+        if (!fr) return;
+        var bass = fr.bands[0];
+        for (var g = 0; g < glows.length; g++) {
+          glows[g].style.opacity = 0.13 * (1 + bass * 0.55);
+          glows[g].style.transform = "scale(" + (1 + bass * 0.07) + ")";
+        }
+      }
+      for (var f = 0; f < FRAMES; f++) {
+        (function (ff) {
+          tl.call(function () { glowTick(ff); }, [], ff / 30);
+        })(f);
+      }
+
+      window.__timelines["v3-exactitude"] = tl;
+    </script>
+  </body>
+</html>

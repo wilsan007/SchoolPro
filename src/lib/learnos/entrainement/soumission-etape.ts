@@ -3,7 +3,12 @@ import prisma from "@/lib/prisma";
 import type { SessionSiteClaims } from "@/lib/site-scope";
 import { proposerAttestationsApresSeance } from "@/lib/learnos/attestation";
 import { parseStructure } from "./structure-question";
-import { corrigerEtape, creditTentative, TENTATIVES_MAX } from "./correction";
+import {
+  corrigerEtapeDetaillee,
+  creditTentative,
+  TENTATIVES_MAX,
+  type StatutCorrection,
+} from "./correction";
 import type { EtapeFaite } from "./deroule-seance";
 import { detokeniser, graineEtape, corrigeLisible } from "./vue-eleve";
 import { filtreFeuille, SELECT_EXERCICE, etapesFaites } from "./acces-base";
@@ -15,6 +20,13 @@ import { produirePreuve, cloturerSiTerminee } from "./preuve-apprentissage";
 
 export interface ResultatEtape {
   correcte: boolean;
+  /**
+   * Qualification de la réponse : juste, fausse, partielle ou non évaluée.
+   * Informatif — le crédit et les tentatives ne dépendent que de `correcte`.
+   */
+  statut: StatutCorrection;
+  /** Part de la réponse juste (0..1), pour dire « presque » sans rien créditer. */
+  proportion: number;
   /** Tentatives consommées après celle-ci. */
   tentatives: number;
   /** L'étape est-elle close (réussie, ou tentatives épuisées) ? */
@@ -141,7 +153,7 @@ export async function soumettreEtape(
   // illisible et le lierait à un algorithme de dérivation qui peut changer.
   const reponse = detokeniser(etape, graineEtape(exercice.id, courante), input.reponse);
 
-  const correction = corrigerEtape(etape, reponse);
+  const correction = corrigerEtapeDetaillee(etape, reponse);
   const precedente = parIndex.get(courante);
   const tentatives = (precedente?.tentatives ?? 0) + 1;
   const close = correction.correcte || tentatives >= TENTATIVES_MAX;
@@ -231,6 +243,8 @@ export async function soumettreEtape(
 
   return {
     correcte: correction.correcte,
+    statut: correction.statut,
+    proportion: correction.proportion,
     attestationsProposees,
     tentatives,
     close,

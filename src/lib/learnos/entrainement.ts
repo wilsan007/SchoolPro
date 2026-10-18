@@ -52,8 +52,11 @@ export {
   SEPARATEUR,
   type OptionEtape,
   type PaireEtape,
+  type PartieQuestion,
   type EtapeQuestion,
   type StructureQuestion,
+  MAX_ETAPES,
+  MAX_PARTIES,
   parseStructure,
 } from "./entrainement/structure-question";
 
@@ -62,8 +65,23 @@ export {
   TENTATIVES_MAX,
   creditTentative,
   type Correction,
+  type CorrectionDetaillee,
+  type StatutCorrection,
   corrigerEtape,
+  corrigerEtapeDetaillee,
 } from "./entrainement/correction";
+
+// Grille de correction versionnée
+export {
+  TYPES_ERREUR_GRILLE,
+  type CritereGrille,
+  type ErreurAnticipee,
+  type GrilleCorrection,
+  parseGrille,
+  totalGrille,
+  grilleCoherente,
+  scoreDepuisCriteres,
+} from "./entrainement/grille-correction";
 
 // Déroulé d'une séance
 export {

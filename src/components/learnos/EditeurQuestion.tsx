@@ -1,5 +1,6 @@
 "use client";
 
+import type { ErrorType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,13 +35,23 @@ export type FormatEtape =
   | "REMISE_EN_ORDRE"
   | "APPARIEMENT";
 
-/** Types d'erreur proposés pour annoter un distracteur. */
+/**
+ * Types d'erreur proposés pour annoter une mauvaise réponse ou anticiper ce
+ * qu'une grille doit relever. La liste est celle de `TYPES_ERREUR_GRILLE` : les
+ * deux endroits doivent proposer les mêmes valeurs, sinon une erreur anticipée
+ * saisie ici serait illisible pour la correction.
+ */
 const TYPES_ERREUR = [
   "CONCEPTUAL_ERROR",
   "PROCEDURAL_ERROR",
   "CALCULATION_ERROR",
   "READING_ERROR",
+  "MISINTERPRETATION",
   "MISSING_PREREQUISITE",
+  "INCOMPLETE_REASONING",
+  "NOTATION_ERROR",
+  "ARGUMENT_UNJUSTIFIED",
+  "WRITING_ERROR",
 ] as const;
 
 export interface OptionSaisie {
@@ -55,8 +66,21 @@ export interface PaireSaisie {
   droite: string;
 }
 
+/** Une partie de dossier, telle que saisie. */
+export interface PartieSaisie {
+  id: string;
+  titre: string;
+  but?: string;
+}
+
+/** Bornes alignées sur `MAX_PARTIES` et `MAX_ETAPES` (structure-question.ts). */
+export const MAX_PARTIES_SAISIE = 8;
+export const MAX_ETAPES_SAISIE = 30;
+
 export interface EtapeSaisie {
   enonce: string;
+  /** Identifiant de la partie (dossier uniquement). */
+  partie?: string;
   format: FormatEtape;
   options: OptionSaisie[];
   paires: PaireSaisie[];
@@ -67,9 +91,23 @@ export interface EtapeSaisie {
   points: number;
 }
 
-export function etapeVierge(format: FormatEtape = "SAISIE_COURTE"): EtapeSaisie {
+/** Un critère de la grille de correction, tel que saisi. */
+export interface CritereSaisie {
+  id: string;
+  libelle: string;
+  points: number;
+}
+
+/** Une erreur que l'auteur s'attend à voir relever sur cette question. */
+export interface ErreurAnticipeeSaisie {
+  type: ErrorType;
+  description: string;
+}
+
+export function etapeVierge(format: FormatEtape = "SAISIE_COURTE", partie?: string): EtapeSaisie {
   return {
     enonce: "",
+    ...(partie ? { partie } : {}),
     format,
     options:
       format === "CHOIX_UNIQUE" || format === "REMISE_EN_ORDRE"
@@ -96,10 +134,35 @@ export function etapeVierge(format: FormatEtape = "SAISIE_COURTE"): EtapeSaisie 
  * Les champs vides sont retirés plutôt qu'envoyés vides : une `tolerance` à 0
  * et une `tolerance` absente ne veulent pas dire la même chose côté correction.
  */
-export function versStructure(etapes: EtapeSaisie[]) {
+export function versStructure(etapes: EtapeSaisie[], parties?: PartieSaisie[]) {
+  const dossier = parties !== undefined && parties.length > 0;
+  // Dans un dossier, les étapes sont rangées PARTIE PAR PARTIE (tri stable) : le
+  // serveur exige des parties contiguës et ordonnées, et laisser l'enseignant
+  // y veiller à la main reviendrait à lui faire découvrir l'erreur au clic.
+  const rang = (id?: string) => {
+    const i = parties?.findIndex((p) => p.id === id) ?? -1;
+    return i < 0 ? parties?.length ?? 0 : i;
+  };
+  const rangees = dossier
+    ? etapes
+        .map((e, i) => ({ e, i }))
+        .sort((a, b) => rang(a.e.partie) - rang(b.e.partie) || a.i - b.i)
+        .map(({ e }) => e)
+    : etapes;
+
   return {
-    etapes: etapes.map((e) => ({
+    ...(dossier
+      ? {
+          parties: parties!.map((p) => ({
+            id: p.id,
+            titre: p.titre.trim(),
+            ...(p.but?.trim() ? { but: p.but.trim() } : {}),
+          })),
+        }
+      : {}),
+    etapes: rangees.map((e) => ({
       enonce: e.enonce.trim(),
+      ...(dossier && e.partie ? { partie: e.partie } : {}),
       format: e.format,
       points: e.points,
       ...(e.indice?.trim() ? { indice: e.indice.trim() } : {}),
@@ -162,6 +225,7 @@ export function depuisStructure(brut: unknown): EtapeSaisie[] {
         : options;
     return {
       enonce: typeof e.enonce === "string" ? e.enonce : "",
+      partie: typeof e.partie === "string" ? e.partie : undefined,
       format,
       options: ordonnees.length > 0 ? ordonnees : options,
       paires,
@@ -173,24 +237,209 @@ export function depuisStructure(brut: unknown): EtapeSaisie[] {
   });
 }
 
+/** Relit les parties d'une structure existante (vide hors dossier). */
+export function depuisParties(brut: unknown): PartieSaisie[] {
+  const source = brut as { parties?: unknown };
+  if (!Array.isArray(source?.parties)) return [];
+  return source.parties.flatMap((raw) => {
+    const p = raw as Record<string, unknown>;
+    if (typeof p?.id !== "string") return [];
+    return [
+      {
+        id: p.id,
+        titre: typeof p.titre === "string" ? p.titre : "",
+        but: typeof p.but === "string" ? p.but : undefined,
+      },
+    ];
+  });
+}
+
+/** Deux parties pour démarrer : un dossier à une seule partie ne découpe rien. */
+export function partiesVierges(): PartieSaisie[] {
+  return [
+    { id: "p1", titre: "" },
+    { id: "p2", titre: "" },
+  ];
+}
+
+// ------------------------------------------------------------
+// Grille de correction — conversion
+// ------------------------------------------------------------
+
+/**
+ * Relit une grille existante pour l'éditer.
+ *
+ * Le même lecteur défensif que partout ailleurs : la grille vient de la base ou
+ * du serveur, et ce qui ne passe pas est vidé plutôt que proposé à la main.
+ */
+export function depuisGrille(brut: unknown): {
+  criteres: CritereSaisie[];
+  erreurs: ErreurAnticipeeSaisie[];
+} {
+  const source = brut as { criteres?: unknown; erreursAnticipees?: unknown } | null;
+  const criteres: CritereSaisie[] = Array.isArray(source?.criteres)
+    ? source.criteres.flatMap((raw) => {
+        const c = raw as Record<string, unknown>;
+        if (typeof c?.libelle !== "string" || typeof c?.points !== "number") return [];
+        return [
+          {
+            id: typeof c.id === "string" && c.id !== "" ? c.id : `crit-${Math.random().toString(36).slice(2, 9)}`,
+            libelle: c.libelle,
+            points: c.points,
+          },
+        ];
+      })
+    : [];
+  const erreurs: ErreurAnticipeeSaisie[] = Array.isArray(source?.erreursAnticipees)
+    ? source.erreursAnticipees.flatMap((raw) => {
+        const e = raw as Record<string, unknown>;
+        if (typeof e?.description !== "string" || typeof e?.type !== "string") return [];
+        return [{ type: e.type as ErrorType, description: e.description }];
+      })
+    : [];
+  return { criteres, erreurs };
+}
+
+/**
+ * Produit la grille à envoyer au serveur.
+ *
+ * Les critères vides sont retirés plutôt que refusés à l'envoi : un libellé
+ * effacé en cours de saisie ne doit pas bloquer l'enregistrement d'une grille
+ * par ailleurs complète. Le serveur reste le juge (`parseGrille`,
+ * `grilleCoherente`).
+ */
+export function versGrille(grille: {
+  criteres: CritereSaisie[];
+  erreurs: ErreurAnticipeeSaisie[];
+}): Record<string, unknown> {
+  return {
+    criteres: grille.criteres
+      .filter((c) => c.libelle.trim() !== "")
+      .map((c) => ({ id: c.id, libelle: c.libelle.trim(), points: c.points })),
+    erreursAnticipees: grille.erreurs
+      .filter((e) => e.description.trim() !== "")
+      .map((e) => ({ type: e.type, description: e.description.trim() })),
+  };
+}
+
+/**
+ * Totaux comparables de deux saisies de grille.
+ *
+ * Utilisée avant la relecture : si rien n'a changé, la grille n'est pas
+ * renvoyée et le serveur ne l'incrémente pas (`grilleVersion`) — sinon, les
+ * propositions de correction déjà produites deviendraient inexplicables.
+ * Compare au centième car les points sont des flottants.
+ */
+export function memeSaisieGrille(
+  a: { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] },
+  b: { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] }
+): boolean {
+  const somme = (cs: CritereSaisie[]) => Math.round(cs.reduce((s, c) => s + c.points, 0) * 100) / 100;
+  return (
+    somme(a.criteres) === somme(b.criteres) &&
+    JSON.stringify(a.criteres.map((c) => c.id)) === JSON.stringify(b.criteres.map((c) => c.id)) &&
+    JSON.stringify(a.erreurs.map((e) => `${e.type}:${e.description}`)) ===
+      JSON.stringify(b.erreurs.map((e) => `${e.type}:${e.description}`))
+  );
+}
+
 export function EditeurQuestion({
   etapes,
   onChange,
   multiEtapes,
+  parties,
+  onPartiesChange,
+  grille,
+  onGrilleChange,
+  bareme,
 }: {
   etapes: EtapeSaisie[];
   onChange: (etapes: EtapeSaisie[]) => void;
   /** `true` pour `ETAPES_GUIDEES` : l'enseignant peut ajouter des étapes. */
   multiEtapes: boolean;
+  /** Défini = mode dossier : l'exercice est découpé en parties. */
+  parties?: PartieSaisie[];
+  onPartiesChange?: (parties: PartieSaisie[]) => void;
+  /** Grille de correction de la question, si elle est éditable ici. */
+  grille?: { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] };
+  onGrilleChange?: (grille: { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] }) => void;
+  /** Barème de l'énoncé, pour signaler une grille qui ne totalise pas le barème. */
+  bareme?: number | null;
 }) {
   const t = useTranslations("learnos.banque");
+  const dossier = parties !== undefined && onPartiesChange !== undefined;
+  const maxEtapes = dossier ? MAX_ETAPES_SAISIE : 6;
 
   function majEtape(i: number, patch: Partial<EtapeSaisie>) {
     onChange(etapes.map((e, j) => (i === j ? { ...e, ...patch } : e)));
   }
 
+  function majPartie(i: number, patch: Partial<PartieSaisie>) {
+    onPartiesChange?.((parties ?? []).map((p, j) => (i === j ? { ...p, ...patch } : p)));
+  }
+
+  function ajouterPartie() {
+    const existantes = parties ?? [];
+    let n = existantes.length + 1;
+    while (existantes.some((p) => p.id === `p${n}`)) n++;
+    onPartiesChange?.([...existantes, { id: `p${n}`, titre: "" }]);
+  }
+
+  function retirerPartie(i: number) {
+    const existantes = parties ?? [];
+    if (existantes.length <= 2) return;
+    const retiree = existantes[i].id;
+    const reste = existantes.filter((_, j) => j !== i);
+    onPartiesChange?.(reste);
+    // Les étapes de la partie retirée passent à la première : les supprimer en
+    // silence ferait perdre du travail à l'enseignant.
+    onChange(etapes.map((e) => (e.partie === retiree ? { ...e, partie: reste[0].id } : e)));
+  }
+
   return (
     <div className="space-y-3">
+      {dossier && (
+        <div className="space-y-2 rounded-lg border border-dashed p-3">
+          <p className="text-xs text-muted-foreground">{t("partiesAide")}</p>
+          {(parties ?? []).map((partie, i) => (
+            <div key={partie.id} className="flex items-center gap-2">
+              <Badge variant="outline" className="shrink-0">
+                {t("partieN", { n: i + 1 })}
+              </Badge>
+              <Input
+                value={partie.titre}
+                onChange={(e) => majPartie(i, { titre: e.target.value })}
+                placeholder={t("partieTitre")}
+                aria-label={t("partieTitre")}
+              />
+              <Input
+                value={partie.but ?? ""}
+                onChange={(e) => majPartie(i, { but: e.target.value })}
+                placeholder={t("partieBut")}
+                aria-label={t("partieBut")}
+              />
+              {(parties ?? []).length > 2 && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => retirerPartie(i)}
+                  aria-label={t("retirerPartie")}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {(parties ?? []).length < MAX_PARTIES_SAISIE && (
+            <Button type="button" variant="outline" size="sm" onClick={ajouterPartie}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              {t("ajouterPartie")}
+            </Button>
+          )}
+        </div>
+      )}
+
       {etapes.map((etape, i) => (
         <div key={i} className="space-y-2.5 rounded-lg border p-3">
           <div className="flex items-center gap-2">
@@ -216,6 +465,22 @@ export function EditeurQuestion({
             )}
           </div>
 
+          {dossier && (
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={etape.partie ?? parties?.[0]?.id ?? ""}
+              onChange={(e) => majEtape(i, { partie: e.target.value })}
+              aria-label={t("partieDeLEtape")}
+            >
+              {(parties ?? []).map((p, k) => (
+                <option key={p.id} value={p.id}>
+                  {t("partieN", { n: k + 1 })}
+                  {p.titre.trim() ? ` — ${p.titre}` : ""}
+                </option>
+              ))}
+            </select>
+          )}
+
           {multiEtapes && (
             <select
               className="h-9 w-full rounded-md border bg-background px-2 text-sm"
@@ -224,6 +489,8 @@ export function EditeurQuestion({
                 majEtape(i, {
                   ...etapeVierge(e.target.value as FormatEtape),
                   enonce: etape.enonce,
+                  // Changer de format ne doit pas faire changer de partie.
+                  partie: etape.partie,
                 })
               }
             >
@@ -286,17 +553,219 @@ export function EditeurQuestion({
         </div>
       ))}
 
-      {multiEtapes && etapes.length < 6 && (
+      {multiEtapes && etapes.length < maxEtapes && (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onChange([...etapes, etapeVierge()])}
+          onClick={() =>
+            onChange([
+              ...etapes,
+              {
+                ...etapeVierge(),
+                // Une étape ajoutée rejoint la dernière partie : c'est là que
+                // l'enseignant écrit, et elle reste réaffectable d'un clic.
+                ...(dossier && parties?.length ? { partie: parties[parties.length - 1].id } : {}),
+              },
+            ])
+          }
         >
           <Plus className="mr-1.5 h-4 w-4" />
           {t("ajouterEtape")}
         </Button>
       )}
+
+      {/* Grille — présente même sans étapes : pour un énoncé libre
+          (SAISIE_LIBRE), c'est elle seule qui rend la correction assistée
+          possible, et un format auto-corrigeable peut en porter une aussi. */}
+      {grille !== undefined && onGrilleChange && (
+        <EditeurGrille bareme={bareme} grille={grille} onChange={onGrilleChange} />
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Grille de correction
+// ------------------------------------------------------------
+
+/** Garde-fous alignés sur `MAX_CRITERES` (grille-correction.ts). */
+const MAX_CRITERES_SAISIE = 20;
+const MAX_ERREURS_SAISIE = 10;
+
+/** Somme des points saisis, arrondie au centième comme le fait le serveur. */
+function totalSaisi(grille: { criteres: CritereSaisie[] }): number {
+  return Math.round(grille.criteres.reduce((s, c) => s + c.points, 0) * 100) / 100;
+}
+
+/**
+ * Grille de correction : ce qui est vérifié, et ce que ça rapporte.
+ *
+ * La grille n'est pas une note : elle est la liste des points attribuables, et
+ * toute note en découle par addition (règle non négociable, `AGENTS.md`).
+ * L'enseignant ne saisit donc que des critères — le total n'a aucun champ, et
+ * le serveur le recalcule toujours.
+ */
+function EditeurGrille({
+  grille,
+  onChange,
+  bareme,
+}: {
+  grille: { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] };
+  onChange: (grille: { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] }) => void;
+  /** Barème de l'énoncé, pour signaler une grille qui ne le totalise pas. */
+  bareme?: number | null;
+}) {
+  const t = useTranslations("learnos.banque");
+  const total = totalSaisi(grille);
+  // Comparé au centième, pas en égalité stricte de flottants : 0,1 + 0,2 ≠ 0,3.
+  const incoherent =
+    bareme != null && bareme > 0 && Math.round(bareme * 100) !== Math.round(total * 100);
+
+  function majCritere(i: number, patch: Partial<CritereSaisie>) {
+    onChange({
+      ...grille,
+      criteres: grille.criteres.map((c, j) => (i === j ? { ...c, ...patch } : c)),
+    });
+  }
+
+  function ajouterCritere() {
+    if (grille.criteres.length >= MAX_CRITERES_SAISIE) return;
+    onChange({
+      ...grille,
+      criteres: [
+        ...grille.criteres,
+        { id: `crit-${Date.now().toString(36)}`, libelle: "", points: 1 },
+      ],
+    });
+  }
+
+  function ajouterErreur() {
+    if (grille.erreurs.length >= MAX_ERREURS_SAISIE) return;
+    onChange({
+      ...grille,
+      erreurs: [...grille.erreurs, { type: TYPES_ERREUR[0], description: "" }],
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-dashed p-3">
+      <p className="text-xs text-muted-foreground">{t("grilleAide")}</p>
+
+      <div className="space-y-1.5">
+        {grille.criteres.map((critere, i) => (
+          <div key={critere.id} className="flex items-center gap-1.5">
+            <Input
+              value={critere.libelle}
+              onChange={(e) => majCritere(i, { libelle: e.target.value })}
+              placeholder={t("critereLibelle")}
+              aria-label={t("critereLibelle")}
+            />
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              className="w-24 shrink-0"
+              value={critere.points}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                majCritere(i, { points: Number.isFinite(v) ? v : 0 });
+              }}
+              placeholder={t("points")}
+              aria-label={t("points")}
+            />
+            {grille.criteres.length > 1 && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="shrink-0"
+                aria-label={t("retirerCritere")}
+                onClick={() =>
+                  onChange({ ...grille, criteres: grille.criteres.filter((_, j) => i !== j) })
+                }
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        {grille.criteres.length < MAX_CRITERES_SAISIE && (
+          <Button type="button" variant="outline" size="sm" onClick={ajouterCritere}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            {t("ajouterCritere")}
+          </Button>
+        )}
+        <span className="text-xs text-muted-foreground">{t("totalGrille", { total })}</span>
+        {/* Dit avant l'enregistrement, pas refusé après : le serveur reste juge,
+            mais il n'y a aucune raison de le laisser rejeter un oubli. */}
+        {incoherent && (
+          <span className="text-xs font-medium text-amber-600">
+            {t("grilleIncoherente", { bareme })}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium">{t("erreursAnticipees")}</p>
+        {grille.erreurs.map((erreur, i) => (
+          <div key={`err-${i}`} className="flex items-center gap-1.5">
+            <select
+              className="h-9 w-44 shrink-0 rounded-md border bg-background px-1 text-xs"
+              value={erreur.type}
+              onChange={(e) =>
+                onChange({
+                  ...grille,
+                  erreurs: grille.erreurs.map((x, j) =>
+                    i === j ? { ...x, type: e.target.value as ErrorType } : x
+                  ),
+                })
+              }
+              aria-label={t("erreurRevelee")}
+            >
+              {TYPES_ERREUR.map((type) => (
+                <option key={type} value={type}>
+                  {t(`erreur_${type}`)}
+                </option>
+              ))}
+            </select>
+            <Input
+              value={erreur.description}
+              onChange={(e) =>
+                onChange({
+                  ...grille,
+                  erreurs: grille.erreurs.map((x, j) =>
+                    i === j ? { ...x, description: e.target.value } : x
+                  ),
+                })
+              }
+              placeholder={t("erreurDescription")}
+              aria-label={t("erreurDescription")}
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="shrink-0"
+              aria-label={t("retirerErreur")}
+              onClick={() =>
+                onChange({ ...grille, erreurs: grille.erreurs.filter((_, j) => i !== j) })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+        {grille.erreurs.length < MAX_ERREURS_SAISIE && (
+          <Button type="button" variant="ghost" size="sm" onClick={ajouterErreur}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            {t("ajouterErreurAnticipee")}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -39,6 +39,30 @@ function nombre(valeur: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Ce que la correction a établi — quatre états, et non un booléen.
+ *
+ *  - `JUSTE`        : conforme à la réponse attendue ;
+ *  - `FAUSSE`       : écart constaté ;
+ *  - `PARTIELLE`    : une partie de la réponse est juste (appariement dont
+ *                     certaines paires sont bonnes). Informatif : AUCUN crédit,
+ *                     le barème de l'étape ne change pas ;
+ *  - `NON_EVALUEE`  : rien à corriger (réponse vide). Ni juste, ni fausse :
+ *                     déclarer « fausse » une réponse qu'on n'a pas lue
+ *                     fabriquerait une erreur.
+ *
+ * Distinguer ces états ne change ni le crédit ni les tentatives — c'est ce qui
+ * permet de dire à l'élève « presque » sans lui donner de points qu'une
+ * séquence fausse ne mérite pas.
+ */
+export type StatutCorrection = "JUSTE" | "FAUSSE" | "PARTIELLE" | "NON_EVALUEE";
+
+export interface CorrectionDetaillee extends Correction {
+  statut: StatutCorrection;
+  /** Part de la réponse juste, entre 0 et 1. Informative, jamais un crédit. */
+  proportion: number;
+}
+
 export interface Correction {
   correcte: boolean;
   /**
@@ -108,3 +132,44 @@ export function corrigerEtape(etape: EtapeQuestion, brut: string): Correction {
     erreur: null,
   };
 }
+
+/**
+ * Corrige une réponse d'étape ET qualifie le résultat.
+ *
+ * Enveloppe de `corrigerEtape` : la décision juste/fausse reste celle de cette
+ * fonction, une seule fois. Les états ajoutés se déduisent de la décision, ils
+ * ne la rejouent pas — deux chemins de correction finiraient par diverger.
+ */
+export function corrigerEtapeDetaillee(etape: EtapeQuestion, brut: string): CorrectionDetaillee {
+  const base = corrigerEtape(etape, brut);
+  const saisie = (brut ?? "").trim();
+
+  if (saisie === "") {
+    return { ...base, statut: "NON_EVALUEE", proportion: 0 };
+  }
+  if (base.correcte) {
+    return { ...base, statut: "JUSTE", proportion: 1 };
+  }
+
+  // Seul l'appariement a une structure dont une part peut être juste sans que
+  // la réponse le soit. Une remise en ordre fausse l'est tout entière : un ordre
+  // à moitié bon ne mène nulle part — cf. le commentaire de `corrigerEtape`.
+  if (etape.format === "APPARIEMENT") {
+    const attendues = new Set(
+      etape.reponse
+        .split(SEPARATEUR)
+        .map((p) => p.trim())
+        .filter(Boolean)
+    );
+    const donnees = saisie
+      .split(SEPARATEUR)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const justes = donnees.filter((p) => attendues.has(p)).length;
+    const proportion = attendues.size > 0 ? Math.min(justes / attendues.size, 1) : 0;
+    if (justes > 0) return { ...base, statut: "PARTIELLE", proportion };
+  }
+
+  return { ...base, statut: "FAUSSE", proportion: 0 };
+}
+

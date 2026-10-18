@@ -111,8 +111,8 @@ export function DispenseMatiereManager({
             <Label>{t("reason")}</Label>
             <input
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-              aria-label="Dispense de matière"
-              placeholder="ex: Dispense médicale"
+              aria-label={t("dispenseMatiere")}
+              placeholder={t("dispenseMatierePlaceholder")}
               value={motif}
               onChange={(e) => setMotif(e.target.value)}
             />

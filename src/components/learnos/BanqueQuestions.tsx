@@ -15,14 +15,25 @@ import { cn } from "@/lib/utils";
 import { texteErreur } from "@/lib/erreurs-client";
 import {
   EditeurQuestion,
+  depuisGrille,
+  depuisParties,
   depuisStructure,
   etapeVierge,
+  memeSaisieGrille,
+  partiesVierges,
+  versGrille,
   versStructure,
+  type CritereSaisie,
+  type ErreurAnticipeeSaisie,
+  type PartieSaisie,
   type EtapeSaisie,
+  type FormatEtape,
 } from "@/components/learnos/EditeurQuestion";
+import { estAutoCorrigeable } from "@/lib/learnos/formats";
 
 const PALIERS = ["RESTITUTION", "APPLICATION", "CONSOLIDATION", "TRANSFERT", "OUVERTURE"] as const;
 const FORMATS = [
+  "SAISIE_LIBRE",
   "SAISIE_COURTE",
   "CHOIX_UNIQUE",
   "ETAPES_GUIDEES",
@@ -40,6 +51,8 @@ interface Question {
   format: Format | "SAISIE_LIBRE";
   structure: unknown;
   bareme: number;
+  /** Grille de correction — critères et erreurs anticipées, si elle existe. */
+  grille: unknown;
   origine: string;
   relueLe: string | null;
   actif: boolean;
@@ -90,6 +103,7 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
   // Génération
   const [palierGen, setPalierGen] = useState<Palier>("APPLICATION");
   const [formatGen, setFormatGen] = useState<Format>("ETAPES_GUIDEES");
+  const [dossierGen, setDossierGen] = useState(false);
   const [nombreGen, setNombreGen] = useState(3);
   const [generation, setGeneration] = useState(false);
 
@@ -99,10 +113,20 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
   const [palierSaisie, setPalierSaisie] = useState<Palier>("APPLICATION");
   const [formatSaisie, setFormatSaisie] = useState<Format>("CHOIX_UNIQUE");
   const [etapes, setEtapes] = useState<EtapeSaisie[]>([etapeVierge("CHOIX_UNIQUE")]);
+  // `undefined` = exercice ordinaire ; défini = dossier découpé en parties.
+  const [partiesSaisie, setPartiesSaisie] = useState<PartieSaisie[] | undefined>(undefined);
+  // Grille de correction de la saisie en cours. `undefined` = rien à envoyer.
+  const [grilleSaisie, setGrilleSaisie] = useState<
+    { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] } | undefined
+  >(undefined);
 
   // Relecture d'une question existante
   const [enRelecture, setEnRelecture] = useState<Question | null>(null);
   const [etapesRelues, setEtapesRelues] = useState<EtapeSaisie[]>([]);
+  const [partiesRelues, setPartiesRelues] = useState<PartieSaisie[]>([]);
+  const [grilleRelue, setGrilleRelue] = useState<
+    { criteres: CritereSaisie[]; erreurs: ErreurAnticipeeSaisie[] } | undefined
+  >(undefined);
 
   const charger = useCallback(
     async (id: string) => {
@@ -137,7 +161,9 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
           competenceId,
           palier: palierGen,
           format: formatGen,
-          nombre: nombreGen,
+          // Un dossier se compose d'étapes guidées : le serveur refuse autre chose.
+          nombre: dossierGen ? Math.min(nombreGen, 2) : nombreGen,
+          dossier: dossierGen && formatGen === "ETAPES_GUIDEES",
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -160,6 +186,12 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
 
   function creer() {
     demarrer(async () => {
+      // Une grille sans critère n'est pas une grille : on n'envoie rien plutôt
+      // que de se faire refuser une saisie encore en cours.
+      const grille =
+        grilleSaisie && grilleSaisie.criteres.some((c) => c.libelle.trim() !== "")
+          ? versGrille(grilleSaisie)
+          : undefined;
       const ok = await appeler("/api/learnos/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -168,13 +200,16 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
           enonce,
           palier: palierSaisie,
           format: formatSaisie,
-          structure: versStructure(etapes),
+          structure: versStructure(etapes, partiesSaisie),
+          ...(grille ? { grille } : {}),
         }),
       });
       if (!ok) return;
       toast.success(t("creee"));
       setEnonce("");
-      setEtapes([etapeVierge(formatEtapeDe(formatSaisie))]);
+      setPartiesSaisie(undefined);
+      setGrilleSaisie(undefined);
+      setEtapes([etapeVierge(formatEtapeDe(formatSaisie) ?? "SAISIE_COURTE")]);
       setSaisieOuverte(false);
       await charger(competenceId);
     });
@@ -182,12 +217,26 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
 
   function relire(question: Question, avecCorrection: boolean) {
     demarrer(async () => {
+      // La grille n'est renvoyée que si elle a CHANGÉ : chaque remplacement
+      // incrémente `grilleVersion`, et l'incrémenter pour rien rendrait les
+      // propositions déjà produites inexplicables.
+      const actuelle = depuisGrille(question.grille);
+      const saisie = grilleRelue ?? actuelle;
+      const grilleModifiee = !memeSaisieGrille(saisie, actuelle);
+      // Une grille vidée de ses critères n'est pas une grille : le serveur la
+      // refuserait (`parseGrille`), et un refus en cours de relecture ressemble
+      // à un échec de l'enregistrement entier.
+      const grilleEnvoyable = saisie.criteres.length > 0;
       const ok = await appeler(`/api/learnos/questions/${question.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           avecCorrection
-            ? { structure: versStructure(etapesRelues), relue: true }
+            ? {
+                structure: versStructure(etapesRelues, partiesRelues),
+                relue: true,
+                ...(grilleModifiee && grilleEnvoyable ? { grille: versGrille(saisie) } : {}),
+              }
             : { relue: true }
         ),
       });
@@ -263,9 +312,23 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
                 />
                 <SelectSimple
                   value={formatGen}
-                  onChange={(v) => setFormatGen(v as Format)}
+                  onChange={(v) => {
+                    setFormatGen(v as Format);
+                    // Un dossier n'existe qu'en étapes guidées.
+                    if (v !== "ETAPES_GUIDEES") setDossierGen(false);
+                  }}
                   options={FORMATS.map((f) => ({ value: f, label: t(`format${f}`) }))}
                 />
+                {formatGen === "ETAPES_GUIDEES" && (
+                  <label className="flex h-9 items-center gap-2 text-sm" title={t("dossierAide")}>
+                    <input
+                      type="checkbox"
+                      checked={dossierGen}
+                      onChange={(e) => setDossierGen(e.target.checked)}
+                    />
+                    {t("dossier")}
+                  </label>
+                )}
                 <Input
                   type="number"
                   aria-label="Nombre de questions à générer"
@@ -345,6 +408,10 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
                             etapes={etapesRelues}
                             onChange={setEtapesRelues}
                             multiEtapes={q.format === "ETAPES_GUIDEES"}
+                            // Relire un dossier sans ses parties les ferait
+                            // disparaître à l'enregistrement.
+                            parties={partiesRelues.length > 0 ? partiesRelues : undefined}
+                            onPartiesChange={partiesRelues.length > 0 ? setPartiesRelues : undefined}
                           />
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => relire(q, true)} disabled={enCours}>
@@ -368,6 +435,7 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
                             onClick={() => {
                               setEnRelecture(q);
                               setEtapesRelues(depuisStructure(q.structure));
+                              setPartiesRelues(depuisParties(q.structure));
                             }}
                           >
                             <BookOpen className="mr-1.5 h-3.5 w-3.5" />
@@ -421,15 +489,38 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
                     onChange={(v) => {
                       const format = v as Format;
                       setFormatSaisie(format);
-                      setEtapes([etapeVierge(formatEtapeDe(format))]);
+                      setPartiesSaisie(undefined);
+                      setEtapes([etapeVierge(formatEtapeDe(format) ?? "SAISIE_COURTE")]);
                     }}
                     options={FORMATS.map((f) => ({ value: f, label: t(`format${f}`) }))}
                   />
+                  {formatSaisie === "ETAPES_GUIDEES" && (
+                    <label className="flex h-9 items-center gap-2 text-sm" title={t("dossierAide")}>
+                      <input
+                        type="checkbox"
+                        checked={partiesSaisie !== undefined}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const parties = partiesVierges();
+                            setPartiesSaisie(parties);
+                            // Les étapes déjà saisies rejoignent la première partie.
+                            setEtapes(etapes.map((et) => ({ ...et, partie: parties[0].id })));
+                          } else {
+                            setPartiesSaisie(undefined);
+                            setEtapes(etapes.map((et) => ({ ...et, partie: undefined })));
+                          }
+                        }}
+                      />
+                      {t("dossier")}
+                    </label>
+                  )}
                 </div>
                 <EditeurQuestion
                   etapes={etapes}
                   onChange={setEtapes}
                   multiEtapes={formatSaisie === "ETAPES_GUIDEES"}
+                  parties={partiesSaisie}
+                  onPartiesChange={partiesSaisie ? setPartiesSaisie : undefined}
                 />
                 <div className="flex gap-2">
                   <Button onClick={creer} disabled={enCours || enonce.trim() === ""}>
@@ -461,10 +552,15 @@ export function BanqueQuestions({ chapitres }: { chapitres: Chapitre[] }) {
 /**
  * Format d'étape correspondant à un format de question.
  *
- * `ETAPES_GUIDEES` n'est pas un format d'étape : c'est un assemblage. Sa
- * première étape démarre en saisie courte, l'enseignant change ensuite.
+ * `SAISIE_LIBRE` n'a pas de structure : c'est une rédaction, sans étape
+ * auto-corrigée. `undefined` le signale à l'appelant — l'éditeur n'a alors
+ * rien à afficher.
+ * `ETAPES_GUIDEES` n'est pas non plus un format d'étape : c'est un
+ * assemblage. Sa première étape démarre en saisie courte, l'enseignant change
+ * ensuite.
  */
-function formatEtapeDe(format: Format) {
+function formatEtapeDe(format: Format): FormatEtape | undefined {
+  if (format === "SAISIE_LIBRE") return undefined;
   return format === "ETAPES_GUIDEES" ? "SAISIE_COURTE" : format;
 }
 

@@ -8,6 +8,7 @@ import { erreurJson } from "@/lib/erreurs-api";
 import { getDemoNow } from "@/lib/demo-now";
 import { checkPermission } from "@/lib/rbac";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 
 const BodySchema = z.object({
   eleveId: z.string().min(1),
@@ -56,14 +57,15 @@ export async function POST(req: NextRequest) {
   }
 
   const parent = eleve.parents[0]?.parent;
-  const dateStr = dateConvocation ? format(new Date(dateConvocation), "dd MMMM yyyy à HH:mm", { locale: fr }) : "Date à confirmer";
+  const t = await getTranslations("vieScolaire");
+  const dateStr = dateConvocation ? format(new Date(dateConvocation), "dd MMMM yyyy à HH:mm", { locale: fr }) : t("convocations.dateNonConfirmee");
   const todayStr = format(await getDemoNow(), "dd MMMM yyyy", { locale: fr });
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Convocation des Parents — ${eleve.nom} ${eleve.prenom}</title>
+<title>${t("convocations.title")} — ${eleve.nom} ${eleve.prenom}</title>
 <style>
   @page { size: A4; margin: 20mm; }
   body { font-family: 'Times New Roman', serif; color: #1a1a1a; margin: 0; padding: 20px; }
@@ -93,32 +95,32 @@ export async function POST(req: NextRequest) {
     </div>
   </div>
 
-  <div class="title">Convocation des Parents</div>
+  <div class="title">${t("convocations.title")}</div>
 
   <div class="info-box">
     <table>
-      <tr><td class="label">Élève :</td><td><strong>${eleve.nom} ${eleve.prenom}</strong></td></tr>
-      <tr><td class="label">Matricule :</td><td>${eleve.matricule}</td></tr>
-      <tr><td class="label">Classe :</td><td>${eleve.classe?.nom ?? "—"}</td></tr>
-      <tr><td class="label">Parent :</td><td>${parent ? `${parent.prenom} ${parent.nom}` : "—"}</td></tr>
-      <tr><td class="label">Année scolaire :</td><td>${tenant.currentYear}</td></tr>
+      <tr><td class="label">${t("convocations.labelEleve")} :</td><td><strong>${eleve.nom} ${eleve.prenom}</strong></td></tr>
+      <tr><td class="label">${t("convocations.labelMatricule")} :</td><td>${eleve.matricule}</td></tr>
+      <tr><td class="label">${t("convocations.labelClasse")} :</td><td>${eleve.classe?.nom ?? "—"}</td></tr>
+      <tr><td class="label">${t("convocations.labelParent")} :</td><td>${parent ? `${parent.prenom} ${parent.nom}` : "—"}</td></tr>
+      <tr><td class="label">${t("convocations.labelAnneeScolaire")} :</td><td>${tenant.currentYear}</td></tr>
     </table>
   </div>
 
   <div class="body">
-    <p>Le Directeur de l'établissement <strong>${tenant.name}</strong> prie ${parent ? `M./Mme ${parent.nom}` : "les parents"} de bien vouloir se présenter à l'établissement le :</p>
+    <p>${t("convocations.corpsDirecteurPrie")} <strong>${tenant.name}</strong> ${t("convocations.corpsPriesDeSePresenter")}:</p>
     <p style="text-align:center; font-size:16px; font-weight:bold; margin:20px 0;">${dateStr}</p>
-    <p><strong>Motif :</strong> ${motif}</p>
-    ${motifDetail ? `<p><strong>Détails :</strong> ${motifDetail}</p>` : ''}
-    <p>Cette convocation fait suite à un incident nécessitant une rencontre avec la direction de l'établissement.</p>
-    <p>En l'absence du parent à la date indiquée, des mesures disciplinaires pourront être prises.</p>
+    <p><strong>${t("convocations.labelMotif")} :</strong> ${motif}</p>
+    ${motifDetail ? `<p><strong>${t("convocations.labelDetails")} :</strong> ${motifDetail}</p>` : ''}
+    <p>${t("convocations.corpsSuiteIncident")}</p>
+    <p>${t("convocations.corpsAbsenceParent")}</p>
   </div>
 
   <div class="footer">
-    <div style="font-size:12px">Fait à ${tenant.city ?? "________"}, le ${todayStr}</div>
+    <div style="font-size:12px">${t("convocations.footerFaitA")} ${tenant.city ?? "________"}, le ${todayStr}</div>
     <div class="signature">
-      <div class="name">${tenant.chefEtablissement ?? "Le Directeur"}</div>
-      <div style="font-size:10px;color:#666">Directeur de l'établissement</div>
+      <div class="name">${tenant.chefEtablissement ?? t("convocations.footerLeDirecteur")}</div>
+      <div style="font-size:10px;color:#666">${t("convocations.footerDirecteur")}</div>
     </div>
   </div>
 </body>

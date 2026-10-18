@@ -11,6 +11,8 @@ import type { EtapeFaite } from "./deroule-seance";
 export interface EtapeVue {
   index: number;
   enonce: string;
+  /** Partie du dossier — identifiant de structure, sans lien avec la réponse. */
+  partie?: string;
   format: FormatEtape;
   /** Propositions sans leur annotation d'erreur, dans l'ordre de la banque. */
   options?: { id: string; texte: string }[];
@@ -48,6 +50,16 @@ export interface ExerciceVue {
   nbEtapes: number;
   /** Index de l'étape à traiter ; égal à `nbEtapes` quand l'exercice est fini. */
   etapeCourante: number;
+  /**
+   * Parties d'un dossier, dans l'ordre. Absent hors dossier.
+   *
+   * Les titres sont servis EN ENTIER dès l'ouverture : l'élève doit voir la
+   * route avant de la prendre. Ils ne portent aucune réponse — seules les
+   * étapes en portent, et celles-ci ne sortent qu'une à une.
+   */
+  parties?: { id: string; titre: string; but?: string }[];
+  /** Rang (base 0) de la partie de l'étape courante ; `null` hors dossier ou une fois fini. */
+  partieCourante?: number | null;
   termine: boolean;
   /** Étapes atteintes, closes ou en cours. Jamais les suivantes. */
   etapes: EtapeVue[];
@@ -246,6 +258,7 @@ export function vueEleve(
     etapes.push({
       index: i,
       enonce: etape.enonce,
+      ...(etape.partie ? { partie: etape.partie } : {}),
       format: etape.format,
       // Jetons, jamais les identifiants de la banque : ceux-ci sont ordonnés et
       // parlants, donc lisibles depuis l'onglet réseau (cf. `jeton`).
@@ -284,6 +297,19 @@ export function vueEleve(
     motifParams: (exercice.motifParams as Record<string, unknown> | null) ?? null,
     nbEtapes: structure.etapes.length,
     etapeCourante,
+    ...(structure.parties
+      ? {
+          parties: structure.parties.map((p) => ({
+            id: p.id,
+            titre: p.titre,
+            ...(p.but ? { but: p.but } : {}),
+          })),
+          partieCourante:
+            etapeCourante < structure.etapes.length
+              ? structure.parties.findIndex((p) => p.id === structure.etapes[etapeCourante].partie)
+              : null,
+        }
+      : {}),
     termine: etapeCourante >= structure.etapes.length,
     etapes,
   };

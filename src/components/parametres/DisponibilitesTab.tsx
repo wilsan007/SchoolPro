@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarX, Plus, Trash2, Loader2, Clock, Upload, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface Enseignant {
   id: string;
@@ -48,6 +49,7 @@ interface Props {
 }
 
 export function DisponibilitesTab({ canManage }: Props) {
+  const t = useTranslations("disponibilites");
   const [enseignants, setEnseignants] = useState<Enseignant[]>([]);
   const [disponibilites, setDisponibilites] = useState<Disponibilite[]>([]);
   const [indisponibilites, setIndisponibilites] = useState<Indisponibilite[]>([]);
@@ -328,8 +330,8 @@ export function DisponibilitesTab({ canManage }: Props) {
           </div>
           <input
             type="text"
-            aria-label="Libellé de l'indisponibilité"
-            placeholder="Libellé (ex: École B, Formation, Rendez-vous…)"
+            aria-label={t("libelleIndisponibilite")}
+            placeholder={t("libellePlaceholder")}
             value={sourceLibelle}
             onChange={(e) => setSourceLibelle(e.target.value)}
             className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm w-full"

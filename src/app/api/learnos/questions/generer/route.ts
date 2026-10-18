@@ -19,6 +19,8 @@ const Schema = z.object({
   ]),
   nombre: z.number().int().min(1).max(5).default(3),
   langue: z.enum(["fr", "so"]).default("fr"),
+  /** Grand exercice découpé en parties — `ETAPES_GUIDEES` et français seulement. */
+  dossier: z.boolean().default(false),
 });
 
 /**
@@ -44,6 +46,12 @@ export async function POST(req: NextRequest) {
   }
   if (!estAutoCorrigeable(parsed.data.format)) {
     return erreurJson("FORMAT_NON_AUTO_CORRIGEABLE");
+  }
+  // Un dossier se compose d'étapes guidées, et le modèle n'a d'exemple de
+  // référence qu'en français : refuser ici plutôt que laisser `genererQuestions`
+  // lever une erreur générique.
+  if (parsed.data.dossier && (parsed.data.format !== "ETAPES_GUIDEES" || parsed.data.langue !== "fr")) {
+    return erreurJson("DONNEES_INVALIDES");
   }
 
   try {
