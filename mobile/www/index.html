@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-i18n-lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>EcolPro</title>
+  <title data-i18n="mobile.index.title">EcolPro</title>
   <style>
     :root { color-scheme: light dark; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,18 +39,68 @@
 <body>
   <div class="card">
     <div class="logo">E</div>
-    <h1>EcolPro</h1>
-    <p id="msg">Connexion à votre établissement…<br />Vérifiez votre connexion internet si l'écran ne se charge pas.</p>
-    <button onclick="retry()">Réessayer</button>
+    <h1 data-i18n="mobile.index.title">EcolPro</h1>
+    <p id="msg" data-i18n="mobile.index.msgConnexion" data-i18n-br="mobile.index.msgVerifierConnexion">Connexion à votre établissement…<br />Vérifiez votre connexion internet si l'écran ne se charge pas.</p>
+    <button onclick="retry()" data-i18n="mobile.index.btnReessayer">Réessayer</button>
     <div class="spinner" id="spin"></div>
   </div>
   <script>
+    const I18N = {
+      fr: {
+        "mobile.index.title": "EcolPro",
+        "mobile.index.msgConnexion": "Connexion à votre établissement…",
+        "mobile.index.msgVerifierConnexion": "Vérifiez votre connexion internet si l'écran ne se charge pas.",
+        "mobile.index.btnReessayer": "Réessayer",
+        "mobile.index.msgReconnexion": "Reconnexion en cours…",
+      },
+      en: {
+        "mobile.index.title": "EcolPro",
+        "mobile.index.msgConnexion": "Connecting to your establishment…",
+        "mobile.index.msgVerifierConnexion": "Check your internet connection if the screen does not load.",
+        "mobile.index.btnReessayer": "Retry",
+        "mobile.index.msgReconnexion": "Reconnecting…",
+      },
+      so: {
+        "mobile.index.title": "EcolPro",
+        "mobile.index.msgConnexion": "Waa la xiriirinayaa dugsiigaaga…",
+        "mobile.index.msgVerifierConnexion": "Hubi xiriirkaaga internetka haddii shaashaddu aysan soo bixin.",
+        "mobile.index.btnReessayer": "Isku day mar kale",
+        "mobile.index.msgReconnexion": "Dib ayaa loo xiriirinayaa…",
+      },
+    };
+
+    function getLocale() {
+      try {
+        const m = document.cookie.match(/(?:^|; )NEXT_LOCALE=([^;]+)/);
+        return m ? m[1] : "fr";
+      } catch { return "fr"; }
+    }
+
+    function applyTranslations() {
+      const lang = getLocale();
+      const dict = I18N[lang] || I18N.fr;
+      document.documentElement.lang = lang;
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        const val = dict[key];
+        if (!val) return;
+        const brKey = el.getAttribute("data-i18n-br");
+        if (brKey && dict[brKey]) {
+          el.innerHTML = val + "<br />" + dict[brKey];
+        } else {
+          el.textContent = val;
+        }
+      });
+      document.title = dict["mobile.index.title"] || document.title;
+    }
+
     function retry() {
       document.getElementById('spin').style.display = 'block';
-      document.getElementById('msg').textContent = 'Reconnexion en cours…';
+      document.getElementById('msg').textContent = I18N[getLocale()]?.["mobile.index.msgReconnexion"] || "Reconnexion en cours…";
       location.reload();
     }
-    // Recharge automatiquement dès que le réseau revient.
+
+    applyTranslations();
     window.addEventListener('online', retry);
   </script>
 </body>

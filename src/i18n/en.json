@@ -53,7 +53,8 @@
       "hier": "Yesterday",
       "dansJours": "In {count}d",
       "ilYAJours": "{count}d ago"
-    }
+    },
+    "titreTachePlaceholder": "Task title…"
   },
   "common": {
     "appName": "EcolPro",
@@ -67,6 +68,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "close": "Close",
+    "chatIdTelegram": "Telegram chat ID",
     "loading": "Loading...",
     "noData": "No data",
     "actions": "Actions",
@@ -616,7 +618,23 @@
     "appelArrivalTimeFor": "Arrival time for {nom}",
     "appelArrivalInvalid": "Invalid arrival time: it must be between {debut} and {fin}",
     "appelAtRisk": "At risk",
-    "appelAtRiskDetail": "{absences} unexcused absence(s) and {retards} late arrival(s) over {jours} days"
+    "appelAtRiskDetail": "{absences} unexcused absence(s) and {retards} late arrival(s) over {jours} days",
+    "feuillePresence": {
+      "title": "Attendance sheet",
+      "anneeScolaire": "School year",
+      "date": "Date",
+      "labelClasse": "Class",
+      "labelNiveau": "Level",
+      "labelProfPrincipal": "Head teacher",
+      "labelEffectif": "Headcount",
+      "theadN": "No.",
+      "theadMatricule": "Student ID",
+      "theadNomPrenom": "Name & Surname",
+      "theadSexe": "Sex",
+      "theadTotalAbs": "Total abs.",
+      "footerSignatureProf": "Teacher's signature",
+      "footerVisaDirecteur": "Director's visa"
+    }
   },
   "bulletinsManager": {
     "period": "Period",
@@ -1095,7 +1113,8 @@
     "exportError": "Error exporting",
     "exportExcel": "Export Excel",
     "exportPdf": "Export PDF",
-    "exportSuccess": "Export successful"
+    "exportSuccess": "Export successful",
+    "columnHeure": "Time"
   },
   "caisse": {
     "title": "Cash Register",
@@ -1522,7 +1541,25 @@
     "escalade": "Escalate to management",
     "confirmNotifierParents": "Send a notification to this student's parents?",
     "confirmConvocation": "Generate a summons for this student's parents?",
-    "confirmEscalade": "Escalate this incident to management?"
+    "confirmEscalade": "Escalate this incident to management?",
+    "convocations": {
+      "title": "Parent summons",
+      "labelEleve": "Student",
+      "labelMatricule": "Student ID",
+      "labelClasse": "Class",
+      "labelParent": "Parent",
+      "labelAnneeScolaire": "School year",
+      "corpsDirecteurPrie": "The Director of the establishment",
+      "corpsPriesDeSePresenter": "requests that you present yourself at the establishment on",
+      "labelMotif": "Reason",
+      "labelDetails": "Details",
+      "corpsSuiteIncident": "This summons follows an incident requiring a meeting with the establishment's management.",
+      "corpsAbsenceParent": "In the absence of the parent on the indicated date, disciplinary measures may be taken.",
+      "footerFaitA": "Made at",
+      "footerDirecteur": "Director of the establishment",
+      "dateNonConfirmee": "Date to be confirmed",
+      "footerLeDirecteur": "The Principal"
+    }
   },
   "rh": {
     "title": "Human Resources",
@@ -2115,7 +2152,9 @@
     "dateSeparator": {
       "aujourdhui": "Today",
       "hier": "Yesterday"
-    }
+    },
+    "rechercherConversation": "Search a conversation",
+    "rechercherConversationPlaceholder": "Name or last message…"
   },
   "admissions": {
     "title": "Admissions",
@@ -2751,7 +2790,9 @@
     "roleSiteManager": "Site manager",
     "roleInspector": "Inspector",
     "userPermissions": "User permissions",
-    "salles": "Rooms"
+    "salles": "Rooms",
+    "nomSalle": "Room name",
+    "nomSallePlaceholder": "E.g. Room 101, Lab B…"
   },
   "appreciations": {
     "title": "Configurable grading rules",
@@ -2847,6 +2888,8 @@
     "title": "Subject exemptions",
     "subject": "Subject",
     "reason": "Reason",
+    "dispenseMatiere": "Exemption reason",
+    "dispenseMatierePlaceholder": "E.g. medical certificate, board decision…",
     "period": "Period",
     "allPeriods": "All periods",
     "add": "Add an exemption",
@@ -3410,7 +3453,15 @@
       "sansMatiere": "No subject",
       "tendanceBaisse": "Downward trend",
       "tendanceHausse": "Upward trend",
-      "tendanceStable": "Stable trend"
+      "tendanceStable": "Stable trend",
+      "aRafraichir": "to refresh",
+      "acquises": "acquired",
+      "acquisesOuMaitrisees": "Acquired or mastered",
+      "actionReevaluer": "Re-evaluate",
+      "enCours": "in progress",
+      "erreurChargement": "Loading error",
+      "nonAcquises": "Not acquired",
+      "reessayer": "Try again"
     },
     "competencesEleve": {
       "aucunProfil": "No competence profile",
@@ -3655,7 +3706,12 @@
       "attestationTitre": "In-class check: {competence}",
       "attestationDetail": "Your teacher has just opened this check. Do it now, with them — this is what can move the skill to “mastered”.",
       "attestationCommencer": "Start",
-      "ciblesSansQuestion": "{n, plural, one {# exercise could not be served: the question bank is empty for this skill.} other {# exercises could not be served: the question bank is empty for these skills.}} Your teacher has been notified."
+      "ciblesSansQuestion": "{n, plural, one {# exercise could not be served: the question bank is empty for this skill.} other {# exercises could not be served: the question bank is empty for these skills.}} Your teacher has been notified.",
+      "partieSur": "Part {n} of {total}",
+      "partiesAide": "Each part is answered in order.",
+      "presque": "Almost! Compare with the answer key.",
+      "recapAide": "Your answers and the answer key, to review once the session ends.",
+      "recapTitre": "Session recap"
     },
     "erreurs": {
       "NON_AUTORISE": "You are not allowed to perform this action.",
@@ -3746,7 +3802,9 @@
       "DEUX_FACTEURS_DEJA_ACTIF": "Two-factor authentication is already enabled. Disable it before registering a new device.",
       "DEUX_FACTEURS_OBLIGATOIRE": "Two-factor authentication is mandatory for this role: it cannot be disabled.",
       "DEUX_FACTEURS_NON_CONFIGURE": "The two-factor authentication service is not configured on this server. Report it to the administrator.",
-      "TROP_DE_TENTATIVES": "Too many attempts. Try again in a minute."
+      "TROP_DE_TENTATIVES": "Too many attempts. Try again in a minute.",
+      "GRILLE_INVALIDE": "The marking grid is incomplete: every criterion needs a unique id, a label and a positive number of points.",
+      "GRILLE_INCOHERENTE": "The grid's total points do not match the question's marks: the same answer would have two possible grades."
     },
     "dossier": {
       "titreParent": "My child’s progress",
@@ -4008,7 +4066,27 @@
       "formatCHOIX_UNIQUE": "Single choice",
       "formatETAPES_GUIDEES": "Guided steps",
       "formatREMISE_EN_ORDRE": "Reordering",
-      "formatAPPARIEMENT": "Matching"
+      "formatAPPARIEMENT": "Matching",
+      "ajouterCritere": "Add a criterion",
+      "ajouterErreurAnticipee": "Add an anticipated error",
+      "ajouterPartie": "Add a part",
+      "critereLibelle": "Criterion label",
+      "dossier": "Folder",
+      "dossierAide": "File the question in a folder to find it faster.",
+      "erreurDescription": "Error description",
+      "erreursAnticipees": "Anticipated errors",
+      "grilleAide": "Each criterion is worth its points; their sum is the maximum score.",
+      "grilleIncoherente": "Inconsistent rubric: the point total must be positive.",
+      "partieBut": "Purpose of the part",
+      "partieDeLEtape": "Parts of the step",
+      "partieN": "Part {n}",
+      "partieTitre": "Part title",
+      "partiesAide": "Break the exercise down into ordered parts.",
+      "points": "Points",
+      "retirerCritere": "Remove this criterion",
+      "retirerErreur": "Remove this error",
+      "retirerPartie": "Remove this part",
+      "totalGrille": "Rubric total: {total} points"
     },
     "bot": {
       "menu": "Hello 👋 You can ask me:\n• “How is it going?” — progress\n• “What is stuck?” — difficulties\n• “How can I help?” — what to do this week\n• “Any absences?” — attendance\n• “How is the plan going?” — the support plan\n• “How are the fees?” — the balance",
@@ -4300,6 +4378,34 @@
       "preuves": "Evidence",
       "notes": "Grades",
       "exercices": "Exercises"
+    },
+    "corrections": {
+      "aucunCritere": "No criteria",
+      "aucuneReponse": "No answer",
+      "budget": "AI budget for today",
+      "budgetReste": "{reste} / {total} corrections left",
+      "criteres": "Rubric criteria",
+      "enAttente": "pending",
+      "erreurSansType": "Unclassified error",
+      "erreursDetectees": "Detected errors",
+      "fiabilite": "Grader reliability",
+      "fiabiliteInsuffisante": "Insufficient sample to assert reliability.",
+      "fiabilitePasDonnees": "Not enough data",
+      "fiabiliteRelues": "{n} script(s) reviewed",
+      "fiabiliteTauxConfirmees": "Confirmation rate: {pct}",
+      "grilleModifiee": "Rubric changed since the proposal",
+      "modele": "Model: {modele}",
+      "motifs": "Uncertainty reasons",
+      "questionInconnue": "Unknown question",
+      "questionVerification": "Verification question",
+      "rejeter": "Reject",
+      "rejeterAide": "Reject this script",
+      "reponseEleve": "Student's answer",
+      "sousTitre": "{n} script(s) awaiting your decision",
+      "titre": "Assisted corrections to validate",
+      "valider": "Validate",
+      "validee": "Correction validated",
+      "rejetee": "Correction rejected"
     }
   },
   "audit": {
@@ -4312,10 +4418,13 @@
     "reason": "Reason",
     "ip": "IP",
     "allowed": "Allowed",
-    "denied": "Denied"
+    "denied": "Denied",
+    "actionPlaceholder": "Search an action…",
+    "filtrerAction": "Filter by action"
   },
   "test": {
-    "whatsappEnterPhone": "Please enter a phone number"
+    "whatsappEnterPhone": "Please enter a phone number",
+    "numeroTelephone": "Phone number"
   },
   "anneesScolaires": {
     "title": "School years",
@@ -5425,6 +5534,106 @@
       "gravite": "Severity",
       "filiere": "Track",
       "specialite": "Specialty"
+    }
+  },
+  "disponibilites": {
+    "libelleIndisponibilite": "Unavailability label",
+    "libellePlaceholder": "E.g. staff meeting, training…"
+  },
+  "journalEmails": {
+    "destinataire": "Recipient",
+    "filtrerDestinataire": "Filter by recipient"
+  },
+  "attestation": {
+    "labelNomPrenom": "Name & Surname",
+    "labelMatricule": "Student ID",
+    "labelNeLe": "Born on",
+    "labelSexeM": "Male",
+    "labelSexeF": "Female",
+    "labelClasse": "Class",
+    "labelNiveau": "Level",
+    "labelAnneeScolaire": "School year",
+    "corpsJeSoussigne": "I, the undersigned",
+    "corpsDirecteurTrice": "Director of the establishment",
+    "corpsAtteste": "hereby certify that the student",
+    "corpsEstRegulierementInscrit": "is regularly enrolled in class",
+    "corpsPourLAnnee": "for the school year",
+    "corpsEnFoiDeQuoi": "In witness whereof this",
+    "corpsLuiEstDelivree": "is issued to them for all intents and purposes.",
+    "footerFaitA": "Made at",
+    "footerLe": "on",
+    "footerDirecteur": "Director of the establishment",
+    "footerLeDirecteur": "The Director"
+  },
+  "factures": {
+    "title": "Invoice",
+    "detailTitle": "Invoice details",
+    "labelClasse": "Class",
+    "labelTuteurLegal": "Legal guardian",
+    "labelNom": "Name",
+    "labelTelephone": "Phone",
+    "labelEmail": "Email",
+    "labelLibelle": "Description",
+    "labelEcheance": "Due date",
+    "labelEmisePar": "Issued by",
+    "labelMontantFacture": "Amount invoiced",
+    "resumeFacture": "Invoiced",
+    "resumePaye": "Paid",
+    "resumeReste": "Balance due",
+    "historiqueTitle": "Payment history",
+    "theadDate": "Date",
+    "theadMontant": "Amount",
+    "theadMethode": "Method",
+    "theadReference": "Reference",
+    "theadEnregistrePar": "Recorded by",
+    "footerCachetSignature": "Stamp & Signature",
+    "footerGenereLe": "Invoice generated on",
+    "btnImprimer": "Print / Save as PDF",
+    "statusEnAttente": "Pending",
+    "statusPayee": "Paid",
+    "sectionEleve": "Student",
+    "labelNomPrenom": "Name & Surname",
+    "labelMatricule": "Student ID"
+  },
+  "paiements": {
+    "recu": {
+      "title": "Payment receipt",
+      "numero": "No.",
+      "sectionEleve": "Student",
+      "sectionTuteur": "Legal guardian",
+      "sectionDetails": "Payment details",
+      "labelFacture": "Invoice",
+      "labelLibelle": "Description",
+      "labelMethode": "Method",
+      "labelReference": "Reference",
+      "labelEnregistrePar": "Recorded by",
+      "labelDateSaisie": "Date of entry",
+      "labelMontantRecu": "Amount received",
+      "footerCachetSignature": "Stamp & Signature",
+      "footerGenereLe": "Receipt generated on",
+      "btnImprimer": "Print / Save as PDF",
+      "labelNomPrenom": "Name & Surname",
+      "labelMatricule": "Student ID",
+      "labelClasse": "Class",
+      "labelTuteurLegal": "Legal guardian",
+      "labelNom": "Name",
+      "labelTelephone": "Phone"
+    }
+  },
+  "cartesScolaires": {
+    "title": "School cards",
+    "altLogo": "School logo",
+    "photoPlaceholder": "PHOTO",
+    "labelNeLe": "Born on:",
+    "labelEtablissement": "Establishment:",
+    "labelAdresse": "Address:",
+    "labelTel": "Phone:",
+    "qrMatricule": "QR / ID:",
+    "annee": "Year"
+  },
+  "notifications": {
+    "email": {
+      "piedDePage": "Sent via EcolPro — please do not reply to this email."
     }
   }
 }

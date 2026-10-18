@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/rbac";
 import { siteFilterForModel, isRelationScopedRole } from "@/lib/site-scope";
 import { getAnneeCouranteLibelle } from "@/lib/annee-scolaire";
 import type { Jour } from "@prisma/client";
+import { getTranslations } from "next-intl/server";
 
 const JOURS: Jour[] = ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI", "DIMANCHE"];
 
@@ -50,6 +51,8 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId;
     const emploiFilter = siteFilterForModel("emploiTemps", session.user);
     const annee = await getAnneeCouranteLibelle(tenantId);
+    const t = await getTranslations("emploi");
+    const tc = await getTranslations("common");
 
     const emplois = await prisma.emploiTemps.findMany({
       where: {
@@ -73,7 +76,7 @@ export async function GET(req: NextRequest) {
     const dateStr = new Date().toISOString().split("T")[0];
 
     if (format === "pdf") {
-      return generatePdfHtml(emplois, scope, dateStr);
+      return generatePdfHtml(emplois, scope, dateStr, t, tc);
     }
 
     const workbook = new ExcelJS.Workbook();
@@ -152,7 +155,9 @@ function generatePdfHtml(
     enseignant: { user: { name: string | null } } | null;
   }>,
   scope: string,
-  dateStr: string
+  dateStr: string,
+  t: (key: string) => string,
+  tc: (key: string) => string
 ) {
   const byJour = new Map<string, typeof emplois>();
   for (const j of JOURS) {
@@ -162,13 +167,14 @@ function generatePdfHtml(
   const tables = JOURS.filter((j) => (byJour.get(j) ?? []).length > 0)
     .map((j) => {
       const rows = byJour.get(j) ?? [];
+      const dayLabel = t(`days.${j}`);
       const body = rows
         .map(
           (e) =>
             `<tr><td>${e.heureDebut} - ${e.heureFin}</td><td>${e.classe?.nom ?? ""}</td><td>${e.matiere?.nom ?? ""}</td><td>${e.enseignant?.user.name ?? ""}</td><td>${e.salle ?? ""}</td></tr>`
         )
         .join("");
-      return `<h2>${j}</h2><table><thead><tr><th>Heure</th><th>Classe</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr></thead><tbody>${body}</tbody></table>`;
+      return `<h2>${dayLabel}</h2><table><thead><tr><th>${t("columnHeure")}</th><th>${tc("class")}</th><th>${t("subject")}</th><th>${t("teacher")}</th><th>${t("room")}</th></tr></thead><tbody>${body}</tbody></table>`;
     })
     .join("");
 
@@ -176,7 +182,7 @@ function generatePdfHtml(
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Emploi du temps (${scope}) — ${dateStr}</title>
+<title>${t("title")} (${scope}) — ${dateStr}</title>
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
   h1 { font-size: 20px; margin-bottom: 4px; }
@@ -190,9 +196,9 @@ function generatePdfHtml(
 </style>
 </head>
 <body>
-<h1>Emploi du temps (${scope}) — ${dateStr}</h1>
+<h1>${t("title")} (${scope}) — ${dateStr}</h1>
 ${tables}
-<button class="print-btn" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+<button class="print-btn" onclick="window.print()">🖨️ ${t("print")} / ${t("exportPdf")}</button>
 </body>
 </html>`;
 

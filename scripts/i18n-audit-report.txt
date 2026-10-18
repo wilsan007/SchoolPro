@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-09-29T18:05:32.606Z
+SchoolPro i18n audit — 2026-10-18T06:28:10.193Z
 
 Referenced keys missing from fr.json: 0
 
@@ -10,70 +10,72 @@ en.json extra keys (not in fr.json): 0
 
 so.json extra keys (not in fr.json): 0
 
-Dynamic template-literal t() calls (manual review): 221
+Dynamic template-literal t() calls (manual review): 238
   src/app/(auth)/accept-invitation/page.tsx:73  `/api/auth/invitation?token=${encodeURIComponent(token)}`
-  src/app/(dashboard)/mon-espace/page.tsx:525  `${eleve.id}|${comp.id}`
-  src/app/(dashboard)/parametres/audit/page.tsx:58  `/api/audit?${params.toString()}`
-  src/app/(dashboard)/recommandations/page.tsx:205  `${f.eleve.id}|${f.competenceAttesteeId}`
+  src/app/(dashboard)/mon-espace/page.tsx:523  `${eleve.id}|${comp.id}`
+  src/app/(dashboard)/parametres/audit/page.tsx:65  `/api/audit?${params.toString()}`
+  src/app/(dashboard)/parametres/journal-emails/page.tsx:82  `/api/emails/journal?${params.toString()}`
+  src/app/(dashboard)/recommandations/page.tsx:208  `${f.eleve.id}|${f.competenceAttesteeId}`
   src/app/(dashboard)/test-telegram/page.tsx:36  `${data.chats.length} chat(s) trouvé(s)`
+  src/app/(dashboard)/travail/page.tsx:145  `${lundi}T00:00:00Z`
   src/components/absences/AbsencesList.tsx:114  `${absence.eleve.prenom} ${absence.eleve.nom}`
-  src/components/absences/AppelInterface.tsx:128  `${dateJour}T12:00:00Z`
-  src/components/absences/AppelInterface.tsx:418  `${eleve.prenom} ${eleve.nom}`
-  src/components/admissions/AdmissionsView.tsx:594  `/api/admissions/${candidature.id}`
-  src/components/admissions/AdmissionsView.tsx:627  `/api/admissions/${candidature.id}`
-  src/components/admissions/AdmissionsView.tsx:655  `/api/admissions/${candidature.id}`
-  src/components/admissions/AdmissionsView.tsx:677  `/api/admissions/${candidature.id}`
+  src/components/absences/AppelInterface.tsx:159  `${dateJour}T12:00:00Z`
+  src/components/absences/AppelInterface.tsx:463  `${eleve.prenom} ${eleve.nom}`
+  src/components/admissions/AdmissionsView.tsx:598  `/api/admissions/${candidature.id}`
+  src/components/admissions/AdmissionsView.tsx:631  `/api/admissions/${candidature.id}`
+  src/components/admissions/AdmissionsView.tsx:659  `/api/admissions/${candidature.id}`
+  src/components/admissions/AdmissionsView.tsx:681  `/api/admissions/${candidature.id}`
   src/components/ai/AiChatWidget.tsx:174  `days.${action.jour}`
   src/components/ai/AiChatWidget.tsx:302  `days.${action.jour}`
   src/components/ai/AiChatWidget.tsx:356  `days.${c.jour}`
-  src/components/alumni/AlumniView.tsx:79  `/api/alumni?${params}`
-  src/components/alumni/AlumniView.tsx:128  `/api/alumni/${id}`
-  src/components/analytics/AnalyticsView.tsx:193  `HTTP ${r.status}`
-  src/components/analytics/AnalyticsView.tsx:204  `HTTP ${r.status}`
-  src/components/analytics/AnalyticsView.tsx:215  `HTTP ${r.status}`
-  src/components/bulletins/BilanAnnuelManager.tsx:23  `/api/bulletins/annuel?classeId=${selectedClasse}`
-  src/components/bulletins/BilanAnnuelManager.tsx:116  `/bulletin-annuel/${b.id}/${anneeId}`
+  src/components/alumni/AlumniView.tsx:82  `/api/alumni?${params}`
+  src/components/alumni/AlumniView.tsx:131  `/api/alumni/${id}`
+  src/components/analytics/AnalyticsView.tsx:194  `HTTP ${r.status}`
+  src/components/analytics/AnalyticsView.tsx:205  `HTTP ${r.status}`
+  src/components/analytics/AnalyticsView.tsx:216  `HTTP ${r.status}`
+  src/components/bulletins/BilanAnnuelManager.tsx:24  `/api/bulletins/annuel?classeId=${selectedClasse}`
+  src/components/bulletins/BilanAnnuelManager.tsx:115  `/bulletin-annuel/${b.id}/${anneeId}`
   src/components/bulletins/BulletinAnnuelPreview.tsx:189  `mention${data.appreciation}`
   src/components/bulletins/BulletinAnnuelPreview.tsx:195  `decision${data.decision}`
   src/components/bulletins/BulletinEditorModal.tsx:59  `/api/bulletins/${bulletin.id}`
   src/components/bulletins/BulletinMatrix.tsx:102  `/api/bulletins/matrice?classeId=${classeId}&periodeId=${periodeId}`
-  src/components/bulletins/BulletinsList.tsx:45  `/api/bulletins/list?classeId=${selectedClasse}&periodeId=${selectedPeriode}`
-  src/components/bulletins/BulletinsList.tsx:66  `/api/bulletins/${id}`
-  src/components/bulletins/BulletinsList.tsx:80  `/bulletin/${eleveId}/${periodeId}`
-  src/components/bulletins/BulletinsList.tsx:86  `/api/bulletins/export-excel?classeId=${selectedClasse}&periodeId=${selectedPeriode}`
-  src/components/bulletins/BulletinsList.tsx:110  `/api/bulletins/${bulletinId}/historique`
-  src/components/bulletins/BulletinsManager.tsx:90  `/api/bulletins/check-existing?classeId=${classeId}&periodeId=${periodeId}`
-  src/components/bulletins/BulletinsManager.tsx:206  `/api/bulletins/conseil-data?classeId=${selectedClasse.id}&periodeId=${selectedPeriode.id}`
-  src/components/bulletins/BulletinsManager.tsx:248  `/api/bulletins/preview?eleveId=${firstEleve.id}&periodeId=${selectedPeriode.id}`
+  src/components/bulletins/BulletinsList.tsx:46  `/api/bulletins/list?classeId=${selectedClasse}&periodeId=${selectedPeriode}`
+  src/components/bulletins/BulletinsList.tsx:67  `/api/bulletins/${id}`
+  src/components/bulletins/BulletinsList.tsx:81  `/bulletin/${eleveId}/${periodeId}`
+  src/components/bulletins/BulletinsList.tsx:87  `/api/bulletins/export-excel?classeId=${selectedClasse}&periodeId=${selectedPeriode}`
+  src/components/bulletins/BulletinsList.tsx:111  `/api/bulletins/${bulletinId}/historique`
+  src/components/bulletins/BulletinsManager.tsx:93  `/api/bulletins/check-existing?classeId=${classeId}&periodeId=${periodeId}`
+  src/components/bulletins/BulletinsManager.tsx:209  `/api/bulletins/conseil-data?classeId=${selectedClasse.id}&periodeId=${selectedPeriode.id}`
+  src/components/bulletins/BulletinsManager.tsx:251  `/api/bulletins/preview?eleveId=${firstEleve.id}&periodeId=${selectedPeriode.id}`
   src/components/bulletins/ConseilDeClasse.tsx:65  `/api/bulletins/matrice?classeId=${classeId}&periodeId=${periodeId}`
-  src/components/cahier-journal/CahierJournalView.tsx:267  `/api/cahier-journal/seances/${expandedSeance}`
-  src/components/cahier-journal/CahierJournalView.tsx:1072  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1166  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1284  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1411  `/api/cahier-journal/seances/${seance.id}`
-  src/components/cahier-journal/CahierJournalView.tsx:1812  `/api/cahier-journal/seances/${seance.id}/fichiers`
-  src/components/cahier-journal/CahierJournalView.tsx:1848  `/api/cahier-journal/seances/${seance.id}/fichiers`
-  src/components/cahier-journal/CahierJournalView.tsx:1959  `/api/cahier-journal/seances/${seance.id}/commentaires`
-  src/components/cahier-journal/CahierJournalView.tsx:1983  `/api/cahier-journal/seances/${seance.id}/commentaires`
+  src/components/cahier-journal/CahierJournalView.tsx:314  `/api/cahier-journal/seances/${expandedSeance}`
+  src/components/cahier-journal/CahierJournalView.tsx:1175  `/api/cahier-journal/seances/${seance.id}`
+  src/components/cahier-journal/CahierJournalView.tsx:1269  `/api/cahier-journal/seances/${seance.id}`
+  src/components/cahier-journal/CahierJournalView.tsx:1387  `/api/cahier-journal/seances/${seance.id}`
+  src/components/cahier-journal/CahierJournalView.tsx:1514  `/api/cahier-journal/seances/${seance.id}`
+  src/components/cahier-journal/CahierJournalView.tsx:1915  `/api/cahier-journal/seances/${seance.id}/fichiers`
+  src/components/cahier-journal/CahierJournalView.tsx:1951  `/api/cahier-journal/seances/${seance.id}/fichiers`
+  src/components/cahier-journal/CahierJournalView.tsx:2062  `/api/cahier-journal/seances/${seance.id}/commentaires`
+  src/components/cahier-journal/CahierJournalView.tsx:2086  `/api/cahier-journal/seances/${seance.id}/commentaires`
   src/components/cahier-journal/SuiviProgrammePanel.tsx:117  `/api/cahier-journal/suivi-programme?semaine=${s}`
   src/components/cahier-journal/TableauBordPanel.tsx:80  `/api/cahier-journal/tableau-bord/${seanceId}`
-  src/components/caisse/GestionCaisse.tsx:182  `/api/remises-caisse/${remiseId}/confirmer`
+  src/components/caisse/GestionCaisse.tsx:184  `/api/remises-caisse/${remiseId}/confirmer`
   src/components/classes/CascadeClassFilter.tsx:145  `categorie_${cat.label}`
   src/components/classes/ClassGroupedSelect.tsx:74  `categorie_${cat.label}`
-  src/components/classes/ClassTreeSelector.tsx:179  `categorie_${cat.label}`
-  src/components/classes/DrillDownNavigator.tsx:252  `categorie_${hierarchie.find((c) => c.categorie === selectedCat)?.label}`
-  src/components/classes/DrillDownNavigator.tsx:309  `categorie_${cat.label}`
-  src/components/communication/CommunicationView.tsx:395  `/api/communication/${id}`
-  src/components/communication/CommunicationView.tsx:412  `/api/communication/${id}`
+  src/components/classes/ClassTreeSelector.tsx:183  `categorie_${cat.label}`
+  src/components/classes/DrillDownNavigator.tsx:258  `categorie_${hierarchie.find((c) => c.categorie === selectedCat)?.label}`
+  src/components/classes/DrillDownNavigator.tsx:315  `categorie_${cat.label}`
+  src/components/communication/CommunicationView.tsx:409  `/api/communication/${id}`
+  src/components/communication/CommunicationView.tsx:426  `/api/communication/${id}`
   src/components/comparateur/ComparateurView.tsx:178  `HTTP ${r.status}`
   src/components/comparateur/ComparateurView.tsx:328  `/api/learnos/direction-intelligence?${params.toString()}`
   src/components/comparateur/ComparateurView.tsx:329  `HTTP ${r.status}`
-  src/components/conseil-augmente/ConseilAugmenteView.tsx:159  `/api/conseil-augmente?classeId=${selectedClasseId}&periodeId=${selectedPeriodeId}`
-  src/components/conseil-augmente/ConseilAugmenteView.tsx:608  `mentoratType.${eleve.mentorat}`
-  src/components/cours/CoursView.tsx:218  `/api/cours/${coursId}`
-  src/components/cours/CoursView.tsx:439  `/api/cours/${cours.id}`
-  src/components/cours/CoursView.tsx:622  `/api/cours/${id}`
-  src/components/cours/CoursView.tsx:634  `/api/cours/${c.id}`
+  src/components/conseil-augmente/ConseilAugmenteView.tsx:160  `/api/conseil-augmente?classeId=${selectedClasseId}&periodeId=${selectedPeriodeId}`
+  src/components/conseil-augmente/ConseilAugmenteView.tsx:607  `mentoratType.${eleve.mentorat}`
+  src/components/cours/CoursView.tsx:230  `/api/cours/${coursId}`
+  src/components/cours/CoursView.tsx:451  `/api/cours/${cours.id}`
+  src/components/cours/CoursView.tsx:634  `/api/cours/${id}`
+  src/components/cours/CoursView.tsx:646  `/api/cours/${c.id}`
   src/components/curriculum/CurriculumView.tsx:170  `/api/curriculum/${type}/${id}`
   src/components/curriculum/ImportProgramme.tsx:162  `ignore_${ignore.motif}`
   src/components/curriculum/PlanificationView.tsx:304  `/api/curriculum/planification/${chapitreId}`
@@ -81,100 +83,106 @@ Dynamic template-literal t() calls (manual review): 221
   src/components/curriculum/PlanificationView.tsx:635  `statut${c.statut}`
   src/components/curriculum/PrerequisProposes.tsx:213  `motif_${e.motif}`
   src/components/dossier-progression/DossierProgressionView.tsx:263  `/api/dossier-progression?eleveId=${eleveId}`
-  src/components/eleves/CartesScolairesForm.tsx:34  `/api/eleves/cartes-scolaires?classeId=${classeId}`
+  src/components/eleves/CartesScolairesForm.tsx:35  `/api/eleves/cartes-scolaires?classeId=${classeId}`
   src/components/eleves/DispenseMatiereManager.tsx:76  `/api/eleves/dispenses?id=${id}`
   src/components/eleves/EleveDetailView.tsx:375  `${eleve.prenom} ${eleve.nom}`
   src/components/eleves/EleveDetailView.tsx:390  `statut${eleve.statut}`
   src/components/eleves/EleveDetailView.tsx:390  `statut${eleve.statut}`
-  src/components/eleves/EleveForm.tsx:173  `/eleves/${result.id}`
+  src/components/eleves/EleveForm.tsx:176  `/eleves/${result.id}`
   src/components/eleves/ElevesActions.tsx:43  `/api/eleves?${params.toString()}`
-  src/components/eleves/ElevesTable.tsx:90  `?${params.toString()}`
-  src/components/eleves/ElevesTable.tsx:100  `?${params.toString()}`
-  src/components/eleves/ElevesTable.tsx:107  `?${params.toString()}`
-  src/components/eleves/ElevesTable.tsx:304  `statut${s}`
-  src/components/eleves/ElevesTable.tsx:538  `${eleve.prenom} ${eleve.nom}`
-  src/components/eleves/ElevesTable.tsx:589  `statut${eleve.statut}`
-  src/components/eleves/ElevesTable.tsx:589  `statut${eleve.statut}`
-  src/components/eleves/ImportElevesDialog.tsx:216  `${data.annulees} fiche(s) archivée(s)`
-  src/components/eleves/ImportElevesDialog.tsx:449  `columnMapping.type${typeCle.charAt(0).toUpperCase()}${typeCle.slice(1)}`
-  src/components/eleves/ImportElevesDialog.tsx:451  `columnMapping.field${col.champCible.charAt(0).toUpperCase()}${col.champCible.slice(1)}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:314  `daysShort.${j}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:389  `daysShort.${form.jour}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:524  `/api/emploi-du-temps/${id}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:581  `/api/emploi-du-temps/${id}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:590  `daysShort.${newJour}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:885  `/api/emploi-du-temps/export?${params.toString()}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:907  `/api/emploi-du-temps/export?${params.toString()}`
-  src/components/emploi-du-temps/EmploiDuTempsView.tsx:1080  `daysShort.${j}`
+  src/components/eleves/ElevesTable.tsx:91  `?${params.toString()}`
+  src/components/eleves/ElevesTable.tsx:101  `?${params.toString()}`
+  src/components/eleves/ElevesTable.tsx:108  `?${params.toString()}`
+  src/components/eleves/ElevesTable.tsx:301  `statut${s}`
+  src/components/eleves/ElevesTable.tsx:535  `${eleve.prenom} ${eleve.nom}`
+  src/components/eleves/ElevesTable.tsx:586  `statut${eleve.statut}`
+  src/components/eleves/ElevesTable.tsx:586  `statut${eleve.statut}`
+  src/components/eleves/ImportElevesDialog.tsx:218  `${data.annulees} fiche(s) archivée(s)`
+  src/components/eleves/ImportElevesDialog.tsx:451  `columnMapping.type${typeCle.charAt(0).toUpperCase()}${typeCle.slice(1)}`
+  src/components/eleves/ImportElevesDialog.tsx:453  `columnMapping.field${col.champCible.charAt(0).toUpperCase()}${col.champCible.slice(1)}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:318  `daysShort.${j}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:393  `daysShort.${form.jour}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:528  `/api/emploi-du-temps/${id}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:585  `/api/emploi-du-temps/${id}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:594  `daysShort.${newJour}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:889  `/api/emploi-du-temps/export?${params.toString()}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:911  `/api/emploi-du-temps/export?${params.toString()}`
+  src/components/emploi-du-temps/EmploiDuTempsView.tsx:1088  `daysShort.${j}`
   src/components/emploi-du-temps/ImportEmploiModal.tsx:264  `cat_${cat.label}`
-  src/components/emploi-du-temps/SmartSuggestPanel.tsx:244  `/api/emploi-du-temps/suggest?${params}`
-  src/components/emploi-du-temps/SmartSuggestPanel.tsx:275  `days.${s.jour}`
-  src/components/emploi-du-temps/SmartSuggestPanel.tsx:476  `days.${key}`
-  src/components/emploi-du-temps/SmartSuggestPanel.tsx:829  `days.${s.jour}`
+  src/components/emploi-du-temps/SmartSuggestPanel.tsx:246  `/api/emploi-du-temps/suggest?${params}`
+  src/components/emploi-du-temps/SmartSuggestPanel.tsx:277  `days.${s.jour}`
+  src/components/emploi-du-temps/SmartSuggestPanel.tsx:478  `days.${key}`
+  src/components/emploi-du-temps/SmartSuggestPanel.tsx:831  `days.${s.jour}`
   src/components/evaluations/CompetencesEvaluation.tsx:54  `/api/curriculum/evaluations/${evaluationId}/competences`
   src/components/evaluations/CompetencesEvaluation.tsx:86  `/api/curriculum/evaluations/${evaluationId}/competences`
   src/components/evaluations/GrilleSaisie.tsx:55  `/api/evaluations/${evaluation.id}/notes`
-  src/components/examens/ExamensManager.tsx:203  `/api/examens/${examId}/sessions`
-  src/components/examens/ExamensManager.tsx:328  `/api/examens/${examen.id}`
-  src/components/examens/ExamensManager.tsx:536  `/api/examens/${examId}/deliberation`
-  src/components/examens/RapportClasseTable.tsx:51  `/api/bulletins/rapport-classe?classeId=${classeId}&periodeId=${periodeId}`
-  src/components/facturation/FactureForm.tsx:124  `/api/facturation/existing?eleveId=${eleveId}`
-  src/components/facturation/FactureForm.tsx:194  `/api/facturation/tarif?classeId=${classeId}&type=${type}${mois ? `
-  src/components/facturation/FactureForm.tsx:269  `/facturation/${result.created[0].id}`
+  src/components/examens/ExamensManager.tsx:206  `/api/examens/${examId}/sessions`
+  src/components/examens/ExamensManager.tsx:331  `/api/examens/${examen.id}`
+  src/components/examens/ExamensManager.tsx:539  `/api/examens/${examId}/deliberation`
+  src/components/examens/RapportClasseTable.tsx:52  `/api/bulletins/rapport-classe?classeId=${classeId}&periodeId=${periodeId}`
+  src/components/facturation/FactureForm.tsx:125  `/api/facturation/existing?eleveId=${eleveId}`
+  src/components/facturation/FactureForm.tsx:195  `/api/facturation/tarif?classeId=${classeId}&type=${type}${mois ? `
+  src/components/facturation/FactureForm.tsx:270  `/facturation/${result.created[0].id}`
   src/components/fournitures/FournituresEnseignant.tsx:86  `${t("niveauRequis")}, ${t("nomRequis")}`
-  src/components/inventaire/InventaireView.tsx:89  `/api/inventaire?${params}`
-  src/components/inventaire/InventaireView.tsx:141  `/api/inventaire/${id}`
+  src/components/inventaire/InventaireView.tsx:92  `/api/inventaire?${params}`
+  src/components/inventaire/InventaireView.tsx:144  `/api/inventaire/${id}`
   src/components/learnos/AttestationsAValider.tsx:62  `/api/learnos/attestations/${id}`
-  src/components/learnos/BanqueQuestions.tsx:110  `/api/learnos/questions?competenceId=${id}`
-  src/components/learnos/BanqueQuestions.tsx:185  `/api/learnos/questions/${question.id}`
-  src/components/learnos/BanqueQuestions.tsx:203  `/api/learnos/questions/${id}`
-  src/components/learnos/BanqueQuestions.tsx:262  `palier${p}`
-  src/components/learnos/BanqueQuestions.tsx:267  `format${f}`
-  src/components/learnos/BanqueQuestions.tsx:319  `palier${q.palier}`
-  src/components/learnos/BanqueQuestions.tsx:320  `format${q.format}`
-  src/components/learnos/BanqueQuestions.tsx:417  `palier${p}`
-  src/components/learnos/BanqueQuestions.tsx:426  `format${f}`
-  src/components/learnos/CompetencesClasse.tsx:182  `/api/learnos/classes/${classeId}/competences`
-  src/components/learnos/CompetencesClasse.tsx:199  `${p.eleveId}:${p.competenceId}`
-  src/components/learnos/CompetencesClasse.tsx:249  `${el.id}:${comp.id}`
-  src/components/learnos/CompetencesClasse.tsx:556  `${el.id}:${c.id}`
-  src/components/learnos/CompetencesClasse.tsx:599  `${el.id}:${c.id}`
-  src/components/learnos/CompetencesClasse.tsx:671  `${el.id}:${c.id}`
-  src/components/learnos/CompetencesClasse.tsx:783  `${el.id}:${c.id}`
-  src/components/learnos/CompetencesEleve.tsx:135  `/api/learnos/eleves/${eleveId}/competences`
-  src/components/learnos/CompetencesEleve.tsx:291  `statut${p.masteryStatus}`
-  src/components/learnos/CopiesPapier.tsx:103  `moteur_${ocr.moteur}`
-  src/components/learnos/CopiesPapier.tsx:696  `anomalie_${a.motif}`
-  src/components/learnos/DossierEnfant.tsx:151  `type_${plan.type}`
-  src/components/learnos/DossierEnfant.tsx:180  `responsable_${e.responsable}`
-  src/components/learnos/DossierEnfant.tsx:203  `tendance_${dossier.tendance}`
-  src/components/learnos/EditeurQuestion.tsx:381  `erreur_${type}`
-  src/components/learnos/EvolutionEleve.tsx:321  `trajectoire.${s.trajectoire}`
-  src/components/learnos/EvolutionEleve.tsx:324  `trajectoireAide.${s.trajectoire}`
+  src/components/learnos/BanqueQuestions.tsx:134  `/api/learnos/questions?competenceId=${id}`
+  src/components/learnos/BanqueQuestions.tsx:230  `/api/learnos/questions/${question.id}`
+  src/components/learnos/BanqueQuestions.tsx:252  `/api/learnos/questions/${id}`
+  src/components/learnos/BanqueQuestions.tsx:311  `palier${p}`
+  src/components/learnos/BanqueQuestions.tsx:320  `format${f}`
+  src/components/learnos/BanqueQuestions.tsx:382  `palier${q.palier}`
+  src/components/learnos/BanqueQuestions.tsx:383  `format${q.format}`
+  src/components/learnos/BanqueQuestions.tsx:485  `palier${p}`
+  src/components/learnos/BanqueQuestions.tsx:495  `format${f}`
+  src/components/learnos/CompetencesClasse.tsx:183  `/api/learnos/classes/${classeId}/competences`
+  src/components/learnos/CompetencesClasse.tsx:200  `${p.eleveId}:${p.competenceId}`
+  src/components/learnos/CompetencesClasse.tsx:250  `${el.id}:${comp.id}`
+  src/components/learnos/CompetencesClasse.tsx:557  `${el.id}:${c.id}`
+  src/components/learnos/CompetencesClasse.tsx:600  `${el.id}:${c.id}`
+  src/components/learnos/CompetencesClasse.tsx:672  `${el.id}:${c.id}`
+  src/components/learnos/CompetencesClasse.tsx:784  `${el.id}:${c.id}`
+  src/components/learnos/CompetencesEleve.tsx:175  `/api/learnos/eleves/${eleveId}/competences`
+  src/components/learnos/CompetencesEleve.tsx:179  `competences-${r.status}`
+  src/components/learnos/CompetencesEleve.tsx:408  `statut${p.masteryStatus}`
+  src/components/learnos/CopiesPapier.tsx:104  `moteur_${ocr.moteur}`
+  src/components/learnos/CopiesPapier.tsx:689  `anomalie_${a.motif}`
+  src/components/learnos/CorrectionsAValider.tsx:155  `/api/learnos/corrections/${id}`
+  src/components/learnos/DossierEnfant.tsx:157  `type_${plan.type}`
+  src/components/learnos/DossierEnfant.tsx:186  `responsable_${e.responsable}`
+  src/components/learnos/DossierEnfant.tsx:209  `tendance_${dossier.tendance}`
+  src/components/learnos/EditeurQuestion.tsx:731  `erreur_${type}`
+  src/components/learnos/EditeurQuestion.tsx:850  `erreur_${type}`
+  src/components/learnos/EvolutionEleve.tsx:346  `trajectoire.${s.trajectoire}`
+  src/components/learnos/EvolutionEleve.tsx:349  `trajectoireAide.${s.trajectoire}`
+  src/components/learnos/EvolutionEleve.tsx:824  `typePreuve.${point.evidenceType}`
+  src/components/learnos/EvolutionEleve.tsx:824  `typePreuve.${point.evidenceType}`
   src/components/learnos/GrilleKpi.tsx:79  `${kpi.cle}Aide`
   src/components/learnos/IntelligencePedagogique.tsx:344  `type_${j.typeAnalyse}`
   src/components/learnos/PlansAValider.tsx:60  `/api/learnos/plans/${id}`
   src/components/learnos/PlansAValider.tsx:143  `responsable_${e.responsable}`
-  src/components/learnos/PropositionsIaValidation.tsx:67  `/api/learnos/propositions${params}`
-  src/components/learnos/PropositionsIaValidation.tsx:124  `statut.${statut}`
-  src/components/learnos/PropositionsIaValidation.tsx:143  `statut.${s}`
-  src/components/learnos/RecommandationsView.tsx:105  `/api/learnos/recommandations/${id}`
+  src/components/learnos/PropositionsIaValidation.tsx:69  `/api/learnos/propositions${params}`
+  src/components/learnos/PropositionsIaValidation.tsx:126  `statut.${statut}`
+  src/components/learnos/PropositionsIaValidation.tsx:147  `statut.${statut}`
+  src/components/learnos/PropositionsIaValidation.tsx:163  `statut.${s}`
+  src/components/learnos/RecommandationsView.tsx:113  `/api/learnos/recommandations/${id}`
   src/components/learnos/RevisionSemaine.tsx:61  `/api/learnos/revision-semaine?${params}`
   src/components/learnos/RevisionSemaineStaff.tsx:102  `/api/eleves?classeId=${classeId}&pageSize=200`
   src/components/learnos/RevisionSemaineStaff.tsx:124  `/api/learnos/revision-semaine?${params}`
   src/components/learnos/RevisionSemaineStaff.tsx:183  `categorie.${cat === "Primaire" ? "primaire" : cat === "Collège" ? "college" : cat === "Lycée" ? "lycee" : "autre"}`
-  src/components/learnos/SeanceEntrainement.tsx:125  `/api/learnos/entrainement/${feuilleId}`
-  src/components/learnos/SeanceEntrainement.tsx:199  `/api/learnos/entrainement/${seance.feuilleId}/reponse`
-  src/components/learnos/SeanceEntrainement.tsx:217  `/api/learnos/entrainement/${seance.feuilleId}`
+  src/components/learnos/SeanceEntrainement.tsx:202  `/api/learnos/entrainement/${feuilleId}`
+  src/components/learnos/SeanceEntrainement.tsx:276  `/api/learnos/entrainement/${seance.feuilleId}/reponse`
+  src/components/learnos/SeanceEntrainement.tsx:294  `/api/learnos/entrainement/${seance.feuilleId}`
   src/components/learnos/SuiviClasseView.tsx:99  `signal_${s.type}`
   src/components/messages/MessagerieView.tsx:147  `/api/messages/conversations/${convId}/messages?limit=50`
   src/components/messages/MessagerieView.tsx:165  `/api/messages/conversations/${activeConv.id}/messages?limit=50&before=${oldestCursor}`
   src/components/messages/MessagerieView.tsx:228  `/api/messages/conversations/${activeConv.id}/messages`
-  src/components/messages/NewConversationComposer.tsx:228  `/api/messages/recipients?${params}`
+  src/components/messages/NewConversationComposer.tsx:230  `/api/messages/recipients?${params}`
   src/components/notes/NotesOverview.tsx:59  `/notes?${params.toString()}`
-  src/components/notes/SaisieNotesSelectors.tsx:33  `/notes?${params.toString()}`
-  src/components/notes/SaisieNotesSelectors.tsx:40  `/notes?${params.toString()}`
-  src/components/notes/SaisieNotesSelectors.tsx:48  `/notes?${params.toString()}`
+  src/components/notes/SaisieNotesSelectors.tsx:34  `/notes?${params.toString()}`
+  src/components/notes/SaisieNotesSelectors.tsx:41  `/notes?${params.toString()}`
+  src/components/notes/SaisieNotesSelectors.tsx:49  `/notes?${params.toString()}`
   src/components/orientation/OrientationView.tsx:117  `/api/orientation?eleveId=${eleveId}`
   src/components/orientation/OrientationView.tsx:350  `/api/orientation?niveau=${encodeURIComponent(niveau)}`
   src/components/orientation/OrientationView.tsx:492  `${e.prenom} ${e.nom}`
@@ -185,50 +193,59 @@ Dynamic template-literal t() calls (manual review): 221
   src/components/parametres/CalendrierScolaireTab.tsx:115  `/api/parametres/calendrier-scolaire/${id}`
   src/components/parametres/CalendrierScolaireTab.tsx:194  `type_${ty.value}`
   src/components/parametres/CalendrierScolaireTab.tsx:267  `type_${ev.type}`
-  src/components/parametres/ClassesTab.tsx:268  `/api/eleves?classeId=${classe.id}&limit=200`
+  src/components/parametres/ClassesTab.tsx:279  `/api/eleves?classeId=${classe.id}&limit=200`
   src/components/parametres/DeleteSiteDialog.tsx:122  `deleteReasons.${r.key}`
-  src/components/parametres/EnseignantsAffectationTab.tsx:154  `/api/enseignants/affectations?id=${id}`
+  src/components/parametres/DisponibilitesTab.tsx:125  `/api/indisponibilites/${id}`
+  src/components/parametres/DisponibilitesTab.tsx:136  `/api/disponibilites/${id}`
+  src/components/parametres/DisponibilitesTab.tsx:157  `${data.lignesErreurs} ligne(s) en erreur sur ${data.totalLignes}`
+  src/components/parametres/DisponibilitesTab.tsx:159  `${data.lignesValides} ligne(s) prête(s) à importer`
+  src/components/parametres/DisponibilitesTab.tsx:179  `${data.crees} indisponibilité(s) créée(s), ${data.ignores} ignorée(s)`
+  src/components/parametres/EnseignantsAffectationTab.tsx:155  `/api/enseignants/affectations?id=${id}`
   src/components/parametres/ImportModelesTab.tsx:49  `/api/import/modele/${type}`
   src/components/parametres/ReglesAppreciationManager.tsx:92  `/api/parametres/regles-appreciation?id=${id}`
   src/components/parametres/ReglesAppreciationManager.tsx:125  `contexts.${c}`
   src/components/parametres/ReglesAppreciationManager.tsx:184  `contexts.${ctx}`
+  src/components/parametres/SallesTab.tsx:99  `/api/salles/${id}`
   src/components/parametres/StructureManager.tsx:105  `/api/structures?id=${id}`
-  src/components/parametres/UserPermissionsTab.tsx:38  `/api/user-permissions?userId=${selectedUserId}`
-  src/components/parents/ParentsView.tsx:185  `${parent.prenom} ${parent.nom}`
-  src/components/rapports/RapportsView.tsx:314  `/api/rapports?type=${type}`
+  src/components/parametres/UserPermissionsTab.tsx:51  `/api/user-permissions?userId=${selectedUserId}`
+  src/components/parents/ParentsView.tsx:245  `${parent.prenom} ${parent.nom}`
+  src/components/rapports/RapportsView.tsx:349  `/api/rapports?type=${type}`
   src/components/reinscription/CampagneReinscriptionWizard.tsx:375  `statut.${c.statut.toLowerCase()}`
   src/components/reinscription/CampagneReinscriptionWizard.tsx:410  `statut.${campagneActive.statut.toLowerCase()}`
   src/components/reinscription/CampagneReinscriptionWizard.tsx:474  `${etapeConfig.key}.title`
   src/components/reinscription/CampagneReinscriptionWizard.tsx:504  `${ETAPES[etape - 1].key}.title`
   src/components/reinscription/ParentReinscriptionClient.tsx:46  `/api/reinscription/invitation/${invitationId ?? "token"}${query}`
   src/components/reinscription/PromotionPreview.tsx:239  `step3.${CLES_DECISION[decision]}`
-  src/components/reinscription/SuiviReinscriptions.tsx:112  `statutInv.${statut.toLowerCase()}`
-  src/components/reinscription/SuiviReinscriptions.tsx:176  `statutInv.${inv.statut.toLowerCase()}`
-  src/components/rh/PersonnelAbsencesConges.tsx:168  `/api/rh/conges/${id}`
-  src/components/rh/PersonnelAbsencesConges.tsx:176  `conge${action === "APPROUVE" ? "Approved" : action === "REFUSE" ? "Refused" : "Cancelled"}`
-  src/components/rh/PersonnelAbsencesConges.tsx:186  `/api/rh/absences/${id}`
-  src/components/rh/PersonnelAbsencesConges.tsx:194  `absence${statut === "JUSTIFIEE" ? "Justified" : "Unjustified"}`
-  src/components/rh/PersonnelAbsencesConges.tsx:298  `type${a.type.charAt(0)}${a.type.slice(1).toLowerCase()}`
-  src/components/rh/RHView.tsx:123  `/api/rh/${enseignant.id}`
-  src/components/rh/RHView.tsx:129  `months.${moisActuel - 1}`
-  src/components/rh/RHView.tsx:266  `months.${bp.mois - 1}`
-  src/components/rh/RHView.tsx:298  `months.${moisActuel - 1}`
-  src/components/secretariat/InscriptionsView.tsx:268  `/api/inscriptions/${candidatureId}`
-  src/components/secretariat/InscriptionsView.tsx:290  `/api/inscriptions/${candidatureId}`
-  src/components/secretariat/InscriptionsView.tsx:426  `/api/inscriptions/${dossier.id}`
-  src/components/secretariat/InscriptionsView.tsx:440  `/api/inscriptions/${dossier.id}`
-  src/components/secretariat/InscriptionsView.tsx:453  `/api/inscriptions/${dossier.id}`
-  src/components/secretariat/InscriptionsView.tsx:465  `/api/inscriptions/${dossier.id}`
-  src/components/secretariat/InscriptionsView.tsx:486  `/api/inscriptions/${dossier.id}`
+  src/components/reinscription/SuiviReinscriptions.tsx:61  `statutInv.${s.toLowerCase()}`
+  src/components/reinscription/SuiviReinscriptions.tsx:123  `statutInv.${statut.toLowerCase()}`
+  src/components/reinscription/SuiviReinscriptions.tsx:187  `statutInv.${inv.statut.toLowerCase()}`
+  src/components/rh/PersonnelAbsencesConges.tsx:169  `/api/rh/conges/${id}`
+  src/components/rh/PersonnelAbsencesConges.tsx:177  `conge${action === "APPROUVE" ? "Approved" : action === "REFUSE" ? "Refused" : "Cancelled"}`
+  src/components/rh/PersonnelAbsencesConges.tsx:187  `/api/rh/absences/${id}`
+  src/components/rh/PersonnelAbsencesConges.tsx:195  `absence${statut === "JUSTIFIEE" ? "Justified" : "Unjustified"}`
+  src/components/rh/PersonnelAbsencesConges.tsx:297  `type${a.type.charAt(0)}${a.type.slice(1).toLowerCase()}`
+  src/components/rh/RHView.tsx:125  `/api/rh/${enseignant.id}`
+  src/components/rh/RHView.tsx:131  `months.${moisActuel - 1}`
+  src/components/rh/RHView.tsx:268  `months.${bp.mois - 1}`
+  src/components/rh/RHView.tsx:300  `months.${moisActuel - 1}`
+  src/components/secretariat/InscriptionsView.tsx:272  `/api/inscriptions/${candidatureId}`
+  src/components/secretariat/InscriptionsView.tsx:294  `/api/inscriptions/${candidatureId}`
+  src/components/secretariat/InscriptionsView.tsx:431  `/api/inscriptions/${dossier.id}`
+  src/components/secretariat/InscriptionsView.tsx:445  `/api/inscriptions/${dossier.id}`
+  src/components/secretariat/InscriptionsView.tsx:458  `/api/inscriptions/${dossier.id}`
+  src/components/secretariat/InscriptionsView.tsx:470  `/api/inscriptions/${dossier.id}`
+  src/components/secretariat/InscriptionsView.tsx:491  `/api/inscriptions/${dossier.id}`
   src/components/sites/SiteTabs.tsx:31  `${pathname}?${params.toString()}`
-  src/components/super-admin/SuperAdminView.tsx:92  `/api/super-admin/tenants?${params}`
-  src/components/super-admin/SuperAdminView.tsx:124  `/api/super-admin/tenants/${id}`
-  src/components/super-admin/SuperAdminView.tsx:137  `/api/super-admin/tenants/${id}`
+  src/components/super-admin/SuperAdminView.tsx:106  `/api/super-admin/tenants?${params}`
+  src/components/super-admin/SuperAdminView.tsx:138  `/api/super-admin/tenants/${id}`
   src/components/super-admin/SuperAdminView.tsx:151  `/api/super-admin/tenants/${id}`
+  src/components/super-admin/SuperAdminView.tsx:165  `/api/super-admin/tenants/${id}`
+  src/components/taches/TachesView.tsx:108  `/api/taches/${id}`
   src/components/taches/TaskTimeline.tsx:132  `${result.created} tâche(s) créée(s), ${result.closed} fermée(s)`
   src/components/taches/TaskTimeline.tsx:152  `/api/taches/${id}`
-  src/components/vie-scolaire/ConvocationForm.tsx:135  `convocationMotifs.${m}`
+  src/components/ui/liste-groupee.tsx:104  `axes.${id}`
+  src/components/vie-scolaire/ConvocationForm.tsx:134  `convocationMotifs.${m}`
   src/components/vie-scolaire/HistoriqueDisciplinaireDialog.tsx:79  `/api/vie-scolaire/historique-disciplinaire?eleveId=${eleveId}`
-  src/components/vie-scolaire/VieScolaireView.tsx:218  `/api/vie-scolaire/incidents/${incident.id}`
+  src/components/vie-scolaire/VieScolaireView.tsx:224  `/api/vie-scolaire/incidents/${incident.id}`
   src/components/workspace/Dock.tsx:100  `[data-tab-id="${activeWindowId}"]`
   src/components/workspace/DockSearch.tsx:119  `[data-index="${selectedIndex}"]`

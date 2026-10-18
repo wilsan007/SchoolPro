@@ -53,7 +53,8 @@
       "hier": "Hier",
       "dansJours": "Dans {count}j",
       "ilYAJours": "Il y a {count}j"
-    }
+    },
+    "titreTachePlaceholder": "Titre de la tâche…"
   },
   "common": {
     "appName": "EcolPro",
@@ -67,6 +68,7 @@
     "cancel": "Annuler",
     "confirm": "Confirmer",
     "close": "Fermer",
+    "chatIdTelegram": "Identifiant du chat Telegram",
     "loading": "Chargement...",
     "noData": "Aucune donnée",
     "actions": "Actions",
@@ -616,7 +618,23 @@
     "appelArrivalTimeFor": "Heure d'arrivée de {nom}",
     "appelArrivalInvalid": "Heure d'arrivée invalide : elle doit être comprise entre {debut} et {fin}",
     "appelAtRisk": "À risque",
-    "appelAtRiskDetail": "{absences} absence(s) et {retards} retard(s) injustifiés sur {jours} jours"
+    "appelAtRiskDetail": "{absences} absence(s) et {retards} retard(s) injustifiés sur {jours} jours",
+    "feuillePresence": {
+      "title": "Feuille de présence",
+      "anneeScolaire": "Année scolaire",
+      "date": "Date",
+      "labelClasse": "Classe",
+      "labelNiveau": "Niveau",
+      "labelProfPrincipal": "Prof. Principal",
+      "labelEffectif": "Effectif",
+      "theadN": "N°",
+      "theadMatricule": "Matricule",
+      "theadNomPrenom": "Nom & Prénom",
+      "theadSexe": "Sexe",
+      "theadTotalAbs": "Total Abs.",
+      "footerSignatureProf": "Signature du Professeur",
+      "footerVisaDirecteur": "Visa du Directeur"
+    }
   },
   "bulletinsManager": {
     "period": "Période",
@@ -1095,7 +1113,8 @@
     "exportError": "Erreur lors de l'export",
     "exportExcel": "Exporter Excel",
     "exportPdf": "Exporter PDF",
-    "exportSuccess": "Export réussi"
+    "exportSuccess": "Export réussi",
+    "columnHeure": "Heure"
   },
   "caisse": {
     "title": "Caisse",
@@ -1522,7 +1541,25 @@
     "escalade": "Escalader à la direction",
     "confirmNotifierParents": "Envoyer une notification aux parents de cet élève ?",
     "confirmConvocation": "Générer une convocation pour les parents de cet élève ?",
-    "confirmEscalade": "Escalader cet incident à la direction ?"
+    "confirmEscalade": "Escalader cet incident à la direction ?",
+    "convocations": {
+      "title": "Convocation des parents",
+      "labelEleve": "Élève",
+      "labelMatricule": "Matricule",
+      "labelClasse": "Classe",
+      "labelParent": "Parent",
+      "labelAnneeScolaire": "Année scolaire",
+      "corpsDirecteurPrie": "Le Directeur de l'établissement",
+      "corpsPriesDeSePresenter": "prie de bien vouloir se présenter à l'établissement le",
+      "labelMotif": "Motif",
+      "labelDetails": "Détails",
+      "corpsSuiteIncident": "Cette convocation fait suite à un incident nécessitant une rencontre avec la direction de l'établissement.",
+      "corpsAbsenceParent": "En l'absence du parent à la date indiquée, des mesures disciplinaires pourront être prises.",
+      "footerFaitA": "Fait à",
+      "footerDirecteur": "Directeur de l'établissement",
+      "dateNonConfirmee": "Date à confirmer",
+      "footerLeDirecteur": "Le Directeur"
+    }
   },
   "rh": {
     "title": "Ressources Humaines",
@@ -2115,7 +2152,9 @@
     "dateSeparator": {
       "aujourdhui": "Aujourd'hui",
       "hier": "Hier"
-    }
+    },
+    "rechercherConversation": "Rechercher une conversation",
+    "rechercherConversationPlaceholder": "Nom ou dernier message…"
   },
   "admissions": {
     "title": "Admissions",
@@ -2751,7 +2790,9 @@
     "roleSiteManager": "Responsable de site",
     "roleInspector": "Inspecteur",
     "userPermissions": "Permissions utilisateurs",
-    "salles": "Salles"
+    "salles": "Salles",
+    "nomSalle": "Nom de la salle",
+    "nomSallePlaceholder": "Ex. : Salle 101, Labo B…"
   },
   "appreciations": {
     "title": "Règles d'appréciation configurables",
@@ -2847,6 +2888,8 @@
     "title": "Dispenses de matière",
     "subject": "Matière",
     "reason": "Motif",
+    "dispenseMatiere": "Motif de dispense",
+    "dispenseMatierePlaceholder": "Ex. : certificat médical, décision du conseil…",
     "period": "Période",
     "allPeriods": "Toutes les périodes",
     "add": "Ajouter une dispense",
@@ -3410,7 +3453,15 @@
       "sansMatiere": "Sans matière",
       "tendanceBaisse": "Tendance à la baisse",
       "tendanceHausse": "Tendance à la hausse",
-      "tendanceStable": "Tendance stable"
+      "tendanceStable": "Tendance stable",
+      "aRafraichir": "à rafraîchir",
+      "acquises": "acquises",
+      "acquisesOuMaitrisees": "Acquises ou maîtrisées",
+      "actionReevaluer": "Réévaluer",
+      "enCours": "en cours",
+      "erreurChargement": "Erreur lors du chargement",
+      "nonAcquises": "Non acquises",
+      "reessayer": "Réessayer"
     },
     "competencesEleve": {
       "aucunProfil": "Aucun profil de compétences",
@@ -3655,7 +3706,12 @@
       "attestationTitre": "Vérification en classe : {competence}",
       "attestationDetail": "Ton enseignant vient d'ouvrir cette vérification. Fais-la maintenant, devant lui — c'est elle qui peut faire passer cette compétence en « acquise ».",
       "attestationCommencer": "Commencer",
-      "ciblesSansQuestion": "{n, plural, one {# exercice n'a pas pu être servi : la banque de questions est vide sur cette notion.} other {# exercices n'ont pas pu être servis : la banque de questions est vide sur ces notions.}} Ton enseignant a été informé."
+      "ciblesSansQuestion": "{n, plural, one {# exercice n'a pas pu être servi : la banque de questions est vide sur cette notion.} other {# exercices n'ont pas pu être servis : la banque de questions est vide sur ces notions.}} Ton enseignant a été informé.",
+      "partieSur": "Partie {n} sur {total}",
+      "partiesAide": "Chaque partie se répond dans l'ordre.",
+      "presque": "Presque ! Comparez avec le corrigé.",
+      "recapAide": "Vos réponses et le corrigé, à relire une fois la séance terminée.",
+      "recapTitre": "Récapitulatif de la séance"
     },
     "erreurs": {
       "NON_AUTORISE": "Vous n’êtes pas autorisé à effectuer cette action.",
@@ -3746,7 +3802,9 @@
       "DEUX_FACTEURS_DEJA_ACTIF": "La double authentification est déjà active. Désactivez-la avant d'enregistrer un nouveau compte.",
       "DEUX_FACTEURS_OBLIGATOIRE": "La double authentification est obligatoire pour ce rôle : elle ne peut pas être désactivée.",
       "DEUX_FACTEURS_NON_CONFIGURE": "Le service de double authentification n'est pas configuré sur ce serveur. Signalez-le à l'administrateur.",
-      "TROP_DE_TENTATIVES": "Trop de tentatives. Réessayez dans une minute."
+      "TROP_DE_TENTATIVES": "Trop de tentatives. Réessayez dans une minute.",
+      "GRILLE_INVALIDE": "La grille de correction est incomplète : chaque critère doit avoir un identifiant unique, un libellé et un nombre de points positif.",
+      "GRILLE_INCOHERENTE": "Le total des points de la grille ne correspond pas au barème de la question : une même copie aurait deux notes possibles."
     },
     "dossier": {
       "titreParent": "Le parcours de mon enfant",
@@ -4008,7 +4066,27 @@
       "formatCHOIX_UNIQUE": "Choix unique",
       "formatETAPES_GUIDEES": "Étapes guidées",
       "formatREMISE_EN_ORDRE": "Remise en ordre",
-      "formatAPPARIEMENT": "Appariement"
+      "formatAPPARIEMENT": "Appariement",
+      "ajouterCritere": "Ajouter un critère",
+      "ajouterErreurAnticipee": "Ajouter une erreur anticipée",
+      "ajouterPartie": "Ajouter une partie",
+      "critereLibelle": "Libellé du critère",
+      "dossier": "Dossier",
+      "dossierAide": "Classer la question dans un dossier pour la retrouver plus vite.",
+      "erreurDescription": "Description de l'erreur",
+      "erreursAnticipees": "Erreurs anticipées",
+      "grilleAide": "Chaque critère vaut ses points ; leur somme donne la note maximale.",
+      "grilleIncoherente": "Grille incohérente : la somme des points doit être positive.",
+      "partieBut": "But de la partie",
+      "partieDeLEtape": "Parties de l'étape",
+      "partieN": "Partie {n}",
+      "partieTitre": "Titre de la partie",
+      "partiesAide": "Décomposez l'exercice en parties ordonnées.",
+      "points": "Points",
+      "retirerCritere": "Retirer ce critère",
+      "retirerErreur": "Retirer cette erreur",
+      "retirerPartie": "Retirer cette partie",
+      "totalGrille": "Total de la grille : {total} points"
     },
     "bot": {
       "menu": "Bonjour 👋 Vous pouvez me demander :\n• « Comment ça se passe ? » — les progrès\n• « Qu’est-ce qui bloque ? » — les difficultés\n• « Comment l’aider ? » — quoi faire cette semaine\n• « Des absences ? » — l’assiduité\n• « Où en est le plan ? » — le parcours suivi\n• « Où en est la scolarité ? » — le solde",
@@ -4300,6 +4378,34 @@
       "preuves": "Preuves",
       "notes": "Notes",
       "exercices": "Exercices"
+    },
+    "corrections": {
+      "aucunCritere": "Aucun critère",
+      "aucuneReponse": "Aucune réponse",
+      "budget": "Budget IA du jour",
+      "budgetReste": "{reste} / {total} corrections restantes",
+      "criteres": "Critères de la grille",
+      "enAttente": "en attente",
+      "erreurSansType": "Erreur sans type",
+      "erreursDetectees": "Erreurs détectées",
+      "fiabilite": "Fiabilité du correcteur",
+      "fiabiliteInsuffisante": "Échantillon insuffisant pour affirmer la fiabilité.",
+      "fiabilitePasDonnees": "Pas assez de données",
+      "fiabiliteRelues": "{n} copie(s) relue(s)",
+      "fiabiliteTauxConfirmees": "Taux de confirmation : {pct}",
+      "grilleModifiee": "Grille modifiée depuis la proposition",
+      "modele": "Modèle : {modele}",
+      "motifs": "Motifs d'incertitude",
+      "questionInconnue": "Question inconnue",
+      "questionVerification": "Question de vérification",
+      "rejeter": "Rejeter",
+      "rejeterAide": "Rejeter cette copie",
+      "reponseEleve": "Réponse de l'élève",
+      "sousTitre": "{n} copie(s) en attente de votre décision",
+      "titre": "Corrections assistées à valider",
+      "valider": "Valider",
+      "validee": "Correction validée",
+      "rejetee": "Correction rejetée"
     }
   },
   "audit": {
@@ -4312,10 +4418,13 @@
     "reason": "Raison",
     "ip": "IP",
     "allowed": "Autorisé",
-    "denied": "Refusé"
+    "denied": "Refusé",
+    "actionPlaceholder": "Rechercher une action…",
+    "filtrerAction": "Filtrer par action"
   },
   "test": {
-    "whatsappEnterPhone": "Veuillez saisir un numéro de téléphone"
+    "whatsappEnterPhone": "Veuillez saisir un numéro de téléphone",
+    "numeroTelephone": "Numéro de téléphone"
   },
   "anneesScolaires": {
     "title": "Années scolaires",
@@ -5425,6 +5534,106 @@
       "gravite": "Gravité",
       "filiere": "Filière",
       "specialite": "Spécialité"
+    }
+  },
+  "disponibilites": {
+    "libelleIndisponibilite": "Libellé de l'indisponibilité",
+    "libellePlaceholder": "Ex. : réunion de niveau, formation…"
+  },
+  "journalEmails": {
+    "destinataire": "Destinataire",
+    "filtrerDestinataire": "Filtrer par destinataire"
+  },
+  "attestation": {
+    "labelNomPrenom": "Nom & Prénom",
+    "labelMatricule": "Matricule",
+    "labelNeLe": "Né(e) le",
+    "labelSexeM": "Masculin",
+    "labelSexeF": "Féminin",
+    "labelClasse": "Classe",
+    "labelNiveau": "Niveau",
+    "labelAnneeScolaire": "Année scolaire",
+    "corpsJeSoussigne": "Je soussigné(e)",
+    "corpsDirecteurTrice": "Directeur(trice) de l'établissement",
+    "corpsAtteste": "atteste par la présente que l'élève",
+    "corpsEstRegulierementInscrit": "est régulièrement inscrit(e) en classe de",
+    "corpsPourLAnnee": "pour l'année scolaire",
+    "corpsEnFoiDeQuoi": "En foi de quoi la présente",
+    "corpsLuiEstDelivree": "lui est délivrée pour servir et valoir ce que de droit.",
+    "footerFaitA": "Fait à",
+    "footerLe": "le",
+    "footerDirecteur": "Directeur de l'établissement",
+    "footerLeDirecteur": "Le Directeur"
+  },
+  "factures": {
+    "title": "Facture",
+    "detailTitle": "Détails de la facture",
+    "labelClasse": "Classe",
+    "labelTuteurLegal": "Tuteur légal",
+    "labelNom": "Nom",
+    "labelTelephone": "Téléphone",
+    "labelEmail": "Email",
+    "labelLibelle": "Libellé",
+    "labelEcheance": "Échéance",
+    "labelEmisePar": "Émise par",
+    "labelMontantFacture": "Montant facturé",
+    "resumeFacture": "Facturé",
+    "resumePaye": "Payé",
+    "resumeReste": "Reste à payer",
+    "historiqueTitle": "Historique des paiements",
+    "theadDate": "Date",
+    "theadMontant": "Montant",
+    "theadMethode": "Méthode",
+    "theadReference": "Référence",
+    "theadEnregistrePar": "Enregistré par",
+    "footerCachetSignature": "Cachet & Signature",
+    "footerGenereLe": "Facture générée le",
+    "btnImprimer": "Imprimer / Enregistrer en PDF",
+    "statusEnAttente": "En attente",
+    "statusPayee": "Payée",
+    "sectionEleve": "Élève",
+    "labelNomPrenom": "Nom & Prénom",
+    "labelMatricule": "Matricule"
+  },
+  "paiements": {
+    "recu": {
+      "title": "Reçu de paiement",
+      "numero": "N°",
+      "sectionEleve": "Élève",
+      "sectionTuteur": "Tuteur légal",
+      "sectionDetails": "Détails du paiement",
+      "labelFacture": "Facture",
+      "labelLibelle": "Libellé",
+      "labelMethode": "Méthode",
+      "labelReference": "Référence",
+      "labelEnregistrePar": "Enregistré par",
+      "labelDateSaisie": "Date de saisie",
+      "labelMontantRecu": "Montant reçu",
+      "footerCachetSignature": "Cachet & Signature",
+      "footerGenereLe": "Reçu généré le",
+      "btnImprimer": "Imprimer / Enregistrer en PDF",
+      "labelNomPrenom": "Nom & Prénom",
+      "labelMatricule": "Matricule",
+      "labelClasse": "Classe",
+      "labelTuteurLegal": "Tuteur légal",
+      "labelNom": "Nom",
+      "labelTelephone": "Téléphone"
+    }
+  },
+  "cartesScolaires": {
+    "title": "Cartes scolaires",
+    "altLogo": "Logo de l'établissement",
+    "photoPlaceholder": "PHOTO",
+    "labelNeLe": "Né(e) le :",
+    "labelEtablissement": "Établissement :",
+    "labelAdresse": "Adresse :",
+    "labelTel": "Tél :",
+    "qrMatricule": "QR / Matricule:",
+    "annee": "Année"
+  },
+  "notifications": {
+    "email": {
+      "piedDePage": "Envoyé via EcolPro — merci de ne pas répondre à cet email."
     }
   }
 }
