@@ -1,7 +1,7 @@
-// EcolPro — Service Worker v6
+// SchoolPro — Service Worker v7
 // Caching stratégies pour offline + push notifications
 
-const CACHE_VERSION = "ecolpro-v6";
+const CACHE_VERSION = "schoolpro-v7";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -28,7 +28,11 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((cacheNames) =>
       Promise.all(
         cacheNames
-          .filter((name) => name.startsWith("ecolpro-") && name !== CACHE_VERSION && !name.includes(CACHE_VERSION))
+          .filter(
+            (name) =>
+              (name.startsWith("ecolpro-") || name.startsWith("schoolpro-")) &&
+              !name.includes(CACHE_VERSION),
+          )
           .map((name) => caches.delete(name))
       )
     ).then(() => clients.claim())
@@ -42,6 +46,15 @@ self.addEventListener("fetch", (event) => {
 
   // Ignorer les requêtes non GET
   if (request.method !== "GET") return;
+
+  // Ignorer les requêtes cross-origin : le service worker ne s'applique
+  // qu'aux ressources de l'application. Intercepter les scripts tiers —
+  // en particulier le script Turnstile de challenges.cloudflare.com —
+  // avec une stratégie cache-first les FIGEait dans le cache : quand
+  // Cloudflare pivote sa version d'api.js, chaque navigateur servait un
+  // script obsolète dont le défi ne se résout plus, et seul un vidage
+  // manuel du cache rétablissait la connexion.
+  if (url.origin !== self.location.origin) return;
 
   // Ignorer les requêtes d'authentification et API POST
   if (url.pathname.startsWith("/api/auth") || url.pathname.includes("/auth/")) return;
