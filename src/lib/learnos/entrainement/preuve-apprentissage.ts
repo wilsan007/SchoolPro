@@ -104,16 +104,17 @@ export async function produirePreuve(
     },
   };
 
-  const preuve = await prisma.learningEvidence.upsert({
-    where: { id },
-    create: { id, ...donnees },
-    update: donnees,
-  });
-
-  await prisma.exerciceReponse.update({
-    where: { exerciceAssigneId: exercice.id },
-    data: { evidenceId: preuve.id },
-  });
+  const preuve = await prisma.$transaction([
+    prisma.learningEvidence.upsert({
+      where: { id },
+      create: { id, ...donnees },
+      update: donnees,
+    }),
+    prisma.exerciceReponse.update({
+      where: { exerciceAssigneId: exercice.id },
+      data: { evidenceId: id },
+    }),
+  ]);
 
   await recalculerProfil(
     tenantId,

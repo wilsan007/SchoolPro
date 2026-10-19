@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({
     exerciceReponse: { upsert: vi.fn(), update: vi.fn(), count: vi.fn() },
     feuilleExercices: { updateMany: vi.fn() },
     learningEvidence: { upsert: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -99,6 +100,7 @@ function preparer(typeFeuille: string, { feuilleTerminee = true } = {}) {
   vi.mocked(prisma.feuilleExercices.updateMany).mockResolvedValue({ count: 1 } as never);
   vi.mocked(prisma.learningEvidence.upsert).mockResolvedValue({ id: "ev1" } as never);
   vi.mocked(prisma.exerciceReponse.update).mockResolvedValue({} as never);
+  vi.mocked(prisma.$transaction).mockResolvedValue([{ id: "ev1" }, {}] as never);
   // Zéro exercice restant = la feuille se referme.
   vi.mocked(prisma.exerciceAssigne.count).mockResolvedValue(feuilleTerminee ? 0 : 1);
   vi.mocked(prisma.exerciceReponse.count).mockResolvedValue(0);

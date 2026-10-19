@@ -31,7 +31,7 @@ const STATUT_PAR_CODE: Record<ErreurSeance["code"], number> = {
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ feuilleId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.tenantId) {
@@ -40,7 +40,7 @@ export async function POST(
   const denied = await checkPermission(session.user.role, "entrainement:write");
   if (denied) return denied;
 
-  const { id: feuilleId } = await params;
+  const { feuilleId } = await params;
   const parsed = BodySchema.safeParse(await req.json().catch((e) => { console.warn("[non-fatal]", e); return null; }));
   if (!parsed.success) {
     return erreurJson("CHAMPS_REPONSE_REQUIS");

@@ -288,11 +288,50 @@ function Seance({ eleveId, matiereId }: { eleveId?: string; matiereId: string | 
       setDernier(resultat);
       setSaisie("");
 
-      // On relit l'état plutôt que de le recalculer localement : le serveur est
-      // seul à savoir quelle étape s'ouvre ensuite, et le rejouer ici ferait
-      // deux implémentations de la même règle.
-      const suite = await fetch(`/api/learnos/entrainement/${seance.feuilleId}`);
-      if (suite.ok) setSeance((await suite.json()) as SeanceVue);
+      // Mise à jour locale de l'état : le serveur a validé, pas besoin de
+      // recharger toute la séance. On applique le résultat étape par étape.
+      setSeance((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, exercices: [...prev.exercices] };
+        const ex = next.exercices[indexExercice];
+        if (!ex) return next;
+
+        // Marquer l'étape soumise comme traitée.
+        const etapeIdx = ex.etapes.findIndex((e) => e.index === etapeCourante.index);
+        if (etapeIdx >= 0) {
+          ex.etapes[etapeIdx] = {
+            ...ex.etapes[etapeIdx],
+            tentatives: resultat.tentatives,
+            correcte: resultat.correcte,
+            reponse: brut,
+          };
+        }
+
+        if (resultat.exerciceTermine) {
+          ex.termine = true;
+        }
+        if (resultat.seanceTerminee) {
+          next.termine = true;
+        }
+
+        // Si l'étape est close mais l'exercice pas terminé, ouvrir l'étape suivante.
+        if (resultat.close && !resultat.exerciceTermine) {
+          const prochaine = ex.etapes.findIndex(
+            (e) => e.correcte !== true && e.tentatives < 3
+          );
+          if (prochaine >= 0) ex.etapeCourante = prochaine;
+        }
+
+        return next;
+      });
+
+      // Si l'exercice est terminé, passer au suivant (ou finir la séance).
+      if (resultat.exerciceTermine) {
+        const suivant = seance?.exercices.findIndex(
+          (e, i) => i > indexExercice && !e.termine
+        );
+        if (suivant >= 0) setIndexExercice(suivant);
+      }
     } catch (e) {
       setEtat("erreur");
     } finally {

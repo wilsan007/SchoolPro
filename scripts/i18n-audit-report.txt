@@ -1,4 +1,4 @@
-SchoolPro i18n audit — 2026-10-18T06:28:10.193Z
+SchoolPro i18n audit — 2026-10-19T06:29:04.064Z
 
 Referenced keys missing from fr.json: 0
 
@@ -10,7 +10,7 @@ en.json extra keys (not in fr.json): 0
 
 so.json extra keys (not in fr.json): 0
 
-Dynamic template-literal t() calls (manual review): 238
+Dynamic template-literal t() calls (manual review): 237
   src/app/(auth)/accept-invitation/page.tsx:73  `/api/auth/invitation?token=${encodeURIComponent(token)}`
   src/app/(dashboard)/mon-espace/page.tsx:523  `${eleve.id}|${comp.id}`
   src/app/(dashboard)/parametres/audit/page.tsx:65  `/api/audit?${params.toString()}`
@@ -173,7 +173,6 @@ Dynamic template-literal t() calls (manual review): 238
   src/components/learnos/RevisionSemaineStaff.tsx:183  `categorie.${cat === "Primaire" ? "primaire" : cat === "Collège" ? "college" : cat === "Lycée" ? "lycee" : "autre"}`
   src/components/learnos/SeanceEntrainement.tsx:202  `/api/learnos/entrainement/${feuilleId}`
   src/components/learnos/SeanceEntrainement.tsx:276  `/api/learnos/entrainement/${seance.feuilleId}/reponse`
-  src/components/learnos/SeanceEntrainement.tsx:294  `/api/learnos/entrainement/${seance.feuilleId}`
   src/components/learnos/SuiviClasseView.tsx:99  `signal_${s.type}`
   src/components/messages/MessagerieView.tsx:147  `/api/messages/conversations/${convId}/messages?limit=50`
   src/components/messages/MessagerieView.tsx:165  `/api/messages/conversations/${activeConv.id}/messages?limit=50&before=${oldestCursor}`
