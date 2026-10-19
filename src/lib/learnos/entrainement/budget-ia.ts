@@ -16,6 +16,14 @@ import prisma from "@/lib/prisma";
 
 export const ACTION_CORRECTION = "correction.assistee";
 
+/**
+ * Action de `routeAi` pour la génération de questions (module
+ * `generation-questions`). Comptée séparément des corrections : plafonner les
+ * deux ensemble laisserait une école qui génère son bulletin de nuit priver
+ * ses élèves de corrections assistées le lendemain matin.
+ */
+export const ACTION_GENERATION = "question.generate";
+
 /** Plafond quotidien par établissement, surchargeable par l'environnement. */
 export function plafondQuotidien(): number {
   const brut = Number(process.env.AI_CORRECTIONS_PAR_JOUR);
@@ -60,4 +68,34 @@ export async function budgetDuJour(
     },
   });
   return etatBudget(utilise, plafondQuotidien());
+}
+
+/**
+ * Plafond quotidien de questions GÉNÉRÉES par établissement.
+ *
+ * Plus bas que celui des corrections : une question pèse dix fois le coût d'un
+ * verdict de critère, et le secours à la volée ne doit jamais monopoliser le
+ * budget de la journée d'après. 60 ≈ 30 couples compétence × palier comblés
+ * par nuit, largement au-dessus du curriculum vivant d'un établissement.
+ */
+export function plafondQuotidienGeneration(): number {
+  const brut = Number(process.env.AI_QUESTIONS_PAR_JOUR);
+  return Number.isFinite(brut) && brut >= 0 ? Math.floor(brut) : 60;
+}
+
+/** Questions déjà générées aujourd'hui par cet établissement. */
+export async function budgetGenerationDuJour(
+  tenantId: string,
+  maintenant: Date = new Date()
+): Promise<EtatBudget> {
+  // Même raison que budgetDuJour : plafond d'établissement, pas de campus.
+  // eslint-disable-next-line schoolpro/require-site-filter -- plafond d'établissement, cf. ci-dessus
+  const utilise = await prisma.aiDecisionLog.count({
+    where: {
+      tenantId,
+      action: ACTION_GENERATION,
+      createdAt: { gte: debutDuJour(maintenant) },
+    },
+  });
+  return etatBudget(utilise, plafondQuotidienGeneration());
 }

@@ -36,6 +36,7 @@ import { onSeanceCloturee } from "@/lib/learnos/boucle-cahier-journal";
 import { onCurriculumImported } from "@/lib/learnos/handlers/curriculum-imported";
 import { onChapitreCreated } from "@/lib/learnos/handlers/chapitre-created";
 import { onCompetenceCreated } from "@/lib/learnos/handlers/competence-created";
+import { onBanqueAlimentee } from "@/lib/learnos/handlers/banque-alimentee";
 import { onEmploiDuTempsCree } from "@/lib/learnos/handlers/edt-cree";
 import { onEmploiDuTempsModifie } from "@/lib/learnos/handlers/edt-modifie";
 import { onEmploiDuTempsSupprime } from "@/lib/learnos/handlers/edt-supprime";
@@ -100,11 +101,13 @@ const HANDLERS: Partial<Record<LearnosEventType, LearnosEventHandler[]>> = {
   "seance.cloturee": [onSeanceCloturee],
   // L'import d'un programme génère la planification pédagogique initiale.
   // Idempotent : les planifications déjà existantes pour l'année sont ignorées.
-  "curriculum.imported": [onCurriculumImported],
+  // Le second handler alimente la banque d'entraînement des compétences
+  // importées (modèle hybride : on prépare quand les cours arrivent).
+  "curriculum.imported": [onCurriculumImported, onBanqueAlimentee],
   // Création manuelle d'un chapitre : planification du chapitre et de ses compétences.
-  "chapitre.created": [onChapitreCreated],
+  "chapitre.created": [onChapitreCreated, onBanqueAlimentee],
   // Création manuelle d'une compétence : planification liée au chapitre.
-  "competence.created": [onCompetenceCreated],
+  "competence.created": [onCompetenceCreated, onBanqueAlimentee],
   // Création d'un créneau EDT : génération des séances pédagogiques.
   "edt.cree": [onEmploiDuTempsCree],
   // Modification d'un créneau EDT : on supprime les séances PLANIFIEE et on régénère.

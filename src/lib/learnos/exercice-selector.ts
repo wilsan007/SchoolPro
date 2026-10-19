@@ -51,6 +51,10 @@ import { FORMATS_AUTO_CORRIGEABLES } from "@/lib/learnos/formats";
 import { recalculerProfils } from "@/lib/learnos/profile-recompute";
 import { parseStructure } from "@/lib/learnos/entrainement/structure-question";
 import {
+  SECOURS_MAX_PAR_COMPOSITION,
+  questionDeSecours,
+} from "@/lib/learnos/stock-questions";
+import {
   MATIERES_DE_LANGUE,
   chargeAccessible,
   chargeLecture,
@@ -955,15 +959,15 @@ export async function composerFeuille(
   const retenus: { cible: CibleExercice; questionId: string; lectureAllegee: boolean }[] = [];
   const sansQuestion: FeuilleComposee["ciblesSansQuestion"] = [];
   const prises = new Set<string>();
+  let secoursRestants = SECOURS_MAX_PAR_COMPOSITION;
 
-  for (const cible of cibles) {
-    if (retenus.length >= nombre) break;
-    const questions = banque.filter(
-      (q) => q.competenceId === cible.competenceId && !prises.has(q.id)
-    );
-
-    let choisie: string | undefined;
-    let lectureAllegee = false;
+  // Sélection au palier avec replis, extraite pour être rejouée après un
+  // secours : la question générée à la volée rejoint la banque locale, et le
+  // même tri décide si elle est servie.
+  const choisirParmi = (
+    cible: CibleExercice,
+    questions: typeof banque
+  ): { questionId: string; lectureAllegee: boolean } | null => {
     for (const palier of paliersDeRepli(cible.palier)) {
       const auPalier = questions.filter((q) => q.palier === palier);
       // D'abord une question jamais vue ; à défaut, la plus ancienne du palier.
@@ -975,20 +979,66 @@ export async function composerFeuille(
         (a, b) =>
           a.excesLecture - b.excesLecture || Number(vues.has(a.id)) - Number(vues.has(b.id))
       );
-      choisie = meilleure?.id;
-      lectureAllegee = !!meilleure && meilleure.id !== parDefaut?.id;
-      if (choisie) break;
+      if (meilleure) {
+        return { questionId: meilleure.id, lectureAllegee: meilleure.id !== parDefaut?.id };
+      }
+    }
+    return null;
+  };
+
+  for (const cible of cibles) {
+    if (retenus.length >= nombre) break;
+    const questions = banque.filter(
+      (q) => q.competenceId === cible.competenceId && !prises.has(q.id)
+    );
+
+    let selection = choisirParmi(cible, questions);
+
+    if (!selection && secoursRestants > 0) {
+      // Banque épuisée sur cette cible : le secours à la volée (modèle
+      // hybride) tente UN QCM généré, sous budget quotidien. `null` signifie
+      // budget épuisé ou IA absente — le comportement d'avant, on
+      // remonte le trou.
+      secoursRestants--;
+      // Le sélecteur transporte la langue en chaîne libre ; le module de
+      // génération n'accepte que les deux langues rédigées.
+      const langueSecours = options.langue === "so" ? "so" : "fr";
+      const idSecours = await questionDeSecours(
+        tenantId,
+        claims,
+        cible.competenceId,
+        cible.palier,
+        langueSecours
+      );
+      if (idSecours) {
+        // QCM mono-étape, court par conception : excesLecture 0 (l'énoncé
+        // généré n'excède jamais la charge accessible).
+        banque.push({
+          id: idSecours,
+          competenceId: cible.competenceId,
+          palier: cible.palier,
+          excesLecture: 0,
+        });
+        selection = choisirParmi(
+          cible,
+          banque.filter((q) => q.competenceId === cible.competenceId && !prises.has(q.id))
+        );
+      }
     }
 
-    if (!choisie) {
-      // Banque vide sur cette compétence : on n'invente pas d'exercice, et on
-      // le fait remonter pour que quelqu'un alimente la banque.
+    if (!selection) {
+      // Toujours rien : on n'invente pas d'exercice, et on le fait remonter
+      // pour que quelqu'un alimente la banque.
       sansQuestion.push({ competenceId: cible.competenceId, palier: cible.palier });
       continue;
     }
 
-    prises.add(choisie);
-    retenus.push({ cible, questionId: choisie, lectureAllegee });
+    prises.add(selection.questionId);
+    retenus.push({
+      cible,
+      questionId: selection.questionId,
+      lectureAllegee: selection.lectureAllegee,
+    });
   }
 
   if (retenus.length === 0) {
